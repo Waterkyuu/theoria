@@ -71,6 +71,19 @@ type AgentStatusDisplay = {
 	isReady: boolean;
 };
 
+const AGENT_STATUS_DISPLAYS = {
+	agentReady: { tone: "bg-charcoal", isReady: true },
+	agentRunning: { tone: "bg-primary", isReady: true },
+	checkingLogin: { tone: "bg-mute", isReady: false },
+	checkingProcess: { tone: "bg-mute", isReady: true },
+	loginCheckFailed: { tone: "bg-hairline-strong", isReady: false },
+	notInstalled: { tone: "bg-hairline-strong", isReady: false },
+	notLoggedIn: { tone: "bg-hairline-strong", isReady: false },
+	processCheckFailed: { tone: "bg-hairline-strong", isReady: true },
+} as const satisfies Record<string, Omit<AgentStatusDisplay, "message">>;
+
+type AgentStatusKey = keyof typeof AGENT_STATUS_DISPLAYS;
+
 const AGENT_KINDS = ["codex", "claude", "opencode", "workbuddy"] as const;
 
 const AGENT_LOGIN_CHECKS: Record<AgentKind, () => Promise<AgentRuntimeStatus>> =
@@ -108,7 +121,8 @@ const areRuntimeStatusesEqual = (
 	left.reasoningEffort === right.reasoningEffort;
 
 /**
- * Resolves a product's selectable state from its live login and process probes.
+ * Uses an ordered rule table so login failures keep priority over process state
+ * without duplicating display construction across control-flow branches.
  *
  * @example
  * resolveAgentStatus("codex", { status: "checking" }, processState, t);
@@ -120,59 +134,23 @@ const resolveAgentStatus = (
 	t: TFunction,
 ): AgentStatusDisplay => {
 	const agentName = t(`agentNames.${agent}`);
-	if (loginState.status === "checking") {
-		return {
-			message: t("checkingLogin", { agent: agentName }),
-			tone: "bg-mute",
-			isReady: false,
-		};
-	}
-	if (loginState.status === "failed") {
-		return {
-			message: t("loginCheckFailed", { agent: agentName }),
-			tone: "bg-hairline-strong",
-			isReady: false,
-		};
-	}
-	if (!loginState.value.installed) {
-		return {
-			message: t("notInstalled", { agent: agentName }),
-			tone: "bg-hairline-strong",
-			isReady: false,
-		};
-	}
-	if (!loginState.value.loggedIn) {
-		return {
-			message: t("notLoggedIn", { agent: agentName }),
-			tone: "bg-hairline-strong",
-			isReady: false,
-		};
-	}
-	if (processState.status === "checking") {
-		return {
-			message: t("checkingProcess", { agent: agentName }),
-			tone: "bg-mute",
-			isReady: true,
-		};
-	}
-	if (processState.status === "failed") {
-		return {
-			message: t("processCheckFailed", { agent: agentName }),
-			tone: "bg-hairline-strong",
-			isReady: true,
-		};
-	}
-	if (processState.value[agent]) {
-		return {
-			message: t("agentRunning", { agent: agentName }),
-			tone: "bg-primary",
-			isReady: true,
-		};
-	}
+	const statusKey =
+		(
+			[
+				[loginState.status === "checking", "checkingLogin"],
+				[loginState.status === "failed", "loginCheckFailed"],
+				["value" in loginState && !loginState.value.installed, "notInstalled"],
+				["value" in loginState && !loginState.value.loggedIn, "notLoggedIn"],
+				[processState.status === "checking", "checkingProcess"],
+				[processState.status === "failed", "processCheckFailed"],
+				["value" in processState && processState.value[agent], "agentRunning"],
+			] satisfies [boolean, AgentStatusKey][]
+		).find(([matches]) => matches)?.[1] ?? "agentReady";
+	const display = AGENT_STATUS_DISPLAYS[statusKey];
+
 	return {
-		message: t("agentReady", { agent: agentName }),
-		tone: "bg-charcoal",
-		isReady: true,
+		message: t(statusKey, { agent: agentName }),
+		...display,
 	};
 };
 
@@ -690,4 +668,5 @@ const ComparisonPage = () => {
 	);
 };
 
+export { resolveAgentStatus };
 export default ComparisonPage;

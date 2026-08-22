@@ -145,6 +145,31 @@ void helloWorld()
 ```
 
 3. Do not use generic function names such as `loadData`, `getData`, or `modifySomething`. Name functions according to their business purpose.
+4. When more than three `if` branches at the same nesting level compare the same category of state, use a mapping table instead.
+5. When an `if` condition combines several business rules, extract the condition into a clearly named predicate function.
+
+```tsx
+// Bad
+if (
+  user.age >= 18 &&
+  user.isActive &&
+  user.emailVerified &&
+  !user.isBanned
+) {
+  // ...
+}
+
+// Good
+const canAccess = (user: User) =>
+  user.age >= 18 &&
+  user.isActive &&
+  user.emailVerified &&
+  !user.isBanned;
+
+if (canAccess(user)) {
+  // ...
+}
+```
 
 ### Styling
 

@@ -1,5 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import type { TFunction } from "i18next";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import i18n from "@/i18n";
 import type { AgentProcessStates, AgentRuntimeConfig } from "@/types/agent";
@@ -55,7 +56,7 @@ vi.mock("@/api/comparison", () => ({
 	saveComparisonHistory: apiMocks.saveComparisonHistory,
 }));
 
-import ComparisonPage from ".";
+import ComparisonPage, { resolveAgentStatus } from ".";
 
 const RUNTIME_STATUS = {
 	installed: true,
@@ -70,6 +71,94 @@ let workBuddyConfigListener: ((config: AgentRuntimeConfig) => void) | null =
 	null;
 const stopProcessStateListener = vi.fn();
 const stopWorkBuddyConfigListener = vi.fn();
+
+describe("resolveAgentStatus", () => {
+	const stoppedProcesses: AgentProcessStates = {
+		claude: false,
+		codex: false,
+		opencode: false,
+		workbuddy: false,
+	};
+	const runningProcesses = { ...stoppedProcesses, codex: true };
+	const translate = vi.fn((key: string, options?: { agent?: string }) =>
+		options?.agent ? `${key}:${options.agent}` : key,
+	) as unknown as TFunction;
+	const readyLogin = { status: "resolved", value: RUNTIME_STATUS } as const;
+
+	it.each([
+		{
+			name: "login check",
+			loginState: { status: "checking" } as const,
+			processState: { status: "resolved", value: runningProcesses } as const,
+			expected: ["checkingLogin:agentNames.codex", "bg-mute", false],
+		},
+		{
+			name: "failed login check",
+			loginState: { status: "failed" } as const,
+			processState: { status: "resolved", value: runningProcesses } as const,
+			expected: [
+				"loginCheckFailed:agentNames.codex",
+				"bg-hairline-strong",
+				false,
+			],
+		},
+		{
+			name: "missing installation",
+			loginState: {
+				status: "resolved",
+				value: { ...RUNTIME_STATUS, installed: false },
+			} as const,
+			processState: { status: "resolved", value: runningProcesses } as const,
+			expected: ["notInstalled:agentNames.codex", "bg-hairline-strong", false],
+		},
+		{
+			name: "missing login",
+			loginState: {
+				status: "resolved",
+				value: { ...RUNTIME_STATUS, loggedIn: false },
+			} as const,
+			processState: { status: "resolved", value: runningProcesses } as const,
+			expected: ["notLoggedIn:agentNames.codex", "bg-hairline-strong", false],
+		},
+		{
+			name: "process check",
+			loginState: readyLogin,
+			processState: { status: "checking" } as const,
+			expected: ["checkingProcess:agentNames.codex", "bg-mute", true],
+		},
+		{
+			name: "failed process check",
+			loginState: readyLogin,
+			processState: { status: "failed" } as const,
+			expected: [
+				"processCheckFailed:agentNames.codex",
+				"bg-hairline-strong",
+				true,
+			],
+		},
+		{
+			name: "running process",
+			loginState: readyLogin,
+			processState: { status: "resolved", value: runningProcesses } as const,
+			expected: ["agentRunning:agentNames.codex", "bg-primary", true],
+		},
+		{
+			name: "ready process",
+			loginState: readyLogin,
+			processState: { status: "resolved", value: stoppedProcesses } as const,
+			expected: ["agentReady:agentNames.codex", "bg-charcoal", true],
+		},
+	])("maps $name to its display", ({ loginState, processState, expected }) => {
+		const display = resolveAgentStatus(
+			"codex",
+			loginState,
+			processState,
+			translate,
+		);
+
+		expect([display.message, display.tone, display.isReady]).toEqual(expected);
+	});
+});
 
 // Covers native status subscriptions owned by the comparison page lifecycle.
 describe("ComparisonPage native status updates", () => {
