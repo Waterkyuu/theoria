@@ -198,7 +198,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 				</nav>
 			</header>
 
-			<div className="min-w-0 flex-1 lg:pt-14">{children}</div>
+			<div className="min-w-0 flex-1">{children}</div>
 		</div>
 	);
 };
