@@ -11,7 +11,38 @@ impl MigratorTrait for Migrator {
         vec![
             Box::new(CreateComparisonHistory),
             Box::new(AddOpenCodeComparisonAgent),
+            Box::new(AddComparisonCompactionCount),
         ]
+    }
+}
+
+/// Adds a nullable counter so older results remain distinguishable from observed zeroes.
+struct AddComparisonCompactionCount;
+
+impl MigrationName for AddComparisonCompactionCount {
+    fn name(&self) -> &str {
+        "m20260823_000003_add_comparison_compaction_count"
+    }
+}
+
+#[sea_orm_migration::async_trait::async_trait]
+impl MigrationTrait for AddComparisonCompactionCount {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(
+                "ALTER TABLE comparison_results ADD COLUMN compaction_count INTEGER CHECK (compaction_count IS NULL OR compaction_count >= 0)",
+            )
+            .await?;
+        Ok(())
+    }
+
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared("ALTER TABLE comparison_results DROP COLUMN compaction_count")
+            .await?;
+        Ok(())
     }
 }
 

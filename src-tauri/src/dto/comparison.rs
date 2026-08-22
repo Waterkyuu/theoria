@@ -79,6 +79,8 @@ pub(crate) struct AgentRunResultRequest {
     pub(crate) token_usage: Option<TokenUsageRequest>,
     /// Sum of explicit thinking intervals in milliseconds.
     pub(crate) thinking_duration_ms: u64,
+    /// Number of context compactions reported during this task.
+    pub(crate) compaction_count: Option<u64>,
     /// Number of tools invoked during this task.
     pub(crate) tool_call_count: u64,
     /// Tool calls retained in source order.
@@ -300,6 +302,7 @@ impl From<ComparisonDetail> for ComparisonDetailResponse {
                             }),
                             thinking_duration_ms: item.thinking_duration_ms.unwrap_or_default()
                                 as u64,
+                            compaction_count: item.compaction_count.map(|value| value as u64),
                             tool_call_count,
                             tool_calls: item
                                 .tool_calls

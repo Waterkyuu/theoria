@@ -63,6 +63,7 @@ impl ComparisonRepository {
                 total_duration_ms,
                 time_to_first_token_ms,
                 thinking_duration_ms,
+                compaction_count,
                 token_usage,
                 tool_calls,
             ) = match &result.outcome {
@@ -71,6 +72,7 @@ impl ComparisonRepository {
                     total_duration_ms,
                     time_to_first_token_ms,
                     thinking_duration_ms,
+                    compaction_count,
                     token_usage,
                     tool_calls,
                 } => (
@@ -80,6 +82,7 @@ impl ComparisonRepository {
                     Some(*total_duration_ms),
                     *time_to_first_token_ms,
                     Some(*thinking_duration_ms),
+                    *compaction_count,
                     token_usage.as_ref(),
                     tool_calls.as_slice(),
                 ),
@@ -87,6 +90,7 @@ impl ComparisonRepository {
                     ComparisonResultStatus::Failed,
                     None,
                     Some(error_message.clone()),
+                    None,
                     None,
                     None,
                     None,
@@ -105,6 +109,7 @@ impl ComparisonRepository {
                 total_duration_ms: Set(total_duration_ms),
                 time_to_first_token_ms: Set(time_to_first_token_ms),
                 thinking_duration_ms: Set(thinking_duration_ms),
+                compaction_count: Set(compaction_count),
                 total_tokens: Set(token_usage.map(|usage| usage.total_tokens)),
                 input_tokens: Set(token_usage.map(|usage| usage.input_tokens)),
                 cached_input_tokens: Set(token_usage.map(|usage| usage.cached_input_tokens)),
@@ -277,6 +282,7 @@ impl ComparisonRepository {
                     total_duration_ms: result.total_duration_ms,
                     time_to_first_token_ms: result.time_to_first_token_ms,
                     thinking_duration_ms: result.thinking_duration_ms,
+                    compaction_count: result.compaction_count,
                     token_usage,
                     tool_calls: tools_by_result.remove(&result.id).unwrap_or_default(),
                 })
@@ -371,6 +377,7 @@ mod tests {
                 total_duration_ms: 2_500,
                 time_to_first_token_ms: Some(300),
                 thinking_duration_ms: 800,
+                compaction_count: Some(2),
                 token_usage: Some(NewTokenUsage {
                     total_tokens: 120,
                     input_tokens: 80,
@@ -421,6 +428,7 @@ mod tests {
             assert_eq!(detail.status.as_str(), "partial");
             assert_eq!(detail.results.len(), 2);
             assert_eq!(detail.results[0].agent, AgentKind::Codex);
+            assert_eq!(detail.results[0].compaction_count, Some(2));
             assert_eq!(detail.results[0].tool_calls.len(), 1);
             assert_eq!(detail.results[1].agent, AgentKind::Claude);
 
