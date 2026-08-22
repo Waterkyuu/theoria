@@ -8,6 +8,7 @@ const apiMocks = vi.hoisted(() => ({
 	checkAgentProcesses: vi.fn(),
 	checkClaudeLogin: vi.fn(),
 	checkCodexLogin: vi.fn(),
+	checkOpenCodeLogin: vi.fn(),
 	checkWorkBuddyConfig: vi.fn(),
 	checkWorkBuddyLogin: vi.fn(),
 	onClaudeConfigChanged: vi.fn(),
@@ -16,6 +17,7 @@ const apiMocks = vi.hoisted(() => ({
 	onAgentProcessStatesChanged: vi.fn(),
 	runClaudeTask: vi.fn(),
 	runCodexTask: vi.fn(),
+	runOpenCodeTask: vi.fn(),
 	runWorkBuddyTask: vi.fn(),
 	saveComparisonHistory: vi.fn(),
 }));
@@ -35,6 +37,11 @@ vi.mock("@/api/codex", () => ({
 	checkCodexLogin: apiMocks.checkCodexLogin,
 	onCodexConfigChanged: apiMocks.onCodexConfigChanged,
 	runCodexTask: apiMocks.runCodexTask,
+}));
+
+vi.mock("@/api/opencode", () => ({
+	checkOpenCodeLogin: apiMocks.checkOpenCodeLogin,
+	runOpenCodeTask: apiMocks.runOpenCodeTask,
 }));
 
 vi.mock("@/api/workbuddy", () => ({
@@ -74,10 +81,12 @@ describe("ComparisonPage native status updates", () => {
 		apiMocks.checkAgentProcesses.mockResolvedValue({
 			claude: false,
 			codex: false,
+			opencode: false,
 			workbuddy: false,
 		});
 		apiMocks.checkClaudeLogin.mockResolvedValue(RUNTIME_STATUS);
 		apiMocks.checkCodexLogin.mockResolvedValue(RUNTIME_STATUS);
+		apiMocks.checkOpenCodeLogin.mockResolvedValue(RUNTIME_STATUS);
 		apiMocks.checkWorkBuddyConfig.mockResolvedValue({
 			model: "initial-workbuddy-model",
 			reasoningEffort: "medium",
@@ -133,6 +142,7 @@ describe("ComparisonPage native status updates", () => {
 			processStateListener?.({
 				claude: false,
 				codex: true,
+				opencode: false,
 				workbuddy: false,
 			});
 		});
@@ -235,6 +245,7 @@ describe("ComparisonPage native status updates", () => {
 		};
 		apiMocks.runClaudeTask.mockResolvedValue(runResult);
 		apiMocks.runCodexTask.mockResolvedValue(runResult);
+		apiMocks.runOpenCodeTask.mockResolvedValue(runResult);
 		apiMocks.runWorkBuddyTask.mockResolvedValue(runResult);
 		render(<ComparisonPage />);
 
@@ -246,7 +257,7 @@ describe("ComparisonPage native status updates", () => {
 			target: { value: "检查性能" },
 		});
 		fireEvent.click(
-			screen.getByRole("button", { name: "运行 3 个 Agent 对比" }),
+			screen.getByRole("button", { name: "运行 4 个 Agent 对比" }),
 		);
 		await act(async () => {
 			await Promise.resolve();
@@ -261,6 +272,7 @@ describe("ComparisonPage native status updates", () => {
 				results: expect.arrayContaining([
 					expect.objectContaining({ agent: "codex", status: "succeeded" }),
 					expect.objectContaining({ agent: "claude", status: "succeeded" }),
+					expect.objectContaining({ agent: "opencode", status: "succeeded" }),
 					expect.objectContaining({ agent: "workbuddy", status: "succeeded" }),
 				]),
 			}),

@@ -15,6 +15,7 @@ import {
 	runCodexTask,
 } from "@/api/codex";
 import { saveComparisonHistory } from "@/api/comparison";
+import { checkOpenCodeLogin, runOpenCodeTask } from "@/api/opencode";
 import {
 	checkWorkBuddyConfig,
 	checkWorkBuddyLogin,
@@ -70,12 +71,13 @@ type AgentStatusDisplay = {
 	isReady: boolean;
 };
 
-const AGENT_KINDS = ["codex", "claude", "workbuddy"] as const;
+const AGENT_KINDS = ["codex", "claude", "opencode", "workbuddy"] as const;
 
 const AGENT_LOGIN_CHECKS: Record<AgentKind, () => Promise<AgentRuntimeStatus>> =
 	{
 		claude: checkClaudeLogin,
 		codex: checkCodexLogin,
+		opencode: checkOpenCodeLogin,
 		workbuddy: checkWorkBuddyLogin,
 	};
 
@@ -85,6 +87,7 @@ const AGENT_TASK_RUNNERS: Record<
 > = {
 	claude: runClaudeTask,
 	codex: runCodexTask,
+	opencode: runOpenCodeTask,
 	workbuddy: runWorkBuddyTask,
 };
 
@@ -187,6 +190,7 @@ const ComparisonPage = () => {
 	const [loginStates, setLoginStates] = useState<LoginStates>({
 		claude: { status: "checking" },
 		codex: { status: "checking" },
+		opencode: { status: "checking" },
 		workbuddy: { status: "checking" },
 	});
 	const [query, setQuery] = useState("");
@@ -200,6 +204,7 @@ const ComparisonPage = () => {
 	const [runStates, setRunStates] = useState<Record<AgentKind, AgentRunState>>({
 		claude: { status: "idle" },
 		codex: { status: "idle" },
+		opencode: { status: "idle" },
 		workbuddy: { status: "idle" },
 	});
 	const loginStatesRef = useRef(loginStates);
@@ -357,7 +362,7 @@ const ComparisonPage = () => {
 		 * Applies one native process snapshot while the comparison page remains mounted.
 		 *
 		 * @example
-		 * applyProcessStates({ claude: false, codex: true, workbuddy: false });
+		 * applyProcessStates({ claude: false, codex: true, opencode: false, workbuddy: false });
 		 */
 		const applyProcessStates = (value: AgentProcessStates) => {
 			if (!isActive) {
@@ -437,6 +442,7 @@ const ComparisonPage = () => {
 		setRunStates({
 			claude: { status: "idle" },
 			codex: { status: "idle" },
+			opencode: { status: "idle" },
 			workbuddy: { status: "idle" },
 		});
 	};
@@ -468,6 +474,9 @@ const ComparisonPage = () => {
 				? { status: "running" }
 				: { status: "idle" },
 			codex: activeAgents.includes("codex")
+				? { status: "running" }
+				: { status: "idle" },
+			opencode: activeAgents.includes("opencode")
 				? { status: "running" }
 				: { status: "idle" },
 			workbuddy: activeAgents.includes("workbuddy")
@@ -655,7 +664,7 @@ const ComparisonPage = () => {
 					>
 						{t("comparisonTitle")}
 					</h2>
-					<div className="grid overflow-hidden rounded-xl border border-hairline bg-surface-card lg:grid-cols-3">
+					<div className="grid overflow-hidden rounded-xl border border-hairline bg-surface-card lg:grid-cols-4">
 						{comparisonAgents.map((agent) => {
 							const runState = runStates[agent];
 

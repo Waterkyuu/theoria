@@ -37,4 +37,22 @@ describe("AgentSelectionCard", () => {
 			);
 		},
 	);
+
+	it("renders the OpenCode product identity", () => {
+		render(
+			<AgentSelectionCard
+				agent="opencode"
+				isDisabled={false}
+				isSelected={true}
+				onToggle={vi.fn()}
+				runtimeStatus={null}
+				statusMessage="未启动"
+				statusTone="bg-mute"
+			/>,
+		);
+
+		expect(
+			screen.getByRole("button", { name: "OpenCode" }),
+		).toBeInTheDocument();
+	});
 });

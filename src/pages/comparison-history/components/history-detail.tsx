@@ -73,7 +73,7 @@ const HistoryDetail = ({
 							{data.query}
 						</h2>
 					</header>
-					<div className="grid overflow-hidden rounded-xl border border-hairline bg-surface-card lg:grid-cols-3">
+					<div className="grid overflow-hidden rounded-xl border border-hairline bg-surface-card lg:grid-cols-4">
 						{data.results.map((item) => (
 							<AgentComparisonCard
 								agent={item.agent}
