@@ -3,9 +3,6 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./queries/client";
 import { AppRouter } from "./routers";
 
-/**
- * Renders the application through the shared React Router configuration.
- */
 const App = () => (
 	<QueryClientProvider client={queryClient}>
 		<AppRouter />

@@ -154,12 +154,6 @@ const resolveAgentStatus = (
 	};
 };
 
-/**
- * Renders multi-product selection, one shared task, and comparable run metrics.
- *
- * @example
- * <ComparisonPage />
- */
 const ComparisonPage = () => {
 	const { t, i18n } = useTranslation();
 	const [selectedAgents, setSelectedAgents] = useState<AgentKind[]>([

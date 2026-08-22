@@ -14,7 +14,6 @@ const ComparisonPage = lazy(() => import("@/pages/comparison"));
 const ComparisonHistoryPage = lazy(() => import("@/pages/comparison-history"));
 const RunBoardPage = lazy(() => import("@/pages/run-board"));
 
-/** Displays a lightweight page skeleton while a route chunk is loading. */
 const RouteLoadingFallback = () => {
 	const { t } = useTranslation();
 
@@ -34,7 +33,6 @@ const RouteLoadingFallback = () => {
 	);
 };
 
-/** Connects the shared application shell to the active React Router location. */
 const RoutedApplication = () => {
 	const { pathname } = useLocation();
 	const navigate = useNavigate();
@@ -60,7 +58,6 @@ const RoutedApplication = () => {
 	);
 };
 
-/** Provides browser history routing for the desktop application. */
 const AppRouter = () => (
 	<BrowserRouter>
 		<RoutedApplication />

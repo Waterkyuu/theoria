@@ -52,7 +52,6 @@ const STATUS_PRESENTATIONS: Record<AgentActivityStatus, StatusPresentation> = {
 	},
 };
 
-/** Renders live local Agent tasks grouped by their product-derived lifecycle. */
 const RunBoardPage = () => {
 	const { i18n, t } = useTranslation();
 	const [layout, setLayout] = useState<RunBoardLayout>("vertical");
