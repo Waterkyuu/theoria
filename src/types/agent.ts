@@ -1,10 +1,12 @@
-type AgentKind = "claude" | "codex" | "workbuddy";
+type AgentKind = "claude" | "codex" | "opencode" | "workbuddy";
 
 type AgentActivityStatus = "running" | "waiting" | "finish" | "error";
 
 type AgentActivity = {
 	/** Opaque local identifier that does not reveal the product session ID. */
 	id: string;
+	/** Product-provided conversation title when one can be resolved locally. */
+	title: string | null;
 	/** Agent product that owns the observed task. */
 	agent: AgentKind;
 	/** Product-derived lifecycle normalized for the run board. */
@@ -23,6 +25,8 @@ type AgentProcessStates = {
 	claude: boolean;
 	/** Whether a Codex process is currently running. */
 	codex: boolean;
+	/** Whether an OpenCode process is currently running. */
+	opencode: boolean;
 	/** Whether a WorkBuddy process is currently running. */
 	workbuddy: boolean;
 };

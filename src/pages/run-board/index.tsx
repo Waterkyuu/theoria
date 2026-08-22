@@ -270,8 +270,8 @@ const RunBoardPage = () => {
 												role="article"
 											>
 												<Card.Content className="p-3">
-													<div className="flex items-center justify-between gap-3 text-caption-sm text-mute">
-														<span className="font-mono">{item.id}</span>
+													{/* The column header already carries lifecycle, so the card avoids repeating it. */}
+													<div className="flex items-center justify-end text-caption-sm text-mute">
 														<span className="flex min-w-0 max-w-[55%] items-center gap-1.5 truncate">
 															<AgentLogo
 																agent={item.agent}
@@ -282,8 +282,9 @@ const RunBoardPage = () => {
 															</span>
 														</span>
 													</div>
+													{/* Product titles make cards recognizable; opaque IDs keep unresolved tasks visible. */}
 													<h3 className="mt-3 line-clamp-2 overflow-hidden text-body-sm-strong font-medium">
-														{t(`runBoard.status.${item.status}`)}
+														{item.title ?? item.id}
 													</h3>
 													<p className="mt-1 line-clamp-2 overflow-hidden text-caption-sm leading-body-sm text-body">
 														{t(`runBoard.statusDescription.${item.status}`)}

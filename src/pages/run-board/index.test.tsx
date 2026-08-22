@@ -16,24 +16,28 @@ const INITIAL_ACTIVITIES = {
 	activities: [
 		{
 			id: "codex-running",
+			title: "优化看板标题显示",
 			agent: "codex",
 			status: "running",
 			updatedAtMs: Date.parse("2026-08-17T01:30:00Z"),
 		},
 		{
 			id: "claude-waiting",
+			title: null,
 			agent: "claude",
 			status: "waiting",
 			updatedAtMs: Date.parse("2026-08-17T01:20:00Z"),
 		},
 		{
 			id: "workbuddy-finish",
+			title: null,
 			agent: "workbuddy",
 			status: "finish",
 			updatedAtMs: Date.parse("2026-08-17T01:10:00Z"),
 		},
 		{
 			id: "codex-error",
+			title: null,
 			agent: "codex",
 			status: "error",
 			updatedAtMs: Date.parse("2026-08-17T01:00:00Z"),
@@ -73,6 +77,7 @@ describe("RunBoardPage", () => {
 				activities: [
 					{
 						id: "claude-completed",
+						title: null,
 						agent: "claude",
 						status: "finish",
 						updatedAtMs: Date.parse("2026-08-17T01:40:00Z"),
@@ -83,6 +88,28 @@ describe("RunBoardPage", () => {
 
 		expect(screen.getAllByRole("article")).toHaveLength(1);
 		expect(screen.getByText("Claude Code")).toBeInTheDocument();
+	});
+
+	// Verifies that a resolved conversation title replaces the opaque activity identifier.
+	it("uses the conversation title when the backend provides one", async () => {
+		render(<RunBoardPage />);
+
+		const card = (await screen.findAllByRole("article"))[0];
+
+		expect(
+			within(card).getByRole("heading", { name: "优化看板标题显示" }),
+		).toBeInTheDocument();
+		expect(within(card).queryByText("codex-running")).not.toBeInTheDocument();
+	});
+
+	// The board column already names the lifecycle, so cards keep only its useful description.
+	it("does not repeat the status name inside each card", async () => {
+		render(<RunBoardPage />);
+
+		const card = (await screen.findAllByRole("article"))[0];
+
+		expect(within(card).queryByText("运行中")).not.toBeInTheDocument();
+		expect(within(card).getByText("正在执行")).toBeInTheDocument();
 	});
 
 	// Verifies that rapid input only applies the latest agent product name after the delay.
