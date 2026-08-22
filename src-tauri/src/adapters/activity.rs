@@ -27,6 +27,8 @@ pub(crate) struct AgentActivitySourcePaths {
     pub(crate) codex_state_db: Option<PathBuf>,
     /// Claude Code transcript directory documented by Claude Code.
     pub(crate) claude_projects: Option<PathBuf>,
+    /// OpenCode's documented local data directory containing its session database.
+    pub(crate) opencode_data: Option<PathBuf>,
     /// CodeBuddy transcript directory used by WorkBuddy's bundled Agent runtime.
     pub(crate) codebuddy_projects: Option<PathBuf>,
     /// WorkBuddy Chromium Local Storage directory containing conversation status snapshots.
@@ -54,6 +56,7 @@ impl Default for SystemAgentActivityAdapter {
                 codex_sessions: Some(codex_root.join("sessions")),
                 codex_state_db: Some(codex_root.join("state_5.sqlite")),
                 claude_projects: Some(home.join(".claude").join("projects")),
+                opencode_data: Some(home.join(".local").join("share").join("opencode")),
                 codebuddy_projects: Some(home.join(".codebuddy").join("projects")),
                 workbuddy_local_storage: Some(
                     home.join(".workbuddy-ai")
@@ -84,6 +87,12 @@ impl AgentActivityAdapter for SystemAgentActivityAdapter {
             AgentActivityKind::Claude,
             processes.claude,
         );
+        if let Some(path) = self.sources.opencode_data.as_deref() {
+            activities.extend(opencode_activities_from_database(
+                &path.join("opencode.db"),
+                processes.opencode,
+            ));
+        }
         self.collect_transcripts(
             &mut activities,
             self.sources.codebuddy_projects.as_deref(),
@@ -93,7 +102,17 @@ impl AgentActivityAdapter for SystemAgentActivityAdapter {
 
         if let Some(path) = self.sources.workbuddy_local_storage.as_deref() {
             if let Some((snapshot, updated_at_ms)) = latest_workbuddy_snapshot(path) {
-                activities.extend(workbuddy_activities_from_snapshot(&snapshot, updated_at_ms));
+                let titles = self
+                    .sources
+                    .codebuddy_projects
+                    .as_deref()
+                    .map(transcript_titles_by_file_stem)
+                    .unwrap_or_default();
+                activities.extend(workbuddy_activities_from_snapshot(
+                    &snapshot,
+                    updated_at_ms,
+                    &titles,
+                ));
             }
         }
 
@@ -113,6 +132,7 @@ impl AgentActivityAdapter for SystemAgentActivityAdapter {
         [
             self.sources.codex_sessions.as_ref(),
             self.sources.claude_projects.as_ref(),
+            self.sources.opencode_data.as_ref(),
             self.sources.codebuddy_projects.as_ref(),
             self.sources.workbuddy_local_storage.as_ref(),
         ]
@@ -215,6 +235,13 @@ struct ClaudeTranscriptEvent {
     subtype: Option<String>,
     /// Conversation message carried by user and assistant events.
     message: Option<ClaudeTranscriptMessage>,
+    /// WorkBuddy stores the role directly on its message event.
+    role: Option<String>,
+    /// WorkBuddy stores content directly on its message event.
+    content: Option<ClaudeTranscriptContent>,
+    /// WorkBuddy marks generated command traffic so it cannot become a task title.
+    #[serde(rename = "providerData")]
+    provider_data: Option<WorkBuddyProviderData>,
     /// Claude Code marker written for API failures in persisted transcripts.
     #[serde(rename = "isApiErrorMessage", default)]
     is_api_error_message: bool,
@@ -228,6 +255,41 @@ struct ClaudeTranscriptMessage {
     stop_reason: Option<String>,
     /// String or block-based message content.
     content: Option<ClaudeTranscriptContent>,
+}
+
+#[derive(Debug, Deserialize)]
+struct WorkBuddyProviderData {
+    /// Generated slash-command events are not user-authored task descriptions.
+    #[serde(rename = "skipRun", default)]
+    skip_run: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct OpenCodeMessageData {
+    /// OpenCode message role used to ignore empty sessions.
+    role: String,
+    /// Completion time is present only after the assistant turn settles.
+    time: OpenCodeMessageTime,
+    /// Structured provider or interruption error retained on failed assistant messages.
+    error: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize)]
+struct OpenCodeMessageTime {
+    /// Unix milliseconds when the assistant turn completed.
+    completed: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct OpenCodePartData {
+    /// Part discriminator such as text, tool, or reasoning.
+    #[serde(rename = "type")]
+    part_type: String,
+    /// User-authored prompt text for text parts.
+    text: Option<String>,
+    /// Synthetic tool echoes must not become task titles.
+    #[serde(default)]
+    synthetic: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -248,6 +310,8 @@ struct ClaudeTranscriptBlock {
     name: Option<String>,
     /// Identifier that links a tool_result block to the request.
     tool_use_id: Option<String>,
+    /// Text carried by Claude text blocks and WorkBuddy input_text blocks.
+    text: Option<String>,
 }
 
 /// Maps persisted Codex turn events to the official shared board lifecycle.
@@ -470,11 +534,14 @@ fn activity_from_transcript(
     title: Option<String>,
 ) -> Option<AgentActivity> {
     let contents = read_bounded_file_tail(path)?;
+    // Product metadata wins; transcript text is the readable fallback for products without titles.
+    let title = title.or_else(|| transcript_title_from_jsonl(&contents));
     let status = match agent {
         AgentActivityKind::Codex => codex_status_from_jsonl(&contents, process_running),
         AgentActivityKind::Claude | AgentActivityKind::WorkBuddy => {
             claude_status_from_jsonl(&contents, process_running)
         }
+        AgentActivityKind::OpenCode => None,
     }?;
     let updated_at_ms = fs::symlink_metadata(path)
         .ok()?
@@ -491,8 +558,57 @@ fn activity_from_transcript(
     })
 }
 
+/// Extracts the first user-authored prompt while ignoring generated command traffic.
+fn transcript_title_from_jsonl(contents: &str) -> Option<String> {
+    contents
+        .lines()
+        .filter_map(|line| serde_json::from_str::<ClaudeTranscriptEvent>(line).ok())
+        .filter(|event| {
+            !event
+                .provider_data
+                .as_ref()
+                .is_some_and(|data| data.skip_run)
+        })
+        .find_map(|event| {
+            let (role, content) = match event.message {
+                Some(message) => (Some(message.role), message.content),
+                None => (event.role, event.content),
+            };
+            if role.as_deref() != Some("user") {
+                return None;
+            }
+            match content? {
+                ClaudeTranscriptContent::Text(text) => readable_transcript_title(&text),
+                ClaudeTranscriptContent::Blocks(blocks) => blocks.into_iter().find_map(|block| {
+                    matches!(block.block_type.as_str(), "text" | "input_text")
+                        .then_some(block.text)
+                        .flatten()
+                        .and_then(|text| readable_transcript_title(&text))
+                }),
+            }
+        })
+}
+
+/// Keeps task cards compact and rejects XML-wrapped system or slash-command messages.
+fn readable_transcript_title(text: &str) -> Option<String> {
+    let trimmed = text.trim();
+    if trimmed.is_empty()
+        || ["<system-reminder", "<command-name", "<local-command"]
+            .iter()
+            .any(|prefix| trimmed.starts_with(prefix))
+    {
+        return None;
+    }
+    let normalized = trimmed.split_whitespace().collect::<Vec<_>>().join(" ");
+    Some(normalized.chars().take(120).collect())
+}
+
 /// Decodes WorkBuddy's conversation-status map without exposing conversation identifiers.
-fn workbuddy_activities_from_snapshot(contents: &str, updated_at_ms: u64) -> Vec<AgentActivity> {
+fn workbuddy_activities_from_snapshot(
+    contents: &str,
+    updated_at_ms: u64,
+    titles: &HashMap<String, String>,
+) -> Vec<AgentActivity> {
     let Ok(statuses) = serde_json::from_str::<HashMap<String, String>>(contents) else {
         return Vec::new();
     };
@@ -501,7 +617,7 @@ fn workbuddy_activities_from_snapshot(contents: &str, updated_at_ms: u64) -> Vec
         .filter_map(|(source_id, protocol_status)| {
             Some(AgentActivity {
                 id: opaque_activity_id(AgentActivityKind::WorkBuddy, &source_id),
-                title: None,
+                title: titles.get(&source_id).cloned(),
                 agent: AgentActivityKind::WorkBuddy,
                 status: workbuddy_status_from_protocol(&protocol_status)?,
                 updated_at_ms,
@@ -510,6 +626,112 @@ fn workbuddy_activities_from_snapshot(contents: &str, updated_at_ms: u64) -> Vec
         .collect();
     activities.sort_by(|left, right| left.id.cmp(&right.id));
     activities
+}
+
+/// Maps WorkBuddy session IDs to readable transcript titles for its separate status snapshot.
+fn transcript_titles_by_file_stem(root: &Path) -> HashMap<String, String> {
+    recent_jsonl_files(root)
+        .into_iter()
+        .filter_map(|path| {
+            let session_id = path.file_stem()?.to_str()?.to_string();
+            let title = transcript_title_from_jsonl(&read_bounded_file_tail(&path)?)?;
+            Some((session_id, title))
+        })
+        .collect()
+}
+
+/// Reads recent OpenCode sessions from its product-owned database without starting a server.
+fn opencode_activities_from_database(
+    database_path: &Path,
+    process_running: bool,
+) -> Vec<AgentActivity> {
+    let Ok(database) = Connection::open_with_flags(
+        database_path,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    ) else {
+        return Vec::new();
+    };
+    let Ok(mut statement) = database.prepare(
+        "SELECT session.id, session.title, session.time_updated, message.data \
+         FROM session JOIN message ON message.id = (\
+             SELECT latest.id FROM message AS latest \
+             WHERE latest.session_id = session.id \
+             ORDER BY latest.time_created DESC, latest.id DESC LIMIT 1\
+         ) \
+         WHERE session.parent_id IS NULL AND session.time_archived IS NULL \
+         ORDER BY session.time_updated DESC LIMIT 16",
+    ) else {
+        return Vec::new();
+    };
+    let Ok(rows) = statement.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, i64>(2)?,
+            row.get::<_, String>(3)?,
+        ))
+    }) else {
+        return Vec::new();
+    };
+    let sessions: Vec<_> = rows.filter_map(Result::ok).collect();
+    drop(statement);
+
+    sessions
+        .into_iter()
+        .filter_map(|(session_id, stored_title, updated_at_ms, message_json)| {
+            let updated_at_ms = u64::try_from(updated_at_ms).ok()?;
+            let message = serde_json::from_str::<OpenCodeMessageData>(&message_json).ok()?;
+            let title = (!stored_title.trim().is_empty()
+                && !stored_title.starts_with("New session -"))
+            .then(|| stored_title.trim().to_string())
+            .or_else(|| opencode_first_user_title(&database, &session_id));
+            let status = if message.error.is_some() {
+                AgentActivityStatus::Error
+            } else if message.role == "assistant" && message.time.completed.is_some() {
+                AgentActivityStatus::Finish
+            } else if process_running {
+                AgentActivityStatus::Running
+            } else {
+                AgentActivityStatus::Error
+            };
+
+            Some(AgentActivity {
+                id: opaque_activity_id(AgentActivityKind::OpenCode, &session_id),
+                title,
+                agent: AgentActivityKind::OpenCode,
+                status,
+                updated_at_ms,
+            })
+        })
+        .collect()
+}
+
+/// Falls back to OpenCode's first real text part before exposing an empty generated title.
+fn opencode_first_user_title(database: &Connection, session_id: &str) -> Option<String> {
+    let mut statement = database
+        .prepare(
+            "SELECT message.data, part.data FROM message \
+             JOIN part ON part.message_id = message.id \
+             WHERE message.session_id = ?1 \
+             ORDER BY message.time_created, part.time_created, part.id",
+        )
+        .ok()?;
+    let rows = statement
+        .query_map([session_id], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .ok()?;
+    let parts: Vec<_> = rows.filter_map(Result::ok).collect();
+    drop(statement);
+
+    parts.into_iter().find_map(|(message_json, part_json)| {
+        let message = serde_json::from_str::<OpenCodeMessageData>(&message_json).ok()?;
+        let part = serde_json::from_str::<OpenCodePartData>(&part_json).ok()?;
+        (message.role == "user" && part.part_type == "text" && !part.synthetic)
+            .then_some(part.text)
+            .flatten()
+            .and_then(|text| readable_transcript_title(&text))
+    })
 }
 
 /// Resolves only titles for already bounded rollout paths without exposing thread identifiers.
@@ -687,6 +909,7 @@ fn agent_id_prefix(agent: AgentActivityKind) -> &'static str {
     match agent {
         AgentActivityKind::Claude => "claude",
         AgentActivityKind::Codex => "codex",
+        AgentActivityKind::OpenCode => "opencode",
         AgentActivityKind::WorkBuddy => "workbuddy",
     }
 }
@@ -695,12 +918,14 @@ fn agent_id_prefix(agent: AgentActivityKind) -> &'static str {
 mod tests {
     use super::{
         activity_from_transcript, claude_status_from_jsonl, codex_status_from_jsonl,
-        workbuddy_activities_from_snapshot, workbuddy_status_from_protocol, AgentActivityAdapter,
-        AgentActivitySourcePaths, SystemAgentActivityAdapter,
+        opencode_activities_from_database, workbuddy_activities_from_snapshot,
+        workbuddy_status_from_protocol, AgentActivityAdapter, AgentActivitySourcePaths,
+        SystemAgentActivityAdapter,
     };
     use crate::adapters::process::AgentProcessStates;
     use crate::domain::agent_activity::{AgentActivityKind, AgentActivityStatus};
     use rusqlite::Connection;
+    use std::collections::HashMap;
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -922,6 +1147,45 @@ mod tests {
     }
 
     #[test]
+    fn claude_activity_uses_the_first_user_message_as_its_title() {
+        let path = temporary_test_file(
+            "claude-title.jsonl",
+            r#"{"type":"user","message":{"role":"user","content":"Review the authentication flow"}}
+{"type":"assistant","message":{"role":"assistant","stop_reason":"end_turn","content":"Done"}}"#,
+        );
+
+        let activity = activity_from_transcript(&path, AgentActivityKind::Claude, true, None)
+            .expect("Claude transcript should produce one activity");
+
+        assert_eq!(
+            activity.title.as_deref(),
+            Some("Review the authentication flow")
+        );
+        fs::remove_dir_all(path.parent().expect("test file should have a parent"))
+            .expect("temporary activity directory should be removable");
+    }
+
+    #[test]
+    fn workbuddy_activity_uses_the_first_non_command_input_as_its_title() {
+        let path = temporary_test_file(
+            "workbuddy-title.jsonl",
+            r#"{"type":"message","role":"user","content":[{"type":"input_text","text":"<command-name>/model</command-name>"}],"providerData":{"skipRun":true}}
+{"type":"message","role":"user","content":[{"type":"input_text","text":"Explain the repository architecture"}]}
+{"hook_event_name":"Stop"}"#,
+        );
+
+        let activity = activity_from_transcript(&path, AgentActivityKind::WorkBuddy, true, None)
+            .expect("WorkBuddy transcript should produce one activity");
+
+        assert_eq!(
+            activity.title.as_deref(),
+            Some("Explain the repository architecture")
+        );
+        fs::remove_dir_all(path.parent().expect("test file should have a parent"))
+            .expect("temporary activity directory should be removable");
+    }
+
+    #[test]
     fn codex_activity_uses_the_title_from_the_local_thread_index() {
         let path = temporary_test_file(
             "sessions/rollout-private-session-id.jsonl",
@@ -971,14 +1235,72 @@ mod tests {
     }
 
     #[test]
+    fn opencode_activity_uses_its_stored_session_title() {
+        let path = temporary_test_file("placeholder", "unused");
+        let database_path = path
+            .parent()
+            .expect("test file should have a parent")
+            .join("opencode.db");
+        let database = Connection::open(&database_path).expect("test database should open");
+        database
+            .execute_batch(
+                r#"CREATE TABLE session (
+                    id TEXT PRIMARY KEY,
+                    parent_id TEXT,
+                    title TEXT NOT NULL,
+                    time_updated INTEGER NOT NULL,
+                    time_archived INTEGER
+                );
+                CREATE TABLE message (
+                    id TEXT PRIMARY KEY,
+                    session_id TEXT NOT NULL,
+                    time_created INTEGER NOT NULL,
+                    data TEXT NOT NULL
+                );
+                CREATE TABLE part (
+                    id TEXT PRIMARY KEY,
+                    message_id TEXT NOT NULL,
+                    session_id TEXT NOT NULL,
+                    time_created INTEGER NOT NULL,
+                    data TEXT NOT NULL
+                );
+                INSERT INTO session VALUES ('session-private', NULL, 'Review the release plan', 42, NULL);
+                INSERT INTO message VALUES (
+                    'message-1',
+                    'session-private',
+                    41,
+                    '{"role":"assistant","time":{"created":40,"completed":42}}'
+                );"#,
+            )
+            .expect("OpenCode fixture should be created");
+        drop(database);
+
+        let activities = opencode_activities_from_database(&database_path, false);
+
+        assert_eq!(activities.len(), 1);
+        assert_eq!(activities[0].agent, AgentActivityKind::OpenCode);
+        assert_eq!(
+            activities[0].title.as_deref(),
+            Some("Review the release plan")
+        );
+        assert!(!activities[0].id.contains("session-private"));
+        fs::remove_dir_all(path.parent().expect("test file should have a parent"))
+            .expect("temporary activity directory should be removable");
+    }
+
+    #[test]
     fn workbuddy_snapshot_keeps_supported_conversations_and_ignores_deleted_entries() {
         let activities = workbuddy_activities_from_snapshot(
             r#"{"conversation-1":"planning","conversation-2":"pending","conversation-3":"failed","conversation-4":"deleted"}"#,
             42,
+            &HashMap::from([("conversation-1".to_string(), "Plan release".to_string())]),
         );
 
         assert_eq!(activities.len(), 3);
         assert_eq!(activities[0].updated_at_ms, 42);
+        assert!(activities
+            .iter()
+            .any(|activity| activity.title.as_deref() == Some("Plan release")));
         assert!(activities
             .iter()
             .all(|activity| activity.agent == AgentActivityKind::WorkBuddy));

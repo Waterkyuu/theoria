@@ -138,7 +138,7 @@ fn refresh_activity_state<A: AgentActivityAdapter + Send + Sync + 'static>(
     }
 }
 
-/// Accepts only mutating JSONL or LevelDB data-file events from registered source roots.
+/// Accepts only mutating transcript, SQLite, or LevelDB events from registered source roots.
 fn event_affects_agent_activity(event: &Event) -> bool {
     let mutating = matches!(
         event.kind,
@@ -151,13 +151,14 @@ fn event_affects_agent_activity(event: &Event) -> bool {
                 .is_some_and(|extension| {
                     extension.eq_ignore_ascii_case("jsonl")
                         || extension.eq_ignore_ascii_case("log")
+                        || extension.eq_ignore_ascii_case("db")
                         || extension.eq_ignore_ascii_case("ldb")
                         || extension.eq_ignore_ascii_case("sst")
                 })
                 || path
                     .file_name()
                     .and_then(OsStr::to_str)
-                    .is_some_and(|name| name == "CURRENT")
+                    .is_some_and(|name| name == "CURRENT" || name.ends_with(".db-wal"))
         })
 }
 
@@ -171,10 +172,12 @@ fn lock_or_recover<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 
 #[cfg(test)]
 mod tests {
-    use super::AgentActivityMonitor;
+    use super::{event_affects_agent_activity, AgentActivityMonitor};
     use crate::adapters::activity::AgentActivityAdapter;
     use crate::adapters::process::AgentProcessStates;
     use crate::domain::agent_activity::{AgentActivity, AgentActivityKind, AgentActivityStatus};
+    use notify::{Event, EventKind};
+    use std::path::PathBuf;
     use std::sync::mpsc;
     use std::time::Duration;
 
@@ -197,6 +200,16 @@ mod tests {
 
         fn watch_paths(&self) -> Vec<std::path::PathBuf> {
             Vec::new()
+        }
+    }
+
+    #[test]
+    fn opencode_database_writes_refresh_the_activity_snapshot() {
+        for name in ["opencode.db", "opencode.db-wal"] {
+            let event = Event::new(EventKind::Any)
+                .add_path(PathBuf::from("/home/test/.local/share/opencode").join(name));
+
+            assert!(event_affects_agent_activity(&event));
         }
     }
 

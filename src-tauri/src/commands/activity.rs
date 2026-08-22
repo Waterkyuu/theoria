@@ -17,7 +17,7 @@ pub(crate) struct AgentActivitiesResponse {
 struct AgentActivityResponse {
     /// Opaque local identifier that does not reveal the source session ID.
     id: String,
-    /// Product-provided conversation title, with the opaque ID retained as a UI fallback.
+    /// Product-provided conversation title or readable prompt-derived fallback.
     title: Option<String>,
     /// Product identifier used by the frontend Agent presentation map.
     agent: &'static str,
@@ -38,6 +38,7 @@ impl From<Vec<AgentActivity>> for AgentActivitiesResponse {
                     agent: match activity.agent {
                         AgentActivityKind::Claude => "claude",
                         AgentActivityKind::Codex => "codex",
+                        AgentActivityKind::OpenCode => "opencode",
                         AgentActivityKind::WorkBuddy => "workbuddy",
                     },
                     status: match activity.status {

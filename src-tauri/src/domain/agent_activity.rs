@@ -3,6 +3,7 @@
 pub(crate) enum AgentActivityKind {
     Claude,
     Codex,
+    OpenCode,
     WorkBuddy,
 }
 
