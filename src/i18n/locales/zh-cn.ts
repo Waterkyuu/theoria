@@ -95,6 +95,8 @@ const zhCN = {
 			rename: "重命名",
 			renameTitle: "重命名记录",
 			renameDescription: "为“{{query}}”设置新的记录名称。",
+			renameLabel: "记录名称",
+			renameSave: "保存",
 			delete: "删除",
 			deleteTitle: "删除记录？",
 			deleteDescription: "确认删除“{{query}}”的历史记录。",

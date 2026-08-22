@@ -5,8 +5,8 @@ import { useTranslation } from "react-i18next";
 import { AgentLogo } from "@/components/agent-logo";
 import { AlertDialog } from "@/components/ui/alert-dialog";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
-import { ModalProvider } from "@/components/ui/modal-provider";
 import type { ComparisonSummary } from "@/types/comparison";
+import { RenameModal } from "./rename-modal";
 
 type HistoryRecordItemProps = {
 	/** Persisted comparison summary rendered by this row. */
@@ -96,13 +96,10 @@ const HistoryRecordItem = ({
 					}
 				/>
 			</div>
-			<ModalProvider
-				description={t("comparisonHistory.renameDescription", {
-					query: item.query,
-				})}
+			<RenameModal
 				isOpen={isRenameOpen}
 				onOpenChange={setIsRenameOpen}
-				title={t("comparisonHistory.renameTitle")}
+				query={item.query}
 			/>
 			<AlertDialog
 				confirmText={t("comparisonHistory.deleteConfirm")}

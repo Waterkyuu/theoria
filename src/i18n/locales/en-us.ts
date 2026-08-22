@@ -97,6 +97,8 @@ const enUS = {
 			rename: "Rename",
 			renameTitle: "Rename record",
 			renameDescription: 'Set a new record name for "{{query}}".',
+			renameLabel: "Record name",
+			renameSave: "Save",
 			delete: "Delete",
 			deleteTitle: "Delete record?",
 			deleteDescription: 'Confirm deletion of the "{{query}}" history record.',

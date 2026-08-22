@@ -1,6 +1,12 @@
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+	within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BrowserRouter, Route, Routes } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -167,8 +173,15 @@ describe("ComparisonHistoryPage", () => {
 		await user.click(actionsButton);
 		await user.click(await screen.findByRole("menuitem", { name: "重命名" }));
 
+		const renameDialog = await screen.findByRole("dialog", {
+			name: "重命名记录",
+		});
+
 		expect(
-			await screen.findByRole("dialog", { name: "重命名记录" }),
+			within(renameDialog).getByRole("textbox", { name: "记录名称" }),
+		).toHaveValue("检查第二次性能");
+		expect(
+			within(renameDialog).getByRole("button", { name: "保存" }),
 		).toBeInTheDocument();
 		expect(window.location.pathname).toBe("/comparison-history");
 	});
