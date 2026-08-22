@@ -13,6 +13,11 @@ pub(crate) enum AppError {
     CodexNeedsInput,
     CodexTaskFailed,
     CodexTimedOut,
+    OpenCodeNotInstalled,
+    OpenCodeProbeFailed,
+    OpenCodeProtocolFailed,
+    OpenCodeTaskFailed,
+    OpenCodeTimedOut,
     ProcessProbeFailed,
     WorkBuddyNotInstalled,
     WorkBuddyConfigReadFailed,
@@ -84,6 +89,26 @@ impl From<AppError> for IpcError {
             AppError::CodexTimedOut => Self {
                 code: "CODEX_TIMED_OUT",
                 message: "等待 Codex 完成任务超时。",
+            },
+            AppError::OpenCodeNotInstalled => Self {
+                code: "OPENCODE_NOT_INSTALLED",
+                message: "未找到本地 OpenCode。",
+            },
+            AppError::OpenCodeProbeFailed => Self {
+                code: "OPENCODE_PROBE_FAILED",
+                message: "无法检查本地 OpenCode 登录状态。",
+            },
+            AppError::OpenCodeProtocolFailed => Self {
+                code: "OPENCODE_PROTOCOL_FAILED",
+                message: "无法读取本地 OpenCode 事件流。",
+            },
+            AppError::OpenCodeTaskFailed => Self {
+                code: "OPENCODE_TASK_FAILED",
+                message: "OpenCode 未能完成任务。",
+            },
+            AppError::OpenCodeTimedOut => Self {
+                code: "OPENCODE_TIMED_OUT",
+                message: "等待 OpenCode 完成任务超时。",
             },
             AppError::ProcessProbeFailed => Self {
                 code: "PROCESS_PROBE_FAILED",

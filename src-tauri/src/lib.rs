@@ -3,6 +3,7 @@ mod adapters {
     pub(crate) mod agent;
     pub(crate) mod claude;
     pub(crate) mod codex;
+    pub(crate) mod opencode;
     pub(crate) mod process;
     pub(crate) mod workbuddy;
 }
@@ -12,6 +13,7 @@ mod commands {
     pub(crate) mod claude;
     pub(crate) mod codex;
     pub(crate) mod comparison;
+    pub(crate) mod opencode;
     pub(crate) mod workbuddy;
 }
 mod db {
@@ -23,6 +25,7 @@ mod dto {
     pub(crate) mod claude;
     pub(crate) mod codex;
     pub(crate) mod comparison;
+    pub(crate) mod opencode;
     pub(crate) mod workbuddy;
 }
 mod domain {
@@ -49,6 +52,7 @@ mod services {
     pub(crate) mod claude;
     pub(crate) mod codex;
     pub(crate) mod comparison;
+    pub(crate) mod opencode;
     pub(crate) mod process;
     pub(crate) mod workbuddy;
 }
@@ -214,6 +218,8 @@ pub fn run() {
             commands::comparison::get_comparison_history,
             commands::comparison::list_comparison_history,
             commands::comparison::save_comparison_history,
+            commands::opencode::check_opencode_login,
+            commands::opencode::run_opencode_task,
             commands::workbuddy::check_workbuddy_config,
             commands::workbuddy::check_workbuddy_login,
             commands::workbuddy::run_workbuddy_task
