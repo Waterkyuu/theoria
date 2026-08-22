@@ -1,6 +1,7 @@
 import { cn } from "cnfast";
 import claudeCodeLogo from "@/assets/images/claude-code.svg";
 import codexLogo from "@/assets/images/codex.svg";
+import openCodeLogo from "@/assets/images/opencode.svg";
 import workBuddyLogo from "@/assets/images/workbuddy.svg";
 import type { AgentKind } from "@/types/agent";
 
@@ -14,6 +15,7 @@ type AgentLogoProps = {
 const AGENT_LOGO_SOURCES: Record<AgentKind, string> = {
 	claude: claudeCodeLogo,
 	codex: codexLogo,
+	opencode: openCodeLogo,
 	workbuddy: workBuddyLogo,
 };
 

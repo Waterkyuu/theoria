@@ -20,6 +20,7 @@ const zhCN = {
 		agentNames: {
 			claude: "Claude Code",
 			codex: "Codex",
+			opencode: "OpenCode",
 			workbuddy: "WorkBuddy",
 		},
 		agentSelection: "选择要对比的 Agent",

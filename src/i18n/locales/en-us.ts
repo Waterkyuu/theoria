@@ -20,6 +20,7 @@ const enUS = {
 		agentNames: {
 			claude: "Claude Code",
 			codex: "Codex",
+			opencode: "OpenCode",
 			workbuddy: "WorkBuddy",
 		},
 		agentSelection: "Select agents to compare",
