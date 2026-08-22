@@ -115,6 +115,7 @@ const zhCN = {
 			verticalLayout: "竖面板",
 			horizontalLayout: "水平面板",
 			empty: "此状态下暂无任务。",
+			untitledTask: "未命名任务",
 			status: {
 				running: "运行中",
 				waiting: "等待用户",

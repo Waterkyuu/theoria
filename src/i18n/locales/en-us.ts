@@ -118,6 +118,7 @@ const enUS = {
 			verticalLayout: "Vertical panel",
 			horizontalLayout: "Horizontal panel",
 			empty: "No tasks in this status.",
+			untitledTask: "Untitled task",
 			status: {
 				running: "Running",
 				waiting: "Awaiting user",

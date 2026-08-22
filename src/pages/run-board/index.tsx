@@ -281,9 +281,9 @@ const RunBoardPage = () => {
 															</span>
 														</span>
 													</div>
-													{/* Product titles make cards recognizable; opaque IDs keep unresolved tasks visible. */}
+													{/* Product titles make cards recognizable without exposing opaque identifiers. */}
 													<h3 className="mt-3 line-clamp-2 overflow-hidden text-body-sm-strong font-medium">
-														{item.title ?? item.id}
+														{item.title ?? t("runBoard.untitledTask")}
 													</h3>
 													<p className="mt-1 line-clamp-2 overflow-hidden text-caption-sm leading-body-sm text-body">
 														{t(`runBoard.statusDescription.${item.status}`)}

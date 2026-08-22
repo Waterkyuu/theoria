@@ -102,6 +102,29 @@ describe("RunBoardPage", () => {
 		expect(within(card).queryByText("codex-running")).not.toBeInTheDocument();
 	});
 
+	// Opaque identifiers are implementation details and must never become card titles.
+	it("uses an untitled label instead of exposing an activity identifier", async () => {
+		apiMocks.checkAgentActivities.mockResolvedValueOnce({
+			activities: [
+				{
+					id: "claude-private-session",
+					title: null,
+					agent: "claude",
+					status: "running",
+					updatedAtMs: Date.parse("2026-08-17T01:30:00Z"),
+				},
+			],
+		});
+		render(<RunBoardPage />);
+
+		const card = await screen.findByRole("article");
+
+		expect(within(card).getByText("未命名任务")).toBeInTheDocument();
+		expect(
+			within(card).queryByText("claude-private-session"),
+		).not.toBeInTheDocument();
+	});
+
 	// The board column already names the lifecycle, so cards keep only its useful description.
 	it("does not repeat the status name inside each card", async () => {
 		render(<RunBoardPage />);
