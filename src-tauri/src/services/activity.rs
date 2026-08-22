@@ -184,6 +184,7 @@ mod tests {
         fn list_activities(&self, processes: AgentProcessStates) -> Vec<AgentActivity> {
             vec![AgentActivity {
                 id: "codex-test".to_string(),
+                title: None,
                 agent: AgentActivityKind::Codex,
                 status: if processes.codex {
                     AgentActivityStatus::Running

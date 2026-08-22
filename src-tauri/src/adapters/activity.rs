@@ -1,6 +1,7 @@
 use crate::adapters::process::AgentProcessStates;
 use crate::domain::agent_activity::{AgentActivity, AgentActivityKind, AgentActivityStatus};
 use leveldb_forensic::{decode_local_storage, LocalStorageRecord};
+use rusqlite::{Connection, OpenFlags, OptionalExtension};
 use serde::Deserialize;
 use std::cmp::Reverse;
 use std::collections::hash_map::DefaultHasher;
@@ -22,6 +23,8 @@ const WORKBUDDY_STATUS_SNAPSHOT_KEY: &str = "codebuddy-conversation-status-snaps
 pub(crate) struct AgentActivitySourcePaths {
     /// Codex rollout directory documented by the local Codex runtime.
     pub(crate) codex_sessions: Option<PathBuf>,
+    /// Codex's local thread index, used read-only so generated titles stay product-owned.
+    pub(crate) codex_state_db: Option<PathBuf>,
     /// Claude Code transcript directory documented by Claude Code.
     pub(crate) claude_projects: Option<PathBuf>,
     /// CodeBuddy transcript directory used by WorkBuddy's bundled Agent runtime.
@@ -46,8 +49,10 @@ pub(crate) struct SystemAgentActivityAdapter {
 impl Default for SystemAgentActivityAdapter {
     fn default() -> Self {
         let sources = dirs::home_dir().map_or_else(AgentActivitySourcePaths::default, |home| {
+            let codex_root = home.join(".codex");
             AgentActivitySourcePaths {
-                codex_sessions: Some(home.join(".codex").join("sessions")),
+                codex_sessions: Some(codex_root.join("sessions")),
+                codex_state_db: Some(codex_root.join("state_5.sqlite")),
                 claude_projects: Some(home.join(".claude").join("projects")),
                 codebuddy_projects: Some(home.join(".codebuddy").join("projects")),
                 workbuddy_local_storage: Some(
@@ -131,8 +136,21 @@ impl SystemAgentActivityAdapter {
         let Some(root) = root else {
             return;
         };
-        for path in recent_jsonl_files(root) {
-            if let Some(activity) = activity_from_transcript(&path, agent, process_running) {
+        let paths = recent_jsonl_files(root);
+        // Codex writes generated and manually renamed titles to its thread index, not rollouts.
+        let mut titles = if agent == AgentActivityKind::Codex {
+            self.sources
+                .codex_state_db
+                .as_deref()
+                .map(|database| codex_titles_by_rollout_path(database, &paths))
+                .unwrap_or_default()
+        } else {
+            HashMap::new()
+        };
+        for path in paths {
+            if let Some(activity) =
+                activity_from_transcript(&path, agent, process_running, titles.remove(&path))
+            {
                 activities.push(activity);
             }
         }
@@ -449,6 +467,7 @@ fn activity_from_transcript(
     path: &Path,
     agent: AgentActivityKind,
     process_running: bool,
+    title: Option<String>,
 ) -> Option<AgentActivity> {
     let contents = read_bounded_file_tail(path)?;
     let status = match agent {
@@ -465,6 +484,7 @@ fn activity_from_transcript(
 
     Some(AgentActivity {
         id: opaque_activity_id(agent, &path.to_string_lossy()),
+        title,
         agent,
         status,
         updated_at_ms,
@@ -481,6 +501,7 @@ fn workbuddy_activities_from_snapshot(contents: &str, updated_at_ms: u64) -> Vec
         .filter_map(|(source_id, protocol_status)| {
             Some(AgentActivity {
                 id: opaque_activity_id(AgentActivityKind::WorkBuddy, &source_id),
+                title: None,
                 agent: AgentActivityKind::WorkBuddy,
                 status: workbuddy_status_from_protocol(&protocol_status)?,
                 updated_at_ms,
@@ -489,6 +510,40 @@ fn workbuddy_activities_from_snapshot(contents: &str, updated_at_ms: u64) -> Vec
         .collect();
     activities.sort_by(|left, right| left.id.cmp(&right.id));
     activities
+}
+
+/// Resolves only titles for already bounded rollout paths without exposing thread identifiers.
+fn codex_titles_by_rollout_path(
+    database_path: &Path,
+    rollout_paths: &[PathBuf],
+) -> HashMap<PathBuf, String> {
+    let Ok(database) = Connection::open_with_flags(
+        database_path,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    ) else {
+        return HashMap::new();
+    };
+    let Ok(mut statement) = database.prepare(
+        "SELECT COALESCE(NULLIF(TRIM(name), ''), NULLIF(TRIM(title), '')) \
+         FROM threads WHERE rollout_path = ?1 LIMIT 1",
+    ) else {
+        return HashMap::new();
+    };
+    let mut titles = HashMap::new();
+
+    for path in rollout_paths {
+        let title = statement
+            .query_row([path.to_string_lossy().as_ref()], |row| {
+                row.get::<_, Option<String>>(0)
+            })
+            .optional();
+        if let Ok(Some(Some(title))) = title {
+            // A manual Codex rename takes precedence through the query's name/title ordering.
+            titles.insert(path.clone(), title);
+        }
+    }
+
+    titles
 }
 
 /// Finds the latest non-deleted WorkBuddy status snapshot retained by Chromium LevelDB.
@@ -640,9 +695,12 @@ fn agent_id_prefix(agent: AgentActivityKind) -> &'static str {
 mod tests {
     use super::{
         activity_from_transcript, claude_status_from_jsonl, codex_status_from_jsonl,
-        workbuddy_activities_from_snapshot, workbuddy_status_from_protocol,
+        workbuddy_activities_from_snapshot, workbuddy_status_from_protocol, AgentActivityAdapter,
+        AgentActivitySourcePaths, SystemAgentActivityAdapter,
     };
+    use crate::adapters::process::AgentProcessStates;
     use crate::domain::agent_activity::{AgentActivityKind, AgentActivityStatus};
+    use rusqlite::Connection;
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -657,6 +715,9 @@ mod tests {
         ));
         fs::create_dir_all(&directory).expect("temporary activity directory should be writable");
         let path = directory.join(name);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).expect("nested transcript directory should be writable");
+        }
         fs::write(&path, contents).expect("temporary transcript should be writable");
         path
     }
@@ -850,7 +911,7 @@ mod tests {
 {"type":"event_msg","payload":{"type":"task_complete"}}"#,
         );
 
-        let activity = activity_from_transcript(&path, AgentActivityKind::Codex, true)
+        let activity = activity_from_transcript(&path, AgentActivityKind::Codex, true, None)
             .expect("completed transcript should produce one activity");
 
         assert_eq!(activity.status, AgentActivityStatus::Finish);
@@ -858,6 +919,55 @@ mod tests {
         assert!(!activity.id.contains("private-session-id"));
         fs::remove_dir_all(path.parent().expect("test file should have a parent"))
             .expect("temporary activity directory should be removable");
+    }
+
+    #[test]
+    fn codex_activity_uses_the_title_from_the_local_thread_index() {
+        let path = temporary_test_file(
+            "sessions/rollout-private-session-id.jsonl",
+            r#"{"type":"event_msg","payload":{"type":"task_started"}}"#,
+        );
+        let codex_root = path
+            .parent()
+            .expect("test transcript should have a sessions parent");
+        let database_path = codex_root
+            .parent()
+            .expect("sessions should have a Codex data parent")
+            .join("state_5.sqlite");
+        let database = Connection::open(&database_path).expect("test database should open");
+        database
+            .execute_batch(
+                "CREATE TABLE threads (rollout_path TEXT PRIMARY KEY, title TEXT NOT NULL, name TEXT);",
+            )
+            .expect("test threads table should be created");
+        database
+            .execute(
+                "INSERT INTO threads (rollout_path, title, name) VALUES (?1, ?2, NULL)",
+                (path.to_string_lossy().as_ref(), "优化看板标题显示"),
+            )
+            .expect("test thread title should be inserted");
+        drop(database);
+        let adapter = SystemAgentActivityAdapter {
+            sources: AgentActivitySourcePaths {
+                codex_sessions: Some(codex_root.to_path_buf()),
+                codex_state_db: Some(database_path),
+                ..AgentActivitySourcePaths::default()
+            },
+        };
+
+        let activities = adapter.list_activities(AgentProcessStates {
+            codex: true,
+            ..AgentProcessStates::default()
+        });
+
+        // The title is user-facing metadata; the raw session identifier must remain private.
+        assert_eq!(activities[0].title.as_deref(), Some("优化看板标题显示"));
+        fs::remove_dir_all(
+            codex_root
+                .parent()
+                .expect("sessions should have a removable test parent"),
+        )
+        .expect("temporary activity directory should be removable");
     }
 
     #[test]

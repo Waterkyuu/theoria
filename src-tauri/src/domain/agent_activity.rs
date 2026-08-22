@@ -20,6 +20,8 @@ pub(crate) enum AgentActivityStatus {
 pub(crate) struct AgentActivity {
     /// Opaque identifier derived locally without exposing the source session identifier.
     pub(crate) id: String,
+    /// User-facing conversation title resolved from product-owned local metadata.
+    pub(crate) title: Option<String>,
     /// Product that owns the task.
     pub(crate) agent: AgentActivityKind,
     /// Latest lifecycle state derived from the product's own protocol.
