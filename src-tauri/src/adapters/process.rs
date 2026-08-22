@@ -10,6 +10,8 @@ pub(crate) struct AgentProcessStates {
     pub(crate) claude: bool,
     /// Indicates whether an exact Codex executable match was observed.
     pub(crate) codex: bool,
+    /// Indicates whether an exact OpenCode executable match was observed.
+    pub(crate) opencode: bool,
     /// Indicates whether an exact WorkBuddy executable or application match was observed.
     pub(crate) workbuddy: bool,
 }
@@ -78,6 +80,7 @@ where
         match executable_name {
             "claude" => states.claude = true,
             "codex" => states.codex = true,
+            "opencode" => states.opencode = true,
             "cbc" | "codebuddy" | "workbuddy" | "workbuddy ai" => states.workbuddy = true,
             _ => {}
         }
@@ -95,11 +98,13 @@ mod tests {
         let states = process_states_from_names([
             "/usr/local/bin/claude",
             "/Applications/Codex.app/Contents/MacOS/Codex",
+            "/home/test/.opencode/bin/opencode",
             "WorkBuddy AI.exe",
         ]);
 
         assert!(states.claude);
         assert!(states.codex);
+        assert!(states.opencode);
         assert!(states.workbuddy);
     }
 
@@ -122,6 +127,7 @@ mod tests {
 
         assert!(!states.claude);
         assert!(!states.codex);
+        assert!(!states.opencode);
         assert!(!states.workbuddy);
     }
 }

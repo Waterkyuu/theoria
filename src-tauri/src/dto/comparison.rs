@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 pub(crate) enum AgentKindRequest {
     Codex,
     Claude,
+    OpenCode,
     WorkBuddy,
 }
 
@@ -17,6 +18,7 @@ impl From<AgentKindRequest> for AgentKind {
         match value {
             AgentKindRequest::Codex => Self::Codex,
             AgentKindRequest::Claude => Self::Claude,
+            AgentKindRequest::OpenCode => Self::OpenCode,
             AgentKindRequest::WorkBuddy => Self::WorkBuddy,
         }
     }
@@ -27,6 +29,7 @@ impl From<AgentKind> for AgentKindRequest {
         match value {
             AgentKind::Codex => Self::Codex,
             AgentKind::Claude => Self::Claude,
+            AgentKind::OpenCode => Self::OpenCode,
             AgentKind::WorkBuddy => Self::WorkBuddy,
         }
     }

@@ -3,7 +3,19 @@
 pub(crate) enum AgentKind {
     Codex,
     Claude,
+    OpenCode,
     WorkBuddy,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AgentKind;
+
+    #[test]
+    fn round_trips_the_opencode_persistence_identifier() {
+        assert_eq!(AgentKind::OpenCode.as_str(), "opencode");
+        assert_eq!(AgentKind::parse("opencode"), Some(AgentKind::OpenCode));
+    }
 }
 
 impl AgentKind {
@@ -12,6 +24,7 @@ impl AgentKind {
         match self {
             Self::Codex => "codex",
             Self::Claude => "claude",
+            Self::OpenCode => "opencode",
             Self::WorkBuddy => "workbuddy",
         }
     }
@@ -21,6 +34,7 @@ impl AgentKind {
         match value {
             "codex" => Some(Self::Codex),
             "claude" => Some(Self::Claude),
+            "opencode" => Some(Self::OpenCode),
             "workbuddy" => Some(Self::WorkBuddy),
             _ => None,
         }
