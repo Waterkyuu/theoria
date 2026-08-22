@@ -84,14 +84,14 @@ Use the live official website to compare and validate this extracted snapshot. T
 
 | Name | Value | Token |
 |---|---|---|
-| xxs | 2px | `--spacing-xxs` |
-| xs | 4px | `--spacing-xs` |
-| sm | 8px | `--spacing-sm` |
-| md | 12px | `--spacing-md` |
-| lg | 16px | `--spacing-lg` |
-| xl | 24px | `--spacing-xl` |
-| xxl | 32px | `--spacing-xxl` |
-| section | 88px | `--spacing-section` |
+| xxs | 2px | `--app-spacing-xxs` |
+| xs | 4px | `--app-spacing-xs` |
+| sm | 8px | `--app-spacing-sm` |
+| md | 12px | `--app-spacing-md` |
+| lg | 16px | `--app-spacing-lg` |
+| xl | 24px | `--app-spacing-xl` |
+| xxl | 32px | `--app-spacing-xxl` |
+| section | 88px | `--app-spacing-section` |
 
 ### Border Radius
 
