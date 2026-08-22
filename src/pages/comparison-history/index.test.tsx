@@ -186,6 +186,22 @@ describe("ComparisonHistoryPage", () => {
 		expect(window.location.pathname).toBe("/comparison-history");
 	});
 
+	it("shows icons for the rename and delete record actions", async () => {
+		const user = userEvent.setup();
+		renderHistoryPage();
+		const actionsButton = await screen.findByRole("button", {
+			name: "检查第二次性能的更多操作",
+		});
+
+		await user.click(actionsButton);
+
+		const renameItem = await screen.findByRole("menuitem", { name: "重命名" });
+		const deleteItem = screen.getByRole("menuitem", { name: "删除" });
+
+		expect(renameItem.querySelector("svg")).toBeInTheDocument();
+		expect(deleteItem.querySelector("svg")).toBeInTheDocument();
+	});
+
 	it("opens the delete alert from a record action menu", async () => {
 		const user = userEvent.setup();
 		renderHistoryPage();

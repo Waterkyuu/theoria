@@ -1,4 +1,4 @@
-import { Ellipsis } from "@gravity-ui/icons";
+import { Ellipsis, PencilToSquare, TrashBin } from "@gravity-ui/icons";
 import { Button } from "@heroui/react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -68,12 +68,24 @@ const HistoryRecordItem = ({
 				<DropdownMenu
 					items={[
 						{
+							icon: (
+								<PencilToSquare
+									aria-hidden="true"
+									className="size-4 shrink-0 text-ink"
+								/>
+							),
 							id: "rename",
 							labelKey: "comparisonHistory.rename",
 							onAction: () => setIsRenameOpen(true),
 						},
 						{
 							danger: true,
+							icon: (
+								<TrashBin
+									aria-hidden="true"
+									className="size-4 shrink-0 text-danger"
+								/>
+							),
 							id: "delete",
 							labelKey: "comparisonHistory.delete",
 							onAction: () => setIsDeleteOpen(true),

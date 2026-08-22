@@ -11,6 +11,8 @@ import { useTranslation } from "react-i18next";
 type DropdownMenuItemProps<T extends string> = {
 	/** Whether the item uses the danger visual treatment. */
 	danger?: boolean;
+	/** Optional decorative icon rendered before the item label. */
+	icon?: ReactElement;
 	/** Stable business action returned by the menu-level callback. */
 	id: T;
 	/** Whether the item is disabled. */
@@ -90,6 +92,7 @@ const DropdownMenu = <T extends string>({
 				textValue={label}
 				variant={item.danger ? "danger" : undefined}
 			>
+				{item.icon}
 				<Label>{label}</Label>
 			</Dropdown.Item>,
 		);
