@@ -329,6 +329,7 @@ describe("ComparisonPage native status updates", () => {
 			timeToFirstTokenMs: 100,
 			tokenUsage: null,
 			thinkingDurationMs: 200,
+			compactionCount: 0,
 			toolCallCount: 0,
 			toolCalls: [],
 		};

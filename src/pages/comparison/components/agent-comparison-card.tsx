@@ -195,13 +195,22 @@ const AgentComparisonCard = ({
 							))}
 						</div>
 					) : null}
-					<dl className="mt-lg grid grid-cols-2 gap-lg border-t border-hairline pt-lg">
+					<dl className="mt-lg grid grid-cols-3 gap-lg border-t border-hairline pt-lg">
 						<div>
 							<dt className="text-caption-sm text-mute">
 								{t("thinkingDuration")}
 							</dt>
 							<dd className="mt-xs font-mono text-body-sm font-medium tabular-nums">
 								{formatDuration(result.thinkingDurationMs)}
+							</dd>
+						</div>
+						<div>
+							<dt className="text-caption-sm text-mute">
+								{t("compactionCount")}
+							</dt>
+							<dd className="mt-xs font-mono text-body-sm font-medium tabular-nums">
+								{result.compactionCount?.toLocaleString(numberLocale) ??
+									t("metricUnavailable")}
 							</dd>
 						</div>
 						<div>

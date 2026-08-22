@@ -81,6 +81,8 @@ type AgentRunResult = {
 	tokenUsage: TokenUsage | null;
 	/** Sum of explicit reasoning or thinking intervals in milliseconds. */
 	thinkingDurationMs: number;
+	/** Number of context compactions reported during this task. */
+	compactionCount: number | null;
 	/** Number of tools invoked during this task. */
 	toolCallCount: number;
 	/** Tool invocations retained in source start order. */

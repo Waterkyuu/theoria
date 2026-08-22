@@ -73,6 +73,7 @@ const zhCN = {
 		outputTokens: "输出",
 		reasoningTokens: "推理",
 		thinkingDuration: "思考时间",
+		compactionCount: "压缩次数",
 		toolCallCount: "工具调用",
 		toolCallsTitle: "工具明细",
 		noToolCalls: "本次未调用工具",

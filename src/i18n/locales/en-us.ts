@@ -74,6 +74,7 @@ const enUS = {
 		outputTokens: "Output",
 		reasoningTokens: "Reasoning",
 		thinkingDuration: "Thinking time",
+		compactionCount: "Compactions",
 		toolCallCount: "Tool calls",
 		toolCallsTitle: "Tool details",
 		noToolCalls: "No tools called in this run",
