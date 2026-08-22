@@ -7,10 +7,6 @@ import {
 	useComparisonHistoryDetail,
 } from "@/queries/comparison-history";
 
-/**
- * Routes between the comparison history list and one selected detail.
- * @example <ComparisonHistoryPage />
- */
 const ComparisonHistoryPage = () => {
 	const { t, i18n } = useTranslation();
 	const navigate = useNavigate();
