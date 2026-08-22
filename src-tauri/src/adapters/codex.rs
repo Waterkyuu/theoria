@@ -579,6 +579,7 @@ fn collect_run_events(
     started_at: Instant,
 ) -> Result<AgentRunOutput, AppError> {
     let mut collector = AgentRunMetricsCollector::default();
+    collector.track_context_compactions();
     let mut response = String::new();
 
     loop {
@@ -623,6 +624,8 @@ fn collect_run_events(
                     // The stable item id prevents concurrent calls from being paired incorrectly.
                     if item.item_type == "reasoning" {
                         collector.record_thinking_finished(&item.id, elapsed);
+                    } else if item.item_type == "contextCompaction" {
+                        collector.record_context_compaction();
                     } else if item.tool_name().is_some() {
                         collector.record_tool_finished(&item.id, elapsed);
                     }
@@ -845,12 +848,13 @@ wait "$reader_pid"
 
     #[test]
     fn records_codex_reasoning_and_tool_item_lifecycles() {
-        let (sender, receiver) = mpsc::sync_channel(5);
+        let (sender, receiver) = mpsc::sync_channel(6);
         for fixture in [
             r#"{"method":"item/started","params":{"item":{"id":"reason-1","type":"reasoning"}}}"#,
             r#"{"method":"item/completed","params":{"item":{"id":"reason-1","type":"reasoning"}}}"#,
             r#"{"method":"item/started","params":{"item":{"id":"tool-1","type":"mcpToolCall","server":"github","tool":"search"}}}"#,
             r#"{"method":"item/completed","params":{"item":{"id":"tool-1","type":"mcpToolCall","server":"github","tool":"search"}}}"#,
+            r#"{"method":"item/completed","params":{"item":{"id":"compact-1","type":"contextCompaction"}}}"#,
             r#"{"method":"turn/completed","params":{"turn":{"status":"completed"}}}"#,
         ] {
             sender
@@ -863,6 +867,7 @@ wait "$reader_pid"
 
         assert_eq!(output.metrics.tool_calls.len(), 1);
         assert_eq!(output.metrics.tool_calls[0].name, "github.search");
+        assert_eq!(output.metrics.compaction_count, Some(1));
     }
 
     #[test]
