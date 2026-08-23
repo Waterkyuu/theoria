@@ -252,14 +252,14 @@ describe("RunBoardPage", () => {
 		expect(horizontalTooltip).toHaveClass("max-w-none");
 	});
 
-	// Verifies that run cards keep a stable footprint and clamp overflowing titles.
-	it("keeps run cards at fixed dimensions with clamped text", async () => {
+	// Verifies that run cards keep a compact footprint and clamp overflowing titles.
+	it("keeps run cards compact with clamped text", async () => {
 		render(<RunBoardPage />);
 
 		const card = (await screen.findAllByRole("article"))[0];
 
 		expect(card).toHaveClass(
-			"h-48",
+			"h-36",
 			"w-[18rem]",
 			"max-w-full",
 			"overflow-hidden",

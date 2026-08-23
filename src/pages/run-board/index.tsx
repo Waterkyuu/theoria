@@ -49,7 +49,8 @@ const STATUS_PRESENTATIONS: Record<AgentActivityStatus, StatusPresentation> = {
 	finish: {
 		icon: CircleCheck,
 		iconClassName: "text-terminal-green",
-		chipClassName: "border-terminal-green/40 bg-terminal-green/10 text-ink",
+		chipClassName:
+			"border-terminal-green/40 bg-terminal-green/10 text-green-800",
 	},
 	error: {
 		icon: TriangleExclamation,
@@ -268,7 +269,7 @@ const RunBoardPage = () => {
 										return (
 											<Card
 												className={cn(
-													"h-48 w-[18rem] max-w-full overflow-hidden rounded-xl border border-hairline bg-surface-card shadow-none transition-colors hover:border-hairline-strong",
+													"h-36 w-[18rem] max-w-full overflow-hidden rounded-xl border border-hairline bg-surface-card shadow-none transition-colors hover:border-hairline-strong",
 													layout === "horizontal" && "lg:shrink-0",
 												)}
 												key={item.id}
@@ -300,7 +301,7 @@ const RunBoardPage = () => {
 														</span>
 													</div>
 													{/* Product titles make cards recognizable without exposing opaque identifiers. */}
-													<h3 className="mt-3 line-clamp-2 overflow-hidden text-body-sm-strong font-medium">
+													<h3 className="mt-3 line-clamp-2 break-words overflow-hidden text-body-sm-strong font-medium">
 														{item.title ?? t("runBoard.untitledTask")}
 													</h3>
 													<div className="mt-3 flex items-center justify-between border-t border-hairline pt-2 font-mono text-caption-sm text-mute">
