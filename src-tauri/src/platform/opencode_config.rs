@@ -112,26 +112,28 @@ fn add_json_config_candidates(paths: &mut Vec<PathBuf>, directory: &Path) {
     paths.push(directory.join("opencode.jsonc"));
 }
 
-#[cfg(target_os = "macos")]
 fn managed_config_directory() -> Option<PathBuf> {
-    Some(PathBuf::from("/Library/Application Support/opencode"))
-}
+    #[cfg(target_os = "macos")]
+    {
+        Some(PathBuf::from("/Library/Application Support/opencode"))
+    }
 
-#[cfg(target_os = "linux")]
-fn managed_config_directory() -> Option<PathBuf> {
-    Some(PathBuf::from("/etc/opencode"))
-}
+    #[cfg(target_os = "linux")]
+    {
+        Some(PathBuf::from("/etc/opencode"))
+    }
 
-#[cfg(target_os = "windows")]
-fn managed_config_directory() -> Option<PathBuf> {
-    std::env::var_os("ProgramData")
-        .map(PathBuf::from)
-        .map(|path| path.join("opencode"))
-}
+    #[cfg(target_os = "windows")]
+    {
+        std::env::var_os("ProgramData")
+            .map(PathBuf::from)
+            .map(|path| path.join("opencode"))
+    }
 
-#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
-fn managed_config_directory() -> Option<PathBuf> {
-    None
+    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+    {
+        None
+    }
 }
 
 fn event_affects_config(event: &Event, config_paths: &[PathBuf]) -> bool {
