@@ -38,7 +38,7 @@ const BOARD_STATUSES: AgentActivityStatus[] = [
 const STATUS_PRESENTATIONS: Record<AgentActivityStatus, StatusPresentation> = {
 	running: {
 		icon: Play,
-		iconClassName: "text-ink",
+		iconClassName: "text-blue-600",
 		chipClassName: "border-blue-400/40 bg-blue-500/10 text-blue-700",
 	},
 	waiting: {
