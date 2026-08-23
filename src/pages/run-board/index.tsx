@@ -39,7 +39,7 @@ const STATUS_PRESENTATIONS: Record<AgentActivityStatus, StatusPresentation> = {
 	running: {
 		icon: Play,
 		iconClassName: "text-ink",
-		chipClassName: "border-hairline-strong bg-surface-soft text-charcoal",
+		chipClassName: "border-blue-400/40 bg-blue-500/10 text-blue-700",
 	},
 	waiting: {
 		icon: CircleQuestion,
