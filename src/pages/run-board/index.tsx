@@ -24,8 +24,8 @@ type StatusPresentation = {
 	icon: ComponentType<SVGProps<SVGSVGElement>>;
 	/** Tailwind color class for the status icon. */
 	iconClassName: string;
-	/** Semantic color used by the task status badge. */
-	chipColor: "danger" | "default" | "success" | "warning";
+	/** Status-specific border and background treatment for the task badge. */
+	chipClassName: string;
 };
 
 const BOARD_STATUSES: AgentActivityStatus[] = [
@@ -39,22 +39,22 @@ const STATUS_PRESENTATIONS: Record<AgentActivityStatus, StatusPresentation> = {
 	running: {
 		icon: Play,
 		iconClassName: "text-ink",
-		chipColor: "default",
+		chipClassName: "border-hairline-strong bg-surface-soft text-charcoal",
 	},
 	waiting: {
 		icon: CircleQuestion,
 		iconClassName: "text-terminal-yellow",
-		chipColor: "warning",
+		chipClassName: "border-terminal-yellow/40 bg-terminal-yellow/15 text-ink",
 	},
 	finish: {
 		icon: CircleCheck,
 		iconClassName: "text-terminal-green",
-		chipColor: "success",
+		chipClassName: "border-terminal-green/40 bg-terminal-green/10 text-ink",
 	},
 	error: {
 		icon: TriangleExclamation,
 		iconClassName: "text-terminal-red",
-		chipColor: "danger",
+		chipClassName: "border-terminal-red/40 bg-terminal-red/10 text-ink",
 	},
 };
 
@@ -278,10 +278,12 @@ const RunBoardPage = () => {
 													{/* Equal columns keep lifecycle and Agent identity aligned at opposite edges. */}
 													<div className="grid grid-cols-2 items-center gap-3 text-caption-sm text-mute">
 														<Chip
-															className="min-w-0 justify-self-start"
-															color={presentation.chipColor}
+															className={cn(
+																"min-w-0 justify-self-start border",
+																presentation.chipClassName,
+															)}
 															size="sm"
-															variant="soft"
+															variant="tertiary"
 														>
 															<Chip.Label className="truncate">
 																{t(`runBoard.statusDescription.${item.status}`)}
