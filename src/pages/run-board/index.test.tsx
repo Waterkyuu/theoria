@@ -252,7 +252,7 @@ describe("RunBoardPage", () => {
 		expect(horizontalTooltip).toHaveClass("max-w-none");
 	});
 
-	// Verifies that run cards keep a stable footprint and clamp overflowing copy.
+	// Verifies that run cards keep a stable footprint and clamp overflowing titles.
 	it("keeps run cards at fixed dimensions with clamped text", async () => {
 		render(<RunBoardPage />);
 
@@ -265,10 +265,6 @@ describe("RunBoardPage", () => {
 			"overflow-hidden",
 		);
 		expect(card.querySelector("h3")).toHaveClass(
-			"line-clamp-2",
-			"overflow-hidden",
-		);
-		expect(card.querySelector("p")).toHaveClass(
 			"line-clamp-2",
 			"overflow-hidden",
 		);

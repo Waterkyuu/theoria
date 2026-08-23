@@ -126,7 +126,7 @@ const zhCN = {
 			statusDescription: {
 				running: "正在执行",
 				waiting: "需要回答后继续",
-				finish: "已顺利完成",
+				finish: "已完成",
 				error: "需要处理",
 			},
 		},

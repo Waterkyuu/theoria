@@ -7,7 +7,7 @@ import {
 	Play,
 	TriangleExclamation,
 } from "@gravity-ui/icons";
-import { Button, Card, Tooltip } from "@heroui/react";
+import { Button, Card, Chip, Tooltip } from "@heroui/react";
 import { cn } from "cnfast";
 import { type ComponentType, type SVGProps, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -24,6 +24,8 @@ type StatusPresentation = {
 	icon: ComponentType<SVGProps<SVGSVGElement>>;
 	/** Tailwind color class for the status icon. */
 	iconClassName: string;
+	/** Semantic color used by the task status badge. */
+	chipColor: "danger" | "default" | "success" | "warning";
 };
 
 const BOARD_STATUSES: AgentActivityStatus[] = [
@@ -37,18 +39,22 @@ const STATUS_PRESENTATIONS: Record<AgentActivityStatus, StatusPresentation> = {
 	running: {
 		icon: Play,
 		iconClassName: "text-ink",
+		chipColor: "default",
 	},
 	waiting: {
 		icon: CircleQuestion,
 		iconClassName: "text-terminal-yellow",
+		chipColor: "warning",
 	},
 	finish: {
 		icon: CircleCheck,
 		iconClassName: "text-terminal-green",
+		chipColor: "success",
 	},
 	error: {
 		icon: TriangleExclamation,
 		iconClassName: "text-terminal-red",
+		chipColor: "danger",
 	},
 };
 
@@ -269,9 +275,19 @@ const RunBoardPage = () => {
 												role="article"
 											>
 												<Card.Content className="p-3">
-													{/* The column header already carries lifecycle, so the card avoids repeating it. */}
-													<div className="flex items-center justify-end text-caption-sm text-mute">
-														<span className="flex min-w-0 max-w-[55%] items-center gap-1.5 truncate">
+													{/* Equal columns keep lifecycle and Agent identity aligned at opposite edges. */}
+													<div className="grid grid-cols-2 items-center gap-3 text-caption-sm text-mute">
+														<Chip
+															className="min-w-0 justify-self-start"
+															color={presentation.chipColor}
+															size="sm"
+															variant="soft"
+														>
+															<Chip.Label className="truncate">
+																{t(`runBoard.statusDescription.${item.status}`)}
+															</Chip.Label>
+														</Chip>
+														<span className="flex min-w-0 items-center justify-end gap-1.5">
 															<AgentLogo
 																agent={item.agent}
 																className="size-3.5"
@@ -285,9 +301,6 @@ const RunBoardPage = () => {
 													<h3 className="mt-3 line-clamp-2 overflow-hidden text-body-sm-strong font-medium">
 														{item.title ?? t("runBoard.untitledTask")}
 													</h3>
-													<p className="mt-1 line-clamp-2 overflow-hidden text-caption-sm leading-body-sm text-body">
-														{t(`runBoard.statusDescription.${item.status}`)}
-													</p>
 													<div className="mt-3 flex items-center justify-between border-t border-hairline pt-2 font-mono text-caption-sm text-mute">
 														<span>{updatedTime}</span>
 														<span className="flex items-center gap-1.5">
