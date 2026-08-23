@@ -259,7 +259,7 @@ describe("RunBoardPage", () => {
 		const card = (await screen.findAllByRole("article"))[0];
 
 		expect(card).toHaveClass(
-			"h-36",
+			"h-40",
 			"w-[18rem]",
 			"max-w-full",
 			"overflow-hidden",

@@ -269,7 +269,7 @@ const RunBoardPage = () => {
 										return (
 											<Card
 												className={cn(
-													"h-36 w-[18rem] max-w-full overflow-hidden rounded-xl border border-hairline bg-surface-card shadow-none transition-colors hover:border-hairline-strong",
+													"h-40 w-[18rem] max-w-full overflow-hidden rounded-xl border border-hairline bg-surface-card shadow-none transition-colors hover:border-hairline-strong",
 													layout === "horizontal" && "lg:shrink-0",
 												)}
 												key={item.id}
