@@ -10,7 +10,7 @@ import {
 } from "react-router";
 import { AppShell } from "@/components/app-shell";
 
-const ComparisonPage = lazy(() => import("@/pages/comparison"));
+const WorkspacePage = lazy(() => import("@/pages/workspace"));
 const ComparisonHistoryPage = lazy(() => import("@/pages/comparison-history"));
 const RunBoardPage = lazy(() => import("@/pages/run-board"));
 
@@ -41,7 +41,7 @@ const RoutedApplication = () => {
 		<AppShell currentPath={pathname} onNavigate={(path) => navigate(path)}>
 			<Suspense fallback={<RouteLoadingFallback />}>
 				<Routes>
-					<Route element={<ComparisonPage />} path="/" />
+					<Route element={<WorkspacePage />} path="/" />
 					<Route
 						element={<ComparisonHistoryPage />}
 						path="/comparison-history"

@@ -1,0 +1,440 @@
+import {
+	ArrowUp,
+	ChevronDown,
+	CircleCheckFill,
+	CircleInfo,
+	CodeTrunk,
+	Paperclip,
+	Puzzle,
+	ShieldCheck,
+	Sliders,
+	Sparkles,
+	Xmark,
+} from "@gravity-ui/icons";
+import { cn } from "cnfast";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { AgentLogo } from "@/components/agent-logo";
+import type { AgentKind } from "@/types/agent";
+
+const RUNNING_AGENTS = [
+	{ kind: "codex", model: "gpt-5.6", mode: "High" },
+	{ kind: "claude", model: "Opus 4.1", mode: "Extended" },
+	{ kind: "opencode", model: "Kimi K2.5", mode: "Balanced" },
+] as const;
+
+const MOUNTED_SKILLS = ["Product Design", "TDD"] as const;
+
+const WorkspacePage = () => {
+	const { t } = useTranslation();
+	const [prompt, setPrompt] = useState("");
+	const [selectedAgents, setSelectedAgents] = useState<AgentKind[]>(["codex"]);
+	const [selectedSkills, setSelectedSkills] = useState<string[]>([
+		"Product Design",
+	]);
+	const [mode, setMode] = useState<"explore" | "benchmark">("explore");
+	const [isAgentMenuOpen, setIsAgentMenuOpen] = useState(false);
+	const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
+	const [isSkillMenuOpen, setIsSkillMenuOpen] = useState(false);
+	const [isEnvironmentOpen, setIsEnvironmentOpen] = useState(false);
+	const [submittedTask, setSubmittedTask] = useState<string | null>(null);
+
+	const isSlashAutocompleteOpen =
+		isAgentMenuOpen || prompt.trimEnd().endsWith("/");
+
+	/** Keeps the local prototype honest by showing a completed dispatch state after submission. */
+	const submitTask = () => {
+		const task = prompt.trim();
+		if (!task || selectedAgents.length === 0) return;
+		setSubmittedTask(task);
+		setPrompt("");
+		setIsAgentMenuOpen(false);
+	};
+
+	return (
+		<main className="relative flex h-[100dvh] min-w-0 flex-1 flex-col overflow-hidden bg-canvas">
+			<header className="flex h-14 shrink-0 items-center justify-between border-b border-hairline px-xl">
+				<p className="truncate text-body-sm font-medium text-charcoal">
+					{t("workspace.breadcrumb")}
+				</p>
+				<div className="flex items-center gap-sm text-caption-sm text-body">
+					<CodeTrunk aria-hidden="true" className="size-4" />
+					<span>{t("workspace.workspacePath")}</span>
+				</div>
+			</header>
+
+			<section className="flex min-h-0 flex-1 flex-col overflow-y-auto px-xl pb-48 pt-xl">
+				<div className="mx-auto flex w-full max-w-[780px] flex-1 flex-col justify-center">
+					{submittedTask ? (
+						<div className="space-y-lg">
+							<div className="ml-auto max-w-[72%] rounded-lg bg-surface-dark px-lg py-md text-body-sm text-on-dark">
+								{submittedTask}
+							</div>
+							<div className="flex items-center gap-sm text-body-sm text-body">
+								<CircleCheckFill
+									aria-hidden="true"
+									className="size-4 text-ink"
+								/>
+								{t("workspace.dispatched", { count: selectedAgents.length })}
+							</div>
+						</div>
+					) : (
+						<div className="pb-24 text-center">
+							<span className="mx-auto mb-lg grid size-10 place-items-center rounded-md border border-hairline bg-surface-soft">
+								<Sparkles aria-hidden="true" className="size-5" />
+							</span>
+							<h1 className="text-heading-lg font-semibold tracking-[-0.02em]">
+								{t("workspace.startTitle")}
+							</h1>
+							<p className="mx-auto mt-sm max-w-lg text-body-sm text-body">
+								{t("workspace.startDescription")}
+							</p>
+						</div>
+					)}
+				</div>
+			</section>
+
+			<div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-canvas via-canvas to-transparent px-xl pb-xl pt-16">
+				<div className="pointer-events-auto relative mx-auto max-w-[720px]">
+					{isSlashAutocompleteOpen ? (
+						<div className="absolute inset-x-0 bottom-[calc(100%+8px)] overflow-hidden rounded-lg border border-hairline bg-surface-card shadow-[0_18px_50px_rgba(0,0,0,0.12)]">
+							<div className="flex items-center justify-between border-b border-hairline px-lg py-sm">
+								<p className="text-caption-sm font-medium text-charcoal">
+									{t("workspace.runningAgents")}
+								</p>
+								<span className="text-caption-sm text-mute">/agent</span>
+							</div>
+							<div
+								aria-label={t("workspace.runningAgents")}
+								className="p-sm"
+								role="listbox"
+							>
+								{RUNNING_AGENTS.map((agent) => {
+									const isSelected = selectedAgents.includes(agent.kind);
+									return (
+										<button
+											aria-selected={isSelected}
+											className="flex w-full items-center gap-md rounded-md px-md py-sm text-left outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
+											key={agent.kind}
+											onClick={() => {
+												setSelectedAgents((current) =>
+													current.includes(agent.kind)
+														? current.filter((kind) => kind !== agent.kind)
+														: [...current, agent.kind],
+												);
+												setPrompt((current) => current.replace(/\/$/, ""));
+												setIsAgentMenuOpen(false);
+											}}
+											role="option"
+											type="button"
+										>
+											<span className="grid size-8 place-items-center rounded-md border border-hairline bg-canvas">
+												<AgentLogo agent={agent.kind} className="size-4" />
+											</span>
+											<span className="min-w-0 flex-1">
+												<span className="block text-body-sm font-medium">
+													{t(`agentNames.${agent.kind}`)}
+												</span>
+												<span className="block text-caption-sm text-body">
+													{t("workspace.modelMode", agent)}
+												</span>
+											</span>
+											<span className="flex items-center gap-xs text-caption-sm text-body">
+												<span className="size-1.5 rounded-full bg-terminal-green" />
+												{t("workspace.started")}
+											</span>
+											{isSelected ? (
+												<CircleCheckFill
+													aria-hidden="true"
+													className="size-4"
+												/>
+											) : null}
+										</button>
+									);
+								})}
+							</div>
+						</div>
+					) : null}
+
+					<div className="rounded-lg border border-hairline-strong bg-surface-card shadow-[0_12px_36px_rgba(0,0,0,0.08)] focus-within:border-charcoal">
+						<label className="sr-only" htmlFor="workspace-composer">
+							{t("workspace.taskLabel")}
+						</label>
+						<textarea
+							aria-label={t("workspace.taskLabel")}
+							className="block min-h-24 w-full resize-none bg-transparent px-lg pb-sm pt-lg text-body-sm text-ink outline-none placeholder:text-mute"
+							id="workspace-composer"
+							onChange={(event) => setPrompt(event.target.value)}
+							onKeyDown={(event) => {
+								if (event.key === "Enter" && !event.shiftKey) {
+									event.preventDefault();
+									submitTask();
+								}
+							}}
+							placeholder={t("workspace.composerPlaceholder")}
+							value={prompt}
+						/>
+						<div className="flex items-center justify-between gap-md border-t border-hairline px-sm py-sm">
+							<div className="flex min-w-0 items-center gap-xs">
+								<button
+									aria-label={t("workspace.attachFiles")}
+									className="grid size-8 place-items-center rounded-md text-body hover:bg-surface-soft hover:text-ink"
+									type="button"
+								>
+									<Paperclip aria-hidden="true" className="size-4" />
+								</button>
+								<button
+									aria-expanded={isAgentMenuOpen}
+									aria-label={t("workspace.selectedAgentCount", {
+										count: selectedAgents.length,
+									})}
+									className="flex h-8 items-center gap-sm rounded-md px-sm text-caption-sm text-charcoal hover:bg-surface-soft"
+									onClick={() => setIsAgentMenuOpen((open) => !open)}
+									type="button"
+								>
+									<div className="flex -space-x-1.5">
+										{selectedAgents.slice(0, 3).map((agent) => (
+											<span
+												className="grid size-5 place-items-center rounded-full border border-canvas bg-surface-soft"
+												key={agent}
+											>
+												<AgentLogo agent={agent} className="size-3" />
+											</span>
+										))}
+									</div>
+									<span>{selectedAgents.length}</span>
+									<ChevronDown aria-hidden="true" className="size-3" />
+								</button>
+
+								<div className="relative">
+									<button
+										aria-expanded={isModeMenuOpen}
+										aria-label={t(
+											mode === "explore"
+												? "workspace.exploreMode"
+												: "workspace.benchmarkMode",
+										)}
+										className="flex h-8 items-center gap-xs rounded-md px-sm text-caption-sm text-charcoal hover:bg-surface-soft"
+										onClick={() => setIsModeMenuOpen((open) => !open)}
+										type="button"
+									>
+										<Sliders aria-hidden="true" className="size-3.5" />
+										<span>
+											{t(
+												mode === "explore"
+													? "workspace.exploreMode"
+													: "workspace.benchmarkMode",
+											)}
+										</span>
+									</button>
+									{isModeMenuOpen ? (
+										<div
+											aria-label={t("workspace.modeSelection")}
+											className="absolute bottom-[calc(100%+8px)] left-0 w-72 rounded-lg border border-hairline bg-canvas p-sm shadow-[0_16px_40px_rgba(0,0,0,0.12)]"
+											role="listbox"
+										>
+											{(["explore", "benchmark"] as const).map((item) => (
+												<button
+													aria-label={t(
+														item === "explore"
+															? "workspace.exploreMode"
+															: "workspace.benchmarkMode",
+													)}
+													aria-selected={mode === item}
+													className="block w-full rounded-md px-md py-sm text-left hover:bg-surface-soft"
+													key={item}
+													onClick={() => {
+														setMode(item);
+														setIsModeMenuOpen(false);
+													}}
+													role="option"
+													type="button"
+												>
+													<span className="block text-body-sm font-medium">
+														{t(
+															item === "explore"
+																? "workspace.exploreMode"
+																: "workspace.benchmarkMode",
+														)}
+													</span>
+													<span className="mt-xs block text-caption-sm text-body">
+														{t(
+															item === "explore"
+																? "workspace.exploreDescription"
+																: "workspace.benchmarkDescription",
+														)}
+													</span>
+												</button>
+											))}
+										</div>
+									) : null}
+								</div>
+
+								<div className="relative">
+									<button
+										aria-expanded={isSkillMenuOpen}
+										aria-label={t("workspace.mountedSkillCount", {
+											count: selectedSkills.length,
+										})}
+										className="flex h-8 items-center gap-xs rounded-md px-sm text-caption-sm text-charcoal hover:bg-surface-soft"
+										onClick={() => setIsSkillMenuOpen((open) => !open)}
+										type="button"
+									>
+										<Puzzle aria-hidden="true" className="size-3.5" />
+										<span>{selectedSkills.length}</span>
+									</button>
+									{isSkillMenuOpen ? (
+										<div
+											aria-label={t("workspace.skillSelection")}
+											className="absolute bottom-[calc(100%+8px)] left-0 w-56 rounded-lg border border-hairline bg-canvas p-sm shadow-[0_16px_40px_rgba(0,0,0,0.12)]"
+											role="listbox"
+										>
+											{MOUNTED_SKILLS.map((skill) => (
+												<button
+													aria-selected={selectedSkills.includes(skill)}
+													className="flex w-full items-center justify-between rounded-md px-md py-sm text-body-sm hover:bg-surface-soft"
+													key={skill}
+													onClick={() =>
+														setSelectedSkills((current) =>
+															current.includes(skill)
+																? current.filter((item) => item !== skill)
+																: [...current, skill],
+														)
+													}
+													role="option"
+													type="button"
+												>
+													<span>{skill}</span>
+													{selectedSkills.includes(skill) ? (
+														<CircleCheckFill
+															aria-hidden="true"
+															className="size-4"
+														/>
+													) : null}
+												</button>
+											))}
+										</div>
+									) : null}
+								</div>
+							</div>
+							<div className="flex shrink-0 items-center gap-md">
+								<span className="hidden items-center gap-xs text-caption-sm text-body min-[1040px]:flex">
+									<ShieldCheck aria-hidden="true" className="size-3.5" />
+									{t("workspace.permission")}
+								</span>
+								<button
+									aria-label={t("workspace.sendTask")}
+									className="grid size-8 place-items-center rounded-md bg-primary text-on-primary outline-none transition-transform enabled:active:scale-95 disabled:cursor-not-allowed disabled:bg-hairline-strong"
+									disabled={!prompt.trim() || selectedAgents.length === 0}
+									onClick={submitTask}
+									type="button"
+								>
+									<ArrowUp aria-hidden="true" className="size-4" />
+								</button>
+							</div>
+						</div>
+					</div>
+					<div className="mt-sm flex items-center justify-between px-sm text-[11px] text-mute">
+						<span>
+							{mode === "benchmark"
+								? t("workspace.benchmarkNotice")
+								: t("workspace.composerHint")}
+						</span>
+						<span>{t("workspace.workspacePath")}</span>
+					</div>
+				</div>
+			</div>
+
+			<button
+				aria-expanded={isEnvironmentOpen}
+				aria-label={t("workspace.viewEnvironment")}
+				className="absolute bottom-[24px] right-[20px] z-30 flex size-11 items-center justify-center rounded-full border border-hairline-strong bg-canvas shadow-[0_8px_24px_rgba(0,0,0,0.12)] outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
+				onClick={() => setIsEnvironmentOpen((open) => !open)}
+				type="button"
+			>
+				<span className="relative">
+					<Sliders aria-hidden="true" className="size-4" />
+					<span className="absolute -right-1 -top-1 size-2 rounded-full border border-canvas bg-terminal-green" />
+				</span>
+			</button>
+
+			{isEnvironmentOpen ? (
+				<section
+					aria-label={t("workspace.environment")}
+					aria-modal="false"
+					className="absolute bottom-[80px] right-[20px] z-40 flex h-80 w-[360px] flex-col overflow-hidden rounded-lg border border-hairline bg-canvas shadow-[0_24px_70px_rgba(0,0,0,0.16)]"
+					role="dialog"
+				>
+					<header className="flex items-start justify-between border-b border-hairline px-lg py-md">
+						<div>
+							<h2 className="text-body-sm font-semibold">
+								{t("workspace.environment")}
+							</h2>
+							<p className="mt-xs text-caption-sm text-body">
+								{t("workspace.startedAgentCount", {
+									count: RUNNING_AGENTS.length,
+								})}
+							</p>
+						</div>
+						<button
+							aria-label={t("workspace.closeEnvironment")}
+							className="grid size-7 place-items-center rounded-md text-body hover:bg-surface-soft"
+							onClick={() => setIsEnvironmentOpen(false)}
+							type="button"
+						>
+							<Xmark aria-hidden="true" className="size-4" />
+						</button>
+					</header>
+					<div className="min-h-0 flex-1 overflow-y-auto p-sm">
+						{RUNNING_AGENTS.map((agent) => (
+							<div
+								className="flex items-center gap-md rounded-md px-md py-md hover:bg-surface-soft"
+								key={agent.kind}
+							>
+								<span className="grid size-9 place-items-center rounded-md border border-hairline">
+									<AgentLogo agent={agent.kind} className="size-5" />
+								</span>
+								<div className="min-w-0 flex-1">
+									<p className="text-body-sm font-medium">
+										{t(`agentNames.${agent.kind}`)}
+									</p>
+									<p className="mt-xs truncate text-caption-sm text-body">
+										{t("workspace.modelMode", agent)}
+									</p>
+								</div>
+								<div className="text-right">
+									<p className="flex items-center justify-end gap-xs text-caption-sm">
+										<span className="size-1.5 rounded-full bg-terminal-green" />
+										{t("workspace.started")}
+									</p>
+									<p className="mt-xs text-[11px] text-mute">
+										{t("workspace.installed")}
+									</p>
+								</div>
+							</div>
+						))}
+					</div>
+					<footer className="flex items-center gap-sm border-t border-hairline bg-surface-soft px-lg py-sm text-caption-sm text-body">
+						<CircleInfo aria-hidden="true" className="size-4" />
+						<span>{t("workspace.environmentDescription")}</span>
+					</footer>
+				</section>
+			) : null}
+
+			{mode === "benchmark" ? (
+				<div
+					className={cn(
+						"absolute right-[24px] top-[80px] z-10 max-w-sm rounded-md border border-hairline bg-surface-soft px-md py-sm text-caption-sm text-charcoal",
+					)}
+				>
+					<p className="font-medium">{t("workspace.benchmarkNotice")}</p>
+					<p className="mt-xs text-body">
+						{t("workspace.benchmarkNoticeDetail")}
+					</p>
+				</div>
+			) : null}
+		</main>
+	);
+};
+
+export default WorkspacePage;
