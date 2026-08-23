@@ -14,6 +14,7 @@ const apiMocks = vi.hoisted(() => ({
 	checkWorkBuddyLogin: vi.fn(),
 	onClaudeConfigChanged: vi.fn(),
 	onCodexConfigChanged: vi.fn(),
+	onOpenCodeConfigChanged: vi.fn(),
 	onWorkBuddyConfigChanged: vi.fn(),
 	onAgentProcessStatesChanged: vi.fn(),
 	runClaudeTask: vi.fn(),
@@ -42,6 +43,7 @@ vi.mock("@/api/codex", () => ({
 
 vi.mock("@/api/opencode", () => ({
 	checkOpenCodeLogin: apiMocks.checkOpenCodeLogin,
+	onOpenCodeConfigChanged: apiMocks.onOpenCodeConfigChanged,
 	runOpenCodeTask: apiMocks.runOpenCodeTask,
 }));
 
@@ -183,6 +185,7 @@ describe("ComparisonPage native status updates", () => {
 		apiMocks.checkWorkBuddyLogin.mockResolvedValue(RUNTIME_STATUS);
 		apiMocks.onClaudeConfigChanged.mockResolvedValue(vi.fn());
 		apiMocks.onCodexConfigChanged.mockResolvedValue(vi.fn());
+		apiMocks.onOpenCodeConfigChanged.mockResolvedValue(vi.fn());
 		apiMocks.onWorkBuddyConfigChanged.mockImplementation((listener) => {
 			workBuddyConfigListener = listener;
 			return Promise.resolve(stopWorkBuddyConfigListener);
@@ -215,6 +218,29 @@ describe("ComparisonPage native status updates", () => {
 		});
 
 		expect(apiMocks.checkAgentProcesses).toHaveBeenCalledTimes(1);
+	});
+
+	it("refreshes OpenCode status after a native config change", async () => {
+		let configListener: (() => void) | undefined;
+		apiMocks.onOpenCodeConfigChanged.mockImplementation((listener) => {
+			configListener = listener;
+			return Promise.resolve(vi.fn());
+		});
+		render(<ComparisonPage />);
+
+		await act(async () => {
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		expect(apiMocks.checkOpenCodeLogin).toHaveBeenCalledTimes(1);
+
+		act(() => configListener?.());
+		await act(async () => {
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		expect(apiMocks.checkOpenCodeLogin).toHaveBeenCalledTimes(2);
 	});
 
 	it("applies native process state changes to the Agent card", async () => {

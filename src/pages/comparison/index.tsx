@@ -15,7 +15,11 @@ import {
 	runCodexTask,
 } from "@/api/codex";
 import { saveComparisonHistory } from "@/api/comparison";
-import { checkOpenCodeLogin, runOpenCodeTask } from "@/api/opencode";
+import {
+	checkOpenCodeLogin,
+	onOpenCodeConfigChanged,
+	runOpenCodeTask,
+} from "@/api/opencode";
 import {
 	checkWorkBuddyConfig,
 	checkWorkBuddyLogin,
@@ -264,6 +268,9 @@ const ComparisonPage = () => {
 			}),
 			onClaudeConfigChanged(() => {
 				refreshLoginStateAfterChange("claude");
+			}),
+			onOpenCodeConfigChanged(() => {
+				refreshLoginStateAfterChange("opencode");
 			}),
 		]);
 

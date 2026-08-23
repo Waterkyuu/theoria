@@ -37,6 +37,7 @@ mod error;
 mod platform {
     pub(crate) mod claude_config;
     pub(crate) mod codex_config;
+    pub(crate) mod opencode_config;
     pub(crate) mod process;
     pub(crate) mod workbuddy_config;
 }
@@ -74,6 +75,9 @@ use crate::platform::claude_config::{
 use crate::platform::codex_config::{
     codex_config_paths, CodexConfigWatchEvent, CodexConfigWatcher,
 };
+use crate::platform::opencode_config::{
+    opencode_config_paths, OpenCodeConfigWatchEvent, OpenCodeConfigWatcher,
+};
 use crate::platform::workbuddy_config::WorkBuddyConfigWatcherState;
 use crate::repositories::comparison::ComparisonRepository;
 use crate::services::activity::SystemAgentActivityMonitor;
@@ -88,6 +92,7 @@ const AGENT_ACTIVITIES_CHANGED_EVENT: &str = "agent-activities-changed";
 const AGENT_PROCESS_REFRESH_INTERVAL: Duration = Duration::from_secs(1);
 const CODEX_CONFIG_CHANGED_EVENT: &str = "codex-config-changed";
 const CLAUDE_CONFIG_CHANGED_EVENT: &str = "claude-config-changed";
+const OPENCODE_CONFIG_CHANGED_EVENT: &str = "opencode-config-changed";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -204,6 +209,18 @@ pub fn run() {
                     claude_runtime_settings_cache.enable();
                     app.manage(watcher);
                 }
+            }
+
+            let callback_window = main_window.clone();
+            let watcher = OpenCodeConfigWatcher::start(opencode_config_paths(), move |event| {
+                if event == OpenCodeConfigWatchEvent::Changed {
+                    let _event_delivered = callback_window
+                        .emit(OPENCODE_CONFIG_CHANGED_EVENT, ())
+                        .is_ok();
+                }
+            });
+            if let Ok(Some(watcher)) = watcher {
+                app.manage(watcher);
             }
 
             Ok(())
