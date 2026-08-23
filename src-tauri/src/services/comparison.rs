@@ -138,6 +138,7 @@ fn map_result(result: ComparisonResultRequest) -> Result<NewComparisonResult, Ap
                 total_duration_ms: to_i64(result.total_duration_ms)?,
                 time_to_first_token_ms: result.time_to_first_token_ms.map(to_i64).transpose()?,
                 thinking_duration_ms: to_i64(result.thinking_duration_ms)?,
+                compaction_count: result.compaction_count.map(to_i64).transpose()?,
                 token_usage: result.token_usage.map(map_token_usage).transpose()?,
                 tool_calls,
             }

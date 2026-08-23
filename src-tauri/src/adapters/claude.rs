@@ -470,6 +470,7 @@ fn collect_claude_events(
     started_at: Instant,
 ) -> Result<AgentRunOutput, AppError> {
     let mut collector = AgentRunMetricsCollector::default();
+    collector.track_context_compactions();
     let mut response = String::new();
 
     loop {
@@ -479,6 +480,13 @@ fn collect_claude_events(
         let line = receive_line(event_receiver, remaining)?;
         let message: StreamMessage =
             serde_json::from_str(&line).map_err(|_| AppError::ClaudeProtocolFailed)?;
+
+        if message.message_type == "system"
+            && message.subtype.as_deref() == Some("compact_boundary")
+        {
+            collector.record_context_compaction();
+            continue;
+        }
 
         if message.message_type == "assistant" {
             // Full assistant messages contain stable tool ids; partial stream events do not span
@@ -742,10 +750,20 @@ mod tests {
 
     #[test]
     fn collects_streamed_claude_text_and_final_usage() {
-        let (sender, receiver) = mpsc::sync_channel(3);
+        let (sender, receiver) = mpsc::sync_channel(5);
         sender
             .send(Ok(
                 r#"{"type":"system","subtype":"init","model":"claude-sonnet-4-5"}"#.to_string(),
+            ))
+            .expect("fixture should be queued");
+        sender
+            .send(Ok(
+                r#"{"type":"system","subtype":"compact_boundary"}"#.to_string()
+            ))
+            .expect("fixture should be queued");
+        sender
+            .send(Ok(
+                r#"{"type":"system","subtype":"compact_boundary"}"#.to_string()
             ))
             .expect("fixture should be queued");
         sender
@@ -764,6 +782,7 @@ mod tests {
             output.metrics.token_usage.map(|usage| usage.total_tokens),
             Some(22)
         );
+        assert_eq!(output.metrics.compaction_count, Some(2));
     }
 
     #[test]

@@ -444,6 +444,7 @@ fn collect_workbuddy_events(
     started_at: Instant,
 ) -> Result<AgentRunOutput, AppError> {
     let mut collector = AgentRunMetricsCollector::default();
+    collector.track_context_compactions();
     let mut response = String::new();
 
     loop {
@@ -453,6 +454,13 @@ fn collect_workbuddy_events(
         let line = receive_line(event_receiver, remaining)?;
         let message: StreamMessage =
             serde_json::from_str(&line).map_err(|_| AppError::WorkBuddyProtocolFailed)?;
+
+        if message.message_type == "system"
+            && message.subtype.as_deref() == Some("compact_boundary")
+        {
+            collector.record_context_compaction();
+            continue;
+        }
 
         if message.message_type == "assistant" {
             // WorkBuddy mirrors the stream-json tool lifecycle but keeps its own collector state.
@@ -810,7 +818,12 @@ mod tests {
 
     #[test]
     fn collects_first_text_delta_and_completed_metrics() {
-        let (sender, receiver) = mpsc::sync_channel(4);
+        let (sender, receiver) = mpsc::sync_channel(5);
+        sender
+            .send(Ok(
+                r#"{"type":"system","subtype":"compact_boundary"}"#.to_string()
+            ))
+            .expect("fixture should be queued");
         sender
             .send(Ok(r#"{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"thinking_delta","thinking":"hidden"}}}"#.to_string()))
             .expect("fixture should be queued");
@@ -833,6 +846,7 @@ mod tests {
             output.metrics.token_usage.map(|usage| usage.total_tokens),
             Some(12)
         );
+        assert_eq!(output.metrics.compaction_count, Some(1));
     }
 
     #[test]

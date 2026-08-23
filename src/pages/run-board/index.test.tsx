@@ -1,20 +1,145 @@
 import "@testing-library/jest-dom/vitest";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import "@/i18n";
 import RunBoardPage from ".";
 
+const apiMocks = vi.hoisted(() => ({
+	checkAgentActivities: vi.fn(),
+	onAgentActivitiesChanged: vi.fn(),
+}));
+
+vi.mock("@/api/agent", () => apiMocks);
+
+const INITIAL_ACTIVITIES = {
+	activities: [
+		{
+			id: "codex-running",
+			title: "优化看板标题显示",
+			agent: "codex",
+			status: "running",
+			updatedAtMs: Date.parse("2026-08-17T01:30:00Z"),
+		},
+		{
+			id: "claude-waiting",
+			title: null,
+			agent: "claude",
+			status: "waiting",
+			updatedAtMs: Date.parse("2026-08-17T01:20:00Z"),
+		},
+		{
+			id: "workbuddy-finish",
+			title: null,
+			agent: "workbuddy",
+			status: "finish",
+			updatedAtMs: Date.parse("2026-08-17T01:10:00Z"),
+		},
+		{
+			id: "codex-error",
+			title: null,
+			agent: "codex",
+			status: "error",
+			updatedAtMs: Date.parse("2026-08-17T01:00:00Z"),
+		},
+	],
+};
+
 // Covers the user-visible run board workflow.
 describe("RunBoardPage", () => {
+	beforeEach(() => {
+		apiMocks.checkAgentActivities.mockResolvedValue(INITIAL_ACTIVITIES);
+		apiMocks.onAgentActivitiesChanged.mockResolvedValue(vi.fn());
+	});
+
 	afterEach(() => {
 		vi.useRealTimers();
+		vi.clearAllMocks();
+	});
+
+	// Verifies that only backend Agent activities are rendered instead of bundled demo records.
+	it("renders the real activity snapshot and applies changed events", async () => {
+		let activityListener:
+			| ((response: typeof INITIAL_ACTIVITIES) => void)
+			| undefined;
+		apiMocks.onAgentActivitiesChanged.mockImplementation((listener) => {
+			activityListener = listener;
+			return Promise.resolve(vi.fn());
+		});
+		render(<RunBoardPage />);
+
+		expect(await screen.findAllByRole("article")).toHaveLength(4);
+		expect(screen.queryByText("仓库架构审计")).not.toBeInTheDocument();
+		expect(apiMocks.checkAgentActivities).toHaveBeenCalledOnce();
+
+		act(() => {
+			activityListener?.({
+				activities: [
+					{
+						id: "claude-completed",
+						title: null,
+						agent: "claude",
+						status: "finish",
+						updatedAtMs: Date.parse("2026-08-17T01:40:00Z"),
+					},
+				],
+			});
+		});
+
+		expect(screen.getAllByRole("article")).toHaveLength(1);
+		expect(screen.getByText("Claude Code")).toBeInTheDocument();
+	});
+
+	// Verifies that a resolved conversation title replaces the opaque activity identifier.
+	it("uses the conversation title when the backend provides one", async () => {
+		render(<RunBoardPage />);
+
+		const card = (await screen.findAllByRole("article"))[0];
+
+		expect(
+			within(card).getByRole("heading", { name: "优化看板标题显示" }),
+		).toBeInTheDocument();
+		expect(within(card).queryByText("codex-running")).not.toBeInTheDocument();
+	});
+
+	// Opaque identifiers are implementation details and must never become card titles.
+	it("uses an untitled label instead of exposing an activity identifier", async () => {
+		apiMocks.checkAgentActivities.mockResolvedValueOnce({
+			activities: [
+				{
+					id: "claude-private-session",
+					title: null,
+					agent: "claude",
+					status: "running",
+					updatedAtMs: Date.parse("2026-08-17T01:30:00Z"),
+				},
+			],
+		});
+		render(<RunBoardPage />);
+
+		const card = await screen.findByRole("article");
+
+		expect(within(card).getByText("未命名任务")).toBeInTheDocument();
+		expect(
+			within(card).queryByText("claude-private-session"),
+		).not.toBeInTheDocument();
+	});
+
+	// The board column already names the lifecycle, so cards keep only its useful description.
+	it("does not repeat the status name inside each card", async () => {
+		render(<RunBoardPage />);
+
+		const card = (await screen.findAllByRole("article"))[0];
+
+		expect(within(card).queryByText("运行中")).not.toBeInTheDocument();
+		expect(within(card).getByText("正在执行")).toBeInTheDocument();
 	});
 
 	// Verifies that rapid input only applies the latest agent product name after the delay.
-	it("debounces agent product filtering", () => {
+	it("debounces agent product filtering", async () => {
 		vi.useFakeTimers();
 		render(<RunBoardPage />);
+		await act(async () => Promise.resolve());
 
 		const searchInput = screen.getByRole("searchbox", {
 			name: "搜索 Agent 产品",
@@ -24,7 +149,7 @@ describe("RunBoardPage", () => {
 		fireEvent.change(searchInput, { target: { value: "  CODEX  " } });
 		act(() => vi.advanceTimersByTime(299));
 
-		expect(screen.getAllByRole("article")).toHaveLength(6);
+		expect(screen.getAllByRole("article")).toHaveLength(4);
 
 		act(() => vi.advanceTimersByTime(1));
 
@@ -63,6 +188,41 @@ describe("RunBoardPage", () => {
 		expect(board).toHaveAttribute("data-layout", "horizontal");
 	});
 
+	// Verifies that a vertical status column scrolls instead of growing with every task.
+	it("bounds vertical status columns with internal scrolling", () => {
+		render(<RunBoardPage />);
+
+		const runningList = screen.getByTestId("run-board-list-running");
+
+		expect(runningList).toHaveClass(
+			"max-h-[60vh]",
+			"overflow-y-auto",
+			"overscroll-contain",
+		);
+	});
+
+	// Verifies that horizontal rows keep one line and scroll sideways for extra cards.
+	it("scrolls horizontal status rows sideways", async () => {
+		const user = userEvent.setup();
+		render(<RunBoardPage />);
+
+		await user.click(
+			screen.getByRole("button", {
+				name: "水平面板",
+			}),
+		);
+		const runningList = screen.getByTestId("run-board-list-running");
+
+		expect(runningList).toHaveClass(
+			"lg:flex-nowrap",
+			"lg:overflow-x-auto",
+			"lg:overflow-y-hidden",
+		);
+		expect((await screen.findAllByRole("article"))[0]).toHaveClass(
+			"lg:shrink-0",
+		);
+	});
+
 	// Verifies that both icon-only board layout controls expose their meaning.
 	it("describes both layout controls on hover", async () => {
 		const user = userEvent.setup();
@@ -93,10 +253,10 @@ describe("RunBoardPage", () => {
 	});
 
 	// Verifies that run cards keep a stable footprint and clamp overflowing copy.
-	it("keeps run cards at fixed dimensions with clamped text", () => {
+	it("keeps run cards at fixed dimensions with clamped text", async () => {
 		render(<RunBoardPage />);
 
-		const card = screen.getAllByRole("article")[0];
+		const card = (await screen.findAllByRole("article"))[0];
 
 		expect(card).toHaveClass(
 			"h-48",

@@ -34,6 +34,8 @@ pub(crate) struct AgentRunMetrics {
     pub(crate) token_usage: Option<TokenUsage>,
     /// Sum of explicit reasoning or thinking content-block intervals.
     pub(crate) thinking_duration: Duration,
+    /// Number of context compaction events observed during this task.
+    pub(crate) compaction_count: Option<u64>,
     /// Tool invocations retained in source start order.
     pub(crate) tool_calls: Vec<ToolCallMetric>,
 }
@@ -54,6 +56,8 @@ pub(crate) struct AgentRunMetricsCollector {
     token_usage: Option<TokenUsage>,
     /// Sum of all completed explicit thinking intervals.
     thinking_duration: Duration,
+    /// Context compactions reported by the source Agent protocol.
+    compaction_count: Option<u64>,
     /// Thinking block identifiers paired with their task-relative start times.
     active_thinking_intervals: Vec<(String, Duration)>,
     /// Tool calls retained in source start order while metrics are collected.
@@ -83,6 +87,16 @@ impl AgentRunMetricsCollector {
     /// Replaces the usage snapshot because app-server reports the latest turn totals cumulatively.
     pub(crate) fn record_token_usage(&mut self, usage: TokenUsage) {
         self.token_usage = Some(usage);
+    }
+
+    /// Marks compaction events as observable even when the run finishes with zero events.
+    pub(crate) fn track_context_compactions(&mut self) {
+        self.compaction_count = Some(0);
+    }
+
+    /// Counts a protocol-reported context compaction without inferring token savings.
+    pub(crate) fn record_context_compaction(&mut self) {
+        self.compaction_count = Some(self.compaction_count.unwrap_or_default().saturating_add(1));
     }
 
     /// Starts one named thinking interval unless the source identifier is already active.
@@ -159,6 +173,7 @@ impl AgentRunMetricsCollector {
             time_to_first_token: self.time_to_first_token,
             token_usage: self.token_usage,
             thinking_duration: self.thinking_duration,
+            compaction_count: self.compaction_count,
             tool_calls,
         }
     }
@@ -199,6 +214,28 @@ mod tests {
 
         assert_eq!(metrics.total_duration, Duration::from_millis(450));
         assert_eq!(metrics.token_usage, Some(usage));
+    }
+
+    #[test]
+    fn counts_every_context_compaction_observed_during_the_run() {
+        let mut collector = AgentRunMetricsCollector::default();
+
+        collector.track_context_compactions();
+        collector.record_context_compaction();
+        collector.record_context_compaction();
+        let metrics = collector.finish(Duration::from_millis(450));
+
+        assert_eq!(metrics.compaction_count, Some(2));
+    }
+
+    #[test]
+    fn reports_zero_when_compaction_tracking_is_supported_but_no_event_occurs() {
+        let mut collector = AgentRunMetricsCollector::default();
+
+        collector.track_context_compactions();
+        let metrics = collector.finish(Duration::from_millis(450));
+
+        assert_eq!(metrics.compaction_count, Some(0));
     }
 
     #[test]

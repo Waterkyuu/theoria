@@ -8,8 +8,152 @@ pub(crate) struct Migrator;
 #[sea_orm_migration::async_trait::async_trait]
 impl MigratorTrait for Migrator {
     fn migrations() -> Vec<Box<dyn MigrationTrait>> {
-        vec![Box::new(CreateComparisonHistory)]
+        vec![
+            Box::new(CreateComparisonHistory),
+            Box::new(AddOpenCodeComparisonAgent),
+            Box::new(AddComparisonCompactionCount),
+        ]
     }
+}
+
+/// Adds a nullable counter so older results remain distinguishable from observed zeroes.
+struct AddComparisonCompactionCount;
+
+impl MigrationName for AddComparisonCompactionCount {
+    fn name(&self) -> &str {
+        "m20260823_000003_add_comparison_compaction_count"
+    }
+}
+
+#[sea_orm_migration::async_trait::async_trait]
+impl MigrationTrait for AddComparisonCompactionCount {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(
+                "ALTER TABLE comparison_results ADD COLUMN compaction_count INTEGER CHECK (compaction_count IS NULL OR compaction_count >= 0)",
+            )
+            .await?;
+        Ok(())
+    }
+
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared("ALTER TABLE comparison_results DROP COLUMN compaction_count")
+            .await?;
+        Ok(())
+    }
+}
+
+/// Expands the immutable Agent identifier constraint without changing existing result rows.
+struct AddOpenCodeComparisonAgent;
+
+impl MigrationName for AddOpenCodeComparisonAgent {
+    fn name(&self) -> &str {
+        "m20260823_000002_add_opencode_comparison_agent"
+    }
+}
+
+#[sea_orm_migration::async_trait::async_trait]
+impl MigrationTrait for AddOpenCodeComparisonAgent {
+    fn use_transaction(&self) -> Option<bool> {
+        // SQLite cannot toggle foreign-key enforcement inside a transaction while rebuilding a
+        // referenced table, so the migration uses one ordered connection batch instead.
+        Some(false)
+    }
+
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        rebuild_comparison_results(manager, "'codex', 'claude', 'opencode', 'workbuddy'", "").await
+    }
+
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(
+                "DELETE FROM comparison_tool_calls WHERE comparison_result_id IN (SELECT id FROM comparison_results WHERE agent_kind = 'opencode')",
+            )
+            .await?;
+        rebuild_comparison_results(
+            manager,
+            "'codex', 'claude', 'workbuddy'",
+            "WHERE agent_kind <> 'opencode'",
+        )
+        .await
+    }
+}
+
+/// Rebuilds the SQLite table because CHECK constraints cannot be altered in place.
+async fn rebuild_comparison_results(
+    manager: &SchemaManager<'_>,
+    agent_values: &str,
+    copy_filter: &str,
+) -> Result<(), DbErr> {
+    manager
+        .get_connection()
+        .execute_unprepared(&format!(
+            r#"
+            PRAGMA foreign_keys = OFF;
+            CREATE TABLE comparison_results_new (
+                id INTEGER PRIMARY KEY,
+                comparison_run_id INTEGER NOT NULL,
+                agent_kind TEXT NOT NULL,
+                model TEXT,
+                reasoning_effort TEXT,
+                status TEXT NOT NULL,
+                response TEXT,
+                error_message TEXT,
+                total_duration_ms INTEGER,
+                time_to_first_token_ms INTEGER,
+                thinking_duration_ms INTEGER,
+                total_tokens INTEGER,
+                input_tokens INTEGER,
+                cached_input_tokens INTEGER,
+                cache_write_input_tokens INTEGER,
+                output_tokens INTEGER,
+                reasoning_output_tokens INTEGER,
+                FOREIGN KEY (comparison_run_id)
+                    REFERENCES comparison_runs(id) ON DELETE CASCADE,
+                UNIQUE (comparison_run_id, agent_kind),
+                CHECK (agent_kind IN ({agent_values})),
+                CHECK (status IN ('succeeded', 'failed')),
+                CHECK (total_duration_ms IS NULL OR total_duration_ms >= 0),
+                CHECK (time_to_first_token_ms IS NULL OR time_to_first_token_ms >= 0),
+                CHECK (thinking_duration_ms IS NULL OR thinking_duration_ms >= 0),
+                CHECK (total_tokens IS NULL OR total_tokens >= 0),
+                CHECK (input_tokens IS NULL OR input_tokens >= 0),
+                CHECK (cached_input_tokens IS NULL OR cached_input_tokens >= 0),
+                CHECK (cache_write_input_tokens IS NULL OR cache_write_input_tokens >= 0),
+                CHECK (output_tokens IS NULL OR output_tokens >= 0),
+                CHECK (reasoning_output_tokens IS NULL OR reasoning_output_tokens >= 0),
+                CHECK (
+                    (status = 'succeeded'
+                        AND response IS NOT NULL
+                        AND total_duration_ms IS NOT NULL
+                        AND thinking_duration_ms IS NOT NULL)
+                    OR
+                    (status = 'failed' AND error_message IS NOT NULL)
+                )
+            );
+            INSERT INTO comparison_results_new (
+                id, comparison_run_id, agent_kind, model, reasoning_effort, status, response,
+                error_message, total_duration_ms, time_to_first_token_ms, thinking_duration_ms,
+                total_tokens, input_tokens, cached_input_tokens, cache_write_input_tokens,
+                output_tokens, reasoning_output_tokens
+            )
+            SELECT
+                id, comparison_run_id, agent_kind, model, reasoning_effort, status, response,
+                error_message, total_duration_ms, time_to_first_token_ms, thinking_duration_ms,
+                total_tokens, input_tokens, cached_input_tokens, cache_write_input_tokens,
+                output_tokens, reasoning_output_tokens
+            FROM comparison_results {copy_filter};
+            DROP TABLE comparison_results;
+            ALTER TABLE comparison_results_new RENAME TO comparison_results;
+            PRAGMA foreign_keys = ON;
+            "#,
+        ))
+        .await?;
+    Ok(())
 }
 
 /// Creates the immutable comparison history tables and their read-path indexes.
@@ -179,6 +323,34 @@ mod tests {
                     "idx_comparison_runs_history",
                 ]
             );
+
+            database.close().await.expect("database should close");
+            std::fs::remove_file(path).expect("temporary database should be removable");
+        });
+    }
+
+    #[test]
+    fn accepts_opencode_results_after_all_migrations() {
+        tauri::async_runtime::block_on(async {
+            let (path, url) = temporary_database_url();
+            let database = connect_sqlite(&url).await.expect("database should connect");
+            Migrator::up(&database, None)
+                .await
+                .expect("migration should succeed");
+
+            database
+                .execute_unprepared(
+                    r#"
+                    INSERT INTO comparison_runs
+                        (id, query, status, metric_version, created_at_ms)
+                    VALUES (1, 'test', 'completed', 1, 1);
+                    INSERT INTO comparison_results
+                        (comparison_run_id, agent_kind, status, response, total_duration_ms, thinking_duration_ms)
+                    VALUES (1, 'opencode', 'succeeded', 'done', 1, 0);
+                    "#,
+                )
+                .await
+                .expect("OpenCode should satisfy the migrated agent constraint");
 
             database.close().await.expect("database should close");
             std::fs::remove_file(path).expect("temporary database should be removable");

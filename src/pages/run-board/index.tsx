@@ -11,9 +11,10 @@ import { Button, Card, Tooltip } from "@heroui/react";
 import { cn } from "cnfast";
 import { type ComponentType, type SVGProps, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { checkAgentActivities, onAgentActivitiesChanged } from "@/api/agent";
 import { AgentLogo } from "@/components/agent-logo";
 import { SearchBox } from "@/components/ui/search-box";
-import { RUN_BOARD_ITEMS, type RunBoardStatus } from "@/constants/run-board";
+import type { AgentActivity, AgentActivityStatus } from "@/types/agent";
 import { debounce } from "@/utils/common";
 
 type RunBoardLayout = "vertical" | "horizontal";
@@ -25,14 +26,14 @@ type StatusPresentation = {
 	iconClassName: string;
 };
 
-const BOARD_STATUSES: RunBoardStatus[] = [
+const BOARD_STATUSES: AgentActivityStatus[] = [
 	"running",
 	"waiting",
 	"finish",
 	"error",
 ];
 
-const STATUS_PRESENTATIONS: Record<RunBoardStatus, StatusPresentation> = {
+const STATUS_PRESENTATIONS: Record<AgentActivityStatus, StatusPresentation> = {
 	running: {
 		icon: Play,
 		iconClassName: "text-ink",
@@ -51,13 +52,54 @@ const STATUS_PRESENTATIONS: Record<RunBoardStatus, StatusPresentation> = {
 	},
 };
 
-/** Renders the searchable four-state run board with localized mock runs. */
 const RunBoardPage = () => {
-	const { t } = useTranslation();
+	const { i18n, t } = useTranslation();
 	const [layout, setLayout] = useState<RunBoardLayout>("vertical");
 	const [agentInput, setAgentInput] = useState("");
 	const [agentQuery, setAgentQuery] = useState("");
+	const [activities, setActivities] = useState<AgentActivity[]>([]);
 	const agentSearchTerm = agentQuery.trim().toLocaleLowerCase();
+
+	// Loads the cached native snapshot and keeps it current through source-change events.
+	useEffect(() => {
+		let isActive = true;
+		let receivedEvent = false;
+		let stopListening: (() => void) | undefined;
+
+		// Starts the native snapshot and event subscription without allowing stale unmount updates.
+		const startActivityMonitoring = async () => {
+			try {
+				const [response, unlisten] = await Promise.all([
+					checkAgentActivities(),
+					onAgentActivitiesChanged((nextResponse) => {
+						receivedEvent = true;
+						if (isActive) {
+							setActivities(nextResponse.activities);
+						}
+					}),
+				]);
+				if (!isActive) {
+					unlisten();
+					return;
+				}
+				stopListening = unlisten;
+				if (!receivedEvent) {
+					setActivities(response.activities);
+				}
+			} catch {
+				if (isActive) {
+					setActivities([]);
+				}
+			}
+		};
+
+		startActivityMonitoring();
+
+		return () => {
+			isActive = false;
+			stopListening?.();
+		};
+	}, []);
 
 	// Applies only the latest agent input after the user pauses typing.
 	useEffect(() => {
@@ -143,7 +185,7 @@ const RunBoardPage = () => {
 				{BOARD_STATUSES.map((status) => {
 					const presentation = STATUS_PRESENTATIONS[status];
 					const StatusIcon = presentation.icon;
-					const items = RUN_BOARD_ITEMS.filter(
+					const items = activities.filter(
 						(item) =>
 							item.status === status &&
 							t(`agentNames.${item.agent}`)
@@ -193,49 +235,70 @@ const RunBoardPage = () => {
 
 							<div
 								className={cn(
-									"min-h-48 flex-1 space-y-3 bg-surface-soft/50 p-3",
+									"min-h-48 max-h-[60vh] flex-1 space-y-3 overflow-y-auto overscroll-contain bg-surface-soft/50 p-3",
 									layout === "horizontal" &&
-										"lg:flex lg:flex-wrap lg:items-start lg:gap-3 lg:space-y-0",
+										"lg:flex lg:max-h-none lg:flex-nowrap lg:items-start lg:gap-3 lg:space-y-0 lg:overflow-x-auto lg:overflow-y-hidden",
 								)}
+								data-testid={`run-board-list-${status}`}
 							>
 								{items.length > 0 ? (
-									items.map((item) => (
-										<Card
-											className={cn(
-												"h-48 w-[18rem] max-w-full overflow-hidden rounded-xl border border-hairline bg-surface-card shadow-none transition-colors hover:border-hairline-strong",
-											)}
-											key={item.id}
-											role="article"
-										>
-											<Card.Content className="p-3">
-												<div className="flex items-center justify-between gap-3 text-caption-sm text-mute">
-													<span className="font-mono">{item.id}</span>
-													<span className="flex min-w-0 max-w-[55%] items-center gap-1.5 truncate">
-														<AgentLogo
-															agent={item.agent}
-															className="size-3.5"
-														/>
-														<span className="truncate">
-															{t(`agentNames.${item.agent}`)}
+									items.map((item) => {
+										const updatedAt = new Date(item.updatedAtMs);
+										const updatedTime = updatedAt.toLocaleTimeString(
+											i18n.language,
+											{
+												hour: "2-digit",
+												minute: "2-digit",
+											},
+										);
+										const updatedDate = updatedAt.toLocaleDateString(
+											i18n.language,
+											{
+												month: "2-digit",
+												day: "2-digit",
+											},
+										);
+
+										return (
+											<Card
+												className={cn(
+													"h-48 w-[18rem] max-w-full overflow-hidden rounded-xl border border-hairline bg-surface-card shadow-none transition-colors hover:border-hairline-strong",
+													layout === "horizontal" && "lg:shrink-0",
+												)}
+												key={item.id}
+												role="article"
+											>
+												<Card.Content className="p-3">
+													{/* The column header already carries lifecycle, so the card avoids repeating it. */}
+													<div className="flex items-center justify-end text-caption-sm text-mute">
+														<span className="flex min-w-0 max-w-[55%] items-center gap-1.5 truncate">
+															<AgentLogo
+																agent={item.agent}
+																className="size-3.5"
+															/>
+															<span className="truncate">
+																{t(`agentNames.${item.agent}`)}
+															</span>
 														</span>
-													</span>
-												</div>
-												<h3 className="mt-3 line-clamp-2 overflow-hidden text-body-sm-strong font-medium">
-													{t(item.titleKey)}
-												</h3>
-												<p className="mt-1 line-clamp-2 overflow-hidden text-caption-sm leading-body-sm text-body">
-													{t(item.descriptionKey)}
-												</p>
-												<div className="mt-3 flex items-center justify-between border-t border-hairline pt-2 font-mono text-caption-sm text-mute">
-													<span>{item.time}</span>
-													<span className="flex items-center gap-1.5">
-														<Clock aria-hidden="true" className="size-3.5" />
-														{item.duration}
-													</span>
-												</div>
-											</Card.Content>
-										</Card>
-									))
+													</div>
+													{/* Product titles make cards recognizable without exposing opaque identifiers. */}
+													<h3 className="mt-3 line-clamp-2 overflow-hidden text-body-sm-strong font-medium">
+														{item.title ?? t("runBoard.untitledTask")}
+													</h3>
+													<p className="mt-1 line-clamp-2 overflow-hidden text-caption-sm leading-body-sm text-body">
+														{t(`runBoard.statusDescription.${item.status}`)}
+													</p>
+													<div className="mt-3 flex items-center justify-between border-t border-hairline pt-2 font-mono text-caption-sm text-mute">
+														<span>{updatedTime}</span>
+														<span className="flex items-center gap-1.5">
+															<Clock aria-hidden="true" className="size-3.5" />
+															{updatedDate}
+														</span>
+													</div>
+												</Card.Content>
+											</Card>
+										);
+									})
 								) : (
 									<p className="px-4 py-10 text-center text-caption-sm text-body">
 										{agentSearchTerm

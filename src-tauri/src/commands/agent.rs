@@ -12,6 +12,8 @@ pub struct AgentProcessStatesResponse {
     claude: bool,
     /// Indicates whether a Codex process is currently running.
     codex: bool,
+    /// Indicates whether an OpenCode process is currently running.
+    opencode: bool,
     /// Indicates whether a WorkBuddy process is currently running.
     workbuddy: bool,
 }
@@ -21,6 +23,7 @@ impl From<AgentProcessStates> for AgentProcessStatesResponse {
         Self {
             claude: states.claude,
             codex: states.codex,
+            opencode: states.opencode,
             workbuddy: states.workbuddy,
         }
     }

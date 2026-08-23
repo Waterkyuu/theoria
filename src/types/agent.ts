@@ -1,10 +1,32 @@
-type AgentKind = "claude" | "codex" | "workbuddy";
+type AgentKind = "claude" | "codex" | "opencode" | "workbuddy";
+
+type AgentActivityStatus = "running" | "waiting" | "finish" | "error";
+
+type AgentActivity = {
+	/** Opaque local identifier that does not reveal the product session ID. */
+	id: string;
+	/** Product-provided conversation title when one can be resolved locally. */
+	title: string | null;
+	/** Agent product that owns the observed task. */
+	agent: AgentKind;
+	/** Product-derived lifecycle normalized for the run board. */
+	status: AgentActivityStatus;
+	/** Latest source observation time in Unix milliseconds. */
+	updatedAtMs: number;
+};
+
+type AgentActivitiesResponse = {
+	/** Recent task summaries ordered by latest source activity. */
+	activities: AgentActivity[];
+};
 
 type AgentProcessStates = {
 	/** Whether a Claude Code process is currently running. */
 	claude: boolean;
 	/** Whether a Codex process is currently running. */
 	codex: boolean;
+	/** Whether an OpenCode process is currently running. */
+	opencode: boolean;
 	/** Whether a WorkBuddy process is currently running. */
 	workbuddy: boolean;
 };
@@ -59,6 +81,8 @@ type AgentRunResult = {
 	tokenUsage: TokenUsage | null;
 	/** Sum of explicit reasoning or thinking intervals in milliseconds. */
 	thinkingDurationMs: number;
+	/** Number of context compactions reported during this task. */
+	compactionCount: number | null;
 	/** Number of tools invoked during this task. */
 	toolCallCount: number;
 	/** Tool invocations retained in source start order. */
@@ -66,6 +90,9 @@ type AgentRunResult = {
 };
 
 export type {
+	AgentActivitiesResponse,
+	AgentActivity,
+	AgentActivityStatus,
 	AgentKind,
 	AgentProcessStates,
 	AgentRunResult,

@@ -64,6 +64,8 @@ pub(crate) mod comparison_result {
         pub(crate) time_to_first_token_ms: Option<i64>,
         /// Sum of explicit thinking intervals in milliseconds.
         pub(crate) thinking_duration_ms: Option<i64>,
+        /// Number of context compactions reported during the Agent run.
+        pub(crate) compaction_count: Option<i64>,
         /// Total tokens reported by the Agent.
         pub(crate) total_tokens: Option<i64>,
         /// Tokens included in model input.

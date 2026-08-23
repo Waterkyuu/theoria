@@ -45,6 +45,8 @@ pub(crate) struct AgentRunResponse {
     token_usage: Option<TokenUsageResponse>,
     /// Sum of explicit thinking intervals in milliseconds.
     thinking_duration_ms: u64,
+    /// Number of context compactions reported during the task.
+    compaction_count: Option<u64>,
     /// Number of tool invocations recorded for the task.
     tool_call_count: usize,
     /// Tool invocations retained in source start order.
@@ -71,6 +73,7 @@ impl From<AgentRunOutput> for AgentRunResponse {
             time_to_first_token,
             token_usage,
             thinking_duration,
+            compaction_count,
             tool_calls,
         } = output.metrics;
 
@@ -80,6 +83,7 @@ impl From<AgentRunOutput> for AgentRunResponse {
             time_to_first_token_ms: time_to_first_token.map(duration_millis),
             token_usage: token_usage.map(Into::into),
             thinking_duration_ms: duration_millis(thinking_duration),
+            compaction_count,
             tool_call_count: tool_calls.len(),
             tool_calls: tool_calls
                 .into_iter()
@@ -114,6 +118,7 @@ mod tests {
                 time_to_first_token: Some(Duration::from_millis(400)),
                 token_usage: None,
                 thinking_duration: Duration::from_millis(900),
+                compaction_count: Some(2),
                 tool_calls: vec![ToolCallMetric {
                     name: "Read".to_string(),
                     duration: Duration::from_millis(250),
@@ -122,6 +127,7 @@ mod tests {
         });
 
         assert_eq!(response.thinking_duration_ms, 900);
+        assert_eq!(response.compaction_count, Some(2));
         assert_eq!(response.tool_call_count, 1);
         assert_eq!(response.tool_calls[0].sequence, 1);
         assert_eq!(response.tool_calls[0].name, "Read");

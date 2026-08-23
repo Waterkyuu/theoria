@@ -7,8 +7,10 @@ const enUS = {
 		expandSidebar: "Expand sidebar",
 		loadingPage: "Loading page",
 		common: {
+			cancel: "Cancel",
 			search: "Search",
 			clearSearch: "Clear search",
+			confirm: "Confirm",
 		},
 		navigation: {
 			compare: "Compare",
@@ -18,6 +20,7 @@ const enUS = {
 		agentNames: {
 			claude: "Claude Code",
 			codex: "Codex",
+			opencode: "OpenCode",
 			workbuddy: "WorkBuddy",
 		},
 		agentSelection: "Select agents to compare",
@@ -71,6 +74,7 @@ const enUS = {
 		outputTokens: "Output",
 		reasoningTokens: "Reasoning",
 		thinkingDuration: "Thinking time",
+		compactionCount: "Compactions",
 		toolCallCount: "Tool calls",
 		toolCallsTitle: "Tool details",
 		noToolCalls: "No tools called in this run",
@@ -90,7 +94,17 @@ const enUS = {
 			emptyTitle: "No comparison history yet",
 			emptyDescription:
 				"Complete a performance comparison and its results will appear here automatically.",
-			selectPrompt: "Select a history record to view its complete result.",
+			backToList: "Back to comparison records",
+			recordActions: "More actions for {{query}}",
+			rename: "Rename",
+			renameTitle: "Rename record",
+			renameDescription: 'Set a new record name for "{{query}}".',
+			renameLabel: "Record name",
+			renameSave: "Save",
+			delete: "Delete",
+			deleteTitle: "Delete record?",
+			deleteDescription: 'Confirm deletion of the "{{query}}" history record.',
+			deleteConfirm: "Delete",
 			loadMore: "Load more",
 			saveFailed:
 				"The results finished, but comparison history could not be saved.",
@@ -105,6 +119,7 @@ const enUS = {
 			verticalLayout: "Vertical panel",
 			horizontalLayout: "Horizontal panel",
 			empty: "No tasks in this status.",
+			untitledTask: "Untitled task",
 			status: {
 				running: "Running",
 				waiting: "Awaiting user",
@@ -116,38 +131,6 @@ const enUS = {
 				waiting: "Needs an answer to continue",
 				finish: "Completed successfully",
 				error: "Needs attention",
-			},
-			items: {
-				repositoryAudit: {
-					title: "Repository architecture audit",
-					description:
-						"Map module boundaries and flag highly coupled code paths.",
-				},
-				releaseNotes: {
-					title: "Generate release notes",
-					description:
-						"Summarize this week's commits into a user-facing update.",
-				},
-				apiComparison: {
-					title: "API performance comparison",
-					description:
-						"Compare response latency and token use across three agents.",
-				},
-				testCoverage: {
-					title: "Test coverage analysis",
-					description:
-						"Find critical business branches without regression coverage.",
-				},
-				migrationPlan: {
-					title: "Database migration plan",
-					description:
-						"The target database version is required before migration steps can continue.",
-				},
-				dependencyScan: {
-					title: "Dependency security scan",
-					description:
-						"The dependency manifest failed to parse; the lockfile needs an update.",
-				},
 			},
 		},
 	},

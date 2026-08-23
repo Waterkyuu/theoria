@@ -7,8 +7,10 @@ const zhCN = {
 		expandSidebar: "展开侧边栏",
 		loadingPage: "正在加载页面",
 		common: {
+			cancel: "取消",
 			search: "搜索",
 			clearSearch: "清除搜索",
+			confirm: "确认",
 		},
 		navigation: {
 			compare: "性能对比",
@@ -18,6 +20,7 @@ const zhCN = {
 		agentNames: {
 			claude: "Claude Code",
 			codex: "Codex",
+			opencode: "OpenCode",
 			workbuddy: "WorkBuddy",
 		},
 		agentSelection: "选择要对比的 Agent",
@@ -70,6 +73,7 @@ const zhCN = {
 		outputTokens: "输出",
 		reasoningTokens: "推理",
 		thinkingDuration: "思考时间",
+		compactionCount: "压缩次数",
 		toolCallCount: "工具调用",
 		toolCallsTitle: "工具明细",
 		noToolCalls: "本次未调用工具",
@@ -88,7 +92,17 @@ const zhCN = {
 			detailFailed: "无法读取这条对比详情。",
 			emptyTitle: "还没有历史对比",
 			emptyDescription: "完成一次性能对比后，结果会自动保存在这里。",
-			selectPrompt: "选择一条历史记录查看完整结果。",
+			backToList: "返回对比记录",
+			recordActions: "{{query}}的更多操作",
+			rename: "重命名",
+			renameTitle: "重命名记录",
+			renameDescription: "为“{{query}}”设置新的记录名称。",
+			renameLabel: "记录名称",
+			renameSave: "保存",
+			delete: "删除",
+			deleteTitle: "删除记录？",
+			deleteDescription: "确认删除“{{query}}”的历史记录。",
+			deleteConfirm: "删除",
 			loadMore: "加载更多",
 			saveFailed: "结果已完成，但无法保存到历史对比。",
 		},
@@ -102,6 +116,7 @@ const zhCN = {
 			verticalLayout: "竖面板",
 			horizontalLayout: "水平面板",
 			empty: "此状态下暂无任务。",
+			untitledTask: "未命名任务",
 			status: {
 				running: "运行中",
 				waiting: "等待用户",
@@ -113,32 +128,6 @@ const zhCN = {
 				waiting: "需要回答后继续",
 				finish: "已顺利完成",
 				error: "需要处理",
-			},
-			items: {
-				repositoryAudit: {
-					title: "仓库架构审计",
-					description: "梳理模块边界并标记高耦合代码路径。",
-				},
-				releaseNotes: {
-					title: "生成发布说明",
-					description: "汇总本周提交并生成面向用户的更新摘要。",
-				},
-				apiComparison: {
-					title: "API 性能对比",
-					description: "比较三个 Agent 的响应延迟与 token 消耗。",
-				},
-				testCoverage: {
-					title: "测试覆盖分析",
-					description: "定位缺少回归测试的关键业务分支。",
-				},
-				migrationPlan: {
-					title: "数据库迁移方案",
-					description: "需要确认目标数据库版本后继续生成迁移步骤。",
-				},
-				dependencyScan: {
-					title: "依赖安全扫描",
-					description: "依赖清单解析失败，需要更新锁文件。",
-				},
 			},
 		},
 	},
