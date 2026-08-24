@@ -282,5 +282,4 @@ const [dialogVisible, setDialogVisible] = useState(false);
 11. Switch: `src/components/switch.tsx`
 
 ### Reference Documentation
-
-1. **UI standardization checklist:** `reference/uiux-check-list.md`
+1. **Test code rule:** `reference/react/test-code-rule.md`
