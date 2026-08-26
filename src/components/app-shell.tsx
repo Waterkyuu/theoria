@@ -1,18 +1,15 @@
 import {
-	ChartColumn,
 	ChevronDown,
 	ChevronRight,
 	Comments,
-	Ellipsis,
-	FolderOpen,
+	Folder,
 	Folders,
 	Gear,
 	LayoutColumns3,
-	Plus,
 	Puzzle,
 } from "@gravity-ui/icons";
 import { cn } from "cnfast";
-import { type ReactNode, useState } from "react";
+import { lazy, type ReactNode, Suspense, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 type AppShellProps = {
@@ -30,8 +27,10 @@ const NAVIGATION_ITEMS = [
 	{ path: "/runs", labelKey: "navigation.runs", icon: LayoutColumns3 },
 ] as const;
 
+const NewWorkspaceModal = lazy(() => import("./new-workspace-modal"));
+
 /**
- * Keeps global navigation and app settings fixed while only the workspace tree scrolls.
+ * Reproduces the compact Figma sidebar while keeping route and tree interactions local.
  *
  * @example
  * <AppShell currentPath="/" onNavigate={navigateTo}><main /></AppShell>
@@ -42,37 +41,28 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 	const [isConversationsExpanded, setIsConversationsExpanded] = useState(true);
 	const [isBenchmarksExpanded, setIsBenchmarksExpanded] = useState(false);
 	const [isSkillsExpanded, setIsSkillsExpanded] = useState(false);
+	const [isNewWorkspaceOpen, setIsNewWorkspaceOpen] = useState(false);
 
 	return (
 		<div className="flex min-h-[100dvh] bg-canvas text-ink">
 			<aside
 				aria-label={t("workspaceSidebar.label")}
-				className="sticky top-0 flex h-[100dvh] w-72 min-w-72 flex-col overflow-hidden border-r border-hairline bg-surface-soft"
+				className="sticky top-0 flex h-[100dvh] w-[287px] min-w-[287px] flex-col overflow-hidden border-r border-hairline bg-surface-soft"
 			>
-				<header className="shrink-0 px-lg pb-md pt-lg">
+				<header className="flex h-[88px] shrink-0 items-center px-xl">
 					<button
 						aria-label={t("appName")}
-						className="flex w-full items-center gap-md rounded-md px-sm py-sm text-left outline-none transition-colors hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring"
+						className="rounded-md font-primary text-heading-md font-semibold leading-6 outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
 						onClick={() => onNavigate("/")}
 						type="button"
 					>
-						<span className="grid size-8 shrink-0 place-items-center rounded-md bg-primary text-on-primary">
-							<ChartColumn aria-hidden="true" className="size-4" />
-						</span>
-						<span className="min-w-0">
-							<span className="block font-primary text-body-md font-semibold leading-none">
-								{t("appName")}
-							</span>
-							<span className="mt-xs block truncate text-caption-sm text-body">
-								{t("appEdition")}
-							</span>
-						</span>
+						{t("appName")}
 					</button>
 				</header>
 
 				<nav
 					aria-label={t("mainNavigation")}
-					className="shrink-0 space-y-0.5 px-lg pb-lg"
+					className="flex h-[116px] shrink-0 flex-col gap-xs px-lg"
 				>
 					{NAVIGATION_ITEMS.map((item) => {
 						const ItemIcon = item.icon;
@@ -86,96 +76,77 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 								aria-current={isActive ? "page" : undefined}
 								aria-label={t(item.labelKey)}
 								className={cn(
-									"flex w-full items-center gap-md rounded-md px-md py-sm text-left text-body-sm text-body outline-none transition-colors hover:bg-hairline hover:text-ink focus-visible:ring-2 focus-visible:ring-focus-ring active:translate-y-px",
-									isActive && "bg-hairline font-medium text-ink",
+									"flex h-8 w-full shrink-0 items-center gap-sm rounded-md px-sm text-left text-body-sm text-ink outline-none transition-colors hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring active:translate-y-px",
+									isActive && "bg-hairline font-medium",
 								)}
 								key={item.path}
 								onClick={() => onNavigate(item.path)}
 								type="button"
 							>
 								<ItemIcon aria-hidden="true" className="size-4 shrink-0" />
-								<span className="truncate">{t(item.labelKey)}</span>
+								<span className="min-w-0 flex-1 truncate">
+									{t(item.labelKey)}
+								</span>
 							</button>
 						);
 					})}
 				</nav>
 
 				<div className="flex min-h-0 flex-1 flex-col border-t border-hairline">
-					<div className="flex shrink-0 items-center justify-between px-xl pb-sm pt-lg">
-						<p className="text-caption-sm font-medium text-body">
+					<div className="flex h-10 shrink-0 items-center justify-between px-lg pt-sm">
+						<p className="text-[11px] font-semibold uppercase text-mute">
 							{t("workspaceSidebar.workspaces")}
 						</p>
 						<button
 							aria-label={t("workspaceSidebar.addWorkspace")}
-							className="grid size-7 place-items-center rounded-md text-body outline-none transition-colors hover:bg-hairline hover:text-ink focus-visible:ring-2 focus-visible:ring-focus-ring"
+							className="h-7 rounded-md px-0 text-caption-sm font-medium text-charcoal outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-focus-ring"
+							onClick={() => setIsNewWorkspaceOpen(true)}
 							type="button"
 						>
-							<Plus aria-hidden="true" className="size-4" />
+							+ {t("workspaceSidebar.newWorkspace")}
 						</button>
 					</div>
 
 					<div
 						aria-label={t("workspaceSidebar.workspaces")}
-						className="min-h-0 flex-1 overflow-y-auto px-sm pb-lg"
+						className="min-h-0 flex-1 overflow-y-auto px-lg pb-lg"
 						role="tree"
 					>
 						<div
 							aria-label="agent-gauge"
 							aria-expanded={isWorkspaceExpanded}
 							aria-level={1}
-							className="mb-xs"
+							className="flex flex-col gap-1"
 							role="treeitem"
 							tabIndex={-1}
 						>
-							<div className="group flex items-center gap-xs rounded-md pr-xs hover:bg-hairline">
-								<button
-									aria-label={t(
-										isWorkspaceExpanded
-											? "workspaceSidebar.collapseWorkspace"
-											: "workspaceSidebar.expandWorkspace",
-										{ workspace: "agent-gauge" },
-									)}
-									className="grid size-8 shrink-0 place-items-center rounded-md text-body outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-									onClick={() =>
-										setIsWorkspaceExpanded((expanded) => !expanded)
-									}
-									type="button"
-								>
-									{isWorkspaceExpanded ? (
-										<ChevronDown aria-hidden="true" className="size-4" />
-									) : (
-										<ChevronRight aria-hidden="true" className="size-4" />
-									)}
-								</button>
-								<FolderOpen
-									aria-hidden="true"
-									className="size-[18px] shrink-0"
-								/>
-								<button
-									className="min-w-0 flex-1 truncate py-sm text-left text-body-sm font-medium outline-none"
-									onClick={() => onNavigate("/")}
-									type="button"
-								>
-									agent-gauge
-								</button>
-								<button
-									aria-label={t("workspaceSidebar.workspaceActions", {
-										workspace: "agent-gauge",
-									})}
-									className="grid size-7 shrink-0 place-items-center rounded-md text-body opacity-0 outline-none transition-opacity hover:bg-hairline-strong focus:opacity-100 focus-visible:ring-2 focus-visible:ring-focus-ring group-hover:opacity-100"
-									type="button"
-								>
-									<Ellipsis aria-hidden="true" className="size-4" />
-								</button>
-							</div>
+							<button
+								aria-label={t(
+									isWorkspaceExpanded
+										? "workspaceSidebar.collapseWorkspace"
+										: "workspaceSidebar.expandWorkspace",
+									{ workspace: "agent-gauge" },
+								)}
+								className="flex h-8 w-full items-center gap-sm rounded-md bg-hairline px-sm text-left text-body-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+								onClick={() => setIsWorkspaceExpanded((expanded) => !expanded)}
+								type="button"
+							>
+								{isWorkspaceExpanded ? (
+									<ChevronDown aria-hidden="true" className="size-4 shrink-0" />
+								) : (
+									<ChevronRight
+										aria-hidden="true"
+										className="size-4 shrink-0"
+									/>
+								)}
+								<Folder aria-hidden="true" className="size-4 shrink-0" />
+								<span className="min-w-0 flex-1 truncate">agent-gauge</span>
+							</button>
 
 							{isWorkspaceExpanded ? (
 								<>
 									{/* biome-ignore lint/a11y/useSemanticElements: WAI-ARIA trees use group to own child treeitems. */}
-									<div
-										className="ml-[15px] border-l border-hairline pl-sm"
-										role="group"
-									>
+									<div className="flex flex-col gap-1" role="group">
 										<div
 											aria-label={`${t("workspaceSidebar.conversationsLabel")} 0`}
 											aria-expanded={isConversationsExpanded}
@@ -184,7 +155,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 											tabIndex={-1}
 										>
 											<button
-												className="flex w-full items-center gap-sm rounded-md py-sm pl-sm pr-md text-left text-body-sm outline-none transition-colors hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring"
+												className="flex h-8 w-full items-center gap-sm rounded-md pl-xl pr-sm text-left text-body-sm outline-none hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring"
 												onClick={() =>
 													setIsConversationsExpanded((expanded) => !expanded)
 												}
@@ -193,15 +164,18 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 												{isConversationsExpanded ? (
 													<ChevronDown
 														aria-hidden="true"
-														className="size-3.5"
+														className="size-4 shrink-0"
 													/>
 												) : (
 													<ChevronRight
 														aria-hidden="true"
-														className="size-3.5"
+														className="size-4 shrink-0"
 													/>
 												)}
-												<Comments aria-hidden="true" className="size-4" />
+												<Comments
+													aria-hidden="true"
+													className="size-4 shrink-0"
+												/>
 												<span className="min-w-0 flex-1 truncate">
 													{t("workspaceSidebar.conversationsLabel")}
 												</span>
@@ -209,35 +183,6 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 													0
 												</span>
 											</button>
-
-											{isConversationsExpanded ? (
-												<>
-													{/* biome-ignore lint/a11y/useSemanticElements: WAI-ARIA trees use group to own child treeitems. */}
-													<div
-														className="ml-[15px] border-l border-hairline pl-sm"
-														role="group"
-													>
-														<div aria-level={3} role="treeitem" tabIndex={-1}>
-															<button
-																className="flex w-full items-center gap-sm rounded-md py-sm pl-sm pr-md text-left text-body-sm outline-none transition-colors hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring"
-																type="button"
-															>
-																<Plus aria-hidden="true" className="size-4" />
-																<span>
-																	{t("workspaceSidebar.newConversation")}
-																</span>
-															</button>
-														</div>
-
-														<p className="px-md pb-xs pt-sm text-[11px] font-medium text-mute">
-															{t("workspaceSidebar.pinned")}
-														</p>
-														<p className="px-md pb-xs pt-sm text-[11px] font-medium text-mute">
-															{t("workspaceSidebar.recent")}
-														</p>
-													</div>
-												</>
-											) : null}
 										</div>
 
 										<div
@@ -247,7 +192,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 											tabIndex={-1}
 										>
 											<button
-												className="flex w-full items-center gap-sm rounded-md py-sm pl-sm pr-md text-left text-body-sm outline-none transition-colors hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring"
+												className="flex h-8 w-full items-center gap-sm rounded-md pl-xl pr-sm text-left text-body-sm outline-none hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring"
 												onClick={() =>
 													setIsBenchmarksExpanded((expanded) => !expanded)
 												}
@@ -256,15 +201,18 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 												{isBenchmarksExpanded ? (
 													<ChevronDown
 														aria-hidden="true"
-														className="size-3.5"
+														className="size-4 shrink-0"
 													/>
 												) : (
 													<ChevronRight
 														aria-hidden="true"
-														className="size-3.5"
+														className="size-4 shrink-0"
 													/>
 												)}
-												<ChartColumn aria-hidden="true" className="size-4" />
+												<LayoutColumns3
+													aria-hidden="true"
+													className="size-4 shrink-0"
+												/>
 												<span className="min-w-0 flex-1 truncate">
 													{t("workspaceSidebar.benchmarks")}
 												</span>
@@ -272,15 +220,6 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 													0
 												</span>
 											</button>
-											{isBenchmarksExpanded ? (
-												<>
-													{/* biome-ignore lint/a11y/useSemanticElements: WAI-ARIA trees use group to own child treeitems. */}
-													<div
-														className="ml-[15px] border-l border-hairline pl-sm"
-														role="group"
-													></div>
-												</>
-											) : null}
 										</div>
 
 										<div
@@ -290,7 +229,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 											tabIndex={-1}
 										>
 											<button
-												className="flex w-full items-center gap-sm rounded-md py-sm pl-sm pr-md text-left text-body-sm outline-none transition-colors hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring"
+												className="flex h-8 w-full items-center gap-sm rounded-md pl-xl pr-sm text-left text-body-sm outline-none hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring"
 												onClick={() =>
 													setIsSkillsExpanded((expanded) => !expanded)
 												}
@@ -299,15 +238,18 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 												{isSkillsExpanded ? (
 													<ChevronDown
 														aria-hidden="true"
-														className="size-3.5"
+														className="size-4 shrink-0"
 													/>
 												) : (
 													<ChevronRight
 														aria-hidden="true"
-														className="size-3.5"
+														className="size-4 shrink-0"
 													/>
 												)}
-												<Puzzle aria-hidden="true" className="size-4" />
+												<Puzzle
+													aria-hidden="true"
+													className="size-4 shrink-0"
+												/>
 												<span className="min-w-0 flex-1 truncate">
 													{t("workspaceSidebar.mountedSkills")}
 												</span>
@@ -315,15 +257,6 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 													0
 												</span>
 											</button>
-											{isSkillsExpanded ? (
-												<>
-													{/* biome-ignore lint/a11y/useSemanticElements: WAI-ARIA trees use group to own child treeitems. */}
-													<div
-														className="ml-[15px] border-l border-hairline pl-sm"
-														role="group"
-													></div>
-												</>
-											) : null}
 										</div>
 									</div>
 								</>
@@ -334,25 +267,33 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 
 				<nav
 					aria-label={t("workspaceSidebar.appSettings")}
-					className="shrink-0 border-t border-hairline p-lg"
+					className="h-[49px] shrink-0 border-t border-hairline px-lg pt-sm"
 				>
 					<button
 						aria-current={
 							currentPath.startsWith("/settings") ? "page" : undefined
 						}
 						className={cn(
-							"flex w-full items-center gap-md rounded-md px-md py-sm text-left text-body-sm text-body outline-none transition-colors hover:bg-hairline hover:text-ink focus-visible:ring-2 focus-visible:ring-focus-ring active:translate-y-px",
-							currentPath.startsWith("/settings") &&
-								"bg-hairline font-medium text-ink",
+							"flex h-8 w-full items-center gap-sm rounded-md px-sm text-left text-body-sm outline-none hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring",
+							currentPath.startsWith("/settings") && "bg-hairline font-medium",
 						)}
 						onClick={() => onNavigate("/settings")}
 						type="button"
 					>
-						<Gear aria-hidden="true" className="size-4" />
+						<Gear aria-hidden="true" className="size-4 shrink-0" />
 						<span>{t("workspaceSidebar.appSettings")}</span>
 					</button>
 				</nav>
 			</aside>
+
+			{isNewWorkspaceOpen ? (
+				<Suspense fallback={null}>
+					<NewWorkspaceModal
+						isOpen={isNewWorkspaceOpen}
+						onOpenChange={setIsNewWorkspaceOpen}
+					/>
+				</Suspense>
+			) : null}
 
 			<div className="min-w-0 flex-1">{children}</div>
 		</div>
