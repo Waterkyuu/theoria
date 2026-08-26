@@ -98,7 +98,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 				</nav>
 
 				<div className="mt-[7px] flex min-h-0 flex-1 flex-col">
-					<div className="flex h-10 shrink-0 items-center justify-between px-lg pt-md">
+					<div className="flex h-[42px] shrink-0 items-center justify-between px-lg pb-xxs pt-md">
 						<p className="text-[11px] font-semibold uppercase text-mute">
 							{t("workspaceSidebar.workspaces")}
 						</p>
@@ -114,7 +114,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 
 					<div
 						aria-label={t("workspaceSidebar.workspaces")}
-						className="min-h-0 flex-1 overflow-y-auto px-lg pb-lg pt-xxs"
+						className="min-h-0 flex-1 overflow-y-auto px-lg pb-lg"
 						role="tree"
 					>
 						<div
@@ -132,7 +132,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 										: "workspaceSidebar.expandWorkspace",
 									{ workspace: "agent-gauge" },
 								)}
-								className="flex h-8 w-full items-center gap-sm rounded-md bg-hairline px-sm text-left text-body-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+								className="flex h-8 w-full items-center gap-sm rounded-md bg-hairline px-sm text-left text-body-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
 								onClick={() => setIsWorkspaceExpanded((expanded) => !expanded)}
 								type="button"
 							>

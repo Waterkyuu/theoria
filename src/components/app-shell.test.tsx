@@ -23,8 +23,9 @@ describe("AppShell", () => {
 		expect(brand.parentElement).toHaveClass("h-[61px]", "px-xl");
 		expect(navigation).toHaveClass("mt-[7px]", "h-[113px]", "px-[15px]");
 		expect(screen.queryByText("本地 Agent 工作台")).not.toBeInTheDocument();
-		expect(tree).toHaveClass("overflow-y-auto", "px-lg", "pt-xxs");
-		expect(tree.previousElementSibling).toHaveClass("h-10");
+		expect(tree).toHaveClass("overflow-y-auto", "px-lg");
+		expect(tree).not.toHaveClass("pt-xxs");
+		expect(tree.previousElementSibling).toHaveClass("h-[42px]");
 		expect(
 			screen.queryByRole("navigation", { name: "应用设置" }),
 		).not.toBeInTheDocument();
@@ -38,9 +39,13 @@ describe("AppShell", () => {
 		);
 
 		const workspaceNavigation = screen.getByRole("button", { name: "工作区" });
+		const workspaceToggle = screen.getByRole("button", {
+			name: "收起 agent-gauge",
+		});
 		const tree = screen.getByRole("tree", { name: "工作区" });
 
 		expect(workspaceNavigation).toHaveClass("h-8", "px-sm", "gap-sm");
+		expect(workspaceToggle).toHaveClass("focus-visible:ring-inset");
 		expect(tree.querySelector(".border-l")).not.toBeInTheDocument();
 		expect(
 			screen.getByRole("button", { name: "添加工作区" }),
