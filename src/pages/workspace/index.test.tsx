@@ -1,10 +1,81 @@
 import "@testing-library/jest-dom/vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import WorkspacePage from ".";
 
+const apiMocks = vi.hoisted(() => ({
+	checkAgentProcesses: vi.fn(),
+	checkClaudeLogin: vi.fn(),
+	checkCodexLogin: vi.fn(),
+	checkOpenCodeLogin: vi.fn(),
+	checkWorkBuddyConfig: vi.fn(),
+	checkWorkBuddyLogin: vi.fn(),
+	onAgentProcessStatesChanged: vi.fn(),
+}));
+
+vi.mock("@/api/agent", () => ({
+	checkAgentProcesses: apiMocks.checkAgentProcesses,
+	onAgentProcessStatesChanged: apiMocks.onAgentProcessStatesChanged,
+}));
+vi.mock("@/api/claude", () => ({
+	checkClaudeLogin: apiMocks.checkClaudeLogin,
+}));
+vi.mock("@/api/codex", () => ({
+	checkCodexLogin: apiMocks.checkCodexLogin,
+}));
+vi.mock("@/api/opencode", () => ({
+	checkOpenCodeLogin: apiMocks.checkOpenCodeLogin,
+}));
+vi.mock("@/api/workbuddy", () => ({
+	checkWorkBuddyConfig: apiMocks.checkWorkBuddyConfig,
+	checkWorkBuddyLogin: apiMocks.checkWorkBuddyLogin,
+}));
+
 describe("WorkspacePage", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		apiMocks.checkAgentProcesses.mockResolvedValue({
+			claude: false,
+			codex: true,
+			opencode: false,
+			workbuddy: true,
+		});
+		apiMocks.checkCodexLogin.mockResolvedValue({
+			installed: true,
+			loggedIn: true,
+			authenticationMethod: "api-key",
+			model: "gpt-runtime",
+			reasoningEffort: "xhigh",
+		});
+		apiMocks.checkClaudeLogin.mockResolvedValue({
+			installed: true,
+			loggedIn: true,
+			authenticationMethod: "oauth",
+			model: "claude-runtime",
+			reasoningEffort: null,
+		});
+		apiMocks.checkOpenCodeLogin.mockResolvedValue({
+			installed: false,
+			loggedIn: false,
+			authenticationMethod: null,
+			model: null,
+			reasoningEffort: null,
+		});
+		apiMocks.checkWorkBuddyLogin.mockResolvedValue({
+			installed: true,
+			loggedIn: true,
+			authenticationMethod: "local",
+			model: null,
+			reasoningEffort: null,
+		});
+		apiMocks.checkWorkBuddyConfig.mockResolvedValue({
+			model: "workbuddy-runtime",
+			reasoningEffort: "enabled",
+		});
+		apiMocks.onAgentProcessStatesChanged.mockResolvedValue(vi.fn());
+	});
+
 	it("renders a desktop conversation workspace with a complete composer", () => {
 		render(<WorkspacePage />);
 
@@ -51,7 +122,7 @@ describe("WorkspacePage", () => {
 		).toBeInTheDocument();
 	});
 
-	it("shows installed and running agents in the environment panel", async () => {
+	it("shows backend Agent installation, process, and runtime configuration", async () => {
 		const user = userEvent.setup();
 		render(<WorkspacePage />);
 
@@ -60,6 +131,17 @@ describe("WorkspacePage", () => {
 		expect(
 			screen.getByRole("dialog", { name: "Agent 环境" }),
 		).toBeInTheDocument();
-		expect(screen.getByText("3 个已启动")).toBeInTheDocument();
+		expect(await screen.findByText("2 个已启动")).toBeInTheDocument();
+		expect(screen.getByText("gpt-runtime · xhigh")).toBeInTheDocument();
+		expect(screen.getByText("claude-runtime")).toBeInTheDocument();
+		expect(screen.getAllByText("已启动")).toHaveLength(2);
+		expect(screen.getAllByText("未启动")).toHaveLength(2);
+		expect(screen.getByText("未安装")).toBeInTheDocument();
+		expect(apiMocks.checkAgentProcesses).toHaveBeenCalledOnce();
+		expect(apiMocks.checkCodexLogin).toHaveBeenCalledOnce();
+		expect(apiMocks.checkClaudeLogin).toHaveBeenCalledOnce();
+		expect(apiMocks.checkOpenCodeLogin).toHaveBeenCalledOnce();
+		expect(apiMocks.checkWorkBuddyLogin).toHaveBeenCalledOnce();
+		expect(apiMocks.checkWorkBuddyConfig).toHaveBeenCalledOnce();
 	});
 });

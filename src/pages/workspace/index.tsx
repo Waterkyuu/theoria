@@ -12,18 +12,46 @@ import {
 	Xmark,
 } from "@gravity-ui/icons";
 import { cn } from "cnfast";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { checkAgentProcesses, onAgentProcessStatesChanged } from "@/api/agent";
+import { checkClaudeLogin } from "@/api/claude";
+import { checkCodexLogin } from "@/api/codex";
+import { checkOpenCodeLogin } from "@/api/opencode";
+import { checkWorkBuddyConfig, checkWorkBuddyLogin } from "@/api/workbuddy";
 import { AgentLogo } from "@/components/agent-logo";
-import type { AgentKind } from "@/types/agent";
+import type {
+	AgentKind,
+	AgentProcessStates,
+	AgentRuntimeStatus,
+} from "@/types/agent";
 
-const RUNNING_AGENTS = [
+type EnvironmentRuntimeState =
+	| { status: "checking" }
+	| { status: "resolved"; value: AgentRuntimeStatus }
+	| { status: "failed" };
+
+const COMPOSER_AGENTS = [
 	{ kind: "codex", model: "gpt-5.6", mode: "High" },
 	{ kind: "claude", model: "Opus 4.1", mode: "Extended" },
 	{ kind: "opencode", model: "Kimi K2.5", mode: "Balanced" },
 ] as const;
 
 const MOUNTED_SKILLS = ["Product Design", "TDD"] as const;
+
+const AGENT_KINDS = ["codex", "claude", "opencode", "workbuddy"] as const;
+
+const AGENT_LOGIN_CHECKS: Record<AgentKind, () => Promise<AgentRuntimeStatus>> =
+	{
+		claude: checkClaudeLogin,
+		codex: checkCodexLogin,
+		opencode: checkOpenCodeLogin,
+		workbuddy: checkWorkBuddyLogin,
+	};
+
+const INITIAL_ENVIRONMENT_RUNTIMES = Object.fromEntries(
+	AGENT_KINDS.map((agent) => [agent, { status: "checking" }]),
+) as Record<AgentKind, EnvironmentRuntimeState>;
 
 const WorkspacePage = () => {
 	const { t } = useTranslation();
@@ -38,9 +66,93 @@ const WorkspacePage = () => {
 	const [isSkillMenuOpen, setIsSkillMenuOpen] = useState(false);
 	const [isEnvironmentOpen, setIsEnvironmentOpen] = useState(false);
 	const [submittedTask, setSubmittedTask] = useState<string | null>(null);
+	const [environmentRuntimes, setEnvironmentRuntimes] = useState(
+		INITIAL_ENVIRONMENT_RUNTIMES,
+	);
+	const [agentProcesses, setAgentProcesses] =
+		useState<AgentProcessStates | null>(null);
 
 	const isSlashAutocompleteOpen =
 		isAgentMenuOpen || prompt.trimEnd().endsWith("/");
+	const startedAgentCount = agentProcesses
+		? AGENT_KINDS.filter((agent) => agentProcesses[agent]).length
+		: 0;
+
+	useEffect(() => {
+		let isActive = true;
+
+		Promise.all(
+			AGENT_KINDS.map(async (agent) => {
+				try {
+					const runtime = await AGENT_LOGIN_CHECKS[agent]();
+					if (agent !== "workbuddy" || !runtime.loggedIn) {
+						return [agent, { status: "resolved", value: runtime }] as const;
+					}
+
+					try {
+						const config = await checkWorkBuddyConfig();
+						return [
+							agent,
+							{ status: "resolved", value: { ...runtime, ...config } },
+						] as const;
+					} catch {
+						return [agent, { status: "resolved", value: runtime }] as const;
+					}
+				} catch {
+					return [agent, { status: "failed" }] as const;
+				}
+			}),
+		).then((entries) => {
+			if (isActive) {
+				setEnvironmentRuntimes(
+					Object.fromEntries(entries) as Record<
+						AgentKind,
+						EnvironmentRuntimeState
+					>,
+				);
+			}
+		});
+
+		return () => {
+			isActive = false;
+		};
+	}, []);
+
+	useEffect(() => {
+		let isActive = true;
+
+		/**
+		 * Applies native process snapshots only while this Workspace remains mounted.
+		 *
+		 * @example
+		 * applyProcessStates({ claude: false, codex: true, opencode: false, workbuddy: false });
+		 */
+		const applyProcessStates = (states: AgentProcessStates) => {
+			if (isActive) {
+				setAgentProcesses(states);
+			}
+		};
+
+		const stopListening = onAgentProcessStatesChanged(applyProcessStates);
+		stopListening
+			.then(() => checkAgentProcesses())
+			.then((states) => {
+				if (isActive) {
+					setAgentProcesses((current) => current ?? states);
+				}
+			})
+			.catch(() => {
+				// A later native event can still supply a valid process snapshot.
+			});
+
+		return () => {
+			isActive = false;
+			stopListening.then(
+				(stop) => stop(),
+				() => {},
+			);
+		};
+	}, []);
 
 	/** Keeps the local prototype honest by showing a completed dispatch state after submission. */
 	const submitTask = () => {
@@ -109,7 +221,7 @@ const WorkspacePage = () => {
 								className="p-sm"
 								role="listbox"
 							>
-								{RUNNING_AGENTS.map((agent) => {
+								{COMPOSER_AGENTS.map((agent) => {
 									const isSelected = selectedAgents.includes(agent.kind);
 									return (
 										<button
@@ -372,7 +484,7 @@ const WorkspacePage = () => {
 							</h2>
 							<p className="mt-xs text-caption-sm text-body">
 								{t("workspace.startedAgentCount", {
-									count: RUNNING_AGENTS.length,
+									count: startedAgentCount,
 								})}
 							</p>
 						</div>
@@ -386,33 +498,62 @@ const WorkspacePage = () => {
 						</button>
 					</header>
 					<div className="min-h-0 flex-1 overflow-y-auto p-sm">
-						{RUNNING_AGENTS.map((agent) => (
-							<div
-								className="flex items-center gap-md rounded-md px-md py-md hover:bg-surface-soft"
-								key={agent.kind}
-							>
-								<span className="grid size-9 place-items-center rounded-md border border-hairline">
-									<AgentLogo agent={agent.kind} className="size-5" />
-								</span>
-								<div className="min-w-0 flex-1">
-									<p className="text-body-sm font-medium">
-										{t(`agentNames.${agent.kind}`)}
-									</p>
-									<p className="mt-xs truncate text-caption-sm text-body">
-										{t("workspace.modelMode", agent)}
-									</p>
+						{AGENT_KINDS.map((agent) => {
+							const runtimeState = environmentRuntimes[agent];
+							const runtime =
+								runtimeState.status === "resolved" ? runtimeState.value : null;
+							const isRunning = agentProcesses?.[agent] ?? false;
+							const runtimeSummary = [runtime?.model, runtime?.reasoningEffort]
+								.filter(Boolean)
+								.join(" · ");
+
+							return (
+								<div
+									className="flex items-center gap-md rounded-md px-md py-md hover:bg-surface-soft"
+									key={agent}
+								>
+									<span className="grid size-9 place-items-center rounded-md border border-hairline">
+										<AgentLogo agent={agent} className="size-5" />
+									</span>
+									<div className="min-w-0 flex-1">
+										<p className="text-body-sm font-medium">
+											{t(`agentNames.${agent}`)}
+										</p>
+										<p className="mt-xs truncate text-caption-sm text-body">
+											{runtimeState.status === "checking"
+												? t("checkingLogin", {
+														agent: t(`agentNames.${agent}`),
+													})
+												: runtimeState.status === "failed"
+													? t("loginCheckFailed", {
+															agent: t(`agentNames.${agent}`),
+														})
+													: runtimeSummary || t("metricUnavailable")}
+										</p>
+									</div>
+									<div className="text-right">
+										<p className="flex items-center justify-end gap-xs text-caption-sm">
+											<span
+												className={cn(
+													"size-1.5 rounded-full",
+													isRunning ? "bg-terminal-green" : "bg-mute",
+												)}
+											/>
+											{t(isRunning ? "agentRunning" : "agentReady")}
+										</p>
+										<p className="mt-xs text-[11px] text-mute">
+											{runtimeState.status === "resolved"
+												? t(
+														runtimeState.value.installed
+															? "workspace.installed"
+															: "notInstalled",
+													)
+												: t("metricUnavailable")}
+										</p>
+									</div>
 								</div>
-								<div className="text-right">
-									<p className="flex items-center justify-end gap-xs text-caption-sm">
-										<span className="size-1.5 rounded-full bg-terminal-green" />
-										{t("workspace.started")}
-									</p>
-									<p className="mt-xs text-[11px] text-mute">
-										{t("workspace.installed")}
-									</p>
-								</div>
-							</div>
-						))}
+							);
+						})}
 					</div>
 					<footer className="flex items-center gap-sm border-t border-hairline bg-surface-soft px-lg py-sm text-caption-sm text-body">
 						<CircleInfo aria-hidden="true" className="size-4" />
