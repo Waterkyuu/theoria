@@ -8,7 +8,6 @@ import {
 	Puzzle,
 	ShieldCheck,
 	Sliders,
-	Sparkles,
 	Xmark,
 } from "@gravity-ui/icons";
 import { cn } from "cnfast";
@@ -166,7 +165,7 @@ const WorkspacePage = () => {
 
 			<section className="flex min-h-0 flex-1 flex-col overflow-y-auto px-xl pb-48 pt-xl">
 				<div className="mx-auto flex w-full max-w-[780px] flex-1 flex-col justify-center">
-					{submittedTask ? (
+					{submittedTask && (
 						<div className="space-y-lg">
 							<div className="ml-auto max-w-[72%] rounded-lg bg-surface-dark px-lg py-md text-body-sm text-on-dark">
 								{submittedTask}
@@ -178,18 +177,6 @@ const WorkspacePage = () => {
 								/>
 								{t("workspace.dispatched", { count: selectedAgents.length })}
 							</div>
-						</div>
-					) : (
-						<div className="pb-24 text-center">
-							<span className="mx-auto mb-lg grid size-10 place-items-center rounded-md border border-hairline bg-surface-soft">
-								<Sparkles aria-hidden="true" className="size-5" />
-							</span>
-							<h1 className="text-heading-lg font-semibold tracking-[-0.02em]">
-								{t("workspace.startTitle")}
-							</h1>
-							<p className="mx-auto mt-sm max-w-lg text-body-sm text-body">
-								{t("workspace.startDescription")}
-							</p>
 						</div>
 					)}
 				</div>

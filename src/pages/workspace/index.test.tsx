@@ -76,12 +76,15 @@ describe("WorkspacePage", () => {
 		apiMocks.onAgentProcessStatesChanged.mockResolvedValue(vi.fn());
 	});
 
-	it("renders the composer without preselecting display-only agents or skills", () => {
+	it("renders the composer without the welcome empty state", () => {
 		render(<WorkspacePage />);
 
 		expect(
-			screen.getByRole("heading", { name: "从 agent-gauge 开始" }),
-		).toBeInTheDocument();
+			screen.queryByRole("heading", { name: "从 agent-gauge 开始" }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByText("描述任务，然后选择一个或多个本地 Agent 协作或对比。"),
+		).not.toBeInTheDocument();
 		expect(
 			screen.getByRole("textbox", {
 				name: "任务内容",

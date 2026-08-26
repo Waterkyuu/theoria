@@ -41,9 +41,6 @@ const enUS = {
 		},
 		workspace: {
 			breadcrumb: "agent-gauge / New conversation",
-			startTitle: "Start from agent-gauge",
-			startDescription:
-				"Describe a task, then choose one or more local Agents to collaborate or compare.",
 			taskLabel: "Task",
 			composerPlaceholder: "Describe a task, type / to select a running Agent",
 			composerHint: "Enter to send, Shift + Enter for a new line",

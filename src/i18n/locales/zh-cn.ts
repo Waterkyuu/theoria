@@ -41,8 +41,6 @@ const zhCN = {
 		},
 		workspace: {
 			breadcrumb: "agent-gauge / 新会话",
-			startTitle: "从 agent-gauge 开始",
-			startDescription: "描述任务，然后选择一个或多个本地 Agent 协作或对比。",
 			taskLabel: "任务内容",
 			composerPlaceholder: "描述任务，输入 / 选择已启动的 Agent",
 			composerHint: "Enter 发送，Shift + Enter 换行",
