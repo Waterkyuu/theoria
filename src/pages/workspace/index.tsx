@@ -11,7 +11,12 @@ import {
 	Xmark,
 } from "@gravity-ui/icons";
 import { cn } from "cnfast";
-import { useEffect, useState } from "react";
+import {
+	type PointerEvent as ReactPointerEvent,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { checkAgentProcesses, onAgentProcessStatesChanged } from "@/api/agent";
 import { checkClaudeLogin } from "@/api/claude";
@@ -53,12 +58,30 @@ const WorkspacePage = () => {
 	const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
 	const [isSkillMenuOpen, setIsSkillMenuOpen] = useState(false);
 	const [isEnvironmentOpen, setIsEnvironmentOpen] = useState(false);
+	const [environmentButtonOffset, setEnvironmentButtonOffset] = useState({
+		x: 0,
+		y: 0,
+	});
 	const [submittedTask, setSubmittedTask] = useState<string | null>(null);
 	const [environmentRuntimes, setEnvironmentRuntimes] = useState(
 		INITIAL_ENVIRONMENT_RUNTIMES,
 	);
 	const [agentProcesses, setAgentProcesses] =
 		useState<AgentProcessStates | null>(null);
+	const workspaceRef = useRef<HTMLElement>(null);
+	const suppressEnvironmentClick = useRef(false);
+	const environmentDrag = useRef({
+		pointerId: -1,
+		pointerX: 0,
+		pointerY: 0,
+		offsetX: 0,
+		offsetY: 0,
+		minX: 0,
+		maxX: 0,
+		minY: 0,
+		maxY: 0,
+		moved: false,
+	});
 
 	const isSlashAutocompleteOpen =
 		isAgentMenuOpen || prompt.trimEnd().endsWith("/");
@@ -151,8 +174,96 @@ const WorkspacePage = () => {
 		setIsAgentMenuOpen(false);
 	};
 
+	/**
+	 * Captures the button and workspace bounds so dragging cannot leave the visible canvas.
+	 *
+	 * @example
+	 * onPointerDown={startEnvironmentDrag}
+	 */
+	const startEnvironmentDrag = (
+		event: ReactPointerEvent<HTMLButtonElement>,
+	) => {
+		if (event.button !== 0 || !workspaceRef.current) return;
+
+		const buttonBounds = event.currentTarget.getBoundingClientRect();
+		const workspaceBounds = workspaceRef.current.getBoundingClientRect();
+		event.currentTarget.setPointerCapture?.(event.pointerId);
+		suppressEnvironmentClick.current = false;
+		environmentDrag.current = {
+			pointerId: event.pointerId,
+			pointerX: event.clientX,
+			pointerY: event.clientY,
+			offsetX: environmentButtonOffset.x,
+			offsetY: environmentButtonOffset.y,
+			minX:
+				environmentButtonOffset.x + workspaceBounds.left - buttonBounds.left,
+			maxX:
+				environmentButtonOffset.x + workspaceBounds.right - buttonBounds.right,
+			minY: environmentButtonOffset.y + workspaceBounds.top - buttonBounds.top,
+			maxY:
+				environmentButtonOffset.y +
+				workspaceBounds.bottom -
+				buttonBounds.bottom,
+			moved: false,
+		};
+	};
+
+	/**
+	 * Moves the captured environment button after a small click-versus-drag threshold.
+	 *
+	 * @example
+	 * onPointerMove={moveEnvironmentButton}
+	 */
+	const moveEnvironmentButton = (
+		event: ReactPointerEvent<HTMLButtonElement>,
+	) => {
+		const drag = environmentDrag.current;
+		if (drag.pointerId !== event.pointerId) return;
+
+		const deltaX = event.clientX - drag.pointerX;
+		const deltaY = event.clientY - drag.pointerY;
+		if (!drag.moved && Math.hypot(deltaX, deltaY) < 4) return;
+
+		drag.moved = true;
+		setEnvironmentButtonOffset({
+			x: Math.min(Math.max(drag.offsetX + deltaX, drag.minX), drag.maxX),
+			y: Math.min(Math.max(drag.offsetY + deltaY, drag.minY), drag.maxY),
+		});
+	};
+
+	/**
+	 * Ends the active gesture and prevents its synthetic click from opening the panel.
+	 *
+	 * @example
+	 * onPointerUp={finishEnvironmentDrag}
+	 */
+	const finishEnvironmentDrag = (
+		event: ReactPointerEvent<HTMLButtonElement>,
+	) => {
+		const drag = environmentDrag.current;
+		if (drag.pointerId !== event.pointerId) return;
+
+		suppressEnvironmentClick.current = event.type === "pointerup" && drag.moved;
+		drag.pointerId = -1;
+		if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+			event.currentTarget.releasePointerCapture(event.pointerId);
+		}
+	};
+
+	/** Keeps a completed drag from also toggling the environment panel. */
+	const toggleEnvironment = () => {
+		if (suppressEnvironmentClick.current) {
+			suppressEnvironmentClick.current = false;
+			return;
+		}
+		setIsEnvironmentOpen((open) => !open);
+	};
+
 	return (
-		<main className="relative flex h-[100dvh] min-w-0 flex-1 flex-col overflow-hidden bg-canvas">
+		<main
+			className="relative flex h-[100dvh] min-w-0 flex-1 flex-col overflow-hidden bg-canvas"
+			ref={workspaceRef}
+		>
 			<header className="flex h-14 shrink-0 items-center justify-between border-b border-hairline px-xl">
 				<p className="truncate text-body-sm font-medium text-charcoal">
 					{t("workspace.breadcrumb")}
@@ -432,8 +543,15 @@ const WorkspacePage = () => {
 			<button
 				aria-expanded={isEnvironmentOpen}
 				aria-label={t("workspace.viewEnvironment")}
-				className="absolute bottom-[24px] right-[20px] z-30 flex size-11 items-center justify-center rounded-full border border-hairline-strong bg-canvas shadow-[0_8px_24px_rgba(0,0,0,0.12)] outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
-				onClick={() => setIsEnvironmentOpen((open) => !open)}
+				className="absolute bottom-[24px] right-[20px] z-30 flex size-11 cursor-grab touch-none select-none items-center justify-center rounded-full border border-hairline-strong bg-canvas shadow-[0_8px_24px_rgba(0,0,0,0.12)] outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring active:cursor-grabbing"
+				onClick={toggleEnvironment}
+				onPointerCancel={finishEnvironmentDrag}
+				onPointerDown={startEnvironmentDrag}
+				onPointerMove={moveEnvironmentButton}
+				onPointerUp={finishEnvironmentDrag}
+				style={{
+					transform: `translate3d(${environmentButtonOffset.x}px, ${environmentButtonOffset.y}px, 0)`,
+				}}
 				type="button"
 			>
 				<span className="relative">

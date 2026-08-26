@@ -163,4 +163,33 @@ describe("WorkspacePage", () => {
 		expect(apiMocks.checkWorkBuddyLogin).toHaveBeenCalledOnce();
 		expect(apiMocks.checkWorkBuddyConfig).toHaveBeenCalledOnce();
 	});
+
+	it("moves the environment button by dragging without opening the panel", async () => {
+		const user = userEvent.setup();
+		render(<WorkspacePage />);
+
+		const button = screen.getByRole("button", { name: "查看 Agent 环境" });
+		const workspace = button.closest("main");
+		expect(workspace).not.toBeNull();
+		vi.spyOn(button, "getBoundingClientRect").mockReturnValue(
+			new DOMRect(736, 732, 44, 44),
+		);
+		vi.spyOn(workspace as HTMLElement, "getBoundingClientRect").mockReturnValue(
+			new DOMRect(0, 0, 800, 800),
+		);
+
+		await user.pointer([
+			{ target: button, coords: { clientX: 758, clientY: 754 } },
+			{ keys: "[MouseLeft>]" },
+			{ target: button, coords: { clientX: 638, clientY: 674 } },
+			{ keys: "[/MouseLeft]" },
+		]);
+
+		expect(button).toHaveStyle({
+			transform: "translate3d(-120px, -80px, 0)",
+		});
+		expect(
+			screen.queryByRole("dialog", { name: "Agent 环境" }),
+		).not.toBeInTheDocument();
+	});
 });
