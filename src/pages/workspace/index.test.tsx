@@ -76,7 +76,7 @@ describe("WorkspacePage", () => {
 		apiMocks.onAgentProcessStatesChanged.mockResolvedValue(vi.fn());
 	});
 
-	it("renders a desktop conversation workspace with a complete composer", () => {
+	it("renders the composer without preselecting display-only agents or skills", () => {
 		render(<WorkspacePage />);
 
 		expect(
@@ -91,12 +91,15 @@ describe("WorkspacePage", () => {
 			screen.getByRole("button", { name: "探索模式" }),
 		).toBeInTheDocument();
 		expect(
-			screen.getByRole("button", { name: "已选择 1 个 Agent" }),
+			screen.getByRole("button", { name: "已选择 0 个 Agent" }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "0 个技能" }),
 		).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "发送任务" })).toBeDisabled();
 	});
 
-	it("opens agent autocomplete when slash is entered and adds a running agent", async () => {
+	it("builds agent autocomplete from backend process and runtime data", async () => {
 		const user = userEvent.setup();
 		render(<WorkspacePage />);
 
@@ -104,9 +107,22 @@ describe("WorkspacePage", () => {
 
 		const agents = screen.getByRole("listbox", { name: "已启动的 Agent" });
 		expect(agents).toBeInTheDocument();
-		await user.click(screen.getByRole("option", { name: /OpenCode/ }));
 		expect(
-			screen.getByRole("button", { name: "已选择 2 个 Agent" }),
+			await screen.findByRole("option", { name: /Codex/ }),
+		).toHaveTextContent("gpt-runtime · xhigh");
+		expect(screen.getByRole("option", { name: /WorkBuddy/ })).toHaveTextContent(
+			"workbuddy-runtime · enabled",
+		);
+		expect(
+			screen.queryByRole("option", { name: /Claude Code/ }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("option", { name: /OpenCode/ }),
+		).not.toBeInTheDocument();
+		expect(screen.queryByText("gpt-5.6")).not.toBeInTheDocument();
+		await user.click(screen.getByRole("option", { name: /Codex/ }));
+		expect(
+			screen.getByRole("button", { name: "已选择 1 个 Agent" }),
 		).toBeInTheDocument();
 	});
 

@@ -31,14 +31,6 @@ type EnvironmentRuntimeState =
 	| { status: "resolved"; value: AgentRuntimeStatus }
 	| { status: "failed" };
 
-const COMPOSER_AGENTS = [
-	{ kind: "codex", model: "gpt-5.6", mode: "High" },
-	{ kind: "claude", model: "Opus 4.1", mode: "Extended" },
-	{ kind: "opencode", model: "Kimi K2.5", mode: "Balanced" },
-] as const;
-
-const MOUNTED_SKILLS = ["Product Design", "TDD"] as const;
-
 const AGENT_KINDS = ["codex", "claude", "opencode", "workbuddy"] as const;
 
 const AGENT_LOGIN_CHECKS: Record<AgentKind, () => Promise<AgentRuntimeStatus>> =
@@ -56,10 +48,7 @@ const INITIAL_ENVIRONMENT_RUNTIMES = Object.fromEntries(
 const WorkspacePage = () => {
 	const { t } = useTranslation();
 	const [prompt, setPrompt] = useState("");
-	const [selectedAgents, setSelectedAgents] = useState<AgentKind[]>(["codex"]);
-	const [selectedSkills, setSelectedSkills] = useState<string[]>([
-		"Product Design",
-	]);
+	const [selectedAgents, setSelectedAgents] = useState<AgentKind[]>([]);
 	const [mode, setMode] = useState<"explore" | "benchmark">("explore");
 	const [isAgentMenuOpen, setIsAgentMenuOpen] = useState(false);
 	const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
@@ -221,49 +210,70 @@ const WorkspacePage = () => {
 								className="p-sm"
 								role="listbox"
 							>
-								{COMPOSER_AGENTS.map((agent) => {
-									const isSelected = selectedAgents.includes(agent.kind);
-									return (
-										<button
-											aria-selected={isSelected}
-											className="flex w-full items-center gap-md rounded-md px-md py-sm text-left outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
-											key={agent.kind}
-											onClick={() => {
-												setSelectedAgents((current) =>
-													current.includes(agent.kind)
-														? current.filter((kind) => kind !== agent.kind)
-														: [...current, agent.kind],
-												);
-												setPrompt((current) => current.replace(/\/$/, ""));
-												setIsAgentMenuOpen(false);
-											}}
-											role="option"
-											type="button"
-										>
-											<span className="grid size-8 place-items-center rounded-md border border-hairline bg-canvas">
-												<AgentLogo agent={agent.kind} className="size-4" />
-											</span>
-											<span className="min-w-0 flex-1">
-												<span className="block text-body-sm font-medium">
-													{t(`agentNames.${agent.kind}`)}
+								{AGENT_KINDS.filter((agent) => agentProcesses?.[agent]).map(
+									(agent) => {
+										const isSelected = selectedAgents.includes(agent);
+										const runtimeState = environmentRuntimes[agent];
+										const runtime =
+											runtimeState.status === "resolved"
+												? runtimeState.value
+												: null;
+										const runtimeSummary = [
+											runtime?.model,
+											runtime?.reasoningEffort,
+										]
+											.filter(Boolean)
+											.join(" · ");
+										return (
+											<button
+												aria-selected={isSelected}
+												className="flex w-full items-center gap-md rounded-md px-md py-sm text-left outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
+												key={agent}
+												onClick={() => {
+													setSelectedAgents((current) =>
+														current.includes(agent)
+															? current.filter((kind) => kind !== agent)
+															: [...current, agent],
+													);
+													setPrompt((current) => current.replace(/\/$/, ""));
+													setIsAgentMenuOpen(false);
+												}}
+												role="option"
+												type="button"
+											>
+												<span className="grid size-8 place-items-center rounded-md border border-hairline bg-canvas">
+													<AgentLogo agent={agent} className="size-4" />
 												</span>
-												<span className="block text-caption-sm text-body">
-													{t("workspace.modelMode", agent)}
+												<span className="min-w-0 flex-1">
+													<span className="block text-body-sm font-medium">
+														{t(`agentNames.${agent}`)}
+													</span>
+													<span className="block text-caption-sm text-body">
+														{runtimeState.status === "checking"
+															? t("checkingLogin", {
+																	agent: t(`agentNames.${agent}`),
+																})
+															: runtimeState.status === "failed"
+																? t("loginCheckFailed", {
+																		agent: t(`agentNames.${agent}`),
+																	})
+																: runtimeSummary || t("metricUnavailable")}
+													</span>
 												</span>
-											</span>
-											<span className="flex items-center gap-xs text-caption-sm text-body">
-												<span className="size-1.5 rounded-full bg-terminal-green" />
-												{t("workspace.started")}
-											</span>
-											{isSelected ? (
-												<CircleCheckFill
-													aria-hidden="true"
-													className="size-4"
-												/>
-											) : null}
-										</button>
-									);
-								})}
+												<span className="flex items-center gap-xs text-caption-sm text-body">
+													<span className="size-1.5 rounded-full bg-terminal-green" />
+													{t("workspace.started")}
+												</span>
+												{isSelected ? (
+													<CircleCheckFill
+														aria-hidden="true"
+														className="size-4"
+													/>
+												) : null}
+											</button>
+										);
+									},
+								)}
 							</div>
 						</div>
 					) : null}
@@ -386,46 +396,21 @@ const WorkspacePage = () => {
 									<button
 										aria-expanded={isSkillMenuOpen}
 										aria-label={t("workspace.mountedSkillCount", {
-											count: selectedSkills.length,
+											count: 0,
 										})}
 										className="flex h-8 items-center gap-xs rounded-md px-sm text-caption-sm text-charcoal hover:bg-surface-soft"
 										onClick={() => setIsSkillMenuOpen((open) => !open)}
 										type="button"
 									>
 										<Puzzle aria-hidden="true" className="size-3.5" />
-										<span>{selectedSkills.length}</span>
+										<span>0</span>
 									</button>
 									{isSkillMenuOpen ? (
 										<div
 											aria-label={t("workspace.skillSelection")}
 											className="absolute bottom-[calc(100%+8px)] left-0 w-56 rounded-lg border border-hairline bg-canvas p-sm shadow-[0_16px_40px_rgba(0,0,0,0.12)]"
 											role="listbox"
-										>
-											{MOUNTED_SKILLS.map((skill) => (
-												<button
-													aria-selected={selectedSkills.includes(skill)}
-													className="flex w-full items-center justify-between rounded-md px-md py-sm text-body-sm hover:bg-surface-soft"
-													key={skill}
-													onClick={() =>
-														setSelectedSkills((current) =>
-															current.includes(skill)
-																? current.filter((item) => item !== skill)
-																: [...current, skill],
-														)
-													}
-													role="option"
-													type="button"
-												>
-													<span>{skill}</span>
-													{selectedSkills.includes(skill) ? (
-														<CircleCheckFill
-															aria-hidden="true"
-															className="size-4"
-														/>
-													) : null}
-												</button>
-											))}
-										</div>
+										></div>
 									) : null}
 								</div>
 							</div>

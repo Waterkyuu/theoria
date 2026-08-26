@@ -33,15 +33,6 @@ const zhCN = {
 			benchmarks: "基准测试",
 			mountedSkills: "已挂载技能",
 			appSettings: "应用设置",
-			benchmarkExample: "历史对比改版测试",
-			conversations: {
-				renameHistory: "历史记录加个图标 重命名 和删除",
-				openCodeProtocol: "接入 OpenCode 官方协议",
-				runBoardLayout: "优化运行面板状态布局",
-				githubPullRequest: "提交 GitHub PR",
-				tokenStats: "Add compressed token stats",
-				agentMemory: "Improve agent memory handling",
-			},
 		},
 		workspace: {
 			breadcrumb: "agent-gauge / 新会话",
@@ -62,7 +53,6 @@ const zhCN = {
 			runningAgents: "已启动的 Agent",
 			addAgent: "添加 Agent",
 			started: "已启动",
-			modelMode: "{{model}} · {{mode}}",
 			mountedSkillCount: "{{count}} 个技能",
 			skillSelection: "选择已挂载技能",
 			permission: "可写入工作区",

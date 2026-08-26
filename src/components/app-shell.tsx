@@ -2,15 +2,12 @@ import {
 	ChartColumn,
 	ChevronDown,
 	ChevronRight,
-	Comment,
 	Comments,
 	Ellipsis,
-	Folder,
 	FolderOpen,
 	Folders,
 	Gear,
 	LayoutColumns3,
-	Pin,
 	Plus,
 	Puzzle,
 } from "@gravity-ui/icons";
@@ -31,18 +28,6 @@ const NAVIGATION_ITEMS = [
 	{ path: "/", labelKey: "navigation.workspaces", icon: Folders },
 	{ path: "/skills", labelKey: "navigation.skills", icon: Puzzle },
 	{ path: "/runs", labelKey: "navigation.runs", icon: LayoutColumns3 },
-] as const;
-
-const PINNED_CONVERSATIONS = [
-	"workspaceSidebar.conversations.renameHistory",
-	"workspaceSidebar.conversations.openCodeProtocol",
-] as const;
-
-const RECENT_CONVERSATIONS = [
-	"workspaceSidebar.conversations.runBoardLayout",
-	"workspaceSidebar.conversations.githubPullRequest",
-	"workspaceSidebar.conversations.tokenStats",
-	"workspaceSidebar.conversations.agentMemory",
 ] as const;
 
 /**
@@ -192,7 +177,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 										role="group"
 									>
 										<div
-											aria-label={`${t("workspaceSidebar.conversationsLabel")} 12`}
+											aria-label={`${t("workspaceSidebar.conversationsLabel")} 0`}
 											aria-expanded={isConversationsExpanded}
 											aria-level={2}
 											role="treeitem"
@@ -221,7 +206,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 													{t("workspaceSidebar.conversationsLabel")}
 												</span>
 												<span className="text-caption-sm tabular-nums text-mute">
-													12
+													0
 												</span>
 											</button>
 
@@ -247,52 +232,9 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 														<p className="px-md pb-xs pt-sm text-[11px] font-medium text-mute">
 															{t("workspaceSidebar.pinned")}
 														</p>
-														{PINNED_CONVERSATIONS.map((conversation) => (
-															<div
-																aria-level={3}
-																key={conversation}
-																role="treeitem"
-																tabIndex={-1}
-															>
-																<button
-																	className="group/item flex w-full items-center gap-sm rounded-md py-sm pl-sm pr-md text-left text-body-sm outline-none transition-colors hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring"
-																	type="button"
-																>
-																	<Pin
-																		aria-hidden="true"
-																		className="size-4 shrink-0"
-																	/>
-																	<span className="min-w-0 flex-1 truncate">
-																		{t(conversation)}
-																	</span>
-																</button>
-															</div>
-														))}
-
 														<p className="px-md pb-xs pt-sm text-[11px] font-medium text-mute">
 															{t("workspaceSidebar.recent")}
 														</p>
-														{RECENT_CONVERSATIONS.map((conversation) => (
-															<div
-																aria-level={3}
-																key={conversation}
-																role="treeitem"
-																tabIndex={-1}
-															>
-																<button
-																	className="flex w-full items-center gap-sm rounded-md py-sm pl-sm pr-md text-left text-body-sm outline-none transition-colors hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring"
-																	type="button"
-																>
-																	<Comment
-																		aria-hidden="true"
-																		className="size-4 shrink-0"
-																	/>
-																	<span className="min-w-0 flex-1 truncate">
-																		{t(conversation)}
-																	</span>
-																</button>
-															</div>
-														))}
 													</div>
 												</>
 											) : null}
@@ -327,7 +269,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 													{t("workspaceSidebar.benchmarks")}
 												</span>
 												<span className="text-caption-sm tabular-nums text-mute">
-													3
+													0
 												</span>
 											</button>
 											{isBenchmarksExpanded ? (
@@ -336,16 +278,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 													<div
 														className="ml-[15px] border-l border-hairline pl-sm"
 														role="group"
-													>
-														<div aria-level={3} role="treeitem" tabIndex={-1}>
-															<button
-																className="w-full truncate rounded-md py-sm pl-sm pr-md text-left text-body-sm outline-none transition-colors hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring"
-																type="button"
-															>
-																{t("workspaceSidebar.benchmarkExample")}
-															</button>
-														</div>
-													</div>
+													></div>
 												</>
 											) : null}
 										</div>
@@ -379,7 +312,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 													{t("workspaceSidebar.mountedSkills")}
 												</span>
 												<span className="text-caption-sm tabular-nums text-mute">
-													2
+													0
 												</span>
 											</button>
 											{isSkillsExpanded ? (
@@ -388,23 +321,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 													<div
 														className="ml-[15px] border-l border-hairline pl-sm"
 														role="group"
-													>
-														{["TDD", "Product Design"].map((skill) => (
-															<div
-																aria-level={3}
-																key={skill}
-																role="treeitem"
-																tabIndex={-1}
-															>
-																<button
-																	className="w-full truncate rounded-md py-sm pl-sm pr-md text-left text-body-sm outline-none transition-colors hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring"
-																	type="button"
-																>
-																	{skill}
-																</button>
-															</div>
-														))}
-													</div>
+													></div>
 												</>
 											) : null}
 										</div>
@@ -412,19 +329,6 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 								</>
 							) : null}
 						</div>
-
-						{["research-benchmarks", "docs-lab"].map((workspace) => (
-							<div aria-level={1} key={workspace} role="treeitem" tabIndex={-1}>
-								<button
-									className="flex w-full items-center gap-sm rounded-md px-sm py-sm text-left text-body-sm text-body outline-none transition-colors hover:bg-hairline hover:text-ink focus-visible:ring-2 focus-visible:ring-focus-ring"
-									type="button"
-								>
-									<ChevronRight aria-hidden="true" className="size-4" />
-									<Folder aria-hidden="true" className="size-[18px]" />
-									<span className="truncate">{workspace}</span>
-								</button>
-							</div>
-						))}
 					</div>
 				</div>
 

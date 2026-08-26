@@ -33,15 +33,6 @@ const enUS = {
 			benchmarks: "Benchmarks",
 			mountedSkills: "Mounted skills",
 			appSettings: "App settings",
-			benchmarkExample: "Comparison history redesign",
-			conversations: {
-				renameHistory: "Add icons, rename, and delete history",
-				openCodeProtocol: "Connect the official OpenCode protocol",
-				runBoardLayout: "Improve run board status layout",
-				githubPullRequest: "Submit GitHub PR",
-				tokenStats: "Add compressed token stats",
-				agentMemory: "Improve agent memory handling",
-			},
 		},
 		workspace: {
 			breadcrumb: "agent-gauge / New conversation",
@@ -64,7 +55,6 @@ const enUS = {
 			runningAgents: "Running Agents",
 			addAgent: "Add Agent",
 			started: "Running",
-			modelMode: "{{model}} · {{mode}}",
 			mountedSkillCount: "{{count}} skills",
 			skillSelection: "Select mounted skills",
 			permission: "Workspace write access",

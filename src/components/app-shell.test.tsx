@@ -23,7 +23,7 @@ describe("AppShell", () => {
 		).toBeInTheDocument();
 	});
 
-	it("renders workspace children at deeper tree levels", () => {
+	it("renders workspace groups without bundled demo records", () => {
 		render(
 			<AppShell currentPath="/" onNavigate={vi.fn()}>
 				<main>content</main>
@@ -33,15 +33,16 @@ describe("AppShell", () => {
 		expect(
 			screen.getByRole("treeitem", { name: /agent-gauge/ }),
 		).toHaveAttribute("aria-level", "1");
-		expect(screen.getByRole("treeitem", { name: /会话 12/ })).toHaveAttribute(
+		expect(screen.getByRole("treeitem", { name: /会话 0/ })).toHaveAttribute(
 			"aria-level",
 			"2",
 		);
 		expect(
-			screen.getByRole("treeitem", {
-				name: "历史记录加个图标 重命名 和删除",
-			}),
-		).toHaveAttribute("aria-level", "3");
+			screen.queryByText("历史记录加个图标 重命名 和删除"),
+		).not.toBeInTheDocument();
+		expect(screen.queryByText("提交 GitHub PR")).not.toBeInTheDocument();
+		expect(screen.queryByText("research-benchmarks")).not.toBeInTheDocument();
+		expect(screen.queryByText("docs-lab")).not.toBeInTheDocument();
 	});
 
 	it("collapses the active workspace tree", () => {
@@ -54,7 +55,7 @@ describe("AppShell", () => {
 		fireEvent.click(screen.getByRole("button", { name: "收起 agent-gauge" }));
 
 		expect(
-			screen.queryByRole("treeitem", { name: /会话 12/ }),
+			screen.queryByRole("treeitem", { name: /会话 0/ }),
 		).not.toBeInTheDocument();
 	});
 
