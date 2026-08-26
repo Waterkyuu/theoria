@@ -75,6 +75,57 @@ const enUS = {
 			dispatched: "Task dispatched to {{count}} Agents",
 			workspacePath: "agent-gauge · main",
 		},
+		skills: {
+			title: "Skills",
+			path: "~/.theoria/skills",
+			description:
+				"A reusable library of capabilities. Mount a skill into one or more Workspaces when needed.",
+			addSkill: "Add skill",
+			searchPlaceholder: "Search by name, source, or capability",
+			libraryLabel: "Skill library",
+			filters: {
+				all: "All",
+				mounted: "Mounted",
+				local: "Local",
+				github: "GitHub",
+			},
+			columns: {
+				skill: "Skill",
+				source: "Source",
+				workspaces: "Workspaces",
+				access: "Access",
+				actions: "Actions",
+			},
+			source: { local: "Local", github: "GitHub" },
+			access: { read: "Read", execute: "Execute" },
+			mountedCount: "{{count}} mounted",
+			notMounted: "Not mounted",
+			manage: "Manage",
+			mount: "Mount",
+			noResults: "No matching skills.",
+			mock: {
+				repositoryMap: {
+					name: "repository-map",
+					description: "Maps repository structure and key entry points.",
+				},
+				testRunner: {
+					name: "test-runner",
+					description: "Runs project test commands with scoped output.",
+				},
+				uiAudit: {
+					name: "ui-audit",
+					description: "Reviews desktop UI consistency and accessibility.",
+				},
+				benchmarkEvaluator: {
+					name: "benchmark-evaluator",
+					description: "Scores benchmark outputs with saved criteria.",
+				},
+				releaseNotes: {
+					name: "release-notes",
+					description: "Builds release notes from repository history.",
+				},
+			},
+		},
 		agentNames: {
 			claude: "Claude Code",
 			codex: "Codex",

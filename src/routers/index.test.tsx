@@ -10,6 +10,9 @@ vi.mock("@/pages/workspace", () => ({
 vi.mock("@/pages/comparison-history", () => ({
 	default: () => <main>comparison history route</main>,
 }));
+vi.mock("@/pages/skills", () => ({
+	default: () => <main>skills route</main>,
+}));
 
 describe("AppRouter", () => {
 	it("opens the workspace composer at the root route", async () => {
@@ -28,5 +31,12 @@ describe("AppRouter", () => {
 		expect(
 			await screen.findByText("comparison history route"),
 		).toBeInTheDocument();
+	});
+
+	it("opens the skill library from its dedicated route", async () => {
+		window.history.pushState({}, "", "/skills");
+		render(<AppRouter />);
+
+		expect(await screen.findByText("skills route")).toBeInTheDocument();
 	});
 });

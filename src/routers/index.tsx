@@ -13,6 +13,7 @@ import { AppShell } from "@/components/app-shell";
 const WorkspacePage = lazy(() => import("@/pages/workspace"));
 const ComparisonHistoryPage = lazy(() => import("@/pages/comparison-history"));
 const RunBoardPage = lazy(() => import("@/pages/run-board"));
+const SkillsPage = lazy(() => import("@/pages/skills"));
 
 const RouteLoadingFallback = () => {
 	const { t } = useTranslation();
@@ -51,6 +52,7 @@ const RoutedApplication = () => {
 						path="/comparison-history/:comparisonId"
 					/>
 					<Route element={<RunBoardPage />} path="/runs" />
+					<Route element={<SkillsPage />} path="/skills" />
 					<Route element={<Navigate replace to="/" />} path="*" />
 				</Routes>
 			</Suspense>

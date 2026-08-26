@@ -73,6 +73,56 @@ const zhCN = {
 			dispatched: "任务已分发到 {{count}} 个 Agent",
 			workspacePath: "agent-gauge · main",
 		},
+		skills: {
+			title: "技能",
+			path: "~/.theoria/skills",
+			description: "可复用的能力库。需要时可将技能挂载到一个或多个工作区。",
+			addSkill: "添加技能",
+			searchPlaceholder: "按名称、来源或能力搜索",
+			libraryLabel: "技能库",
+			filters: {
+				all: "全部",
+				mounted: "已挂载",
+				local: "本地",
+				github: "GitHub",
+			},
+			columns: {
+				skill: "技能",
+				source: "来源",
+				workspaces: "工作区",
+				access: "权限",
+				actions: "操作",
+			},
+			source: { local: "本地", github: "GitHub" },
+			access: { read: "读取", execute: "执行" },
+			mountedCount: "已挂载 {{count}} 个",
+			notMounted: "未挂载",
+			manage: "管理",
+			mount: "挂载",
+			noResults: "没有匹配的技能。",
+			mock: {
+				repositoryMap: {
+					name: "repository-map",
+					description: "映射仓库结构和关键入口。",
+				},
+				testRunner: {
+					name: "test-runner",
+					description: "运行项目测试命令并提供限定范围的输出。",
+				},
+				uiAudit: {
+					name: "ui-audit",
+					description: "检查桌面界面的一致性和可访问性。",
+				},
+				benchmarkEvaluator: {
+					name: "benchmark-evaluator",
+					description: "使用保存的标准为基准测试输出评分。",
+				},
+				releaseNotes: {
+					name: "release-notes",
+					description: "根据仓库历史生成发布说明。",
+				},
+			},
+		},
 		agentNames: {
 			claude: "Claude Code",
 			codex: "Codex",
