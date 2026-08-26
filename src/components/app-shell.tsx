@@ -2,15 +2,20 @@ import {
 	ChevronDown,
 	ChevronRight,
 	Comments,
+	Ellipsis,
 	Folder,
 	Folders,
-	Gear,
 	LayoutColumns3,
+	PencilToSquare,
+	Pin,
 	Puzzle,
+	TrashBin,
 } from "@gravity-ui/icons";
+import { Button } from "@heroui/react";
 import { cn } from "cnfast";
 import { lazy, type ReactNode, Suspense, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { DropdownMenu } from "@/components/ui/dropdown-menu";
 
 type AppShellProps = {
 	/** Active browser path used to highlight the current navigation item. */
@@ -30,7 +35,7 @@ const NAVIGATION_ITEMS = [
 const NewWorkspaceModal = lazy(() => import("./new-workspace-modal"));
 
 /**
- * Reproduces the compact Figma sidebar while keeping route and tree interactions local.
+ * Reproduces the Figma sidebar alignment while keeping route and tree interactions local.
  *
  * @example
  * <AppShell currentPath="/" onNavigate={navigateTo}><main /></AppShell>
@@ -49,7 +54,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 				aria-label={t("workspaceSidebar.label")}
 				className="sticky top-0 flex h-[100dvh] w-[287px] min-w-[287px] flex-col overflow-hidden border-r border-hairline bg-surface-soft"
 			>
-				<header className="flex h-[88px] shrink-0 items-center px-xl">
+				<header className="flex h-[61px] shrink-0 items-center px-xl">
 					<button
 						aria-label={t("appName")}
 						className="rounded-md font-primary text-heading-md font-semibold leading-6 outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
@@ -62,7 +67,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 
 				<nav
 					aria-label={t("mainNavigation")}
-					className="flex h-[116px] shrink-0 flex-col gap-xs px-lg"
+					className="mt-[7px] flex h-[113px] shrink-0 flex-col gap-xs px-[15px]"
 				>
 					{NAVIGATION_ITEMS.map((item) => {
 						const ItemIcon = item.icon;
@@ -92,14 +97,14 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 					})}
 				</nav>
 
-				<div className="flex min-h-0 flex-1 flex-col border-t border-hairline">
-					<div className="flex h-10 shrink-0 items-center justify-between px-lg pt-sm">
+				<div className="mt-[7px] flex min-h-0 flex-1 flex-col">
+					<div className="flex h-10 shrink-0 items-center justify-between px-lg pt-md">
 						<p className="text-[11px] font-semibold uppercase text-mute">
 							{t("workspaceSidebar.workspaces")}
 						</p>
 						<button
 							aria-label={t("workspaceSidebar.addWorkspace")}
-							className="h-7 rounded-md px-0 text-caption-sm font-medium text-charcoal outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-focus-ring"
+							className="h-7 rounded-md px-0 text-caption-sm font-medium text-mute outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-focus-ring"
 							onClick={() => setIsNewWorkspaceOpen(true)}
 							type="button"
 						>
@@ -109,14 +114,14 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 
 					<div
 						aria-label={t("workspaceSidebar.workspaces")}
-						className="min-h-0 flex-1 overflow-y-auto px-lg pb-lg"
+						className="min-h-0 flex-1 overflow-y-auto px-lg pb-lg pt-xxs"
 						role="tree"
 					>
 						<div
 							aria-label="agent-gauge"
 							aria-expanded={isWorkspaceExpanded}
 							aria-level={1}
-							className="flex flex-col gap-1"
+							className="flex flex-col gap-xxs"
 							role="treeitem"
 							tabIndex={-1}
 						>
@@ -146,10 +151,11 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 							{isWorkspaceExpanded ? (
 								<>
 									{/* biome-ignore lint/a11y/useSemanticElements: WAI-ARIA trees use group to own child treeitems. */}
-									<div className="flex flex-col gap-1" role="group">
+									<div className="flex flex-col" role="group">
 										<div
-											aria-label={`${t("workspaceSidebar.conversationsLabel")} 0`}
+											aria-label={`${t("workspaceSidebar.conversationsLabel")} 1`}
 											aria-expanded={isConversationsExpanded}
+											className="flex flex-col"
 											aria-level={2}
 											role="treeitem"
 											tabIndex={-1}
@@ -180,9 +186,80 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 													{t("workspaceSidebar.conversationsLabel")}
 												</span>
 												<span className="text-caption-sm tabular-nums text-mute">
-													0
+													1
 												</span>
 											</button>
+
+											{isConversationsExpanded ? (
+												<>
+													{/* Temporary UI mock for Figma alignment; remove after conversations come from workspace data. */}
+													<div
+														aria-label={t("workspaceSidebar.mockConversation")}
+														aria-level={3}
+														className="mt-xs flex h-8 items-center gap-[7px] rounded-md bg-hairline pl-[48px] pr-[6px] text-body-sm font-medium"
+														role="treeitem"
+														tabIndex={-1}
+													>
+														<span className="min-w-0 flex-1 truncate">
+															{t("workspaceSidebar.mockConversation")}
+														</span>
+														<Pin
+															aria-hidden="true"
+															className="size-4 shrink-0"
+														/>
+														<DropdownMenu
+															items={[
+																{
+																	icon: (
+																		<PencilToSquare
+																			aria-hidden="true"
+																			className="size-4 shrink-0 text-ink"
+																		/>
+																	),
+																	id: "rename",
+																	labelKey:
+																		"workspaceSidebar.renameConversation",
+																},
+																{
+																	danger: true,
+																	icon: (
+																		<TrashBin
+																			aria-hidden="true"
+																			className="size-4 shrink-0 text-danger"
+																		/>
+																	),
+																	id: "delete",
+																	labelKey:
+																		"workspaceSidebar.deleteConversation",
+																	separated: true,
+																},
+															]}
+															placement="bottom end"
+															trigger={
+																<Button
+																	aria-label={t(
+																		"workspaceSidebar.mockConversationActions",
+																		{
+																			conversation: t(
+																				"workspaceSidebar.mockConversation",
+																			),
+																		},
+																	)}
+																	className="size-4 min-w-4 cursor-pointer rounded-sm p-0 text-ink shadow-none outline-none hover:bg-transparent focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+																	isIconOnly
+																	size="sm"
+																	variant="ghost"
+																>
+																	<Ellipsis
+																		aria-hidden="true"
+																		className="size-4"
+																	/>
+																</Button>
+															}
+														/>
+													</div>
+												</>
+											) : null}
 										</div>
 
 										<div
@@ -225,6 +302,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 										<div
 											aria-expanded={isSkillsExpanded}
 											aria-level={2}
+											className="mt-xxs"
 											role="treeitem"
 											tabIndex={-1}
 										>
@@ -264,26 +342,6 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 						</div>
 					</div>
 				</div>
-
-				<nav
-					aria-label={t("workspaceSidebar.appSettings")}
-					className="h-[49px] shrink-0 border-t border-hairline px-lg pt-sm"
-				>
-					<button
-						aria-current={
-							currentPath.startsWith("/settings") ? "page" : undefined
-						}
-						className={cn(
-							"flex h-8 w-full items-center gap-sm rounded-md px-sm text-left text-body-sm outline-none hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring",
-							currentPath.startsWith("/settings") && "bg-hairline font-medium",
-						)}
-						onClick={() => onNavigate("/settings")}
-						type="button"
-					>
-						<Gear aria-hidden="true" className="size-4 shrink-0" />
-						<span>{t("workspaceSidebar.appSettings")}</span>
-					</button>
-				</nav>
 			</aside>
 
 			{isNewWorkspaceOpen ? (

@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { AppShell } from "./app-shell";
 
 describe("AppShell", () => {
-	it("matches the Figma sidebar frame and fixed section geometry", () => {
+	it("matches the Figma sidebar alignment and section geometry", () => {
 		render(
 			<AppShell currentPath="/" onNavigate={vi.fn()}>
 				<main>content</main>
@@ -17,16 +17,17 @@ describe("AppShell", () => {
 		});
 		const brand = within(sidebar).getByRole("button", { name: "theoria" });
 		const navigation = screen.getByRole("navigation", { name: "主导航" });
-		const settings = screen.getByRole("navigation", { name: "应用设置" });
+		const tree = screen.getByRole("tree", { name: "工作区" });
 
 		expect(sidebar).toHaveClass("w-[287px]", "min-w-[287px]");
-		expect(brand.parentElement).toHaveClass("h-[88px]", "px-xl");
-		expect(navigation).toHaveClass("h-[116px]", "px-lg");
+		expect(brand.parentElement).toHaveClass("h-[61px]", "px-xl");
+		expect(navigation).toHaveClass("mt-[7px]", "h-[113px]", "px-[15px]");
 		expect(screen.queryByText("本地 Agent 工作台")).not.toBeInTheDocument();
-		expect(screen.getByRole("tree", { name: "工作区" })).toHaveClass(
-			"overflow-y-auto",
-		);
-		expect(settings).toHaveClass("h-[49px]", "px-lg", "pt-sm");
+		expect(tree).toHaveClass("overflow-y-auto", "px-lg", "pt-xxs");
+		expect(tree.previousElementSibling).toHaveClass("h-10");
+		expect(
+			screen.queryByRole("navigation", { name: "应用设置" }),
+		).not.toBeInTheDocument();
 	});
 
 	it("uses compact Figma rows without tree connector lines", () => {
@@ -68,7 +69,7 @@ describe("AppShell", () => {
 		expect(createButton).toBeEnabled();
 	});
 
-	it("renders workspace groups without bundled demo records", () => {
+	it("renders the temporary mock conversation with pin and more icons", () => {
 		render(
 			<AppShell currentPath="/" onNavigate={vi.fn()}>
 				<main>content</main>
@@ -78,16 +79,36 @@ describe("AppShell", () => {
 		expect(
 			screen.getByRole("treeitem", { name: /agent-gauge/ }),
 		).toHaveAttribute("aria-level", "1");
-		expect(screen.getByRole("treeitem", { name: /会话 0/ })).toHaveAttribute(
+		expect(screen.getByRole("treeitem", { name: /会话 1/ })).toHaveAttribute(
 			"aria-level",
 			"2",
 		);
+
+		const mockConversation = screen.getByRole("treeitem", {
+			name: "当前会话",
+		});
+
+		expect(mockConversation).toHaveAttribute("aria-level", "3");
+		expect(mockConversation).toHaveClass("bg-hairline", "pl-[48px]");
+		expect(mockConversation.querySelectorAll("svg")).toHaveLength(2);
+	});
+
+	it("opens rename and delete actions from the mock conversation menu", async () => {
+		const user = userEvent.setup();
+		render(
+			<AppShell currentPath="/" onNavigate={vi.fn()}>
+				<main>content</main>
+			</AppShell>,
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: "当前会话的更多操作" }),
+		);
+
 		expect(
-			screen.queryByText("历史记录加个图标 重命名 和删除"),
-		).not.toBeInTheDocument();
-		expect(screen.queryByText("提交 GitHub PR")).not.toBeInTheDocument();
-		expect(screen.queryByText("research-benchmarks")).not.toBeInTheDocument();
-		expect(screen.queryByText("docs-lab")).not.toBeInTheDocument();
+			await screen.findByRole("menuitem", { name: "重命名" }),
+		).toBeInTheDocument();
+		expect(screen.getByRole("menuitem", { name: "删除" })).toBeInTheDocument();
 	});
 
 	it("collapses the active workspace tree", () => {
@@ -100,7 +121,7 @@ describe("AppShell", () => {
 		fireEvent.click(screen.getByRole("button", { name: "收起 agent-gauge" }));
 
 		expect(
-			screen.queryByRole("treeitem", { name: /会话 0/ }),
+			screen.queryByRole("treeitem", { name: /会话 1/ }),
 		).not.toBeInTheDocument();
 	});
 
