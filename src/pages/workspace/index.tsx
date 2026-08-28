@@ -1,4 +1,10 @@
 import {
+	type PointerEvent as ReactPointerEvent,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
+import {
 	ArrowUp,
 	ChevronDown,
 	CircleCheckFill,
@@ -11,19 +17,13 @@ import {
 	Xmark,
 } from "@gravity-ui/icons";
 import { cn } from "cnfast";
-import {
-	type PointerEvent as ReactPointerEvent,
-	useEffect,
-	useRef,
-	useState,
-} from "react";
 import { useTranslation } from "react-i18next";
+import { AgentLogo } from "@/components/agent-logo";
 import { checkAgentProcesses, onAgentProcessStatesChanged } from "@/api/agent";
 import { checkClaudeLogin } from "@/api/claude";
 import { checkCodexLogin } from "@/api/codex";
 import { checkOpenCodeLogin } from "@/api/opencode";
 import { checkWorkBuddyConfig, checkWorkBuddyLogin } from "@/api/workbuddy";
-import { AgentLogo } from "@/components/agent-logo";
 import type {
 	AgentKind,
 	AgentProcessStates,

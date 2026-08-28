@@ -1,3 +1,4 @@
+import { type ComponentType, type SVGProps, useEffect, useState } from "react";
 import {
 	CircleCheck,
 	CircleQuestion,
@@ -9,13 +10,12 @@ import {
 } from "@gravity-ui/icons";
 import { Button, Card, Chip, Tooltip } from "@heroui/react";
 import { cn } from "cnfast";
-import { type ComponentType, type SVGProps, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { checkAgentActivities, onAgentActivitiesChanged } from "@/api/agent";
 import { AgentLogo } from "@/components/agent-logo";
 import { SearchBox } from "@/components/ui/search-box";
-import type { AgentActivity, AgentActivityStatus } from "@/types/agent";
 import { debounce } from "@/utils/common";
+import { checkAgentActivities, onAgentActivitiesChanged } from "@/api/agent";
+import type { AgentActivity, AgentActivityStatus } from "@/types/agent";
 
 type RunBoardLayout = "vertical" | "horizontal";
 

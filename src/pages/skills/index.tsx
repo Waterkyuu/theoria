@@ -1,6 +1,6 @@
+import { useState } from "react";
 import { Puzzle } from "@gravity-ui/icons";
 import { cn } from "cnfast";
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 const SKILL_FILTERS = ["all", "mounted", "local", "github"] as const;
