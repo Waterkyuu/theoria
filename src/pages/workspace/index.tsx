@@ -261,24 +261,24 @@ const WorkspacePage = () => {
 
 	return (
 		<main
-			className="relative flex h-[100dvh] min-w-0 flex-1 flex-col overflow-hidden bg-canvas"
+			className="relative flex h-[100dvh] min-w-0 flex-1 flex-col overflow-hidden bg-canvas max-md:h-[calc(100dvh-4rem)]"
 			ref={workspaceRef}
 		>
-			<header className="flex h-14 shrink-0 items-center justify-between border-b border-hairline px-xl">
+			<header className="flex h-14 shrink-0 items-center justify-between border-b border-hairline px-4 sm:px-xl">
 				<p className="truncate text-body-sm font-medium text-charcoal">
 					{t("workspace.breadcrumb")}
 				</p>
-				<div className="flex items-center gap-sm text-caption-sm text-body">
+				<div className="hidden items-center gap-sm text-caption-sm text-body sm:flex">
 					<CodeTrunk aria-hidden="true" className="size-4" />
 					<span>{t("workspace.workspacePath")}</span>
 				</div>
 			</header>
 
-			<section className="flex min-h-0 flex-1 flex-col overflow-y-auto px-xl pb-48 pt-xl">
+			<section className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-48 pt-lg sm:px-xl sm:pt-xl">
 				<div className="mx-auto flex w-full max-w-[780px] flex-1 flex-col justify-center">
 					{submittedTask && (
 						<div className="space-y-lg">
-							<div className="ml-auto max-w-[72%] rounded-lg bg-surface-dark px-lg py-md text-body-sm text-on-dark">
+							<div className="ml-auto max-w-[90%] rounded-lg bg-surface-dark px-lg py-md text-body-sm text-on-dark sm:max-w-[72%]">
 								{submittedTask}
 							</div>
 							<div className="flex items-center gap-sm text-body-sm text-body">
@@ -293,7 +293,7 @@ const WorkspacePage = () => {
 				</div>
 			</section>
 
-			<div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-canvas via-canvas to-transparent px-xl pb-xl pt-16">
+			<div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-canvas via-canvas to-transparent px-3 pb-3 pt-16 sm:px-xl sm:pb-xl">
 				<div className="pointer-events-auto relative mx-auto max-w-[720px]">
 					{isSlashAutocompleteOpen ? (
 						<div className="absolute inset-x-0 bottom-[calc(100%+8px)] overflow-hidden rounded-lg border border-hairline bg-surface-card shadow-[0_18px_50px_rgba(0,0,0,0.12)]">
@@ -394,8 +394,8 @@ const WorkspacePage = () => {
 							placeholder={t("workspace.composerPlaceholder")}
 							value={prompt}
 						/>
-						<div className="flex items-center justify-between gap-md border-t border-hairline px-sm py-sm">
-							<div className="flex min-w-0 items-center gap-xs">
+						<div className="flex flex-wrap items-center justify-between gap-sm border-t border-hairline px-sm py-sm sm:flex-nowrap sm:gap-md">
+							<div className="flex min-w-0 flex-wrap items-center gap-xs">
 								<button
 									aria-label={t("workspace.attachFiles")}
 									className="grid size-8 place-items-center rounded-md text-body hover:bg-surface-soft hover:text-ink"
@@ -439,7 +439,7 @@ const WorkspacePage = () => {
 										type="button"
 									>
 										<Sliders aria-hidden="true" className="size-3.5" />
-										<span>
+										<span className="max-[420px]:hidden">
 											{t(
 												mode === "explore"
 													? "workspace.exploreMode"
@@ -450,7 +450,7 @@ const WorkspacePage = () => {
 									{isModeMenuOpen ? (
 										<div
 											aria-label={t("workspace.modeSelection")}
-											className="absolute bottom-[calc(100%+8px)] left-0 w-72 rounded-lg border border-hairline bg-canvas p-sm shadow-[0_16px_40px_rgba(0,0,0,0.12)]"
+											className="absolute bottom-[calc(100%+8px)] left-0 w-[min(18rem,calc(100vw-2rem))] rounded-lg border border-hairline bg-canvas p-sm shadow-[0_16px_40px_rgba(0,0,0,0.12)]"
 											role="listbox"
 										>
 											{(["explore", "benchmark"] as const).map((item) => (
@@ -535,7 +535,9 @@ const WorkspacePage = () => {
 								? t("workspace.benchmarkNotice")
 								: t("workspace.composerHint")}
 						</span>
-						<span>{t("workspace.workspacePath")}</span>
+						<span className="hidden sm:inline">
+							{t("workspace.workspacePath")}
+						</span>
 					</div>
 				</div>
 			</div>
@@ -543,7 +545,7 @@ const WorkspacePage = () => {
 			<button
 				aria-expanded={isEnvironmentOpen}
 				aria-label={t("workspace.viewEnvironment")}
-				className="absolute bottom-[24px] right-[20px] z-30 flex size-11 cursor-grab touch-none select-none items-center justify-center rounded-full border border-hairline-strong bg-canvas shadow-[0_8px_24px_rgba(0,0,0,0.12)] outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring active:cursor-grabbing"
+				className="absolute bottom-[24px] right-[20px] z-30 flex size-11 cursor-grab touch-none select-none items-center justify-center rounded-full border border-hairline-strong bg-canvas shadow-[0_8px_24px_rgba(0,0,0,0.12)] outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring active:cursor-grabbing max-sm:bottom-auto max-sm:right-3 max-sm:top-[68px]"
 				onClick={toggleEnvironment}
 				onPointerCancel={finishEnvironmentDrag}
 				onPointerDown={startEnvironmentDrag}
@@ -564,7 +566,7 @@ const WorkspacePage = () => {
 				<section
 					aria-label={t("workspace.environment")}
 					aria-modal="false"
-					className="absolute bottom-[80px] right-[20px] z-40 flex h-80 w-[360px] flex-col overflow-hidden rounded-lg border border-hairline bg-canvas shadow-[0_24px_70px_rgba(0,0,0,0.16)]"
+					className="absolute bottom-[80px] right-[20px] z-40 flex h-80 w-[360px] flex-col overflow-hidden rounded-lg border border-hairline bg-canvas shadow-[0_24px_70px_rgba(0,0,0,0.16)] max-sm:bottom-auto max-sm:left-3 max-sm:right-3 max-sm:top-[120px] max-sm:h-[min(24rem,calc(100dvh-13rem))] max-sm:w-auto"
 					role="dialog"
 				>
 					<header className="flex items-start justify-between border-b border-hairline px-lg py-md">

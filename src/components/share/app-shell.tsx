@@ -52,9 +52,9 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 		<div className="flex min-h-[100dvh] bg-canvas text-ink">
 			<aside
 				aria-label={t("workspaceSidebar.label")}
-				className="sticky top-0 flex h-[100dvh] w-[287px] min-w-[287px] flex-col overflow-hidden border-r border-hairline bg-surface-soft"
+				className="sticky top-0 flex h-[100dvh] w-[287px] min-w-[287px] flex-col overflow-hidden border-r border-hairline bg-surface-soft max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:z-50 max-md:h-16 max-md:w-full max-md:min-w-0 max-md:border-r-0 max-md:border-t"
 			>
-				<header className="flex h-[61px] shrink-0 items-center px-xl">
+				<header className="flex h-[61px] shrink-0 items-center px-xl max-md:hidden">
 					<button
 						aria-label={t("appName")}
 						className="rounded-md font-primary text-heading-md font-semibold leading-6 outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
@@ -67,7 +67,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 
 				<nav
 					aria-label={t("mainNavigation")}
-					className="mt-[7px] flex h-[113px] shrink-0 flex-col gap-xs px-[15px]"
+					className="mt-[7px] flex h-[113px] shrink-0 flex-col gap-xs px-[15px] max-md:mt-0 max-md:h-16 max-md:flex-row max-md:gap-1 max-md:px-2 max-md:py-1"
 				>
 					{NAVIGATION_ITEMS.map((item) => {
 						const ItemIcon = item.icon;
@@ -81,7 +81,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 								aria-current={isActive ? "page" : undefined}
 								aria-label={t(item.labelKey)}
 								className={cn(
-									"flex h-8 w-full shrink-0 items-center gap-sm rounded-md px-sm text-left text-body-sm text-ink outline-none transition-colors hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring active:translate-y-px",
+									"flex h-8 w-full shrink-0 items-center gap-sm rounded-md px-sm text-left text-body-sm text-ink outline-none transition-colors hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring active:translate-y-px max-md:h-full max-md:flex-1 max-md:flex-col max-md:justify-center max-md:gap-1 max-md:px-1 max-md:text-center max-md:text-caption-sm",
 									isActive && "bg-hairline font-medium",
 								)}
 								key={item.path}
@@ -97,7 +97,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 					})}
 				</nav>
 
-				<div className="mt-[7px] flex min-h-0 flex-1 flex-col">
+				<div className="mt-[7px] flex min-h-0 flex-1 flex-col max-md:hidden">
 					<div className="flex h-[42px] shrink-0 items-center justify-between px-lg pb-xxs pt-md">
 						<p className="text-[11px] font-semibold uppercase text-mute">
 							{t("workspaceSidebar.workspaces")}
@@ -353,7 +353,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 				</Suspense>
 			) : null}
 
-			<div className="min-w-0 flex-1">{children}</div>
+			<div className="min-w-0 flex-1 max-md:pb-16">{children}</div>
 		</div>
 	);
 };

@@ -50,18 +50,18 @@ const SkillsPage = () => {
 	});
 
 	return (
-		<main className="flex h-[100dvh] min-w-0 flex-1 flex-col overflow-hidden bg-canvas">
-			<header className="flex h-14 shrink-0 items-center justify-between border-b border-hairline px-xl">
+		<main className="flex h-[100dvh] min-w-0 flex-1 flex-col overflow-hidden bg-canvas max-md:h-[calc(100dvh-4rem)]">
+			<header className="flex h-14 shrink-0 items-center justify-between border-b border-hairline px-4 sm:px-xl">
 				<p className="text-body-sm font-medium text-charcoal">
 					{t("skills.title")}
 				</p>
-				<p className="font-mono text-caption-sm text-mute">
+				<p className="hidden font-mono text-caption-sm text-mute sm:block">
 					{t("skills.path")}
 				</p>
 			</header>
 
-			<div className="min-h-0 flex-1 overflow-y-auto px-[40px] pb-[40px] pt-[28px]">
-				<div className="flex items-start justify-between gap-xl">
+			<div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-6 sm:px-[40px] sm:pb-[40px] sm:pt-[28px]">
+				<div className="flex flex-col items-start justify-between gap-lg sm:flex-row sm:gap-xl">
 					<div className="min-w-0">
 						<h1 className="font-primary text-[28px] font-semibold leading-[34px] text-ink">
 							{t("skills.title")}
@@ -71,7 +71,7 @@ const SkillsPage = () => {
 						</p>
 					</div>
 					<button
-						className="h-9 w-[136px] shrink-0 rounded-md bg-surface-dark text-body-sm font-medium text-on-dark outline-none hover:bg-ink-deep focus-visible:ring-2 focus-visible:ring-focus-ring"
+						className="h-9 w-full shrink-0 rounded-md bg-surface-dark px-lg text-body-sm font-medium text-on-dark outline-none hover:bg-ink-deep focus-visible:ring-2 focus-visible:ring-focus-ring sm:w-auto sm:min-w-[136px]"
 						type="button"
 					>
 						{t("skills.addSkill")}
@@ -105,7 +105,7 @@ const SkillsPage = () => {
 					))}
 				</div>
 
-				<div className="mt-[22px] overflow-x-auto rounded-lg border border-hairline bg-surface-card pb-[20px]">
+				<div className="-mx-4 mt-[22px] overflow-x-auto border-y border-hairline bg-surface-card pb-[20px] sm:mx-0 sm:rounded-lg sm:border">
 					<table
 						aria-label={t("skills.libraryLabel")}
 						className="w-full min-w-[780px] table-fixed border-collapse"
