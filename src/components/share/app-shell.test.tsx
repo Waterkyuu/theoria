@@ -19,13 +19,13 @@ describe("AppShell", () => {
 		const navigation = screen.getByRole("navigation", { name: "主导航" });
 		const tree = screen.getByRole("tree", { name: "工作区" });
 
-		expect(sidebar).toHaveClass("w-[287px]", "min-w-[287px]");
-		expect(brand.parentElement).toHaveClass("h-[61px]", "px-xl");
-		expect(navigation).toHaveClass("mt-[7px]", "h-[113px]", "px-[15px]");
+		expect(sidebar).toHaveClass("w-71.75", "min-w-71.75");
+		expect(brand.parentElement).toHaveClass("h-15.25", "px-xl");
+		expect(navigation).toHaveClass("mt-1.75", "h-28.25", "px-3.75");
 		expect(screen.queryByText("本地 Agent 工作台")).not.toBeInTheDocument();
 		expect(tree).toHaveClass("overflow-y-auto", "px-lg");
 		expect(tree).not.toHaveClass("pt-xxs");
-		expect(tree.previousElementSibling).toHaveClass("h-[42px]");
+		expect(tree.previousElementSibling).toHaveClass("h-10.5");
 		expect(
 			screen.queryByRole("navigation", { name: "应用设置" }),
 		).not.toBeInTheDocument();
@@ -94,7 +94,7 @@ describe("AppShell", () => {
 		});
 
 		expect(mockConversation).toHaveAttribute("aria-level", "3");
-		expect(mockConversation).toHaveClass("bg-hairline", "pl-[48px]");
+		expect(mockConversation).toHaveClass("bg-hairline", "pl-12");
 		expect(mockConversation.querySelectorAll("svg")).toHaveLength(2);
 	});
 
