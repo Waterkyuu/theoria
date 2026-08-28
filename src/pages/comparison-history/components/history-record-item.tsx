@@ -1,6 +1,6 @@
+import { useState } from "react";
 import { Ellipsis, PencilToSquare, TrashBin } from "@gravity-ui/icons";
 import { Button } from "@heroui/react";
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AgentLogo } from "@/components/agent-logo";
 import { AlertDialog } from "@/components/ui/alert-dialog";
