@@ -43,21 +43,12 @@
 	"linter": {
 		"enabled": true,
 		"rules": {
-			"preset": "recommended"
+			"preset": "recommended",
+			"suspicious": {
+				"noDuplicateObjectKeys": "error"
+			}
 		}
 	},
-	"overrides": [
-		{
-			"assist": {
-				"actions": {
-					"source": {
-						"useSortedKeys": "on"
-					}
-				}
-			},
-			"includes": ["**/*.json", "**/*.jsonc"]
-		}
-	],
 	"vcs": {
 		"clientKind": "git",
 		"enabled": true,
