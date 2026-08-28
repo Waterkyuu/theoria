@@ -18,7 +18,7 @@ import {
 } from "@gravity-ui/icons";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
-import { AgentLogo } from "@/components/agent-logo";
+import { AgentLogo } from "@/components/share/agent-logo";
 import { checkAgentProcesses, onAgentProcessStatesChanged } from "@/api/agent";
 import { checkClaudeLogin } from "@/api/claude";
 import { checkCodexLogin } from "@/api/codex";

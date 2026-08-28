@@ -11,7 +11,7 @@ import {
 import { Button, Card, Chip, Tooltip } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
-import { AgentLogo } from "@/components/agent-logo";
+import { AgentLogo } from "@/components/share/agent-logo";
 import { SearchBox } from "@/components/ui/search-box";
 import { debounce } from "@/utils/common";
 import { checkAgentActivities, onAgentActivitiesChanged } from "@/api/agent";

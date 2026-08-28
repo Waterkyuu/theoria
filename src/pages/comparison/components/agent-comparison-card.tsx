@@ -2,7 +2,7 @@ import { CircleCheck, Clock, TriangleExclamation } from "@gravity-ui/icons";
 import { Skeleton } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
-import { AgentLogo } from "@/components/agent-logo";
+import { AgentLogo } from "@/components/share/agent-logo";
 import type { AgentKind, AgentRunResult } from "@/types/agent";
 
 type AgentComparisonCardProps = {
