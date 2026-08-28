@@ -3,7 +3,22 @@
 	"assist": {
 		"actions": {
 			"source": {
-				"organizeImports": "on"
+				"organizeImports": {
+					"level": "on",
+					"options": {
+						"groups": [
+							["react", "react/**"],
+							":PACKAGE:",
+							"@/components/**",
+							"@/hooks/**",
+							"@/utils/**",
+							[":ALIAS:", "!:STYLE:"],
+							[":PATH:", "!:STYLE:"],
+							":STYLE:"
+						],
+						"sortBareImports": true
+					}
+				}
 			}
 		},
 		"enabled": true
