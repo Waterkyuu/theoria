@@ -8,7 +8,7 @@ import {
 	useLocation,
 	useNavigate,
 } from "react-router";
-import { AppShell } from "@/components/app-shell";
+import { AppShell } from "@/components/share/app-shell";
 
 const WorkspacePage = lazy(() => import("@/pages/workspace"));
 const ComparisonHistoryPage = lazy(() => import("@/pages/comparison-history"));
