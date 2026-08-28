@@ -283,4 +283,6 @@ const [dialogVisible, setDialogVisible] = useState(false);
 11. Switch: `src/components/switch.tsx`
 
 ### Reference Documentation
+
 1. **Test code rule:** `reference/react/test-code-rule.md`
+2. **Tailwind CSS styling rules:** `reference/react/tailwindcss.md`
