@@ -12,6 +12,7 @@
    - Use `z-10`, not `z-[10]`.
    - Use `h-7.5`, not `h-[30px]`.
    - Use `leading-8.5`, not `leading-[34px]`.
+   - Use `bg-linear-to-t`, not `bg-gradient-to-t`.
 
 2. Arbitrary values such as `[...]` are allowed only when Tailwind has no
    equivalent canonical utility. Do not replace required arbitrary selectors,
