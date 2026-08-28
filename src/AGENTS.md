@@ -208,6 +208,7 @@ cn("px-2 py-1", isActive && "px-4", { "text-red-500": hasError });
 1. Place unit test files in the same directory as the files they test. Do not create a separate `_test_` directory. Place integration and end-to-end tests in the `intergration` and `e2e` directories under `test`.
 2. Tests must follow the red-green-refactor development cycle. Do not write tests afterward based on the existing implementation.
 3. Do not use TDD or add tests for minor changes, such as styling updates, additional logging, icon replacements, or comment additions. Implement these changes directly.
+4. Test code rule `reference/react/test-code-rule.md`
 
 ### Comments
 
