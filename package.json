@@ -6,7 +6,8 @@
 	"packageManager": "pnpm@11.10.0",
 	"scripts": {
 		"build": "pnpm typecheck && vite build",
-		"check": "biome check .",
+		"check": "biome check . && pnpm check:tailwind",
+		"check:tailwind": "node scripts/check-tailwind-canonical.mjs",
 		"check:fix": "biome check --write .",
 		"dev": "vite",
 		"format": "biome format .",
