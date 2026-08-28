@@ -1,3 +1,4 @@
+import { lazy, type ReactNode, Suspense, useState } from "react";
 import {
 	ChevronDown,
 	ChevronRight,
@@ -13,7 +14,6 @@ import {
 } from "@gravity-ui/icons";
 import { Button } from "@heroui/react";
 import { cn } from "cnfast";
-import { lazy, type ReactNode, Suspense, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 

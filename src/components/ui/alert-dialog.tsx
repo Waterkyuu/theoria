@@ -1,10 +1,10 @@
+import type { ReactElement, ReactNode } from "react";
 import {
 	type AlertDialogContainerProps,
 	Button,
 	type ButtonProps,
 	AlertDialog as HeroUIAlertDialog,
 } from "@heroui/react";
-import type { ReactElement, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 type AlertDialogSize = NonNullable<AlertDialogContainerProps["size"]>;
