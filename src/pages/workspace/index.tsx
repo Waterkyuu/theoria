@@ -16,6 +16,7 @@ import {
 	Sliders,
 	Xmark,
 } from "@gravity-ui/icons";
+import { Button, Dropdown } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { AgentIcon } from "@/components/share/agent-icon";
@@ -230,6 +231,7 @@ const WorkspacePage = ({ workspaceName }: WorkspacePageProps) => {
 		if (!drag.moved && Math.hypot(deltaX, deltaY) < 4) return;
 
 		drag.moved = true;
+		suppressEnvironmentClick.current = true;
 		setEnvironmentButtonOffset({
 			x: Math.min(Math.max(drag.offsetX + deltaX, drag.minX), drag.maxX),
 			y: Math.min(Math.max(drag.offsetY + deltaY, drag.minY), drag.maxY),
@@ -249,19 +251,34 @@ const WorkspacePage = ({ workspaceName }: WorkspacePageProps) => {
 		if (drag.pointerId !== event.pointerId) return;
 
 		suppressEnvironmentClick.current = event.type === "pointerup" && drag.moved;
+		if (drag.moved) {
+			event.preventDefault();
+			event.stopPropagation();
+		}
 		drag.pointerId = -1;
 		if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
 			event.currentTarget.releasePointerCapture(event.pointerId);
 		}
 	};
 
-	/** Keeps a completed drag from also toggling the environment panel. */
-	const toggleEnvironment = () => {
+	/**
+	 * Closes on Dropdown dismiss requests while trigger opening waits for click-versus-drag resolution.
+	 *
+	 * @example
+	 * onOpenChange={changeEnvironmentOpen}
+	 */
+	const changeEnvironmentOpen = (open: boolean) => {
+		if (environmentDrag.current.moved || open) return;
+		setIsEnvironmentOpen(false);
+	};
+
+	/** Opens the Dropdown only after the trigger gesture is confirmed as a click. */
+	const openEnvironment = () => {
 		if (suppressEnvironmentClick.current) {
 			suppressEnvironmentClick.current = false;
 			return;
 		}
-		setIsEnvironmentOpen((open) => !open);
+		if (!isEnvironmentOpen) setIsEnvironmentOpen(true);
 	};
 
 	return (
@@ -556,117 +573,135 @@ const WorkspacePage = ({ workspaceName }: WorkspacePageProps) => {
 				</div>
 			</div>
 
-			<button
-				aria-expanded={isEnvironmentOpen}
-				aria-label={t("workspace.viewEnvironment")}
-				className="absolute bottom-6 right-5 z-30 flex size-11 cursor-grab touch-none select-none items-center justify-center rounded-full border border-hairline-strong bg-canvas shadow-[0_8px_24px_rgba(0,0,0,0.12)] outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring active:cursor-grabbing max-sm:bottom-auto max-sm:right-3 max-sm:top-17"
-				onClick={toggleEnvironment}
-				onPointerCancel={finishEnvironmentDrag}
-				onPointerDown={startEnvironmentDrag}
-				onPointerMove={moveEnvironmentButton}
-				onPointerUp={finishEnvironmentDrag}
+			<div
+				className="absolute bottom-6 right-5 z-30 max-sm:bottom-auto max-sm:right-3 max-sm:top-17"
 				style={{
 					transform: `translate3d(${environmentButtonOffset.x}px, ${environmentButtonOffset.y}px, 0)`,
 				}}
-				type="button"
 			>
-				<span className="relative">
-					<Sliders aria-hidden="true" className="size-4" />
-					<span className="absolute -right-1 -top-1 size-2 rounded-full border border-canvas bg-terminal-green" />
-				</span>
-			</button>
-
-			{isEnvironmentOpen ? (
-				<section
-					aria-label={t("workspace.environment")}
-					aria-modal="false"
-					className="absolute bottom-20 right-5 z-40 flex h-80 w-90 flex-col overflow-hidden rounded-lg border border-hairline bg-canvas shadow-[0_24px_70px_rgba(0,0,0,0.16)] max-sm:bottom-auto max-sm:left-3 max-sm:right-3 max-sm:top-30 max-sm:h-[min(24rem,calc(100dvh-13rem))] max-sm:w-auto"
-					role="dialog"
+				<Dropdown
+					isOpen={isEnvironmentOpen}
+					onOpenChange={changeEnvironmentOpen}
 				>
-					<header className="flex items-start justify-between border-b border-hairline px-lg py-md">
-						<div>
-							<h2 className="text-body-sm font-semibold">
-								{t("workspace.environment")}
-							</h2>
-							<p className="mt-xs text-caption-sm text-body">
-								{t("workspace.startedAgentCount", {
-									count: startedAgentCount,
-								})}
-							</p>
-						</div>
-						<button
-							aria-label={t("workspace.closeEnvironment")}
-							className="grid size-7 place-items-center rounded-md text-body hover:bg-surface-soft"
-							onClick={() => setIsEnvironmentOpen(false)}
-							type="button"
-						>
-							<Xmark aria-hidden="true" className="size-4" />
-						</button>
-					</header>
-					<div className="min-h-0 flex-1 overflow-y-auto p-sm">
-						{AGENT_KINDS.map((agent) => {
-							const runtimeState = environmentRuntimes[agent];
-							const runtime =
-								runtimeState.status === "resolved" ? runtimeState.value : null;
-							const isRunning = agentProcesses?.[agent] ?? false;
-							const runtimeSummary = [runtime?.model, runtime?.reasoningEffort]
-								.filter(Boolean)
-								.join(" · ");
+					<Button
+						aria-label={t("workspace.viewEnvironment")}
+						className="size-11 min-w-0 cursor-grab touch-none select-none rounded-full border border-hairline-strong bg-canvas p-0 text-ink shadow-[0_8px_24px_rgba(0,0,0,0.12)] outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring active:cursor-grabbing"
+						isIconOnly
+						onClick={openEnvironment}
+						onPointerCancel={finishEnvironmentDrag}
+						onPointerDown={startEnvironmentDrag}
+						onPointerMove={moveEnvironmentButton}
+						onPointerUpCapture={finishEnvironmentDrag}
+						variant="ghost"
+					>
+						<span className="relative">
+							<Sliders aria-hidden="true" className="size-4" />
+							<span className="absolute -right-1 -top-1 size-2 rounded-full border border-canvas bg-terminal-green" />
+						</span>
+					</Button>
 
-							return (
-								<div
-									className="flex items-center gap-md rounded-md px-md py-md hover:bg-surface-soft"
-									key={agent}
-								>
-									<span className="grid size-9 place-items-center rounded-md border border-hairline">
-										<AgentIcon name={agent} width={20} height={20} />
-									</span>
-									<div className="min-w-0 flex-1">
-										<p className="text-body-sm font-medium">
-											{t(`agentNames.${agent}`)}
-										</p>
-										<p className="mt-xs truncate text-caption-sm text-body">
-											{runtimeState.status === "checking"
-												? t("checkingLogin", {
-														agent: t(`agentNames.${agent}`),
-													})
-												: runtimeState.status === "failed"
-													? t("loginCheckFailed", {
-															agent: t(`agentNames.${agent}`),
-														})
-													: runtimeSummary || t("metricUnavailable")}
-										</p>
-									</div>
-									<div className="text-right">
-										<p className="flex items-center justify-end gap-xs text-caption-sm">
-											<span
-												className={cn(
-													"size-1.5 rounded-full",
-													isRunning ? "bg-terminal-green" : "bg-mute",
-												)}
-											/>
-											{t(isRunning ? "agentRunning" : "agentReady")}
-										</p>
-										<p className="mt-xs text-[11px] text-mute">
-											{runtimeState.status === "resolved"
-												? t(
-														runtimeState.value.installed
-															? "workspace.installed"
-															: "notInstalled",
-													)
-												: t("metricUnavailable")}
-										</p>
-									</div>
+					<Dropdown.Popover
+						className="max-w-none overflow-visible bg-transparent p-0 shadow-none"
+						offset={12}
+						placement="top end"
+					>
+						<section
+							aria-label={t("workspace.environment")}
+							aria-modal="false"
+							className="flex h-80 w-90 flex-col overflow-hidden rounded-lg border border-hairline bg-canvas shadow-[0_24px_70px_rgba(0,0,0,0.16)] max-sm:h-[min(24rem,calc(100dvh-8rem))] max-sm:w-[calc(100vw-1.5rem)]"
+							role="dialog"
+						>
+							<header className="flex items-start justify-between border-b border-hairline px-lg py-md">
+								<div>
+									<h2 className="text-body-sm font-semibold">
+										{t("workspace.environment")}
+									</h2>
+									<p className="mt-xs text-caption-sm text-body">
+										{t("workspace.startedAgentCount", {
+											count: startedAgentCount,
+										})}
+									</p>
 								</div>
-							);
-						})}
-					</div>
-					<footer className="flex items-center gap-sm border-t border-hairline bg-surface-soft px-lg py-sm text-caption-sm text-body">
-						<CircleInfo aria-hidden="true" className="size-4" />
-						<span>{t("workspace.environmentDescription")}</span>
-					</footer>
-				</section>
-			) : null}
+								<button
+									aria-label={t("workspace.closeEnvironment")}
+									className="grid size-7 place-items-center rounded-md text-body hover:bg-surface-soft"
+									onClick={() => setIsEnvironmentOpen(false)}
+									type="button"
+								>
+									<Xmark aria-hidden="true" className="size-4" />
+								</button>
+							</header>
+							<div className="min-h-0 flex-1 overflow-y-auto p-sm">
+								{AGENT_KINDS.map((agent) => {
+									const runtimeState = environmentRuntimes[agent];
+									const runtime =
+										runtimeState.status === "resolved"
+											? runtimeState.value
+											: null;
+									const isRunning = agentProcesses?.[agent] ?? false;
+									const runtimeSummary = [
+										runtime?.model,
+										runtime?.reasoningEffort,
+									]
+										.filter(Boolean)
+										.join(" · ");
+
+									return (
+										<div
+											className="flex items-center gap-md rounded-md px-md py-md hover:bg-surface-soft"
+											key={agent}
+										>
+											<span className="grid size-9 place-items-center rounded-md border border-hairline">
+												<AgentIcon name={agent} width={20} height={20} />
+											</span>
+											<div className="min-w-0 flex-1">
+												<p className="text-body-sm font-medium">
+													{t(`agentNames.${agent}`)}
+												</p>
+												<p className="mt-xs truncate text-caption-sm text-body">
+													{runtimeState.status === "checking"
+														? t("checkingLogin", {
+																agent: t(`agentNames.${agent}`),
+															})
+														: runtimeState.status === "failed"
+															? t("loginCheckFailed", {
+																	agent: t(`agentNames.${agent}`),
+																})
+															: runtimeSummary || t("metricUnavailable")}
+												</p>
+											</div>
+											<div className="text-right">
+												<p className="flex items-center justify-end gap-xs text-caption-sm">
+													<span
+														className={cn(
+															"size-1.5 rounded-full",
+															isRunning ? "bg-terminal-green" : "bg-mute",
+														)}
+													/>
+													{t(isRunning ? "agentRunning" : "agentReady")}
+												</p>
+												<p className="mt-xs text-[11px] text-mute">
+													{runtimeState.status === "resolved"
+														? t(
+																runtimeState.value.installed
+																	? "workspace.installed"
+																	: "notInstalled",
+															)
+														: t("metricUnavailable")}
+												</p>
+											</div>
+										</div>
+									);
+								})}
+							</div>
+							<footer className="flex items-center gap-sm border-t border-hairline bg-surface-soft px-lg py-sm text-caption-sm text-body">
+								<CircleInfo aria-hidden="true" className="size-4" />
+								<span>{t("workspace.environmentDescription")}</span>
+							</footer>
+						</section>
+					</Dropdown.Popover>
+				</Dropdown>
+			</div>
 
 			{mode === "benchmark" ? (
 				<div

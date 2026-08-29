@@ -194,11 +194,36 @@ describe("WorkspacePage", () => {
 			{ keys: "[/MouseLeft]" },
 		]);
 
-		expect(button).toHaveStyle({
+		expect(button.parentElement).toHaveStyle({
 			transform: "translate3d(-120px, -80px, 0)",
 		});
 		expect(
 			screen.queryByRole("dialog", { name: "Agent 环境" }),
 		).not.toBeInTheDocument();
+	});
+
+	it("opens the environment panel from the dragged Dropdown anchor", async () => {
+		const user = userEvent.setup();
+		render(<WorkspacePage />);
+
+		const button = screen.getByRole("button", { name: "查看 Agent 环境" });
+		const workspace = button.closest("main");
+		expect(workspace).not.toBeNull();
+		vi.spyOn(button, "getBoundingClientRect").mockReturnValue(
+			new DOMRect(736, 732, 44, 44),
+		);
+		vi.spyOn(workspace as HTMLElement, "getBoundingClientRect").mockReturnValue(
+			new DOMRect(0, 0, 800, 800),
+		);
+		await user.pointer([
+			{ target: button, coords: { clientX: 758, clientY: 754 } },
+			{ keys: "[MouseLeft>]" },
+			{ target: button, coords: { clientX: 638, clientY: 674 } },
+			{ keys: "[/MouseLeft]" },
+		]);
+		await user.click(button);
+
+		const dialog = screen.getByRole("dialog", { name: "Agent 环境" });
+		expect(dialog.closest('[data-slot="dropdown-popover"]')).not.toBeNull();
 	});
 });
