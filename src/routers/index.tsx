@@ -22,13 +22,13 @@ const RouteLoadingFallback = () => {
 		<main
 			aria-label={t("loadingPage")}
 			aria-live="polite"
-			className="mx-auto max-w-330 px-4 py-8 sm:px-6 lg:px-8 lg:py-10"
+			className="mx-auto max-w-[1320px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10"
 			role="status"
 		>
 			<div className="motion-safe:animate-pulse">
 				<div className="h-4 w-48 rounded-full bg-hairline" />
 				<div className="mt-5 h-10 max-w-2xl rounded-full bg-hairline" />
-				<div className="mt-4 h-5 max-w-xl rounded-full bg-hairline" />
+				<div className="mt-4 h-5 max-w-[36rem] rounded-full bg-hairline" />
 			</div>
 		</main>
 	);

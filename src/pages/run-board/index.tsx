@@ -118,7 +118,7 @@ const RunBoardPage = () => {
 	}, [agentInput]);
 
 	return (
-		<main className="mx-auto max-w-330 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+		<main className="mx-auto max-w-[1320px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
 			<header className="mb-5 flex flex-col gap-5 border-b border-hairline pb-7 sm:flex-row sm:items-end sm:justify-between">
 				<div>
 					<h1 className="font-primary text-display-lg font-medium leading-display-lg sm:text-display-xl sm:leading-display-xl">
@@ -183,7 +183,8 @@ const RunBoardPage = () => {
 			<div
 				className={cn(
 					"grid overflow-hidden rounded-xl border border-hairline bg-surface-card",
-					layout === "vertical" && "lg:grid-cols-2 xl:min-h-160 xl:grid-cols-4",
+					layout === "vertical" &&
+						"lg:grid-cols-2 xl:min-h-[40rem] xl:grid-cols-4",
 				)}
 				data-layout={layout}
 				data-testid="run-board"
@@ -205,7 +206,7 @@ const RunBoardPage = () => {
 							className={cn(
 								"flex min-w-0 flex-col border-b border-hairline",
 								layout === "vertical" &&
-									"lg:border-r lg:nth-[2n]:border-r-0 lg:nth-last-[-n+2]:border-b-0 xl:nth-[2n]:border-r xl:nth-[4n]:border-r-0 xl:nth-last-[-n+4]:border-b-0",
+									"lg:border-r lg:[&:nth-child(2n)]:border-r-0 lg:[&:nth-last-child(-n+2)]:border-b-0 xl:[&:nth-child(2n)]:border-r xl:[&:nth-child(4n)]:border-r-0 xl:[&:nth-last-child(-n+4)]:border-b-0",
 								layout === "horizontal" && "lg:flex-row lg:last:border-b-0",
 							)}
 							key={status}
@@ -300,7 +301,7 @@ const RunBoardPage = () => {
 														</span>
 													</div>
 													{/* Product titles make cards recognizable without exposing opaque identifiers. */}
-													<h3 className="mt-3 line-clamp-2 wrap-break-word overflow-hidden text-body-sm-strong font-medium">
+													<h3 className="mt-3 line-clamp-2 break-words overflow-hidden text-body-sm-strong font-medium">
 														{item.title ?? t("runBoard.untitledTask")}
 													</h3>
 													<div className="mt-3 flex items-center justify-between border-t border-hairline pt-2 font-mono text-caption-sm text-mute">

@@ -529,7 +529,7 @@ const ComparisonPage = () => {
 	};
 
 	return (
-		<main className="mx-auto max-w-330 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+		<main className="mx-auto max-w-[1320px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
 			<header className="mb-8 border-b border-hairline pb-7">
 				<p className="mb-sm text-body-sm font-medium text-body">
 					{t("tagline")}
@@ -582,7 +582,7 @@ const ComparisonPage = () => {
 
 				<Card className="overflow-hidden rounded-xl border border-hairline bg-surface-card shadow-none">
 					<form onSubmit={onSubmit}>
-						<Card.Header className="flex-row! justify-start! gap-md border-b border-hairline px-lg py-md sm:px-xl">
+						<Card.Header className="!flex-row !justify-start gap-md border-b border-hairline px-lg py-md sm:px-xl">
 							<span className="grid size-8 place-items-center rounded-lg bg-surface-soft text-body">
 								<MagicWand aria-hidden="true" className="size-4" />
 							</span>
