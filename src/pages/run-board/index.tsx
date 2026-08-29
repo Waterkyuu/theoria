@@ -118,7 +118,7 @@ const RunBoardPage = () => {
 	}, [agentInput]);
 
 	return (
-		<main className="mx-auto max-w-[1320px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+		<main className="mx-auto max-w-330 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
 			<header className="mb-5 flex flex-col gap-5 border-b border-hairline pb-7 sm:flex-row sm:items-end sm:justify-between">
 				<div>
 					<h1 className="font-primary text-display-lg font-medium leading-display-lg sm:text-display-xl sm:leading-display-xl">
@@ -183,8 +183,7 @@ const RunBoardPage = () => {
 			<div
 				className={cn(
 					"grid overflow-hidden rounded-xl border border-hairline bg-surface-card",
-					layout === "vertical" &&
-						"lg:grid-cols-2 xl:min-h-[40rem] xl:grid-cols-4",
+					layout === "vertical" && "lg:grid-cols-2 xl:min-h-160 xl:grid-cols-4",
 				)}
 				data-layout={layout}
 				data-testid="run-board"
@@ -269,7 +268,7 @@ const RunBoardPage = () => {
 										return (
 											<Card
 												className={cn(
-													"h-40 w-[18rem] max-w-full overflow-hidden rounded-xl border border-hairline bg-surface-card shadow-none transition-colors hover:border-hairline-strong",
+													"h-40 w-72 max-w-full overflow-hidden rounded-xl border border-hairline bg-surface-card shadow-none transition-colors hover:border-hairline-strong",
 													layout === "horizontal" && "lg:shrink-0",
 												)}
 												key={item.id}

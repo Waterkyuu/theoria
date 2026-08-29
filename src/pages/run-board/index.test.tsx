@@ -258,12 +258,7 @@ describe("RunBoardPage", () => {
 
 		const card = (await screen.findAllByRole("article"))[0];
 
-		expect(card).toHaveClass(
-			"h-40",
-			"w-[18rem]",
-			"max-w-full",
-			"overflow-hidden",
-		);
+		expect(card).toHaveClass("h-40", "w-72", "max-w-full", "overflow-hidden");
 		expect(card.querySelector("h3")).toHaveClass(
 			"line-clamp-2",
 			"overflow-hidden",
