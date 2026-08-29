@@ -57,6 +57,7 @@ const RoutedApplication = () => {
 					/>
 					<Route element={<RunBoardPage />} path="/runs" />
 					<Route element={<SkillsPage />} path="/skills" />
+					<Route element={null} path="/benchmark" />
 					<Route element={<Navigate replace to="/" />} path="*" />
 				</Routes>
 			</Suspense>

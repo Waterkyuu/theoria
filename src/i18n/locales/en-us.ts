@@ -13,6 +13,7 @@ const enUS = {
 			confirm: "Confirm",
 		},
 		navigation: {
+			benchmark: "Benchmark",
 			newTask: "New Task",
 			workspaces: "Workspaces",
 			skills: "Skill Library",

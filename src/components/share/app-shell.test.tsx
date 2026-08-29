@@ -28,7 +28,7 @@ describe("AppShell", () => {
 		);
 		expect(brand.parentElement).toHaveClass("py-[6px]");
 		expect(brand.parentElement).not.toHaveClass("px-[15px]");
-		expect(navigation).toHaveClass("h-[132px]", "gap-xs");
+		expect(navigation).toHaveClass("h-[156px]", "gap-xs");
 		expect(screen.queryByText("本地 Agent 工作台")).not.toBeInTheDocument();
 		expect(tree.parentElement).toHaveClass("overflow-y-auto");
 		expect(tree).not.toHaveClass("overflow-y-auto");

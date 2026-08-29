@@ -13,6 +13,7 @@ const zhCN = {
 			confirm: "确认",
 		},
 		navigation: {
+			benchmark: "基准测试",
 			newTask: "新任务",
 			workspaces: "工作区",
 			skills: "技能库",

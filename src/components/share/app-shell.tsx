@@ -1,5 +1,6 @@
 import { lazy, type ReactNode, Suspense, useState } from "react";
 import {
+	ChartColumn,
 	ChevronDown,
 	ChevronRight,
 	Ellipsis,
@@ -32,6 +33,7 @@ const NAVIGATION_ITEMS = [
 	{ path: "/", labelKey: "navigation.newTask", icon: TargetDart },
 	{ path: "/skills", labelKey: "navigation.skills", icon: Puzzle },
 	{ path: "/runs", labelKey: "navigation.runs", icon: LayoutColumns3 },
+	{ path: "/benchmark", labelKey: "navigation.benchmark", icon: ChartColumn },
 ] as const;
 
 const NewWorkspaceModal = lazy(() => import("./new-workspace-modal"));
@@ -90,7 +92,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 
 				<nav
 					aria-label={t("mainNavigation")}
-					className="flex h-[132px] shrink-0 flex-col gap-xs max-md:h-16 max-md:flex-row max-md:gap-1 max-md:px-2 max-md:py-1"
+					className="flex h-[156px] shrink-0 flex-col gap-xs max-md:h-16 max-md:flex-row max-md:gap-1 max-md:px-2 max-md:py-1"
 				>
 					{NAVIGATION_ITEMS.map((item) => {
 						const ItemIcon = item.icon;
