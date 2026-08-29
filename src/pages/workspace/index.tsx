@@ -9,7 +9,6 @@ import {
 	ChevronDown,
 	CircleCheckFill,
 	CircleInfo,
-	CodeTrunk,
 	Paperclip,
 	Puzzle,
 	ShieldCheck,
@@ -264,16 +263,6 @@ const WorkspacePage = () => {
 			className="relative flex h-[100dvh] min-w-0 flex-1 flex-col overflow-hidden bg-canvas max-md:h-[calc(100dvh-4rem)]"
 			ref={workspaceRef}
 		>
-			<header className="flex h-[34px] shrink-0 items-center justify-between border-b border-hairline px-4 sm:px-xl">
-				<p className="truncate text-body-sm font-medium text-charcoal">
-					{t("workspace.breadcrumb")}
-				</p>
-				<div className="hidden items-center gap-sm text-caption-sm text-body sm:flex">
-					<CodeTrunk aria-hidden="true" className="size-4" />
-					<span>{t("workspace.workspacePath")}</span>
-				</div>
-			</header>
-
 			<section className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-48 pt-lg sm:px-xl sm:pt-xl">
 				<div className="mx-auto flex w-full max-w-195 flex-1 flex-col justify-center">
 					{submittedTask && (
@@ -529,14 +518,11 @@ const WorkspacePage = () => {
 							</div>
 						</div>
 					</div>
-					<div className="mt-sm flex items-center justify-between px-sm text-[11px] text-mute">
+					<div className="mt-sm px-sm text-[11px] text-mute">
 						<span>
 							{mode === "benchmark"
 								? t("workspace.benchmarkNotice")
 								: t("workspace.composerHint")}
-						</span>
-						<span className="hidden sm:inline">
-							{t("workspace.workspacePath")}
 						</span>
 					</div>
 				</div>
