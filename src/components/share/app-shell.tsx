@@ -75,7 +75,10 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 							onClick={() => setIsSidebarVisible(false)}
 							type="button"
 						>
-							<LayoutSideContentLeft aria-hidden="true" className="size-4" />
+							<LayoutSideContentLeft
+								aria-hidden="true"
+								className="size-4 text-mute"
+							/>
 						</button>
 					</div>
 					<div className="flex items-center py-[6px]">
@@ -445,7 +448,10 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 						onClick={() => setIsSidebarVisible(true)}
 						type="button"
 					>
-						<LayoutSideContentLeft aria-hidden="true" className="size-4" />
+						<LayoutSideContentLeft
+							aria-hidden="true"
+							className="size-4 text-mute"
+						/>
 					</button>
 				)}
 				{children}
