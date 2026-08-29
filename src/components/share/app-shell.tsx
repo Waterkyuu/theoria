@@ -385,7 +385,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 				{isSidebarVisible ? null : (
 					<button
 						aria-label={t("expandSidebar")}
-						className="fixed left-[96px] top-[7px] z-50 cursor-pointer rounded-sm bg-canvas outline-none hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring max-md:hidden"
+						className="fixed left-[96px] top-[9px] z-50 cursor-pointer rounded-sm bg-canvas outline-none hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring max-md:hidden"
 						onClick={() => setIsSidebarVisible(true)}
 						type="button"
 					>
