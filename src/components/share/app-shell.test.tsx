@@ -33,7 +33,7 @@ describe("AppShell", () => {
 		expect(tree.parentElement).toHaveClass("overflow-y-auto");
 		expect(tree).not.toHaveClass("overflow-y-auto");
 		expect(tree).not.toHaveClass("pt-xxs");
-		expect(tree.previousElementSibling).toHaveClass("h-7");
+		expect(tree.previousElementSibling).toHaveClass("py-[7px]");
 		expect(
 			screen.getByRole("navigation", { name: "应用设置" }),
 		).toBeInTheDocument();
@@ -54,10 +54,25 @@ describe("AppShell", () => {
 
 		expect(workspaceNavigation).toHaveClass("h-9", "px-sm", "gap-sm");
 		expect(workspaceToggle).toHaveClass("focus-visible:ring-inset");
-		expect(tree.querySelector(".border-l")).not.toBeInTheDocument();
+		expect(workspaceToggle.querySelectorAll("svg")).toHaveLength(3);
 		expect(
-			screen.getByRole("button", { name: "添加工作区" }),
-		).toHaveTextContent("+ 新建");
+			screen.getByRole("button", { name: "任务1" }).querySelectorAll("svg"),
+		).toHaveLength(1);
+		expect(
+			screen.getByRole("button", { name: "基准测试0" }).querySelectorAll("svg"),
+		).toHaveLength(1);
+		expect(
+			screen
+				.getByRole("button", { name: "已挂载技能0" })
+				.querySelectorAll("svg"),
+		).toHaveLength(1);
+		expect(tree.querySelector(".border-l")).not.toBeInTheDocument();
+		const addWorkspace = screen.getByRole("button", { name: "添加工作区" });
+		const workspaceHeader = tree.previousElementSibling;
+
+		expect(addWorkspace).toHaveClass("size-3", "text-mute");
+		expect(addWorkspace).not.toHaveTextContent("新建");
+		expect(workspaceHeader?.querySelectorAll("svg")).toHaveLength(2);
 	});
 
 	it("renders an empty Recent region beneath the workspace tree", () => {
@@ -73,6 +88,9 @@ describe("AppShell", () => {
 		expect(tree.nextElementSibling).toBe(recent);
 		expect(within(recent).getByText("最近")).toBeInTheDocument();
 		expect(recent.querySelectorAll("svg")).toHaveLength(2);
+		for (const icon of recent.querySelectorAll("svg")) {
+			expect(icon).toHaveClass("text-mute");
+		}
 		expect(within(recent).queryByRole("treeitem")).not.toBeInTheDocument();
 	});
 

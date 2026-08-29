@@ -1,7 +1,6 @@
 import { lazy, type ReactNode, Suspense, useState } from "react";
 import {
 	ChevronDown,
-	ChevronRight,
 	Ellipsis,
 	Folder,
 	Gear,
@@ -120,17 +119,23 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 				</nav>
 
 				<div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-10 pt-[7px] max-md:hidden">
-					<div className="flex h-7 shrink-0 items-center justify-between">
-						<p className="text-[11px] font-semibold uppercase text-mute">
-							{t("workspaceSidebar.workspaces")}
-						</p>
+					<div className="flex shrink-0 items-center justify-between py-[7px]">
+						<div className="flex items-center gap-xs">
+							<p className="text-[11px] font-semibold uppercase text-mute">
+								{t("workspaceSidebar.workspaces")}
+							</p>
+							<ChevronDown
+								aria-hidden="true"
+								className="size-3 shrink-0 text-mute"
+							/>
+						</div>
 						<button
 							aria-label={t("workspaceSidebar.addWorkspace")}
-							className="h-7 rounded-md px-0 text-caption-sm font-medium text-mute outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-focus-ring"
+							className="size-3 rounded-sm text-mute outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-focus-ring"
 							onClick={() => setIsNewWorkspaceOpen(true)}
 							type="button"
 						>
-							+ {t("workspaceSidebar.newWorkspace")}
+							<Plus aria-hidden="true" className="size-3 text-mute" />
 						</button>
 					</div>
 
@@ -169,14 +174,6 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 								}}
 								type="button"
 							>
-								{isWorkspaceExpanded ? (
-									<ChevronDown aria-hidden="true" className="size-4 shrink-0" />
-								) : (
-									<ChevronRight
-										aria-hidden="true"
-										className="size-4 shrink-0"
-									/>
-								)}
 								<Folder aria-hidden="true" className="size-4 shrink-0" />
 								<span className="min-w-0 flex-1 truncate">agent-gauge</span>
 								<span
@@ -216,17 +213,6 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 											}
 											type="button"
 										>
-											{isConversationsExpanded ? (
-												<ChevronDown
-													aria-hidden="true"
-													className="size-4 shrink-0"
-												/>
-											) : (
-												<ChevronRight
-													aria-hidden="true"
-													className="size-4 shrink-0"
-												/>
-											)}
 											<TargetDart
 												aria-hidden="true"
 												className="size-4 shrink-0"
@@ -326,17 +312,6 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 											}
 											type="button"
 										>
-											{isBenchmarksExpanded ? (
-												<ChevronDown
-													aria-hidden="true"
-													className="size-4 shrink-0"
-												/>
-											) : (
-												<ChevronRight
-													aria-hidden="true"
-													className="size-4 shrink-0"
-												/>
-											)}
 											<LayoutColumns3
 												aria-hidden="true"
 												className="size-4 shrink-0"
@@ -364,17 +339,6 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 											}
 											type="button"
 										>
-											{isSkillsExpanded ? (
-												<ChevronDown
-													aria-hidden="true"
-													className="size-4 shrink-0"
-												/>
-											) : (
-												<ChevronRight
-													aria-hidden="true"
-													className="size-4 shrink-0"
-												/>
-											)}
 											<Puzzle aria-hidden="true" className="size-4 shrink-0" />
 											<span className="min-w-0 flex-1 truncate">
 												{t("workspaceSidebar.mountedSkills")}
@@ -398,9 +362,12 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 								<p className="text-[11px] font-semibold text-mute">
 									{t("workspaceSidebar.recent")}
 								</p>
-								<ChevronDown aria-hidden="true" className="size-3 shrink-0" />
+								<ChevronDown
+									aria-hidden="true"
+									className="size-3 shrink-0 text-mute"
+								/>
 							</div>
-							<Plus aria-hidden="true" className="size-3 shrink-0" />
+							<Plus aria-hidden="true" className="size-3 shrink-0 text-mute" />
 						</div>
 					</section>
 				</div>
