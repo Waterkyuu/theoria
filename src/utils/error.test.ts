@@ -1,14 +1,12 @@
-import { Toast } from "@heroui/react";
+import { toast } from "@heroui/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import i18n from "@/i18n";
 import { getErrorMessage, handleError } from "./error";
 
 vi.mock("@heroui/react", () => ({
-	Toast: {
-		toast: {
-			danger: vi.fn(),
-		},
+	toast: {
+		danger: vi.fn(),
 	},
 }));
 
@@ -46,6 +44,6 @@ describe("error utilities", () => {
 			error,
 		);
 		expect(consoleError).toHaveBeenCalledWith("Comparison failed", error);
-		expect(Toast.toast.danger).toHaveBeenCalledWith("Please retry");
+		expect(toast.danger).toHaveBeenCalledWith("Please retry");
 	});
 });

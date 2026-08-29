@@ -1,4 +1,4 @@
-import { Toast } from "@heroui/react";
+import { toast } from "@heroui/react";
 import { ZodError } from "zod";
 import i18n from "@/i18n";
 
@@ -41,7 +41,7 @@ const handleError = (
 	console.error(logMessage ?? errorMessage, error);
 
 	if (showToast) {
-		Toast.toast.danger(toastMessage ?? errorMessage);
+		toast.danger(toastMessage ?? errorMessage);
 	}
 
 	return error;
