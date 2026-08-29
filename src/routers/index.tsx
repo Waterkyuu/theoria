@@ -44,6 +44,10 @@ const RoutedApplication = () => {
 				<Routes>
 					<Route element={<WorkspacePage />} path="/" />
 					<Route
+						element={<WorkspacePage workspaceName="agent-gauge" />}
+						path="/workspaces/agent-gauge"
+					/>
+					<Route
 						element={<ComparisonHistoryPage />}
 						path="/comparison-history"
 					/>

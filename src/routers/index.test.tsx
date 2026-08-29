@@ -5,7 +5,12 @@ import { AppRouter } from ".";
 
 vi.mock("@/pages/comparison", () => new Promise(() => {}));
 vi.mock("@/pages/workspace", () => ({
-	default: () => <main>workspace composer route</main>,
+	default: ({ workspaceName }: { workspaceName?: string }) => (
+		<main>
+			workspace composer route
+			{workspaceName ? <span>bound:{workspaceName}</span> : null}
+		</main>
+	),
 }));
 vi.mock("@/pages/comparison-history", () => ({
 	default: () => <main>comparison history route</main>,
@@ -22,6 +27,16 @@ describe("AppRouter", () => {
 		expect(
 			await screen.findByText("workspace composer route"),
 		).toBeInTheDocument();
+	});
+
+	it("opens a workspace-bound composer from the workspace route", async () => {
+		window.history.pushState({}, "", "/workspaces/agent-gauge");
+		render(<AppRouter />);
+
+		expect(
+			await screen.findByText("workspace composer route"),
+		).toBeInTheDocument();
+		expect(screen.getByText("bound:agent-gauge")).toBeInTheDocument();
 	});
 
 	it("renders comparison detail ids through the history route", async () => {

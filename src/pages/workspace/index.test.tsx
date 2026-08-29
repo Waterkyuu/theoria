@@ -100,6 +100,15 @@ describe("WorkspacePage", () => {
 			screen.getByRole("button", { name: "0 个技能" }),
 		).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "发送任务" })).toBeDisabled();
+		expect(screen.queryByText("agent-gauge / 新会话")).not.toBeInTheDocument();
+		expect(screen.queryByText("agent-gauge · main")).not.toBeInTheDocument();
+	});
+
+	it("shows workspace context after a workspace is selected", () => {
+		render(<WorkspacePage workspaceName="agent-gauge" />);
+
+		expect(screen.getByText("agent-gauge / 新会话")).toBeInTheDocument();
+		expect(screen.getAllByText("agent-gauge · main")).toHaveLength(2);
 	});
 
 	it("builds agent autocomplete from backend process and runtime data", async () => {

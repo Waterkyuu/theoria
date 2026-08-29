@@ -42,6 +42,7 @@ const NewWorkspaceModal = lazy(() => import("./new-workspace-modal"));
  */
 const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 	const { t } = useTranslation();
+	const isAgentGaugeSelected = currentPath === "/workspaces/agent-gauge";
 	const [isWorkspaceExpanded, setIsWorkspaceExpanded] = useState(true);
 	const [isConversationsExpanded, setIsConversationsExpanded] = useState(true);
 	const [isBenchmarksExpanded, setIsBenchmarksExpanded] = useState(false);
@@ -135,6 +136,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 								aria-label="agent-gauge"
 								aria-expanded={isWorkspaceExpanded}
 								aria-level={1}
+								aria-selected={isAgentGaugeSelected}
 								className="flex flex-col gap-xxs"
 								role="treeitem"
 								tabIndex={-1}
@@ -146,10 +148,18 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 											: "workspaceSidebar.expandWorkspace",
 										{ workspace: "agent-gauge" },
 									)}
-									className="flex h-8 w-full items-center gap-sm rounded-md bg-hairline px-sm text-left text-body-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
-									onClick={() =>
-										setIsWorkspaceExpanded((expanded) => !expanded)
-									}
+									className={cn(
+										"flex h-8 w-full items-center gap-sm rounded-md px-sm text-left text-body-sm font-medium outline-none hover:bg-hairline focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring",
+										isAgentGaugeSelected && "bg-hairline",
+									)}
+									onClick={() => {
+										if (isAgentGaugeSelected) {
+											setIsWorkspaceExpanded((expanded) => !expanded);
+											return;
+										}
+										setIsWorkspaceExpanded(true);
+										onNavigate("/workspaces/agent-gauge");
+									}}
 									type="button"
 								>
 									{isWorkspaceExpanded ? (
@@ -217,7 +227,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 																"workspaceSidebar.mockConversation",
 															)}
 															aria-level={3}
-															className="mt-xs flex h-8 items-center gap-[7px] rounded-md bg-hairline pl-12 pr-[6px] text-body-sm font-medium"
+															className="mt-xs flex h-8 items-center gap-[7px] rounded-md pl-12 pr-[6px] text-body-sm font-medium"
 															role="treeitem"
 															tabIndex={-1}
 														>
