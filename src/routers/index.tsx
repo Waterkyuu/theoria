@@ -11,6 +11,7 @@ import {
 import { AppShell } from "@/components/share/app-shell";
 
 const WorkspacePage = lazy(() => import("@/pages/workspace"));
+const BenchmarkPage = lazy(() => import("@/pages/benchmark"));
 const ComparisonHistoryPage = lazy(() => import("@/pages/comparison-history"));
 const RunBoardPage = lazy(() => import("@/pages/run-board"));
 const SkillsPage = lazy(() => import("@/pages/skills"));
@@ -57,7 +58,7 @@ const RoutedApplication = () => {
 					/>
 					<Route element={<RunBoardPage />} path="/runs" />
 					<Route element={<SkillsPage />} path="/skills" />
-					<Route element={null} path="/benchmark" />
+					<Route element={<BenchmarkPage />} path="/benchmark" />
 					<Route element={<Navigate replace to="/" />} path="*" />
 				</Routes>
 			</Suspense>
