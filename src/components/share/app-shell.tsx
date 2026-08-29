@@ -49,12 +49,12 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 	const [isNewWorkspaceOpen, setIsNewWorkspaceOpen] = useState(false);
 
 	return (
-		<div className="flex min-h-dvh bg-canvas text-ink">
+		<div className="flex min-h-[100dvh] bg-canvas text-ink">
 			<aside
 				aria-label={t("workspaceSidebar.label")}
-				className="sticky top-0 flex h-dvh w-71.75 min-w-71.75 flex-col overflow-hidden border-r border-hairline bg-surface-soft max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:z-50 max-md:h-16 max-md:w-full max-md:min-w-0 max-md:border-r-0 max-md:border-t"
+				className="sticky top-0 flex h-[100dvh] w-[287px] min-w-[287px] flex-col overflow-hidden border-r border-hairline bg-surface-soft max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:z-50 max-md:h-16 max-md:w-full max-md:min-w-0 max-md:border-r-0 max-md:border-t"
 			>
-				<header className="flex h-15.25 shrink-0 items-center px-xl max-md:hidden">
+				<header className="flex h-[61px] shrink-0 items-center px-xl max-md:hidden">
 					<button
 						aria-label={t("appName")}
 						className="rounded-md font-primary text-heading-md font-semibold leading-6 outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
@@ -67,7 +67,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 
 				<nav
 					aria-label={t("mainNavigation")}
-					className="mt-1.75 flex h-28.25 shrink-0 flex-col gap-xs px-3.75 max-md:mt-0 max-md:h-16 max-md:flex-row max-md:gap-1 max-md:px-2 max-md:py-1"
+					className="mt-[7px] flex h-[113px] shrink-0 flex-col gap-xs px-[15px] max-md:mt-0 max-md:h-16 max-md:flex-row max-md:gap-1 max-md:px-2 max-md:py-1"
 				>
 					{NAVIGATION_ITEMS.map((item) => {
 						const ItemIcon = item.icon;
@@ -97,8 +97,8 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 					})}
 				</nav>
 
-				<div className="mt-1.75 flex min-h-0 flex-1 flex-col max-md:hidden">
-					<div className="flex h-10.5 shrink-0 items-center justify-between px-lg pb-xxs pt-md">
+				<div className="mt-[7px] flex min-h-0 flex-1 flex-col max-md:hidden">
+					<div className="flex h-[42px] shrink-0 items-center justify-between px-lg pb-xxs pt-md">
 						<p className="text-[11px] font-semibold uppercase text-mute">
 							{t("workspaceSidebar.workspaces")}
 						</p>
@@ -196,7 +196,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 													<div
 														aria-label={t("workspaceSidebar.mockConversation")}
 														aria-level={3}
-														className="mt-xs flex h-8 items-center gap-1.75 rounded-md bg-hairline pl-12 pr-1.5 text-body-sm font-medium"
+														className="mt-xs flex h-8 items-center gap-[7px] rounded-md bg-hairline pl-[48px] pr-[6px] text-body-sm font-medium"
 														role="treeitem"
 														tabIndex={-1}
 													>
