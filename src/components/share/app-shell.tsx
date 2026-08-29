@@ -411,6 +411,14 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 									className="size-3 shrink-0 text-mute"
 								/>
 							</div>
+							<button
+								aria-label={`${t("workspaceSidebar.recent")} ${t("navigation.newTask")}`}
+								className="size-3 rounded-sm text-mute outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-focus-ring"
+								onClick={() => onNavigate("/")}
+								type="button"
+							>
+								<Plus aria-hidden="true" className="size-3 text-mute" />
+							</button>
 						</div>
 					</section>
 				</div>
