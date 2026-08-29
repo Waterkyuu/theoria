@@ -3,7 +3,7 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { CircleInfo, Sliders, Xmark } from "@gravity-ui/icons";
+import { CircleInfo, Sliders } from "@gravity-ui/icons";
 import { Button, Dropdown } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
@@ -203,14 +203,6 @@ const AgentEnvironmentDropdown = ({
 									})}
 								</p>
 							</div>
-							<button
-								aria-label={t("workspace.closeEnvironment")}
-								className="grid size-7 place-items-center rounded-md text-body hover:bg-surface-soft"
-								onClick={() => setIsOpen(false)}
-								type="button"
-							>
-								<Xmark aria-hidden="true" className="size-4" />
-							</button>
 						</header>
 						<div className="min-h-0 flex-1 overflow-y-auto p-sm">
 							{agentKinds.map((agent) => {
