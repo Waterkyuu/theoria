@@ -30,11 +30,12 @@
 		"@tauri-apps/plugin-opener": "^2",
 		"cnfast": "^0.1.0",
 		"i18next": "^26.3.6",
+		"jotai": "2.20.3",
 		"react": "^19.1.0",
 		"react-dom": "^19.1.0",
 		"react-i18next": "^17.0.11",
 		"react-router": "8.3.0",
-		"zustand": "^5.0.14"
+		"zod": "^4.5.2"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.5.7",
