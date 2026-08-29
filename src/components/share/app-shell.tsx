@@ -54,7 +54,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 				aria-label={t("workspaceSidebar.label")}
 				className="sticky top-0 flex h-[100dvh] w-[287px] min-w-[287px] flex-col overflow-hidden border-r border-hairline bg-surface-soft max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:z-50 max-md:h-16 max-md:w-full max-md:min-w-0 max-md:border-r-0 max-md:border-t"
 			>
-				<header className="flex h-[61px] shrink-0 items-center px-xl max-md:hidden">
+				<header className="flex h-14 shrink-0 items-center px-xl max-md:hidden">
 					<button
 						aria-label={t("appName")}
 						className="rounded-md font-primary text-heading-md font-semibold leading-6 outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
@@ -196,7 +196,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 													<div
 														aria-label={t("workspaceSidebar.mockConversation")}
 														aria-level={3}
-														className="mt-xs flex h-8 items-center gap-[7px] rounded-md bg-hairline pl-[48px] pr-[6px] text-body-sm font-medium"
+														className="mt-xs flex h-8 items-center gap-[7px] rounded-md bg-hairline pl-12 pr-[6px] text-body-sm font-medium"
 														role="treeitem"
 														tabIndex={-1}
 													>

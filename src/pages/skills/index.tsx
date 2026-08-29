@@ -60,7 +60,7 @@ const SkillsPage = () => {
 				</p>
 			</header>
 
-			<div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-6 sm:px-[40px] sm:pb-[40px] sm:pt-[28px]">
+			<div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-6 sm:px-10 sm:pb-10 sm:pt-7">
 				<div className="flex flex-col items-start justify-between gap-lg sm:flex-row sm:gap-xl">
 					<div className="min-w-0">
 						<h1 className="font-primary text-[28px] font-semibold leading-[34px] text-ink">
@@ -71,7 +71,7 @@ const SkillsPage = () => {
 						</p>
 					</div>
 					<button
-						className="h-9 w-full shrink-0 rounded-md bg-surface-dark px-lg text-body-sm font-medium text-on-dark outline-none hover:bg-ink-deep focus-visible:ring-2 focus-visible:ring-focus-ring sm:w-auto sm:min-w-[136px]"
+						className="h-9 w-full shrink-0 rounded-md bg-surface-dark px-lg text-body-sm font-medium text-on-dark outline-none hover:bg-ink-deep focus-visible:ring-2 focus-visible:ring-focus-ring sm:w-auto sm:min-w-34"
 						type="button"
 					>
 						{t("skills.addSkill")}
@@ -80,7 +80,7 @@ const SkillsPage = () => {
 
 				<input
 					aria-label={t("skills.searchPlaceholder")}
-					className="mt-[18px] h-10 w-full max-w-[520px] rounded-md border border-hairline bg-surface-card px-[14px] text-body-sm text-ink outline-none placeholder:text-mute focus:border-hairline-strong focus-visible:ring-2 focus-visible:ring-focus-ring"
+					className="mt-[18px] h-10 w-full max-w-130 rounded-md border border-hairline bg-surface-card px-[14px] text-body-sm text-ink outline-none placeholder:text-mute focus:border-hairline-strong focus-visible:ring-2 focus-visible:ring-focus-ring"
 					onChange={(event) => setSearchValue(event.target.value)}
 					placeholder={t("skills.searchPlaceholder")}
 					type="search"
@@ -105,10 +105,10 @@ const SkillsPage = () => {
 					))}
 				</div>
 
-				<div className="-mx-4 mt-[22px] overflow-x-auto border-y border-hairline bg-surface-card pb-[20px] sm:mx-0 sm:rounded-lg sm:border">
+				<div className="-mx-4 mt-[22px] overflow-x-auto border-y border-hairline bg-surface-card pb-5 sm:mx-0 sm:rounded-lg sm:border">
 					<table
 						aria-label={t("skills.libraryLabel")}
-						className="w-full min-w-[780px] table-fixed border-collapse"
+						className="w-full min-w-195 table-fixed border-collapse"
 					>
 						<colgroup>
 							<col className="w-[48%]" />

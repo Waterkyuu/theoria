@@ -20,7 +20,7 @@ describe("AppShell", () => {
 		const tree = screen.getByRole("tree", { name: "工作区" });
 
 		expect(sidebar).toHaveClass("w-[287px]", "min-w-[287px]");
-		expect(brand.parentElement).toHaveClass("h-[61px]", "px-xl");
+		expect(brand.parentElement).toHaveClass("h-14", "px-xl");
 		expect(navigation).toHaveClass("mt-[7px]", "h-[113px]", "px-[15px]");
 		expect(screen.queryByText("本地 Agent 工作台")).not.toBeInTheDocument();
 		expect(tree).toHaveClass("overflow-y-auto", "px-lg");
@@ -94,7 +94,7 @@ describe("AppShell", () => {
 		});
 
 		expect(mockConversation).toHaveAttribute("aria-level", "3");
-		expect(mockConversation).toHaveClass("bg-hairline", "pl-[48px]");
+		expect(mockConversation).toHaveClass("bg-hairline", "pl-12");
 		expect(mockConversation.querySelectorAll("svg")).toHaveLength(2);
 	});
 

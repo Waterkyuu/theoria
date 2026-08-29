@@ -275,7 +275,7 @@ const WorkspacePage = () => {
 			</header>
 
 			<section className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-48 pt-lg sm:px-xl sm:pt-xl">
-				<div className="mx-auto flex w-full max-w-[780px] flex-1 flex-col justify-center">
+				<div className="mx-auto flex w-full max-w-195 flex-1 flex-col justify-center">
 					{submittedTask && (
 						<div className="space-y-lg">
 							<div className="ml-auto max-w-[90%] rounded-lg bg-surface-dark px-lg py-md text-body-sm text-on-dark sm:max-w-[72%]">
@@ -294,7 +294,7 @@ const WorkspacePage = () => {
 			</section>
 
 			<div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-canvas via-canvas to-transparent px-3 pb-3 pt-16 sm:px-xl sm:pb-xl">
-				<div className="pointer-events-auto relative mx-auto max-w-[720px]">
+				<div className="pointer-events-auto relative mx-auto max-w-180">
 					{isSlashAutocompleteOpen ? (
 						<div className="absolute inset-x-0 bottom-[calc(100%+8px)] overflow-hidden rounded-lg border border-hairline bg-surface-card shadow-[0_18px_50px_rgba(0,0,0,0.12)]">
 							<div className="flex items-center justify-between border-b border-hairline px-lg py-sm">
@@ -545,7 +545,7 @@ const WorkspacePage = () => {
 			<button
 				aria-expanded={isEnvironmentOpen}
 				aria-label={t("workspace.viewEnvironment")}
-				className="absolute bottom-[24px] right-[20px] z-30 flex size-11 cursor-grab touch-none select-none items-center justify-center rounded-full border border-hairline-strong bg-canvas shadow-[0_8px_24px_rgba(0,0,0,0.12)] outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring active:cursor-grabbing max-sm:bottom-auto max-sm:right-3 max-sm:top-[68px]"
+				className="absolute bottom-6 right-5 z-30 flex size-11 cursor-grab touch-none select-none items-center justify-center rounded-full border border-hairline-strong bg-canvas shadow-[0_8px_24px_rgba(0,0,0,0.12)] outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring active:cursor-grabbing max-sm:bottom-auto max-sm:right-3 max-sm:top-17"
 				onClick={toggleEnvironment}
 				onPointerCancel={finishEnvironmentDrag}
 				onPointerDown={startEnvironmentDrag}
@@ -566,7 +566,7 @@ const WorkspacePage = () => {
 				<section
 					aria-label={t("workspace.environment")}
 					aria-modal="false"
-					className="absolute bottom-[80px] right-[20px] z-40 flex h-80 w-[360px] flex-col overflow-hidden rounded-lg border border-hairline bg-canvas shadow-[0_24px_70px_rgba(0,0,0,0.16)] max-sm:bottom-auto max-sm:left-3 max-sm:right-3 max-sm:top-[120px] max-sm:h-[min(24rem,calc(100dvh-13rem))] max-sm:w-auto"
+					className="absolute bottom-20 right-5 z-40 flex h-80 w-90 flex-col overflow-hidden rounded-lg border border-hairline bg-canvas shadow-[0_24px_70px_rgba(0,0,0,0.16)] max-sm:bottom-auto max-sm:left-3 max-sm:right-3 max-sm:top-30 max-sm:h-[min(24rem,calc(100dvh-13rem))] max-sm:w-auto"
 					role="dialog"
 				>
 					<header className="flex items-start justify-between border-b border-hairline px-lg py-md">
@@ -657,7 +657,7 @@ const WorkspacePage = () => {
 			{mode === "benchmark" ? (
 				<div
 					className={cn(
-						"absolute right-[24px] top-[80px] z-10 max-w-sm rounded-md border border-hairline bg-surface-soft px-md py-sm text-caption-sm text-charcoal",
+						"absolute right-6 top-20 z-10 max-w-sm rounded-md border border-hairline bg-surface-soft px-md py-sm text-caption-sm text-charcoal",
 					)}
 				>
 					<p className="font-medium">{t("workspace.benchmarkNotice")}</p>
