@@ -57,7 +57,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 				<header className="flex h-14 shrink-0 items-center px-xl max-md:hidden">
 					<button
 						aria-label={t("appName")}
-						className="translate-y-1 rounded-md font-primary text-heading-md font-semibold leading-6 outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+						className="translate-y-2 rounded-md font-primary text-heading-md font-semibold leading-6 outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
 						onClick={() => onNavigate("/")}
 						type="button"
 					>
