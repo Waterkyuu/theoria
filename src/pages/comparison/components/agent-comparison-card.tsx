@@ -2,7 +2,7 @@ import { CircleCheck, Clock, TriangleExclamation } from "@gravity-ui/icons";
 import { Skeleton } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
-import { AgentLogo } from "@/components/share/agent-logo";
+import { AgentIcon } from "@/components/share/agent-icon";
 import type { AgentKind, AgentRunResult } from "@/types/agent";
 
 type AgentComparisonCardProps = {
@@ -79,7 +79,7 @@ const AgentComparisonCard = ({
 		>
 			<header className="flex min-h-7 items-center justify-between gap-3">
 				<div className="flex min-w-0 items-center gap-2.5">
-					<AgentLogo agent={agent} className="size-5" />
+					<AgentIcon name={agent} width={20} height={20} />
 					<h3 className="truncate text-body-sm-strong font-medium" id={titleId}>
 						{t("comparisonResult", { agent: t(`agentNames.${agent}`) })}
 					</h3>

@@ -11,7 +11,7 @@ import {
 import { Button, Card, Chip, Tooltip } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
-import { AgentLogo } from "@/components/share/agent-logo";
+import { AgentIcon } from "@/components/share/agent-icon";
 import { SearchBox } from "@/components/ui/search-box";
 import { debounce } from "@/utils/common";
 import { checkAgentActivities, onAgentActivitiesChanged } from "@/api/agent";
@@ -290,9 +290,10 @@ const RunBoardPage = () => {
 															</Chip.Label>
 														</Chip>
 														<span className="flex min-w-0 items-center justify-end gap-1.5">
-															<AgentLogo
-																agent={item.agent}
-																className="size-3.5"
+															<AgentIcon
+																name={item.agent}
+																width={14}
+																height={14}
 															/>
 															<span className="truncate">
 																{t(`agentNames.${item.agent}`)}

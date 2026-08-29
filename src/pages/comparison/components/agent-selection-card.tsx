@@ -2,7 +2,7 @@ import { Check } from "@gravity-ui/icons";
 import { cn } from "cnfast";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import { AgentLogo } from "@/components/share/agent-logo";
+import { AgentIcon } from "@/components/share/agent-icon";
 import type { AgentKind, AgentRuntimeStatus } from "@/types/agent";
 
 type AgentSelectionCardProps = {
@@ -74,7 +74,7 @@ const AgentSelectionCard = ({
 		>
 			<span className="flex min-w-0 items-center gap-md">
 				<span className="grid size-9 shrink-0 place-items-center rounded-lg border border-hairline bg-canvas">
-					<AgentLogo agent={agent} className="size-5" />
+					<AgentIcon name={agent} width={20} height={20} />
 				</span>
 				<span className="min-w-0">
 					<span className="flex items-center gap-sm text-body-sm-strong font-medium">

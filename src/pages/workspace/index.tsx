@@ -18,7 +18,7 @@ import {
 } from "@gravity-ui/icons";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
-import { AgentLogo } from "@/components/share/agent-logo";
+import { AgentIcon } from "@/components/share/agent-icon";
 import { checkAgentProcesses, onAgentProcessStatesChanged } from "@/api/agent";
 import { checkClaudeLogin } from "@/api/claude";
 import { checkCodexLogin } from "@/api/codex";
@@ -347,7 +347,7 @@ const WorkspacePage = ({ workspaceName }: WorkspacePageProps) => {
 												type="button"
 											>
 												<span className="grid size-8 place-items-center rounded-md border border-hairline bg-canvas">
-													<AgentLogo agent={agent} className="size-4" />
+													<AgentIcon name={agent} width={16} height={16} />
 												</span>
 												<span className="min-w-0 flex-1">
 													<span className="block text-body-sm font-medium">
@@ -425,7 +425,7 @@ const WorkspacePage = ({ workspaceName }: WorkspacePageProps) => {
 												className="grid size-5 place-items-center rounded-full border border-canvas bg-surface-soft"
 												key={agent}
 											>
-												<AgentLogo agent={agent} className="size-3" />
+												<AgentIcon name={agent} width={12} height={12} />
 											</span>
 										))}
 									</div>
@@ -619,7 +619,7 @@ const WorkspacePage = ({ workspaceName }: WorkspacePageProps) => {
 									key={agent}
 								>
 									<span className="grid size-9 place-items-center rounded-md border border-hairline">
-										<AgentLogo agent={agent} className="size-5" />
+										<AgentIcon name={agent} width={20} height={20} />
 									</span>
 									<div className="min-w-0 flex-1">
 										<p className="text-body-sm font-medium">

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Ellipsis, PencilToSquare, TrashBin } from "@gravity-ui/icons";
 import { Button } from "@heroui/react";
 import { useTranslation } from "react-i18next";
-import { AgentLogo } from "@/components/share/agent-logo";
+import { AgentIcon } from "@/components/share/agent-icon";
 import { AlertDialog } from "@/components/ui/alert-dialog";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import type { ComparisonSummary } from "@/types/comparison";
@@ -60,7 +60,7 @@ const HistoryRecordItem = ({
 								className="rounded-full border border-hairline bg-canvas p-px"
 								key={agent.agent}
 							>
-								<AgentLogo agent={agent.agent} className="size-4" />
+								<AgentIcon name={agent.agent} width={16} height={16} />
 							</span>
 						))}
 					</span>
