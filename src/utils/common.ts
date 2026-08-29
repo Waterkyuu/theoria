@@ -193,4 +193,17 @@ const formatFileSize = (size: number): string => {
 	return `${Number(value.toFixed(1))} ${FILE_SIZE_UNITS[unitIndex]}`;
 };
 
-export { debounce, formatDateTime, formatFileSize, throttle };
+/**
+ * Formats a measured latency without hiding sub-second precision.
+ *
+ * @example
+ * formatDuration(2450); // "2.45 s"
+ */
+const formatDuration = (milliseconds: number) => {
+	if (milliseconds < 1000) {
+		return `${milliseconds} ms`;
+	}
+	return `${(milliseconds / 1000).toFixed(2)} s`;
+};
+
+export { debounce, formatDateTime, formatDuration, formatFileSize, throttle };
