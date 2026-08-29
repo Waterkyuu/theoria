@@ -227,7 +227,7 @@ describe("ComparisonHistoryPage", () => {
 		expect(await screen.findByText("还没有历史对比")).toBeInTheDocument();
 		expect(
 			screen.getByText("完成一次性能对比后，结果会自动保存在这里。"),
-		).toHaveClass("w-full", "max-w-[20rem]");
+		).toHaveClass("w-full", "max-w-80");
 	});
 
 	it("reuses a cached detail when a previously selected row is opened again", async () => {

@@ -529,7 +529,7 @@ const ComparisonPage = () => {
 	};
 
 	return (
-		<main className="mx-auto max-w-[1320px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+		<main className="mx-auto max-w-330 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
 			<header className="mb-8 border-b border-hairline pb-7">
 				<p className="mb-sm text-body-sm font-medium text-body">
 					{t("tagline")}
