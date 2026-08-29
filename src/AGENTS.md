@@ -209,6 +209,7 @@ cn("px-2 py-1", isActive && "px-4", { "text-red-500": hasError });
 2. Tests must follow the red-green-refactor development cycle. Do not write tests afterward based on the existing implementation.
 3. Do not use TDD or add tests for minor changes, such as styling updates, additional logging, icon replacements, or comment additions. Implement these changes directly.
 4. Test code rule `reference/react/test-code-rule.md`
+5. Do not write tests that inspect or assert `className`, CSS class names, or Tailwind utility classes. Test user-observable behavior instead.
 
 ### Comments
 

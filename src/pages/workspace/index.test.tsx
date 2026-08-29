@@ -173,28 +173,6 @@ describe("WorkspacePage", () => {
 		expect(apiMocks.checkWorkBuddyConfig).toHaveBeenCalledOnce();
 	});
 
-	it("aligns the started Agent count opposite the environment title", async () => {
-		apiMocks.checkAgentProcesses.mockResolvedValue({
-			claude: false,
-			codex: true,
-			opencode: false,
-			workbuddy: false,
-		});
-		const user = userEvent.setup();
-		render(<WorkspacePage />);
-
-		await user.click(screen.getByRole("button", { name: "查看 Agent 环境" }));
-
-		const heading = screen.getByRole("heading", { name: "Agent 环境" });
-		const startedCount = await screen.findByText("1 个已启动");
-		expect(heading.parentElement).toBe(startedCount.parentElement);
-		expect(heading.parentElement).toHaveClass(
-			"items-center",
-			"justify-between",
-		);
-		expect(startedCount).toHaveClass("text-right");
-	});
-
 	it("moves the environment button by dragging without opening the panel", async () => {
 		const user = userEvent.setup();
 		render(<WorkspacePage />);
