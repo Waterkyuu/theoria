@@ -224,8 +224,6 @@ const enUS = {
 		},
 		runBoard: {
 			title: "Agent run board",
-			description:
-				"Track local agent tasks that are running, awaiting input, completed, or interrupted.",
 			searchPlaceholder: "Search agent products",
 			noSearchResults: "No matching agent tasks.",
 			layoutSelection: "Switch run board layout",

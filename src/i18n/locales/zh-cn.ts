@@ -218,8 +218,6 @@ const zhCN = {
 		},
 		runBoard: {
 			title: "Agent 运行看板",
-			description:
-				"按状态追踪本地 Agent 任务，查看正在执行、等待回答、已完成和异常中断的工作。",
 			searchPlaceholder: "搜索 Agent 产品",
 			noSearchResults: "没有匹配的 Agent 任务。",
 			layoutSelection: "切换看板布局",
