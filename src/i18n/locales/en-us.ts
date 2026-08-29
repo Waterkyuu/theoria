@@ -12,6 +12,18 @@ const enUS = {
 			clearSearch: "Clear search",
 			confirm: "Confirm",
 		},
+		errors: {
+			badRequest: "The request is invalid",
+			forbidden: "You do not have permission to perform this action",
+			invalidData: "Invalid response data format",
+			network: "Unable to connect to the server",
+			notFound: "The requested resource was not found",
+			requestFailed: "Request failed",
+			server: "The server is temporarily unavailable",
+			timeout: "The request timed out",
+			tooManyRequests: "Too many requests. Please try again later",
+			unauthorized: "Please sign in again",
+		},
 		navigation: {
 			benchmark: "Benchmark",
 			newTask: "New Task",

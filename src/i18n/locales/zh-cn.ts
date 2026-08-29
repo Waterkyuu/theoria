@@ -12,6 +12,18 @@ const zhCN = {
 			clearSearch: "清除搜索",
 			confirm: "确认",
 		},
+		errors: {
+			badRequest: "请求参数有误",
+			forbidden: "你没有权限执行此操作",
+			invalidData: "响应数据格式错误",
+			network: "无法连接到服务器",
+			notFound: "请求的资源不存在",
+			requestFailed: "请求失败",
+			server: "服务器暂时不可用",
+			timeout: "请求超时",
+			tooManyRequests: "请求过于频繁，请稍后重试",
+			unauthorized: "登录状态已失效，请重新登录",
+		},
 		navigation: {
 			benchmark: "基准测试",
 			newTask: "新任务",
