@@ -8,6 +8,7 @@ import {
 	LayoutSideContentLeft,
 	PencilToSquare,
 	Pin,
+	Plus,
 	Puzzle,
 	TargetDart,
 	TrashBin,
@@ -154,7 +155,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 									{ workspace: "agent-gauge" },
 								)}
 								className={cn(
-									"flex h-8 w-full items-center gap-sm rounded-md px-sm text-left text-body-sm font-medium outline-none hover:bg-hairline focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring",
+									"group flex h-8 w-full items-center gap-sm rounded-md px-sm text-left text-body-sm font-medium outline-none hover:bg-hairline focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring",
 									isAgentGaugeSelected && "bg-hairline",
 								)}
 								onClick={() => {
@@ -177,6 +178,13 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 								)}
 								<Folder aria-hidden="true" className="size-4 shrink-0" />
 								<span className="min-w-0 flex-1 truncate">agent-gauge</span>
+								<span
+									aria-hidden="true"
+									className="flex shrink-0 items-center gap-sm text-mute opacity-0 transition-opacity group-hover:opacity-100 motion-reduce:transition-none"
+								>
+									<Plus className="size-4 shrink-0" />
+									<Ellipsis className="size-4 shrink-0" />
+								</span>
 							</button>
 
 							{/* biome-ignore lint/a11y/useSemanticElements: WAI-ARIA trees use group to own child treeitems. */}
@@ -236,65 +244,69 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 												<div
 													aria-label={t("workspaceSidebar.mockConversation")}
 													aria-level={3}
-													className="mt-xs flex h-8 items-center gap-[7px] rounded-md pl-12 pr-[6px] text-body-sm font-medium"
+													className="group mt-xs flex h-8 items-center gap-[7px] rounded-md pl-12 pr-[6px] text-body-sm font-medium hover:bg-hairline"
 													role="treeitem"
 													tabIndex={-1}
 												>
 													<span className="min-w-0 flex-1 truncate">
 														{t("workspaceSidebar.mockConversation")}
 													</span>
-													<Pin
-														aria-hidden="true"
-														className="size-4 shrink-0 text-ink/60"
-													/>
-													<DropdownMenu
-														items={[
-															{
-																icon: (
-																	<PencilToSquare
+													<div className="flex shrink-0 items-center gap-sm text-mute opacity-0 transition-opacity group-hover:opacity-100 motion-reduce:transition-none">
+														<Pin
+															aria-hidden="true"
+															className="size-4 shrink-0"
+														/>
+														<DropdownMenu
+															items={[
+																{
+																	icon: (
+																		<PencilToSquare
+																			aria-hidden="true"
+																			className="size-4 shrink-0 text-ink"
+																		/>
+																	),
+																	id: "rename",
+																	labelKey:
+																		"workspaceSidebar.renameConversation",
+																},
+																{
+																	danger: true,
+																	icon: (
+																		<TrashBin
+																			aria-hidden="true"
+																			className="size-4 shrink-0 text-danger"
+																		/>
+																	),
+																	id: "delete",
+																	labelKey:
+																		"workspaceSidebar.deleteConversation",
+																	separated: true,
+																},
+															]}
+															placement="bottom end"
+															trigger={
+																<Button
+																	aria-label={t(
+																		"workspaceSidebar.mockConversationActions",
+																		{
+																			conversation: t(
+																				"workspaceSidebar.mockConversation",
+																			),
+																		},
+																	)}
+																	className="size-4 min-w-4 cursor-pointer rounded-sm p-0 text-mute shadow-none outline-none hover:bg-transparent focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+																	isIconOnly
+																	size="sm"
+																	variant="ghost"
+																>
+																	<Ellipsis
 																		aria-hidden="true"
-																		className="size-4 shrink-0 text-ink"
+																		className="size-4"
 																	/>
-																),
-																id: "rename",
-																labelKey: "workspaceSidebar.renameConversation",
-															},
-															{
-																danger: true,
-																icon: (
-																	<TrashBin
-																		aria-hidden="true"
-																		className="size-4 shrink-0 text-danger"
-																	/>
-																),
-																id: "delete",
-																labelKey: "workspaceSidebar.deleteConversation",
-																separated: true,
-															},
-														]}
-														placement="bottom end"
-														trigger={
-															<Button
-																aria-label={t(
-																	"workspaceSidebar.mockConversationActions",
-																	{
-																		conversation: t(
-																			"workspaceSidebar.mockConversation",
-																		),
-																	},
-																)}
-																className="size-4 min-w-4 cursor-pointer rounded-sm p-0 text-ink shadow-none outline-none hover:bg-transparent focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
-																isIconOnly
-																size="sm"
-																variant="ghost"
-															>
-																<Ellipsis
-																	aria-hidden="true"
-																	className="size-4 text-ink/60"
-																/>
-															</Button>
-														}
-													/>
+																</Button>
+															}
+														/>
+													</div>
 												</div>
 											</>
 										) : null}
