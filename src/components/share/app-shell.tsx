@@ -411,7 +411,6 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 									className="size-3 shrink-0 text-mute"
 								/>
 							</div>
-							<Plus aria-hidden="true" className="size-3 shrink-0 text-mute" />
 						</div>
 					</section>
 				</div>
