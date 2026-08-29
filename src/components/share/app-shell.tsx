@@ -36,7 +36,7 @@ const NAVIGATION_ITEMS = [
 	{ path: "/benchmark", labelKey: "navigation.benchmark", icon: ChartColumn },
 ] as const;
 
-const NewWorkspaceModal = lazy(() => import("./new-workspace-modal"));
+const NewWorkspaceModal = lazy(() => import("./create-workspace-modal"));
 
 /**
  * Reproduces the Figma sidebar alignment and keeps animated visibility and tree state local.
