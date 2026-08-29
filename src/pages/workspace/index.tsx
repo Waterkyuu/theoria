@@ -4,10 +4,10 @@ import { useTranslation } from "react-i18next";
 import { AgentEnvironmentDropdown } from "@/components/share/agent-environment-dropdown";
 import { promisePool } from "@/utils/promise-pool";
 import { checkAgentProcesses, onAgentProcessStatesChanged } from "@/api/agent";
-import { checkClaudeLogin } from "@/api/claude";
-import { checkCodexLogin } from "@/api/codex";
-import { checkOpenCodeLogin } from "@/api/opencode";
-import { checkWorkBuddyConfig, checkWorkBuddyLogin } from "@/api/workbuddy";
+import { checkClaudeInitStatus } from "@/api/claude";
+import { checkCodexInitStatus } from "@/api/codex";
+import { checkOpenCodeInitStatus } from "@/api/opencode";
+import { checkWorkBuddyInitStatus } from "@/api/workbuddy";
 import { AGENT_KINDS } from "@/constants/agent";
 import { Composer } from "@/pages/workspace/components/composer";
 import type {
@@ -29,12 +29,12 @@ type SubmittedTask = {
 	agentCount: number;
 };
 
-const AGENT_LOGIN_CHECKS: Record<AgentKind, () => Promise<AgentRuntimeStatus>> =
+const AGENT_INIT_CHECKS: Record<AgentKind, () => Promise<AgentRuntimeStatus>> =
 	{
-		claude: checkClaudeLogin,
-		codex: checkCodexLogin,
-		opencode: checkOpenCodeLogin,
-		workbuddy: checkWorkBuddyLogin,
+		claude: checkClaudeInitStatus,
+		codex: checkCodexInitStatus,
+		opencode: checkOpenCodeInitStatus,
+		workbuddy: checkWorkBuddyInitStatus,
 	};
 
 const INITIAL_ENVIRONMENT_RUNTIMES = Object.fromEntries(
@@ -57,21 +57,8 @@ const WorkspacePage = ({ workspaceName }: WorkspacePageProps) => {
 
 		promisePool(AGENT_KINDS, async (agent) => {
 			try {
-				const runtime = await AGENT_LOGIN_CHECKS[agent]();
-				// WorkBuddy's login probe omits model settings, so read them separately after login.
-				if (agent !== "workbuddy" || !runtime.loggedIn) {
-					return [agent, { status: "resolved", value: runtime }] as const;
-				}
-
-				try {
-					const config = await checkWorkBuddyConfig();
-					return [
-						agent,
-						{ status: "resolved", value: { ...runtime, ...config } },
-					] as const;
-				} catch {
-					return [agent, { status: "resolved", value: runtime }] as const;
-				}
+				const runtime = await AGENT_INIT_CHECKS[agent]();
+				return [agent, { status: "resolved", value: runtime }] as const;
 			} catch {
 				return [agent, { status: "failed" }] as const;
 			}

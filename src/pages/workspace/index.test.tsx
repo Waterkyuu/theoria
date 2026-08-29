@@ -6,11 +6,10 @@ import WorkspacePage from ".";
 
 const apiMocks = vi.hoisted(() => ({
 	checkAgentProcesses: vi.fn(),
-	checkClaudeLogin: vi.fn(),
-	checkCodexLogin: vi.fn(),
-	checkOpenCodeLogin: vi.fn(),
-	checkWorkBuddyConfig: vi.fn(),
-	checkWorkBuddyLogin: vi.fn(),
+	checkClaudeInitStatus: vi.fn(),
+	checkCodexInitStatus: vi.fn(),
+	checkOpenCodeInitStatus: vi.fn(),
+	checkWorkBuddyInitStatus: vi.fn(),
 	onAgentProcessStatesChanged: vi.fn(),
 }));
 
@@ -19,17 +18,16 @@ vi.mock("@/api/agent", () => ({
 	onAgentProcessStatesChanged: apiMocks.onAgentProcessStatesChanged,
 }));
 vi.mock("@/api/claude", () => ({
-	checkClaudeLogin: apiMocks.checkClaudeLogin,
+	checkClaudeInitStatus: apiMocks.checkClaudeInitStatus,
 }));
 vi.mock("@/api/codex", () => ({
-	checkCodexLogin: apiMocks.checkCodexLogin,
+	checkCodexInitStatus: apiMocks.checkCodexInitStatus,
 }));
 vi.mock("@/api/opencode", () => ({
-	checkOpenCodeLogin: apiMocks.checkOpenCodeLogin,
+	checkOpenCodeInitStatus: apiMocks.checkOpenCodeInitStatus,
 }));
 vi.mock("@/api/workbuddy", () => ({
-	checkWorkBuddyConfig: apiMocks.checkWorkBuddyConfig,
-	checkWorkBuddyLogin: apiMocks.checkWorkBuddyLogin,
+	checkWorkBuddyInitStatus: apiMocks.checkWorkBuddyInitStatus,
 }));
 
 describe("WorkspacePage", () => {
@@ -41,35 +39,31 @@ describe("WorkspacePage", () => {
 			opencode: false,
 			workbuddy: true,
 		});
-		apiMocks.checkCodexLogin.mockResolvedValue({
+		apiMocks.checkCodexInitStatus.mockResolvedValue({
 			installed: true,
 			loggedIn: true,
 			authenticationMethod: "api-key",
 			model: "gpt-runtime",
 			reasoningEffort: "xhigh",
 		});
-		apiMocks.checkClaudeLogin.mockResolvedValue({
+		apiMocks.checkClaudeInitStatus.mockResolvedValue({
 			installed: true,
 			loggedIn: true,
 			authenticationMethod: "oauth",
 			model: "claude-runtime",
 			reasoningEffort: null,
 		});
-		apiMocks.checkOpenCodeLogin.mockResolvedValue({
+		apiMocks.checkOpenCodeInitStatus.mockResolvedValue({
 			installed: false,
 			loggedIn: false,
 			authenticationMethod: null,
 			model: null,
 			reasoningEffort: null,
 		});
-		apiMocks.checkWorkBuddyLogin.mockResolvedValue({
+		apiMocks.checkWorkBuddyInitStatus.mockResolvedValue({
 			installed: true,
 			loggedIn: true,
 			authenticationMethod: "local",
-			model: null,
-			reasoningEffort: null,
-		});
-		apiMocks.checkWorkBuddyConfig.mockResolvedValue({
 			model: "workbuddy-runtime",
 			reasoningEffort: "enabled",
 		});
@@ -166,11 +160,10 @@ describe("WorkspacePage", () => {
 		expect(screen.getAllByText("未启动")).toHaveLength(2);
 		expect(screen.getByText("未安装")).toBeInTheDocument();
 		expect(apiMocks.checkAgentProcesses).toHaveBeenCalledOnce();
-		expect(apiMocks.checkCodexLogin).toHaveBeenCalledOnce();
-		expect(apiMocks.checkClaudeLogin).toHaveBeenCalledOnce();
-		expect(apiMocks.checkOpenCodeLogin).toHaveBeenCalledOnce();
-		expect(apiMocks.checkWorkBuddyLogin).toHaveBeenCalledOnce();
-		expect(apiMocks.checkWorkBuddyConfig).toHaveBeenCalledOnce();
+		expect(apiMocks.checkCodexInitStatus).toHaveBeenCalledOnce();
+		expect(apiMocks.checkClaudeInitStatus).toHaveBeenCalledOnce();
+		expect(apiMocks.checkOpenCodeInitStatus).toHaveBeenCalledOnce();
+		expect(apiMocks.checkWorkBuddyInitStatus).toHaveBeenCalledOnce();
 	});
 
 	it("moves the environment button by dragging without opening the panel", async () => {
