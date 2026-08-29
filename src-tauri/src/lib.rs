@@ -22,15 +22,12 @@ mod db {
 }
 mod dto {
     pub(crate) mod agent;
-    pub(crate) mod claude;
-    pub(crate) mod codex;
     pub(crate) mod comparison;
-    pub(crate) mod opencode;
-    pub(crate) mod workbuddy;
 }
 mod domain {
     pub(crate) mod agent_activity;
     pub(crate) mod agent_run;
+    pub(crate) mod agent_status;
     pub(crate) mod comparison;
 }
 mod error;
@@ -50,25 +47,24 @@ mod repositories {
 mod services {
     pub(crate) mod activity;
     pub(crate) mod agent;
-    pub(crate) mod claude;
-    pub(crate) mod codex;
     pub(crate) mod comparison;
-    pub(crate) mod opencode;
     pub(crate) mod process;
-    pub(crate) mod workbuddy;
 }
 mod utils {
     pub(crate) mod debounce;
 }
 
 use crate::adapters::activity::SystemAgentActivityAdapter;
-use crate::adapters::claude::ClaudeRuntimeSettingsCache;
-use crate::adapters::codex::CodexRuntimeDefaultsCache;
+use crate::adapters::agent::AgentStatusAdapter;
+use crate::adapters::claude::{ClaudeRuntimeSettingsCache, SystemClaudeAdapter};
+use crate::adapters::codex::{CodexRuntimeDefaultsCache, SystemCodexAdapter};
+use crate::adapters::opencode::SystemOpenCodeAdapter;
 use crate::adapters::process::SystemAgentProcessAdapter;
 use crate::commands::activity::AgentActivitiesResponse;
 use crate::commands::agent::AgentProcessStatesResponse;
 use crate::db::connection::connect_sqlite_path;
 use crate::db::migration::Migrator;
+use crate::dto::agent::AgentRuntimeConfigResponse;
 use crate::platform::claude_config::{
     claude_settings_path, ClaudeConfigWatchEvent, ClaudeConfigWatcher,
 };
@@ -171,12 +167,24 @@ pub fn run() {
             let callback_window = main_window.clone();
             let watcher = CodexConfigWatcher::start(codex_config_paths(), move |event| {
                 match event {
-                    CodexConfigWatchEvent::Changed => callback_cache.invalidate(),
-                    CodexConfigWatchEvent::Failed => callback_cache.disable(),
+                    CodexConfigWatchEvent::Changed => {
+                        callback_cache.invalidate();
+                    }
+                    CodexConfigWatchEvent::Failed => {
+                        callback_cache.disable();
+                        return;
+                    }
                 }
 
+                let adapter = SystemCodexAdapter::new(callback_cache.clone());
+                let Ok(config) = adapter.load_runtime_config() else {
+                    return;
+                };
                 if callback_window
-                    .emit(CODEX_CONFIG_CHANGED_EVENT, ())
+                    .emit(
+                        CODEX_CONFIG_CHANGED_EVENT,
+                        AgentRuntimeConfigResponse::from(config),
+                    )
                     .is_err()
                 {
                     callback_cache.disable();
@@ -193,12 +201,24 @@ pub fn run() {
                 let callback_window = main_window.clone();
                 let watcher = ClaudeConfigWatcher::start(settings_path, move |event| {
                     match event {
-                        ClaudeConfigWatchEvent::Changed => callback_cache.invalidate(),
-                        ClaudeConfigWatchEvent::Failed => callback_cache.disable(),
+                        ClaudeConfigWatchEvent::Changed => {
+                            callback_cache.invalidate();
+                        }
+                        ClaudeConfigWatchEvent::Failed => {
+                            callback_cache.disable();
+                            return;
+                        }
                     }
 
+                    let adapter = SystemClaudeAdapter::new(callback_cache.clone());
+                    let Ok(config) = adapter.load_runtime_config() else {
+                        return;
+                    };
                     if callback_window
-                        .emit(CLAUDE_CONFIG_CHANGED_EVENT, ())
+                        .emit(
+                            CLAUDE_CONFIG_CHANGED_EVENT,
+                            AgentRuntimeConfigResponse::from(config),
+                        )
                         .is_err()
                     {
                         callback_cache.disable();
@@ -214,8 +234,14 @@ pub fn run() {
             let callback_window = main_window.clone();
             let watcher = OpenCodeConfigWatcher::start(opencode_config_paths(), move |event| {
                 if event == OpenCodeConfigWatchEvent::Changed {
+                    let Ok(config) = SystemOpenCodeAdapter.load_runtime_config() else {
+                        return;
+                    };
                     let _event_delivered = callback_window
-                        .emit(OPENCODE_CONFIG_CHANGED_EVENT, ())
+                        .emit(
+                            OPENCODE_CONFIG_CHANGED_EVENT,
+                            AgentRuntimeConfigResponse::from(config),
+                        )
                         .is_ok();
                 }
             });
@@ -228,17 +254,24 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::activity::check_agent_activities,
             commands::agent::check_agent_processes,
+            commands::claude::check_claude_init_status,
             commands::claude::check_claude_login,
+            commands::claude::get_claude_runtime_config,
             commands::claude::run_claude_task,
+            commands::codex::check_codex_init_status,
             commands::codex::check_codex_login,
+            commands::codex::get_codex_runtime_config,
             commands::codex::run_codex_task,
             commands::comparison::get_comparison_history,
             commands::comparison::list_comparison_history,
             commands::comparison::save_comparison_history,
+            commands::opencode::check_opencode_init_status,
             commands::opencode::check_opencode_login,
+            commands::opencode::get_opencode_runtime_config,
             commands::opencode::run_opencode_task,
-            commands::workbuddy::check_workbuddy_config,
+            commands::workbuddy::check_workbuddy_init_status,
             commands::workbuddy::check_workbuddy_login,
+            commands::workbuddy::get_workbuddy_runtime_config,
             commands::workbuddy::run_workbuddy_task
         ])
         .run(tauri::generate_context!())

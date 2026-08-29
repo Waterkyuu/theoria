@@ -1,9 +1,11 @@
 use crate::adapters::opencode::SystemOpenCodeAdapter;
-use crate::dto::agent::AgentRunResponse;
-use crate::dto::opencode::OpenCodeLoginStatus;
+use crate::dto::agent::{
+    AgentInitStatusResponse, AgentLoginStatusResponse, AgentRunResponse, AgentRuntimeConfigResponse,
+};
 use crate::error::{AppError, IpcError};
-use crate::services::agent::run_agent_task;
-use crate::services::opencode::check_opencode_login as load_opencode_login;
+use crate::services::agent::{
+    check_agent_init_status, check_agent_login, load_agent_runtime_config, run_agent_task,
+};
 use serde::Deserialize;
 
 /// User input accepted by the OpenCode task command.
@@ -16,10 +18,31 @@ pub struct RunOpenCodeTaskRequest {
 
 /// Checks whether a locally installed OpenCode CLI has any usable provider credentials.
 #[tauri::command]
-pub async fn check_opencode_login() -> Result<OpenCodeLoginStatus, IpcError> {
-    tauri::async_runtime::spawn_blocking(|| load_opencode_login(&SystemOpenCodeAdapter))
+pub async fn check_opencode_login() -> Result<AgentLoginStatusResponse, IpcError> {
+    tauri::async_runtime::spawn_blocking(|| check_agent_login(&SystemOpenCodeAdapter))
         .await
         .map_err(|_| IpcError::from(AppError::WorkerFailed))?
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
+/// Returns the complete first-load OpenCode status from independent probes.
+#[tauri::command]
+pub async fn check_opencode_init_status() -> Result<AgentInitStatusResponse, IpcError> {
+    tauri::async_runtime::spawn_blocking(|| check_agent_init_status(&SystemOpenCodeAdapter))
+        .await
+        .map_err(|_| IpcError::from(AppError::WorkerFailed))?
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
+/// Reads OpenCode's effective configuration without querying provider credentials.
+#[tauri::command]
+pub async fn get_opencode_runtime_config() -> Result<AgentRuntimeConfigResponse, IpcError> {
+    tauri::async_runtime::spawn_blocking(|| load_agent_runtime_config(&SystemOpenCodeAdapter))
+        .await
+        .map_err(|_| IpcError::from(AppError::WorkerFailed))?
+        .map(Into::into)
         .map_err(Into::into)
 }
 
