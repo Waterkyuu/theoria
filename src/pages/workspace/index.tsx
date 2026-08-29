@@ -7,6 +7,7 @@ import { checkClaudeLogin } from "@/api/claude";
 import { checkCodexLogin } from "@/api/codex";
 import { checkOpenCodeLogin } from "@/api/opencode";
 import { checkWorkBuddyConfig, checkWorkBuddyLogin } from "@/api/workbuddy";
+import { AGENT_KINDS } from "@/constants/agent";
 import { Composer } from "@/pages/workspace/components/composer";
 import type {
 	AgentKind,
@@ -26,8 +27,6 @@ type SubmittedTask = {
 	/** Number of agents selected when the task was dispatched. */
 	agentCount: number;
 };
-
-const AGENT_KINDS = ["codex", "claude", "opencode", "workbuddy"] as const;
 
 const AGENT_LOGIN_CHECKS: Record<AgentKind, () => Promise<AgentRuntimeStatus>> =
 	{

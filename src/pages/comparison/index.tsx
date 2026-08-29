@@ -27,6 +27,7 @@ import {
 	onWorkBuddyConfigChanged,
 	runWorkBuddyTask,
 } from "@/api/workbuddy";
+import { AGENT_KINDS } from "@/constants/agent";
 import type {
 	AgentKind,
 	AgentProcessStates,
@@ -87,8 +88,6 @@ const AGENT_STATUS_DISPLAYS = {
 } as const satisfies Record<string, Omit<AgentStatusDisplay, "message">>;
 
 type AgentStatusKey = keyof typeof AGENT_STATUS_DISPLAYS;
-
-const AGENT_KINDS = ["codex", "claude", "opencode", "workbuddy"] as const;
 
 const AGENT_LOGIN_CHECKS: Record<AgentKind, () => Promise<AgentRuntimeStatus>> =
 	{
