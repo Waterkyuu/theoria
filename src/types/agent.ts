@@ -31,18 +31,23 @@ type AgentProcessStates = {
 	workbuddy: boolean;
 };
 
-type AgentRuntimeStatus = {
+type AgentLoginStatus = {
 	/** Whether the local agent product was discovered. */
 	installed: boolean;
 	/** Whether the local agent product has active credentials. */
 	loggedIn: boolean;
 	/** Safe authentication mode reported by the agent. */
 	authenticationMethod: string | null;
+};
+
+type AgentRuntimeConfig = {
 	/** Effective model selected for new tasks. */
 	model: string | null;
 	/** Effective reasoning effort selected for new tasks. */
 	reasoningEffort: string | null;
 };
+
+type AgentRuntimeStatus = AgentLoginStatus & AgentRuntimeConfig;
 
 type AgentRuntimeState =
 	| {
@@ -59,8 +64,6 @@ type AgentRuntimeState =
 			/** Indicates that the local runtime probe failed. */
 			status: "failed";
 	  };
-
-type AgentRuntimeConfig = Pick<AgentRuntimeStatus, "model" | "reasoningEffort">;
 
 type TokenUsage = {
 	/** Total tokens consumed by the task. */
@@ -110,6 +113,7 @@ export type {
 	AgentActivity,
 	AgentActivityStatus,
 	AgentKind,
+	AgentLoginStatus,
 	AgentProcessStates,
 	AgentRunResult,
 	AgentRuntimeConfig,

@@ -1,10 +1,33 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { AgentRunResult, AgentRuntimeStatus } from "@/types/agent";
+import type {
+	AgentLoginStatus,
+	AgentRunResult,
+	AgentRuntimeConfig,
+	AgentRuntimeStatus,
+} from "@/types/agent";
 
 /** Checks OpenCode credentials and resolved runtime configuration through official CLI commands. */
 const checkOpenCodeLogin = () =>
-	invoke<AgentRuntimeStatus>("check_opencode_login");
+	invoke<AgentLoginStatus>("check_opencode_login");
+
+/**
+ * Returns the complete OpenCode status needed for the first render.
+ *
+ * @example
+ * checkOpenCodeInitStatus();
+ */
+const checkOpenCodeInitStatus = () =>
+	invoke<AgentRuntimeStatus>("check_opencode_init_status");
+
+/**
+ * Reads OpenCode's resolved model configuration without checking credentials.
+ *
+ * @example
+ * getOpenCodeRuntimeConfig();
+ */
+const getOpenCodeRuntimeConfig = () =>
+	invoke<AgentRuntimeConfig>("get_opencode_runtime_config");
 
 /**
  * Subscribes to native changes across OpenCode's file-backed configuration layers.
@@ -12,8 +35,12 @@ const checkOpenCodeLogin = () =>
  * @example
  * onOpenCodeConfigChanged(refreshOpenCodeStatus);
  */
-const onOpenCodeConfigChanged = (listener: () => void) =>
-	listen<void>("opencode-config-changed", listener);
+const onOpenCodeConfigChanged = (
+	listener: (config: AgentRuntimeConfig) => void,
+) =>
+	listen<AgentRuntimeConfig>("opencode-config-changed", (event) => {
+		listener(event.payload);
+	});
 
 /**
  * Sends one task through OpenCode's documented non-interactive JSON event mode.
@@ -24,4 +51,10 @@ const onOpenCodeConfigChanged = (listener: () => void) =>
 const runOpenCodeTask = (query: string) =>
 	invoke<AgentRunResult>("run_opencode_task", { request: { query } });
 
-export { checkOpenCodeLogin, onOpenCodeConfigChanged, runOpenCodeTask };
+export {
+	checkOpenCodeInitStatus,
+	checkOpenCodeLogin,
+	getOpenCodeRuntimeConfig,
+	onOpenCodeConfigChanged,
+	runOpenCodeTask,
+};
