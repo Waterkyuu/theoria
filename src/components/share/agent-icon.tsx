@@ -1,20 +1,11 @@
+import type { AGENT_KINDS } from "@/constants/agent";
+
 /**
  * Support by reicon
  * https://reicon.dev
  */
 
-type Agent =
-	| "claude"
-	| "codex"
-	| "workbuddy"
-	| "opencode"
-	| "zai"
-	| "qoder"
-	| "kimi"
-	| "deepseek"
-	| "antigravity"
-	| "grok"
-	| "cline";
+type Agent = (typeof AGENT_KINDS)[number];
 
 type AgentIcon = {
 	name: Agent;
