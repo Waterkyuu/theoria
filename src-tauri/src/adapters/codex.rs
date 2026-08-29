@@ -1,5 +1,6 @@
-use crate::adapters::agent::AgentAdapter;
+use crate::adapters::agent::{AgentAdapter, AgentStatusAdapter};
 use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput, TokenUsage};
+use crate::domain::agent_status::{AgentLoginStatus, AgentRuntimeConfig};
 use crate::error::AppError;
 use crate::platform::codex_config::codex_config_paths;
 use serde::Deserialize;
@@ -23,27 +24,9 @@ const MAX_CODEX_CONFIG_BYTES: u64 = 1024 * 1024;
 const EVENT_QUEUE_CAPACITY: usize = 64;
 const MAX_RUNTIME_DEFAULT_RESOLUTION_ATTEMPTS: usize = 2;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct CodexAuthentication {
-    /// Indicates whether a usable Codex executable was found locally.
-    pub(crate) installed: bool,
-    /// Indicates whether the Codex CLI reports active credentials.
-    pub(crate) logged_in: bool,
-    /// Safe authentication mode parsed from the Codex CLI status output.
-    pub(crate) authentication_method: Option<String>,
-    /// Effective model selected for newly created Codex threads.
-    pub(crate) model: Option<String>,
-    /// Effective reasoning effort selected for newly created Codex threads.
-    pub(crate) reasoning_effort: Option<String>,
-}
-
-pub(crate) trait CodexAdapter {
-    fn check_authentication(&self) -> Result<CodexAuthentication, AppError>;
-}
-
 #[derive(Debug, Clone)]
 pub(crate) struct SystemCodexAdapter {
-    /// Shared cache of effective runtime defaults used by authentication probes.
+    /// Shared cache of effective runtime defaults used by configuration reads.
     runtime_defaults_cache: CodexRuntimeDefaultsCache,
 }
 
@@ -55,27 +38,8 @@ impl SystemCodexAdapter {
     }
 }
 
-impl CodexAdapter for SystemCodexAdapter {
-    /// Checks the installed, login, and effective runtime status of the local Codex CLI.
-    ///
-    /// The login-status service calls this method through [`CodexAdapter`]; the task execution path
-    /// uses a separate executable check. Each candidate receives `codex login status` in order.
-    /// Successfully starting any candidate proves that Codex is installed. Exit code zero means
-    /// logged in, while a non-zero exit code means installed but logged out.
-    ///
-    /// Missing candidates are skipped so bundled macOS executables remain available as fallbacks.
-    /// If every candidate is missing, this method clears cached runtime settings and returns an
-    /// installed and login status of `false`. Any other process-start failure returns
-    /// [`AppError::CodexProbeFailed`].
-    ///
-    /// For a logged-in installation, the returned [`CodexAuthentication`] also contains the safe
-    /// authentication label plus the effective model and reasoning effort. Logged-out and missing
-    /// installations clear those cached settings so later probes cannot display stale values.
-    ///
-    /// For example, a candidate that starts and exits non-zero returns `installed: true` with
-    /// `logged_in: false`; a machine where every candidate is missing returns both fields as
-    /// `false` without treating absence as a probe error.
-    fn check_authentication(&self) -> Result<CodexAuthentication, AppError> {
+impl AgentStatusAdapter for SystemCodexAdapter {
+    fn check_login(&self) -> Result<AgentLoginStatus, AppError> {
         for executable in codex_executable_candidates() {
             let output = Command::new(&executable)
                 .args(["login", "status"])
@@ -86,13 +50,7 @@ impl CodexAdapter for SystemCodexAdapter {
 
             match output {
                 Ok(output) => {
-                    // The official CLI contract states that `codex login status` exits with 0
-                    // when credentials are present and prints the active authentication mode:
-                    // https://learn.chatgpt.com/docs/developer-commands?surface=cli#cli-codex-login
                     let logged_in = output.status.success();
-                    // Current Codex versions print, for example, `Logged in using ChatGPT`.
-                    // Authentication-mode parsing is display-only; an unexpected format falls
-                    // back to a safe generic label without changing the exit-code login result.
                     let authentication_method = logged_in.then(|| {
                         String::from_utf8_lossy(&output.stdout)
                             .trim()
@@ -100,27 +58,10 @@ impl CodexAdapter for SystemCodexAdapter {
                             .unwrap_or("authenticated credentials")
                             .to_string()
                     });
-                    // Explicit config values are authoritative for this display. App Server remains
-                    // the fallback when either field cannot be resolved safely from local TOML.
-                    let runtime_settings = if logged_in {
-                        Some(
-                            self.runtime_defaults_cache
-                                .resolve(|| resolve_codex_runtime_settings(&executable))?,
-                        )
-                    } else {
-                        self.runtime_defaults_cache.invalidate();
-                        None
-                    };
-
-                    return Ok(CodexAuthentication {
+                    return Ok(AgentLoginStatus {
                         installed: true,
                         logged_in,
                         authentication_method,
-                        model: runtime_settings
-                            .as_ref()
-                            .map(|settings| settings.model.clone()),
-                        reasoning_effort: runtime_settings
-                            .and_then(|settings| settings.reasoning_effort),
                     });
                 }
                 Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
@@ -128,14 +69,17 @@ impl CodexAdapter for SystemCodexAdapter {
             }
         }
 
-        self.runtime_defaults_cache.invalidate();
-        Ok(CodexAuthentication {
-            installed: false,
-            logged_in: false,
-            authentication_method: None,
-            model: None,
-            reasoning_effort: None,
-        })
+        Ok(AgentLoginStatus::default())
+    }
+
+    fn load_runtime_config(&self) -> Result<AgentRuntimeConfig, AppError> {
+        let executable = find_usable_codex_executable()?;
+        self.runtime_defaults_cache
+            .resolve(|| resolve_codex_runtime_settings(&executable))
+            .map(|settings| AgentRuntimeConfig {
+                model: Some(settings.model),
+                reasoning_effort: settings.reasoning_effort,
+            })
     }
 }
 

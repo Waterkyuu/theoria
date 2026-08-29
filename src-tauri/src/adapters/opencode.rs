@@ -1,5 +1,6 @@
-use crate::adapters::agent::AgentAdapter;
+use crate::adapters::agent::{AgentAdapter, AgentStatusAdapter};
 use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput, TokenUsage};
+use crate::domain::agent_status::{AgentLoginStatus, AgentRuntimeConfig};
 use crate::error::AppError;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -14,61 +15,46 @@ const OPENCODE_RUN_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 const MAX_EVENT_BYTES: usize = 1024 * 1024;
 const EVENT_QUEUE_CAPACITY: usize = 64;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct OpenCodeAuthentication {
-    /// Indicates whether a usable OpenCode executable was found locally.
-    pub(crate) installed: bool,
-    /// Indicates whether OpenCode reports a stored or environment-backed provider credential.
-    pub(crate) logged_in: bool,
-    /// Safe credential category derived from the official authentication listing.
-    pub(crate) authentication_method: Option<String>,
-    /// Effective model selected by the official resolved configuration.
-    pub(crate) model: Option<String>,
-    /// Effective model variant selected for the default primary agent.
-    pub(crate) reasoning_effort: Option<String>,
-}
-
-pub(crate) trait OpenCodeAdapter {
-    fn check_authentication(&self) -> Result<OpenCodeAuthentication, AppError>;
-}
-
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct SystemOpenCodeAdapter;
 
-impl OpenCodeAdapter for SystemOpenCodeAdapter {
-    /// Uses only documented OpenCode CLI commands so credential and config formats remain owned by OpenCode.
-    fn check_authentication(&self) -> Result<OpenCodeAuthentication, AppError> {
+impl AgentStatusAdapter for SystemOpenCodeAdapter {
+    fn check_login(&self) -> Result<AgentLoginStatus, AppError> {
         let executable = match find_usable_opencode_executable() {
             Ok(executable) => executable,
-            Err(AppError::OpenCodeNotInstalled) => return Ok(not_installed_authentication()),
+            Err(AppError::OpenCodeNotInstalled) => return Ok(AgentLoginStatus::default()),
             Err(error) => return Err(error),
         };
-        let auth_output = Command::new(&executable)
+        let output = Command::new(executable)
             .args(["auth", "list"])
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .output()
             .map_err(|_| AppError::OpenCodeProbeFailed)?;
-        if !auth_output.status.success() {
+        if !output.status.success() {
             return Err(AppError::OpenCodeProbeFailed);
         }
-        let auth_stdout =
-            String::from_utf8(auth_output.stdout).map_err(|_| AppError::OpenCodeProbeFailed)?;
-        let config_output = Command::new(executable)
+        let stdout = String::from_utf8(output.stdout).map_err(|_| AppError::OpenCodeProbeFailed)?;
+
+        Ok(login_from_auth_output(&stdout))
+    }
+
+    fn load_runtime_config(&self) -> Result<AgentRuntimeConfig, AppError> {
+        let executable = find_usable_opencode_executable()?;
+        let output = Command::new(executable)
             .args(["debug", "config"])
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .output()
             .map_err(|_| AppError::OpenCodeProbeFailed)?;
-        let config_stdout = if config_output.status.success() {
-            String::from_utf8(config_output.stdout).map_err(|_| AppError::OpenCodeProbeFailed)?
-        } else {
-            "{}".to_string()
-        };
+        if !output.status.success() {
+            return Err(AppError::OpenCodeProbeFailed);
+        }
+        let stdout = String::from_utf8(output.stdout).map_err(|_| AppError::OpenCodeProbeFailed)?;
 
-        authentication_from_outputs(&auth_stdout, &config_stdout)
+        runtime_config_from_json(&stdout)
     }
 }
 
@@ -185,21 +171,7 @@ impl From<OpenCodeTokens> for TokenUsage {
     }
 }
 
-fn not_installed_authentication() -> OpenCodeAuthentication {
-    OpenCodeAuthentication {
-        installed: false,
-        logged_in: false,
-        authentication_method: None,
-        model: None,
-        reasoning_effort: None,
-    }
-}
-
-/// Parses the human credential summary and JSON resolved config emitted by official CLI commands.
-fn authentication_from_outputs(
-    authentication_output: &str,
-    configuration_output: &str,
-) -> Result<OpenCodeAuthentication, AppError> {
+fn login_from_auth_output(authentication_output: &str) -> AgentLoginStatus {
     let plain_output = strip_ansi_escape_sequences(authentication_output);
     let stored_count = summary_count(&plain_output, "credentials");
     let environment_count = summary_count(&plain_output, "environment variable");
@@ -209,15 +181,20 @@ fn authentication_from_outputs(
         (false, true) => Some("environment credential".to_string()),
         (false, false) => None,
     };
+    AgentLoginStatus {
+        installed: true,
+        logged_in,
+        authentication_method,
+    }
+}
+
+fn runtime_config_from_json(configuration_output: &str) -> Result<AgentRuntimeConfig, AppError> {
     let config: OpenCodeConfig =
         serde_json::from_str(configuration_output).map_err(|_| AppError::OpenCodeProbeFailed)?;
     let default_agent = config.default_agent.as_deref().unwrap_or("build");
     let agent = config.agent.get(default_agent);
 
-    Ok(OpenCodeAuthentication {
-        installed: true,
-        logged_in,
-        authentication_method,
+    Ok(AgentRuntimeConfig {
         model: non_empty_value(agent.and_then(|item| item.model.clone()).or(config.model)),
         reasoning_effort: non_empty_value(agent.and_then(|item| item.variant.clone())),
     })
@@ -484,14 +461,16 @@ fn opencode_executable_candidates() -> Vec<OsString> {
 
 #[cfg(test)]
 mod tests {
-    use super::{authentication_from_outputs, collect_opencode_events};
+    use super::{collect_opencode_events, login_from_auth_output, runtime_config_from_json};
     use std::sync::mpsc;
     use std::time::{Duration, Instant};
 
     #[test]
     fn reads_credentials_and_effective_runtime_configuration() {
-        let authentication = authentication_from_outputs(
+        let authentication = login_from_auth_output(
             "Credentials ~/.local/share/opencode/auth.json\nAnthropic oauth\n1 credentials\n",
+        );
+        let config = runtime_config_from_json(
             r#"{
                 "model": "anthropic/claude-sonnet-4-6",
                 "default_agent": "build",
@@ -506,20 +485,15 @@ mod tests {
             authentication.authentication_method.as_deref(),
             Some("configured provider")
         );
-        assert_eq!(
-            authentication.model.as_deref(),
-            Some("anthropic/claude-sonnet-4-6")
-        );
-        assert_eq!(authentication.reasoning_effort.as_deref(), Some("high"));
+        assert_eq!(config.model.as_deref(), Some("anthropic/claude-sonnet-4-6"));
+        assert_eq!(config.reasoning_effort.as_deref(), Some("high"));
     }
 
     #[test]
     fn recognizes_environment_credentials_without_stored_credentials() {
-        let authentication = authentication_from_outputs(
+        let authentication = login_from_auth_output(
             "Credentials ~/.local/share/opencode/auth.json\n0 credentials\nEnvironment\nOpenAI OPENAI_API_KEY\n1 environment variable\n",
-            "{}",
-        )
-        .expect("environment credentials should count as a usable login");
+        );
 
         assert!(authentication.logged_in);
         assert_eq!(

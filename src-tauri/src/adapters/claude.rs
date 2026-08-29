@@ -1,5 +1,6 @@
-use crate::adapters::agent::AgentAdapter;
+use crate::adapters::agent::{AgentAdapter, AgentStatusAdapter};
 use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput, TokenUsage};
+use crate::domain::agent_status::{AgentLoginStatus, AgentRuntimeConfig};
 use crate::error::AppError;
 use crate::platform::claude_config::claude_settings_path;
 use serde::Deserialize;
@@ -23,21 +24,13 @@ const EVENT_QUEUE_CAPACITY: usize = 64;
 const MAX_RUNTIME_SETTINGS_RESOLUTION_ATTEMPTS: usize = 2;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct ClaudeAuthentication {
+struct ClaudeAuthentication {
     /// Indicates whether a usable Claude Code executable was found locally.
-    pub(crate) installed: bool,
+    installed: bool,
     /// Indicates whether Claude Code reports active credentials.
-    pub(crate) logged_in: bool,
+    logged_in: bool,
     /// Safe authentication mode parsed from Claude Code's status response.
-    pub(crate) authentication_method: Option<String>,
-    /// Effective model read from the local Claude settings.
-    pub(crate) model: Option<String>,
-    /// Effective reasoning effort read from the local Claude settings.
-    pub(crate) reasoning_effort: Option<String>,
-}
-
-pub(crate) trait ClaudeAdapter {
-    fn check_authentication(&self) -> Result<ClaudeAuthentication, AppError>;
+    authentication_method: Option<String>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -54,18 +47,11 @@ impl SystemClaudeAdapter {
     }
 }
 
-impl ClaudeAdapter for SystemClaudeAdapter {
-    /// Detects Claude Code and parses its structured authentication status response.
-    ///
-    /// Claude may return useful logged-out JSON with a non-zero exit status, so parsing is tried
-    /// before falling back to the normalized logged-out state.
-    fn check_authentication(&self) -> Result<ClaudeAuthentication, AppError> {
+impl AgentStatusAdapter for SystemClaudeAdapter {
+    fn check_login(&self) -> Result<AgentLoginStatus, AppError> {
         let executable = match resolve_claude_executable() {
             Ok(executable) => executable,
-            Err(AppError::ClaudeNotInstalled) => {
-                self.runtime_settings_cache.invalidate();
-                return Ok(not_installed_authentication());
-            }
+            Err(AppError::ClaudeNotInstalled) => return Ok(AgentLoginStatus::default()),
             Err(error) => return Err(error),
         };
         let output = Command::new(executable)
@@ -76,24 +62,26 @@ impl ClaudeAdapter for SystemClaudeAdapter {
             .output()
             .map_err(|_| AppError::ClaudeProbeFailed)?;
         let stdout = String::from_utf8(output.stdout).map_err(|_| AppError::ClaudeProbeFailed)?;
-
-        let mut authentication = if output.status.success() {
+        let authentication = if output.status.success() {
             authentication_from_status(&stdout)?
         } else {
             authentication_from_status(&stdout).unwrap_or_else(|_| logged_out_authentication())
         };
 
-        if authentication.logged_in {
-            let runtime_settings = self
-                .runtime_settings_cache
-                .resolve(|| Ok(read_claude_runtime_settings()))?;
-            authentication.model = runtime_settings.model;
-            authentication.reasoning_effort = runtime_settings.reasoning_effort;
-        } else {
-            self.runtime_settings_cache.invalidate();
-        }
+        Ok(AgentLoginStatus {
+            installed: authentication.installed,
+            logged_in: authentication.logged_in,
+            authentication_method: authentication.authentication_method,
+        })
+    }
 
-        Ok(authentication)
+    fn load_runtime_config(&self) -> Result<AgentRuntimeConfig, AppError> {
+        self.runtime_settings_cache
+            .resolve(|| Ok(read_claude_runtime_settings()))
+            .map(|settings| AgentRuntimeConfig {
+                model: settings.model,
+                reasoning_effort: settings.reasoning_effort,
+            })
     }
 }
 
@@ -312,23 +300,11 @@ impl From<StreamUsage> for TokenUsage {
     }
 }
 
-fn not_installed_authentication() -> ClaudeAuthentication {
-    ClaudeAuthentication {
-        installed: false,
-        logged_in: false,
-        authentication_method: None,
-        model: None,
-        reasoning_effort: None,
-    }
-}
-
 fn logged_out_authentication() -> ClaudeAuthentication {
     ClaudeAuthentication {
         installed: true,
         logged_in: false,
         authentication_method: None,
-        model: None,
-        reasoning_effort: None,
     }
 }
 
@@ -352,8 +328,6 @@ fn authentication_from_status(status: &str) -> Result<ClaudeAuthentication, AppE
         installed: true,
         logged_in: status.logged_in,
         authentication_method,
-        model: None,
-        reasoning_effort: None,
     })
 }
 

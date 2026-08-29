@@ -1,5 +1,6 @@
-use crate::adapters::agent::AgentAdapter;
+use crate::adapters::agent::{AgentAdapter, AgentStatusAdapter};
 use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput, TokenUsage};
+use crate::domain::agent_status::{AgentLoginStatus, AgentRuntimeConfig};
 use crate::error::AppError;
 use leveldb_forensic::{decode_local_storage, LocalStorageRecord};
 use serde::Deserialize;
@@ -173,41 +174,40 @@ pub(crate) fn read_workbuddy_config() -> Result<WorkBuddyConfigSnapshot, AppErro
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct WorkBuddyAuthentication {
+struct WorkBuddyAuthentication {
     /// Indicates whether a usable WorkBuddy application or CLI was found locally.
-    pub(crate) installed: bool,
+    installed: bool,
     /// Indicates whether WorkBuddy accepted an authenticated ACP session.
-    pub(crate) logged_in: bool,
+    logged_in: bool,
     /// Safe authentication mode derived from the ACP user response.
-    pub(crate) authentication_method: Option<String>,
-}
-
-pub(crate) trait WorkBuddyAdapter {
-    fn check_authentication(&self) -> Result<WorkBuddyAuthentication, AppError>;
+    authentication_method: Option<String>,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
 pub(crate) struct SystemWorkBuddyAdapter;
 
-impl WorkBuddyAdapter for SystemWorkBuddyAdapter {
-    /// Detects WorkBuddy and opens a temporary ACP session to verify account access.
-    ///
-    /// WorkBuddy does not expose a separate authentication-status command; successful session
-    /// creation is therefore the authoritative local login signal.
-    fn check_authentication(&self) -> Result<WorkBuddyAuthentication, AppError> {
+impl AgentStatusAdapter for SystemWorkBuddyAdapter {
+    fn check_login(&self) -> Result<AgentLoginStatus, AppError> {
         let executable = match find_workbuddy_executable() {
             Ok(executable) => executable,
             Err(AppError::WorkBuddyNotInstalled) => {
-                return Ok(WorkBuddyAuthentication {
-                    installed: false,
-                    logged_in: false,
-                    authentication_method: None,
-                });
+                return Ok(AgentLoginStatus::default());
             }
             Err(error) => return Err(error),
         };
 
-        probe_workbuddy_runtime(&executable)
+        probe_workbuddy_runtime(&executable).map(|authentication| AgentLoginStatus {
+            installed: authentication.installed,
+            logged_in: authentication.logged_in,
+            authentication_method: authentication.authentication_method,
+        })
+    }
+
+    fn load_runtime_config(&self) -> Result<AgentRuntimeConfig, AppError> {
+        read_workbuddy_config().map(|config| AgentRuntimeConfig {
+            model: config.model,
+            reasoning_effort: config.reasoning_effort,
+        })
     }
 }
 
