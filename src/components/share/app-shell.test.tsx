@@ -19,13 +19,19 @@ describe("AppShell", () => {
 		const navigation = screen.getByRole("navigation", { name: "主导航" });
 		const tree = screen.getByRole("tree", { name: "工作区" });
 
-		expect(sidebar).toHaveClass("w-[287px]", "min-w-[287px]");
-		expect(brand.parentElement).toHaveClass("h-14", "px-xl");
-		expect(navigation).toHaveClass("mt-[7px]", "h-[113px]", "px-[15px]");
+		expect(sidebar).toHaveClass(
+			"w-[287px]",
+			"min-w-[287px]",
+			"gap-[9px]",
+			"px-[14px]",
+			"py-[7px]",
+		);
+		expect(brand.parentElement).toHaveClass("px-[15px]", "py-[10px]");
+		expect(navigation).toHaveClass("h-[132px]", "gap-xs");
 		expect(screen.queryByText("本地 Agent 工作台")).not.toBeInTheDocument();
-		expect(tree).toHaveClass("overflow-y-auto", "px-lg");
+		expect(tree).toHaveClass("overflow-y-auto");
 		expect(tree).not.toHaveClass("pt-xxs");
-		expect(tree.previousElementSibling).toHaveClass("h-[42px]");
+		expect(tree.previousElementSibling).toHaveClass("h-7");
 		expect(
 			screen.queryByRole("navigation", { name: "应用设置" }),
 		).not.toBeInTheDocument();
@@ -38,13 +44,13 @@ describe("AppShell", () => {
 			</AppShell>,
 		);
 
-		const workspaceNavigation = screen.getByRole("button", { name: "工作区" });
+		const workspaceNavigation = screen.getByRole("button", { name: "新任务" });
 		const workspaceToggle = screen.getByRole("button", {
 			name: "收起 agent-gauge",
 		});
 		const tree = screen.getByRole("tree", { name: "工作区" });
 
-		expect(workspaceNavigation).toHaveClass("h-8", "px-sm", "gap-sm");
+		expect(workspaceNavigation).toHaveClass("h-9", "px-sm", "gap-sm");
 		expect(workspaceToggle).toHaveClass("focus-visible:ring-inset");
 		expect(tree.querySelector(".border-l")).not.toBeInTheDocument();
 		expect(
@@ -84,13 +90,13 @@ describe("AppShell", () => {
 		expect(
 			screen.getByRole("treeitem", { name: /agent-gauge/ }),
 		).toHaveAttribute("aria-level", "1");
-		expect(screen.getByRole("treeitem", { name: /会话 1/ })).toHaveAttribute(
+		expect(screen.getByRole("treeitem", { name: /任务 1/ })).toHaveAttribute(
 			"aria-level",
 			"2",
 		);
 
 		const mockConversation = screen.getByRole("treeitem", {
-			name: "当前会话",
+			name: "当前任务",
 		});
 
 		expect(mockConversation).toHaveAttribute("aria-level", "3");
@@ -107,7 +113,7 @@ describe("AppShell", () => {
 		);
 
 		await user.click(
-			screen.getByRole("button", { name: "当前会话的更多操作" }),
+			screen.getByRole("button", { name: "当前任务的更多操作" }),
 		);
 
 		expect(
@@ -126,11 +132,12 @@ describe("AppShell", () => {
 		fireEvent.click(screen.getByRole("button", { name: "收起 agent-gauge" }));
 
 		expect(
-			screen.queryByRole("treeitem", { name: /会话 1/ }),
+			screen.queryByRole("treeitem", { name: /任务 1/ }),
 		).not.toBeInTheDocument();
 	});
 
-	it("opens the global skill library from the fixed navigation", () => {
+	it("navigates to a new task and lets the user hide and restore the sidebar", async () => {
+		const user = userEvent.setup();
 		const onNavigate = vi.fn();
 		render(
 			<AppShell currentPath="/" onNavigate={onNavigate}>
@@ -138,8 +145,17 @@ describe("AppShell", () => {
 			</AppShell>,
 		);
 
-		fireEvent.click(screen.getByRole("button", { name: "技能库" }));
+		await user.click(screen.getByRole("button", { name: "新任务" }));
+		expect(onNavigate).toHaveBeenCalledWith("/");
 
-		expect(onNavigate).toHaveBeenCalledWith("/skills");
+		await user.click(screen.getByRole("button", { name: "收起侧边栏" }));
+		expect(
+			screen.queryByRole("complementary", { name: "工作区侧边栏" }),
+		).not.toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "展开侧边栏" }));
+		expect(
+			screen.getByRole("complementary", { name: "工作区侧边栏" }),
+		).toBeInTheDocument();
 	});
 });
