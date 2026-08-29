@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { CircleCheckFill, CodeTrunk } from "@gravity-ui/icons";
 import { useTranslation } from "react-i18next";
 import { AgentEnvironmentDropdown } from "@/components/share/agent-environment-dropdown";
-import { Composer } from "@/components/share/composer";
 import { checkAgentProcesses, onAgentProcessStatesChanged } from "@/api/agent";
 import { checkClaudeLogin } from "@/api/claude";
 import { checkCodexLogin } from "@/api/codex";
 import { checkOpenCodeLogin } from "@/api/opencode";
 import { checkWorkBuddyConfig, checkWorkBuddyLogin } from "@/api/workbuddy";
+import { Composer } from "@/pages/workspace/components/composer";
 import type {
 	AgentKind,
 	AgentProcessStates,

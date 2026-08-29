@@ -152,7 +152,7 @@ const Composer = ({
 						</div>
 					) : null}
 
-					<div className="rounded-lg border border-hairline-strong bg-surface-card shadow-[0_12px_36px_rgba(0,0,0,0.08)] focus-within:border-charcoal">
+					<div className="rounded-2xl border border-hairline-strong bg-surface-card shadow-md">
 						<label className="sr-only" htmlFor="workspace-composer">
 							{t("workspace.taskLabel")}
 						</label>
@@ -279,13 +279,13 @@ const Composer = ({
 										<Puzzle aria-hidden="true" className="size-3.5" />
 										<span>0</span>
 									</button>
-									{isSkillMenuOpen ? (
+									{/* {isSkillMenuOpen ? (
 										<div
 											aria-label={t("workspace.skillSelection")}
 											className="absolute bottom-[calc(100%+8px)] left-0 w-56 rounded-lg border border-hairline bg-canvas p-sm shadow-[0_16px_40px_rgba(0,0,0,0.12)]"
 											role="listbox"
 										></div>
-									) : null}
+									) : null} */}
 								</div>
 							</div>
 							<div className="flex shrink-0 items-center gap-md">
