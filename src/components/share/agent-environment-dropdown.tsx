@@ -192,17 +192,15 @@ const AgentEnvironmentDropdown = ({
 						className="flex h-80 w-90 flex-col overflow-hidden rounded-lg border border-hairline bg-canvas shadow-[0_24px_70px_rgba(0,0,0,0.16)] max-sm:h-[min(24rem,calc(100dvh-8rem))] max-sm:w-[calc(100vw-1.5rem)]"
 						role="dialog"
 					>
-						<header className="flex items-start justify-between border-b border-hairline px-lg py-md">
-							<div>
-								<h2 className="text-body-sm font-semibold">
-									{t("workspace.environment")}
-								</h2>
-								<p className="mt-xs text-caption-sm text-body">
-									{t("workspace.startedAgentCount", {
-										count: startedAgentCount,
-									})}
-								</p>
-							</div>
+						<header className="flex items-center justify-between border-b border-hairline px-lg py-md">
+							<h2 className="text-body-sm font-semibold">
+								{t("workspace.environment")}
+							</h2>
+							<p className="text-right text-caption-sm text-body">
+								{t("workspace.startedAgentCount", {
+									count: startedAgentCount,
+								})}
+							</p>
 						</header>
 						<div className="min-h-0 flex-1 overflow-y-auto p-sm">
 							{agentKinds.map((agent) => {
