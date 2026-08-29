@@ -50,7 +50,7 @@ const SkillsPage = () => {
 	});
 
 	return (
-		<main className="flex h-dvh min-w-0 flex-1 flex-col overflow-hidden bg-canvas max-md:h-[calc(100dvh-4rem)]">
+		<main className="flex h-[100dvh] min-w-0 flex-1 flex-col overflow-hidden bg-canvas max-md:h-[calc(100dvh-4rem)]">
 			<header className="flex h-14 shrink-0 items-center justify-between border-b border-hairline px-4 sm:px-xl">
 				<p className="text-body-sm font-medium text-charcoal">
 					{t("skills.title")}
@@ -60,10 +60,10 @@ const SkillsPage = () => {
 				</p>
 			</header>
 
-			<div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-6 sm:px-10 sm:pb-10 sm:pt-7">
+			<div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-6 sm:px-[40px] sm:pb-[40px] sm:pt-[28px]">
 				<div className="flex flex-col items-start justify-between gap-lg sm:flex-row sm:gap-xl">
 					<div className="min-w-0">
-						<h1 className="font-primary text-[28px] font-semibold leading-8.5 text-ink">
+						<h1 className="font-primary text-[28px] font-semibold leading-[34px] text-ink">
 							{t("skills.title")}
 						</h1>
 						<p className="mt-sm text-[15px] leading-5 text-charcoal">
@@ -71,7 +71,7 @@ const SkillsPage = () => {
 						</p>
 					</div>
 					<button
-						className="h-9 w-full shrink-0 rounded-md bg-surface-dark px-lg text-body-sm font-medium text-on-dark outline-none hover:bg-ink-deep focus-visible:ring-2 focus-visible:ring-focus-ring sm:w-auto sm:min-w-34"
+						className="h-9 w-full shrink-0 rounded-md bg-surface-dark px-lg text-body-sm font-medium text-on-dark outline-none hover:bg-ink-deep focus-visible:ring-2 focus-visible:ring-focus-ring sm:w-auto sm:min-w-[136px]"
 						type="button"
 					>
 						{t("skills.addSkill")}
@@ -80,19 +80,19 @@ const SkillsPage = () => {
 
 				<input
 					aria-label={t("skills.searchPlaceholder")}
-					className="mt-4.5 h-10 w-full max-w-130 rounded-md border border-hairline bg-surface-card px-3.5 text-body-sm text-ink outline-none placeholder:text-mute focus:border-hairline-strong focus-visible:ring-2 focus-visible:ring-focus-ring"
+					className="mt-[18px] h-10 w-full max-w-[520px] rounded-md border border-hairline bg-surface-card px-[14px] text-body-sm text-ink outline-none placeholder:text-mute focus:border-hairline-strong focus-visible:ring-2 focus-visible:ring-focus-ring"
 					onChange={(event) => setSearchValue(event.target.value)}
 					placeholder={t("skills.searchPlaceholder")}
 					type="search"
 					value={searchValue}
 				/>
 
-				<div className="mt-3.5 flex flex-wrap gap-sm">
+				<div className="mt-[14px] flex flex-wrap gap-sm">
 					{SKILL_FILTERS.map((filter) => (
 						<button
 							aria-pressed={activeFilter === filter}
 							className={cn(
-								"h-7.5 rounded-full bg-surface-soft px-md text-[13px] font-medium text-charcoal outline-none hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring",
+								"h-[30px] rounded-full bg-surface-soft px-md text-[13px] font-medium text-charcoal outline-none hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring",
 								activeFilter === filter &&
 									"bg-surface-dark text-on-dark hover:bg-ink-deep",
 							)}
@@ -105,10 +105,10 @@ const SkillsPage = () => {
 					))}
 				</div>
 
-				<div className="-mx-4 mt-5.5 overflow-x-auto border-y border-hairline bg-surface-card pb-5 sm:mx-0 sm:rounded-lg sm:border">
+				<div className="-mx-4 mt-[22px] overflow-x-auto border-y border-hairline bg-surface-card pb-[20px] sm:mx-0 sm:rounded-lg sm:border">
 					<table
 						aria-label={t("skills.libraryLabel")}
-						className="w-full min-w-195 table-fixed border-collapse"
+						className="w-full min-w-[780px] table-fixed border-collapse"
 					>
 						<colgroup>
 							<col className="w-[48%]" />
@@ -141,7 +141,7 @@ const SkillsPage = () => {
 									key={skill.id}
 								>
 									<td className="px-lg">
-										<div className="flex items-start gap-3.5">
+										<div className="flex items-start gap-[14px]">
 											<Puzzle
 												aria-hidden="true"
 												className="mt-xs size-5 shrink-0"
@@ -176,7 +176,7 @@ const SkillsPage = () => {
 									</td>
 									<td className="px-sm text-right">
 										<button
-											className="h-9 w-23.5 rounded-md border border-hairline bg-surface-card text-body-sm font-medium text-ink outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+											className="h-9 w-[94px] rounded-md border border-hairline bg-surface-card text-body-sm font-medium text-ink outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
 											type="button"
 										>
 											{t(
