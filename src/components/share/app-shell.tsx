@@ -74,7 +74,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 							<LayoutSideContentLeft aria-hidden="true" className="size-4" />
 						</button>
 					</div>
-					<div className="flex items-center py-[10px]">
+					<div className="flex items-center py-[6px]">
 						<button
 							aria-label={t("appName")}
 							className="rounded-md font-serif text-heading-md font-semibold leading-6 outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
