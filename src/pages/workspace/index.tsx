@@ -58,6 +58,7 @@ const WorkspacePage = ({ workspaceName }: WorkspacePageProps) => {
 		promisePool(AGENT_KINDS, async (agent) => {
 			try {
 				const runtime = await AGENT_LOGIN_CHECKS[agent]();
+				// WorkBuddy's login probe omits model settings, so read them separately after login.
 				if (agent !== "workbuddy" || !runtime.loggedIn) {
 					return [agent, { status: "resolved", value: runtime }] as const;
 				}
