@@ -287,3 +287,5 @@ const [dialogVisible, setDialogVisible] = useState(false);
 1. **Test code rule:** `reference/react/test-code-rule.md`
 2. **Tailwind CSS styling rules:** `reference/react/tailwindcss.md`
 3. **Zod new version 4.5 feature** `reference/typescript/zod-4.5.md`
+4. **ModalProvider usage rules:** `reference/react/modal-provider.md`
+5. **AlertDialog usage rules:** `reference/react/alert-dialog.md`
