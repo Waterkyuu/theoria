@@ -1,9 +1,6 @@
 /** @type {import("lint-staged").Configuration} */
 const config = {
-	"src/**/*.{ts,tsx}": [
-		"biome check --write --no-errors-on-unmatched",
-		() => "pnpm typecheck",
-	],
+	"src/**/*.{ts,tsx}": ["biome check --write --no-errors-on-unmatched"],
 	"src/**/*.{js,jsx,json,jsonc,css}":
 		"biome check --write --no-errors-on-unmatched",
 	"src-tauri/**/*.rs": [

@@ -1,8 +1,8 @@
+import type { ReactElement, ReactNode } from "react";
 import {
 	Popover as HeroUIPopover,
 	type PopoverContentProps,
 } from "@heroui/react";
-import type { ReactElement, ReactNode } from "react";
 
 type PopoverPlacement = NonNullable<PopoverContentProps["placement"]>;
 

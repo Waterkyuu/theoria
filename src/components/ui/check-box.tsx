@@ -1,5 +1,5 @@
-import { Checkbox as HeroUICheckbox } from "@heroui/react";
 import type { ReactNode } from "react";
+import { Checkbox as HeroUICheckbox } from "@heroui/react";
 
 type CheckBoxProps = {
 	/** Additional classes applied to the checkbox root. */

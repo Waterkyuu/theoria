@@ -44,6 +44,22 @@ type AgentRuntimeStatus = {
 	reasoningEffort: string | null;
 };
 
+type AgentRuntimeState =
+	| {
+			/** Indicates that the local runtime probe has not finished. */
+			status: "checking";
+	  }
+	| {
+			/** Indicates that the local runtime probe completed successfully. */
+			status: "resolved";
+			/** Runtime details returned by the local Agent probe. */
+			value: AgentRuntimeStatus;
+	  }
+	| {
+			/** Indicates that the local runtime probe failed. */
+			status: "failed";
+	  };
+
 type AgentRuntimeConfig = Pick<AgentRuntimeStatus, "model" | "reasoningEffort">;
 
 type TokenUsage = {
@@ -97,6 +113,7 @@ export type {
 	AgentProcessStates,
 	AgentRunResult,
 	AgentRuntimeConfig,
+	AgentRuntimeState,
 	AgentRuntimeStatus,
 	TokenUsage,
 	ToolCallMetric,

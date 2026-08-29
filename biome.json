@@ -3,7 +3,22 @@
 	"assist": {
 		"actions": {
 			"source": {
-				"organizeImports": "on"
+				"organizeImports": {
+					"level": "on",
+					"options": {
+						"groups": [
+							["react", "react/**"],
+							":PACKAGE:",
+							"@/components/**",
+							"@/hooks/**",
+							"@/utils/**",
+							[":ALIAS:", "!:STYLE:"],
+							[":PATH:", "!:STYLE:"],
+							":STYLE:"
+						],
+						"sortBareImports": true
+					}
+				}
 			}
 		},
 		"enabled": true
@@ -28,21 +43,12 @@
 	"linter": {
 		"enabled": true,
 		"rules": {
-			"preset": "recommended"
+			"preset": "recommended",
+			"suspicious": {
+				"noDuplicateObjectKeys": "error"
+			}
 		}
 	},
-	"overrides": [
-		{
-			"assist": {
-				"actions": {
-					"source": {
-						"useSortedKeys": "on"
-					}
-				}
-			},
-			"includes": ["**/*.json", "**/*.jsonc"]
-		}
-	],
 	"vcs": {
 		"clientKind": "git",
 		"enabled": true,

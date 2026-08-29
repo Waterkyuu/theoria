@@ -83,7 +83,7 @@ const HistoryList = ({
 					<h2 className="mt-md text-body-sm-strong font-medium">
 						{t("comparisonHistory.emptyTitle")}
 					</h2>
-					<p className="mx-auto mt-sm w-full max-w-[20rem] text-caption-sm text-body">
+					<p className="mx-auto mt-sm w-full max-w-80 text-caption-sm text-body">
 						{t("comparisonHistory.emptyDescription")}
 					</p>
 				</div>

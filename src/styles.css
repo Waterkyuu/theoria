@@ -157,6 +157,16 @@
 }
 
 @layer base {
+	:root,
+	.light,
+	.default,
+	[data-theme="light"],
+	[data-theme="default"] {
+		--accent: var(--color-primary);
+		--accent-foreground: var(--color-on-primary);
+		--focus: var(--color-focus-ring);
+	}
+
 	html {
 		background: var(--color-canvas);
 		color: var(--color-ink);

@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import {
 	Dropdown,
 	type DropdownPopoverProps,
@@ -5,7 +6,6 @@ import {
 	Label,
 	Separator,
 } from "@heroui/react";
-import type { ReactElement } from "react";
 import { useTranslation } from "react-i18next";
 
 type DropdownMenuItemProps<T extends string> = {

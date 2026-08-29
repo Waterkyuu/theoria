@@ -1,8 +1,12 @@
+/**
+ * Deprecated (old version)
+ */
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { MagicWand, Play } from "@gravity-ui/icons";
 import { Button, Card, TextArea, Toast } from "@heroui/react";
 import type { TFunction } from "i18next";
-import { type FormEvent, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { getErrorMessage } from "@/utils/error";
 import { checkAgentProcesses, onAgentProcessStatesChanged } from "@/api/agent";
 import {
 	checkClaudeLogin,
@@ -26,6 +30,7 @@ import {
 	onWorkBuddyConfigChanged,
 	runWorkBuddyTask,
 } from "@/api/workbuddy";
+import { AGENT_KINDS } from "@/constants/agent";
 import type {
 	AgentKind,
 	AgentProcessStates,
@@ -34,7 +39,6 @@ import type {
 	AgentRuntimeStatus,
 } from "@/types/agent";
 import type { ComparisonResultInput } from "@/types/comparison";
-import { getErrorMessage } from "@/utils/error";
 import { AgentComparisonCard } from "./components/agent-comparison-card";
 import { AgentSelectionCard } from "./components/agent-selection-card";
 
@@ -87,8 +91,6 @@ const AGENT_STATUS_DISPLAYS = {
 } as const satisfies Record<string, Omit<AgentStatusDisplay, "message">>;
 
 type AgentStatusKey = keyof typeof AGENT_STATUS_DISPLAYS;
-
-const AGENT_KINDS = ["codex", "claude", "opencode", "workbuddy"] as const;
 
 const AGENT_LOGIN_CHECKS: Record<AgentKind, () => Promise<AgentRuntimeStatus>> =
 	{
@@ -529,7 +531,7 @@ const ComparisonPage = () => {
 	};
 
 	return (
-		<main className="mx-auto max-w-[1320px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+		<main className="mx-auto max-w-330 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
 			<header className="mb-8 border-b border-hairline pb-7">
 				<p className="mb-sm text-body-sm font-medium text-body">
 					{t("tagline")}

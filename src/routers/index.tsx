@@ -8,11 +8,13 @@ import {
 	useLocation,
 	useNavigate,
 } from "react-router";
-import { AppShell } from "@/components/app-shell";
+import { AppShell } from "@/components/share/app-shell";
 
 const WorkspacePage = lazy(() => import("@/pages/workspace"));
+const BenchmarkPage = lazy(() => import("@/pages/benchmark"));
 const ComparisonHistoryPage = lazy(() => import("@/pages/comparison-history"));
 const RunBoardPage = lazy(() => import("@/pages/run-board"));
+const SkillsPage = lazy(() => import("@/pages/skills"));
 
 const RouteLoadingFallback = () => {
 	const { t } = useTranslation();
@@ -21,13 +23,13 @@ const RouteLoadingFallback = () => {
 		<main
 			aria-label={t("loadingPage")}
 			aria-live="polite"
-			className="mx-auto max-w-[1320px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10"
+			className="mx-auto max-w-330 px-4 py-8 sm:px-6 lg:px-8 lg:py-10"
 			role="status"
 		>
 			<div className="motion-safe:animate-pulse">
 				<div className="h-4 w-48 rounded-full bg-hairline" />
 				<div className="mt-5 h-10 max-w-2xl rounded-full bg-hairline" />
-				<div className="mt-4 h-5 max-w-[36rem] rounded-full bg-hairline" />
+				<div className="mt-4 h-5 max-w-144 rounded-full bg-hairline" />
 			</div>
 		</main>
 	);
@@ -43,6 +45,10 @@ const RoutedApplication = () => {
 				<Routes>
 					<Route element={<WorkspacePage />} path="/" />
 					<Route
+						element={<WorkspacePage workspaceName="agent-gauge" />}
+						path="/workspaces/agent-gauge"
+					/>
+					<Route
 						element={<ComparisonHistoryPage />}
 						path="/comparison-history"
 					/>
@@ -51,6 +57,8 @@ const RoutedApplication = () => {
 						path="/comparison-history/:comparisonId"
 					/>
 					<Route element={<RunBoardPage />} path="/runs" />
+					<Route element={<SkillsPage />} path="/skills" />
+					<Route element={<BenchmarkPage />} path="/benchmark" />
 					<Route element={<Navigate replace to="/" />} path="*" />
 				</Routes>
 			</Suspense>
