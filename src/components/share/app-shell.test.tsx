@@ -30,12 +30,13 @@ describe("AppShell", () => {
 		expect(brand.parentElement).not.toHaveClass("px-[15px]");
 		expect(navigation).toHaveClass("h-[132px]", "gap-xs");
 		expect(screen.queryByText("本地 Agent 工作台")).not.toBeInTheDocument();
-		expect(tree).toHaveClass("overflow-y-auto");
+		expect(tree.parentElement).toHaveClass("overflow-y-auto");
+		expect(tree).not.toHaveClass("overflow-y-auto");
 		expect(tree).not.toHaveClass("pt-xxs");
 		expect(tree.previousElementSibling).toHaveClass("h-7");
 		expect(
-			screen.queryByRole("navigation", { name: "应用设置" }),
-		).not.toBeInTheDocument();
+			screen.getByRole("navigation", { name: "应用设置" }),
+		).toBeInTheDocument();
 	});
 
 	it("uses compact Figma rows without tree connector lines", () => {
@@ -57,6 +58,39 @@ describe("AppShell", () => {
 		expect(
 			screen.getByRole("button", { name: "添加工作区" }),
 		).toHaveTextContent("+ 新建");
+	});
+
+	it("renders an empty Recent region beneath the workspace tree", () => {
+		render(
+			<AppShell currentPath="/" onNavigate={vi.fn()}>
+				<main>content</main>
+			</AppShell>,
+		);
+
+		const tree = screen.getByRole("tree", { name: "工作区" });
+		const recent = screen.getByRole("region", { name: "最近" });
+
+		expect(tree.nextElementSibling).toBe(recent);
+		expect(within(recent).getByText("最近")).toBeInTheDocument();
+		expect(recent.querySelectorAll("svg")).toHaveLength(2);
+		expect(within(recent).queryByRole("treeitem")).not.toBeInTheDocument();
+	});
+
+	it("places the Settings row at the bottom of the sidebar", () => {
+		render(
+			<AppShell currentPath="/" onNavigate={vi.fn()}>
+				<main>content</main>
+			</AppShell>,
+		);
+
+		const sidebar = screen.getByRole("complementary", {
+			name: "工作区侧边栏",
+		});
+		const settings = screen.getByRole("navigation", { name: "应用设置" });
+
+		expect(sidebar.lastElementChild).toBe(settings);
+		expect(settings).toHaveClass("absolute", "bottom-0", "z-10", "p-[10px]");
+		expect(within(settings).getByText("应用设置")).toBeInTheDocument();
 	});
 
 	it("keeps workspaces unselected on the new task homepage", () => {

@@ -4,6 +4,7 @@ import {
 	ChevronRight,
 	Ellipsis,
 	Folder,
+	Gear,
 	LayoutColumns3,
 	LayoutSideContentLeft,
 	PencilToSquare,
@@ -118,7 +119,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 					})}
 				</nav>
 
-				<div className="flex min-h-0 flex-1 flex-col py-[7px] max-md:hidden">
+				<div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-10 pt-[7px] max-md:hidden">
 					<div className="flex h-7 shrink-0 items-center justify-between">
 						<p className="text-[11px] font-semibold uppercase text-mute">
 							{t("workspaceSidebar.workspaces")}
@@ -135,7 +136,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 
 					<div
 						aria-label={t("workspaceSidebar.workspaces")}
-						className="min-h-0 flex-1 overflow-y-auto"
+						className="shrink-0"
 						role="tree"
 					>
 						<div
@@ -387,7 +388,30 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 							</div>
 						</div>
 					</div>
+
+					<section
+						aria-label={t("workspaceSidebar.recent")}
+						className="flex shrink-0 flex-col gap-xs"
+					>
+						<div className="flex h-7 items-center justify-between">
+							<div className="flex items-center gap-xs">
+								<p className="text-[11px] font-semibold text-mute">
+									{t("workspaceSidebar.recent")}
+								</p>
+								<ChevronDown aria-hidden="true" className="size-3 shrink-0" />
+							</div>
+							<Plus aria-hidden="true" className="size-3 shrink-0" />
+						</div>
+					</section>
 				</div>
+
+				<nav
+					aria-label={t("workspaceSidebar.appSettings")}
+					className="absolute inset-x-[14px] bottom-0 z-10 flex items-center gap-sm bg-surface-soft p-[10px] text-body-sm max-md:hidden"
+				>
+					<Gear aria-hidden="true" className="size-4 shrink-0" />
+					<span>{t("workspaceSidebar.appSettings")}</span>
+				</nav>
 			</aside>
 
 			{isNewWorkspaceOpen ? (
