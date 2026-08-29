@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { CircleCheckFill, CodeTrunk } from "@gravity-ui/icons";
 import { useTranslation } from "react-i18next";
 import { AgentEnvironmentDropdown } from "@/components/share/agent-environment-dropdown";
+import { promisePool } from "@/utils/promise-pool";
 import { checkAgentProcesses, onAgentProcessStatesChanged } from "@/api/agent";
 import { checkClaudeLogin } from "@/api/claude";
 import { checkCodexLogin } from "@/api/codex";
@@ -54,28 +55,26 @@ const WorkspacePage = ({ workspaceName }: WorkspacePageProps) => {
 	useEffect(() => {
 		let isActive = true;
 
-		Promise.all(
-			AGENT_KINDS.map(async (agent) => {
-				try {
-					const runtime = await AGENT_LOGIN_CHECKS[agent]();
-					if (agent !== "workbuddy" || !runtime.loggedIn) {
-						return [agent, { status: "resolved", value: runtime }] as const;
-					}
-
-					try {
-						const config = await checkWorkBuddyConfig();
-						return [
-							agent,
-							{ status: "resolved", value: { ...runtime, ...config } },
-						] as const;
-					} catch {
-						return [agent, { status: "resolved", value: runtime }] as const;
-					}
-				} catch {
-					return [agent, { status: "failed" }] as const;
+		promisePool(AGENT_KINDS, async (agent) => {
+			try {
+				const runtime = await AGENT_LOGIN_CHECKS[agent]();
+				if (agent !== "workbuddy" || !runtime.loggedIn) {
+					return [agent, { status: "resolved", value: runtime }] as const;
 				}
-			}),
-		).then((entries) => {
+
+				try {
+					const config = await checkWorkBuddyConfig();
+					return [
+						agent,
+						{ status: "resolved", value: { ...runtime, ...config } },
+					] as const;
+				} catch {
+					return [agent, { status: "resolved", value: runtime }] as const;
+				}
+			} catch {
+				return [agent, { status: "failed" }] as const;
+			}
+		}).then((entries) => {
 			if (isActive) {
 				setEnvironmentRuntimes(
 					Object.fromEntries(entries) as Record<AgentKind, AgentRuntimeState>,
