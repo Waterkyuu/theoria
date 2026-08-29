@@ -1,18 +1,24 @@
-import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig, type ESBuildOptions } from "vite";
+import { fileURLToPath } from "node:url";
 
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
-export default defineConfig(async () => ({
+export default defineConfig(async ({ command }) => ({
 	plugins: [react(), tailwindcss()],
 	resolve: {
 		alias: {
 			"@": fileURLToPath(new URL("./src", import.meta.url)),
 		},
 	},
+	esbuild:
+		command === "build"
+			? ({
+					drop: ["console"],
+				} satisfies ESBuildOptions)
+			: undefined,
 
 	// Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
 	//

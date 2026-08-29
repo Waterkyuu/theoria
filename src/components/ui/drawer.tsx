@@ -1,9 +1,9 @@
+import type { ReactElement, ReactNode } from "react";
 import {
 	type ButtonProps,
 	type DrawerContentProps,
 	Drawer as HeroUIDrawer,
 } from "@heroui/react";
-import type { ReactElement, ReactNode } from "react";
 
 type DrawerPlacement = NonNullable<DrawerContentProps["placement"]>;
 

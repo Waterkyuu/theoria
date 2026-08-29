@@ -1,9 +1,9 @@
+import type { ReactElement, ReactNode } from "react";
 import {
 	type ButtonProps,
 	Modal as HeroUIModal,
 	type ModalContainerProps,
 } from "@heroui/react";
-import type { ReactElement, ReactNode } from "react";
 
 type ModalProviderSize = NonNullable<ModalContainerProps["size"]>;
 

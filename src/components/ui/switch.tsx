@@ -1,5 +1,5 @@
-import { Description, Switch as HeroUISwitch } from "@heroui/react";
 import type { ReactNode } from "react";
+import { Description, Switch as HeroUISwitch } from "@heroui/react";
 
 type SwitchProps = {
 	/** Additional classes applied to the switch root. */

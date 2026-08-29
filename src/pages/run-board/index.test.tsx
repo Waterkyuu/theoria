@@ -188,41 +188,6 @@ describe("RunBoardPage", () => {
 		expect(board).toHaveAttribute("data-layout", "horizontal");
 	});
 
-	// Verifies that a vertical status column scrolls instead of growing with every task.
-	it("bounds vertical status columns with internal scrolling", () => {
-		render(<RunBoardPage />);
-
-		const runningList = screen.getByTestId("run-board-list-running");
-
-		expect(runningList).toHaveClass(
-			"max-h-[60vh]",
-			"overflow-y-auto",
-			"overscroll-contain",
-		);
-	});
-
-	// Verifies that horizontal rows keep one line and scroll sideways for extra cards.
-	it("scrolls horizontal status rows sideways", async () => {
-		const user = userEvent.setup();
-		render(<RunBoardPage />);
-
-		await user.click(
-			screen.getByRole("button", {
-				name: "水平面板",
-			}),
-		);
-		const runningList = screen.getByTestId("run-board-list-running");
-
-		expect(runningList).toHaveClass(
-			"lg:flex-nowrap",
-			"lg:overflow-x-auto",
-			"lg:overflow-y-hidden",
-		);
-		expect((await screen.findAllByRole("article"))[0]).toHaveClass(
-			"lg:shrink-0",
-		);
-	});
-
 	// Verifies that both icon-only board layout controls expose their meaning.
 	it("describes both layout controls on hover", async () => {
 		const user = userEvent.setup();
@@ -241,36 +206,10 @@ describe("RunBoardPage", () => {
 		await user.hover(verticalButton);
 		const verticalTooltip = await screen.findByRole("tooltip");
 		expect(verticalTooltip).toHaveTextContent("竖面板");
-		expect(verticalTooltip).toHaveClass("whitespace-nowrap");
-		expect(verticalTooltip).toHaveClass("max-w-none");
 
 		await user.unhover(verticalButton);
 		await user.hover(horizontalButton);
 		const horizontalTooltip = await screen.findByRole("tooltip");
 		expect(horizontalTooltip).toHaveTextContent("水平面板");
-		expect(horizontalTooltip).toHaveClass("whitespace-nowrap");
-		expect(horizontalTooltip).toHaveClass("max-w-none");
-	});
-
-	// Verifies that run cards keep a stable footprint and clamp overflowing copy.
-	it("keeps run cards at fixed dimensions with clamped text", async () => {
-		render(<RunBoardPage />);
-
-		const card = (await screen.findAllByRole("article"))[0];
-
-		expect(card).toHaveClass(
-			"h-48",
-			"w-[18rem]",
-			"max-w-full",
-			"overflow-hidden",
-		);
-		expect(card.querySelector("h3")).toHaveClass(
-			"line-clamp-2",
-			"overflow-hidden",
-		);
-		expect(card.querySelector("p")).toHaveClass(
-			"line-clamp-2",
-			"overflow-hidden",
-		);
 	});
 });

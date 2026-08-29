@@ -1,5 +1,5 @@
-import "@testing-library/jest-dom/vitest";
 import { Toast } from "@heroui/react";
+import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach, beforeEach } from "vitest";
 import i18n from "./src/i18n";
