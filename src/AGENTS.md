@@ -183,7 +183,6 @@ cn("px-2 py-1", isActive && "px-4", { "text-red-500": hasError });
 ```
 
 2. Unless necessary, do not hardcode heights or widths. Prefer padding utilities such as `p-xxx` and allow the content to determine the element's size naturally. Hardcoded dimensions can create visual inconsistencies across devices and cause text truncation. Calibrate dimensions so the visual height matches the design, and do not assign arbitrary `p-xxx` values.
-3. Prefer spacing, sizing, and positioning values that are multiples of `4px` so Tailwind classes use integer scale values. Avoid decimal scale utilities such as `mt-1.75` and `h-28.25`. When an exact value is not divisible by `4px`, keep the arbitrary value, such as `h-[210px]`, instead of converting it to a decimal scale utility such as `h-52.5`.
 
 ### React
 
