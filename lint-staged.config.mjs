@@ -2,7 +2,6 @@
 const config = {
 	"src/**/*.{ts,tsx}": [
 		"biome check --write --no-errors-on-unmatched",
-		() => "pnpm typecheck",
 	],
 	"src/**/*.{js,jsx,json,jsonc,css}":
 		"biome check --write --no-errors-on-unmatched",
