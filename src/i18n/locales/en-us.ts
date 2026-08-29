@@ -29,6 +29,8 @@ const enUS = {
 			newWorkspaceDescription: "Set a name for the new workspace.",
 			workspaceNameLabel: "Workspace name",
 			createWorkspace: "Create",
+			collapseWorkspaces: "Collapse Workspaces",
+			expandWorkspaces: "Expand Workspaces",
 			collapseWorkspace: "Collapse {{workspace}}",
 			expandWorkspace: "Expand {{workspace}}",
 			workspaceActions: "More actions for {{workspace}}",

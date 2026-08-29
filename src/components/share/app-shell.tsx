@@ -1,6 +1,7 @@
 import { lazy, type ReactNode, Suspense, useState } from "react";
 import {
 	ChevronDown,
+	ChevronRight,
 	Ellipsis,
 	Folder,
 	Gear,
@@ -44,6 +45,7 @@ const NewWorkspaceModal = lazy(() => import("./new-workspace-modal"));
 const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 	const { t } = useTranslation();
 	const isAgentGaugeSelected = currentPath === "/workspaces/agent-gauge";
+	const [isWorkspaceListExpanded, setIsWorkspaceListExpanded] = useState(true);
 	const [isWorkspaceExpanded, setIsWorkspaceExpanded] = useState(true);
 	const [isConversationsExpanded, setIsConversationsExpanded] = useState(true);
 	const [isBenchmarksExpanded, setIsBenchmarksExpanded] = useState(false);
@@ -120,15 +122,34 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 
 				<div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-10 pt-[7px] max-md:hidden">
 					<div className="flex shrink-0 items-center justify-between py-[7px]">
-						<div className="flex items-center gap-xs">
-							<p className="text-[11px] font-semibold uppercase text-mute">
+						<button
+							aria-expanded={isWorkspaceListExpanded}
+							aria-label={t(
+								isWorkspaceListExpanded
+									? "workspaceSidebar.collapseWorkspaces"
+									: "workspaceSidebar.expandWorkspaces",
+							)}
+							className="flex items-center gap-xs rounded-sm text-mute outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-focus-ring"
+							onClick={() =>
+								setIsWorkspaceListExpanded((expanded) => !expanded)
+							}
+							type="button"
+						>
+							<span className="text-[11px] font-semibold uppercase">
 								{t("workspaceSidebar.workspaces")}
-							</p>
-							<ChevronDown
-								aria-hidden="true"
-								className="size-3 shrink-0 text-mute"
-							/>
-						</div>
+							</span>
+							{isWorkspaceListExpanded ? (
+								<ChevronDown
+									aria-hidden="true"
+									className="size-3 shrink-0 text-mute"
+								/>
+							) : (
+								<ChevronRight
+									aria-hidden="true"
+									className="size-3 shrink-0 text-mute"
+								/>
+							)}
+						</button>
 						<button
 							aria-label={t("workspaceSidebar.addWorkspace")}
 							className="size-3 rounded-sm text-mute outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-focus-ring"
@@ -140,213 +161,231 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 					</div>
 
 					<div
+						aria-hidden={!isWorkspaceListExpanded}
 						aria-label={t("workspaceSidebar.workspaces")}
 						className="shrink-0"
+						inert={!isWorkspaceListExpanded}
 						role="tree"
 					>
 						<div
-							aria-label="agent-gauge"
-							aria-expanded={isWorkspaceExpanded}
-							aria-level={1}
-							aria-selected={isAgentGaugeSelected}
-							className="flex flex-col gap-xxs"
-							role="treeitem"
-							tabIndex={-1}
+							className={cn(
+								"grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none",
+								isWorkspaceListExpanded
+									? "grid-rows-[1fr] opacity-100"
+									: "pointer-events-none grid-rows-[0fr] opacity-0",
+							)}
 						>
-							<button
-								aria-label={t(
-									isWorkspaceExpanded
-										? "workspaceSidebar.collapseWorkspace"
-										: "workspaceSidebar.expandWorkspace",
-									{ workspace: "agent-gauge" },
-								)}
-								className={cn(
-									"group flex h-8 w-full items-center gap-sm rounded-md px-sm text-left text-body-sm font-medium outline-none hover:bg-hairline focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring",
-									isAgentGaugeSelected && "bg-hairline",
-								)}
-								onClick={() => {
-									if (isAgentGaugeSelected) {
-										setIsWorkspaceExpanded((expanded) => !expanded);
-										return;
-									}
-									setIsWorkspaceExpanded(true);
-									onNavigate("/workspaces/agent-gauge");
-								}}
-								type="button"
-							>
-								<Folder aria-hidden="true" className="size-4 shrink-0" />
-								<span className="min-w-0 flex-1 truncate">agent-gauge</span>
-								<span
-									aria-hidden="true"
-									className="flex shrink-0 items-center gap-sm text-mute opacity-0 transition-opacity group-hover:opacity-100 motion-reduce:transition-none"
+							<div className="min-h-0 overflow-hidden">
+								<div
+									aria-label="agent-gauge"
+									aria-expanded={isWorkspaceExpanded}
+									aria-level={1}
+									aria-selected={isAgentGaugeSelected}
+									className="flex flex-col gap-xxs"
+									role="treeitem"
+									tabIndex={-1}
 								>
-									<Plus className="size-4 shrink-0" />
-									<Ellipsis className="size-4 shrink-0" />
-								</span>
-							</button>
-
-							{/* biome-ignore lint/a11y/useSemanticElements: WAI-ARIA trees use group to own child treeitems. */}
-							<div
-								aria-hidden={!isWorkspaceExpanded}
-								className={cn(
-									"grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none",
-									isWorkspaceExpanded
-										? "grid-rows-[1fr] opacity-100"
-										: "pointer-events-none grid-rows-[0fr] opacity-0",
-								)}
-								inert={!isWorkspaceExpanded}
-								role="group"
-							>
-								<div className="min-h-0 overflow-hidden">
-									<div
-										aria-label={`${t("workspaceSidebar.conversationsLabel")} 1`}
-										aria-expanded={isConversationsExpanded}
-										className="flex flex-col"
-										aria-level={2}
-										role="treeitem"
-										tabIndex={-1}
-									>
-										<button
-											className="flex h-8 w-full items-center gap-sm rounded-md pl-xl pr-sm text-left text-body-sm outline-none hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring"
-											onClick={() =>
-												setIsConversationsExpanded((expanded) => !expanded)
+									<button
+										aria-label={t(
+											isWorkspaceExpanded
+												? "workspaceSidebar.collapseWorkspace"
+												: "workspaceSidebar.expandWorkspace",
+											{ workspace: "agent-gauge" },
+										)}
+										className={cn(
+											"group flex h-8 w-full items-center gap-sm rounded-md px-sm text-left text-body-sm font-medium outline-none hover:bg-hairline focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring",
+											isAgentGaugeSelected && "bg-hairline",
+										)}
+										onClick={() => {
+											if (isAgentGaugeSelected) {
+												setIsWorkspaceExpanded((expanded) => !expanded);
+												return;
 											}
-											type="button"
+											setIsWorkspaceExpanded(true);
+											onNavigate("/workspaces/agent-gauge");
+										}}
+										type="button"
+									>
+										<Folder aria-hidden="true" className="size-4 shrink-0" />
+										<span className="min-w-0 flex-1 truncate">agent-gauge</span>
+										<span
+											aria-hidden="true"
+											className="flex shrink-0 items-center gap-sm text-mute opacity-0 transition-opacity group-hover:opacity-100 motion-reduce:transition-none"
 										>
-											<TargetDart
-												aria-hidden="true"
-												className="size-4 shrink-0"
-											/>
-											<span className="min-w-0 flex-1 truncate">
-												{t("workspaceSidebar.conversationsLabel")}
-											</span>
-											<span className="text-caption-sm tabular-nums text-mute">
-												1
-											</span>
-										</button>
+											<Plus className="size-4 shrink-0" />
+											<Ellipsis className="size-4 shrink-0" />
+										</span>
+									</button>
 
-										{isConversationsExpanded ? (
-											<>
-												{/* Temporary UI mock for Figma alignment; remove after conversations come from workspace data. */}
-												<div
-													aria-label={t("workspaceSidebar.mockConversation")}
-													aria-level={3}
-													className="group mt-xs flex h-8 items-center gap-[7px] rounded-md pl-12 pr-[6px] text-body-sm font-medium hover:bg-hairline"
-													role="treeitem"
-													tabIndex={-1}
+									{/* biome-ignore lint/a11y/useSemanticElements: WAI-ARIA trees use group to own child treeitems. */}
+									<div
+										aria-hidden={!isWorkspaceExpanded}
+										className={cn(
+											"grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none",
+											isWorkspaceExpanded
+												? "grid-rows-[1fr] opacity-100"
+												: "pointer-events-none grid-rows-[0fr] opacity-0",
+										)}
+										inert={!isWorkspaceExpanded}
+										role="group"
+									>
+										<div className="min-h-0 overflow-hidden">
+											<div
+												aria-label={`${t("workspaceSidebar.conversationsLabel")} 1`}
+												aria-expanded={isConversationsExpanded}
+												className="flex flex-col"
+												aria-level={2}
+												role="treeitem"
+												tabIndex={-1}
+											>
+												<button
+													className="flex h-8 w-full items-center gap-sm rounded-md pl-xl pr-sm text-left text-body-sm outline-none hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring"
+													onClick={() =>
+														setIsConversationsExpanded((expanded) => !expanded)
+													}
+													type="button"
 												>
+													<TargetDart
+														aria-hidden="true"
+														className="size-4 shrink-0"
+													/>
 													<span className="min-w-0 flex-1 truncate">
-														{t("workspaceSidebar.mockConversation")}
+														{t("workspaceSidebar.conversationsLabel")}
 													</span>
-													<div className="flex shrink-0 items-center gap-sm text-mute opacity-0 transition-opacity group-hover:opacity-100 motion-reduce:transition-none">
-														<Pin
-															aria-hidden="true"
-															className="size-4 shrink-0"
-														/>
-														<DropdownMenu
-															items={[
-																{
-																	icon: (
-																		<PencilToSquare
-																			aria-hidden="true"
-																			className="size-4 shrink-0 text-ink"
-																		/>
-																	),
-																	id: "rename",
-																	labelKey:
-																		"workspaceSidebar.renameConversation",
-																},
-																{
-																	danger: true,
-																	icon: (
-																		<TrashBin
-																			aria-hidden="true"
-																			className="size-4 shrink-0 text-danger"
-																		/>
-																	),
-																	id: "delete",
-																	labelKey:
-																		"workspaceSidebar.deleteConversation",
-																	separated: true,
-																},
-															]}
-															placement="bottom end"
-															trigger={
-																<Button
-																	aria-label={t(
-																		"workspaceSidebar.mockConversationActions",
+													<span className="text-caption-sm tabular-nums text-mute">
+														1
+													</span>
+												</button>
+
+												{isConversationsExpanded ? (
+													<>
+														{/* Temporary UI mock for Figma alignment; remove after conversations come from workspace data. */}
+														<div
+															aria-label={t(
+																"workspaceSidebar.mockConversation",
+															)}
+															aria-level={3}
+															className="group mt-xs flex h-8 items-center gap-[7px] rounded-md pl-12 pr-[6px] text-body-sm font-medium hover:bg-hairline"
+															role="treeitem"
+															tabIndex={-1}
+														>
+															<span className="min-w-0 flex-1 truncate">
+																{t("workspaceSidebar.mockConversation")}
+															</span>
+															<div className="flex shrink-0 items-center gap-sm text-mute opacity-0 transition-opacity group-hover:opacity-100 motion-reduce:transition-none">
+																<Pin
+																	aria-hidden="true"
+																	className="size-4 shrink-0"
+																/>
+																<DropdownMenu
+																	items={[
 																		{
-																			conversation: t(
-																				"workspaceSidebar.mockConversation",
+																			icon: (
+																				<PencilToSquare
+																					aria-hidden="true"
+																					className="size-4 shrink-0 text-ink"
+																				/>
 																			),
+																			id: "rename",
+																			labelKey:
+																				"workspaceSidebar.renameConversation",
 																		},
-																	)}
-																	className="size-4 min-w-4 cursor-pointer rounded-sm p-0 text-mute shadow-none outline-none hover:bg-transparent focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
-																	isIconOnly
-																	size="sm"
-																	variant="ghost"
-																>
-																	<Ellipsis
-																		aria-hidden="true"
-																		className="size-4"
-																	/>
-																</Button>
-															}
-														/>
-													</div>
-												</div>
-											</>
-										) : null}
-									</div>
+																		{
+																			danger: true,
+																			icon: (
+																				<TrashBin
+																					aria-hidden="true"
+																					className="size-4 shrink-0 text-danger"
+																				/>
+																			),
+																			id: "delete",
+																			labelKey:
+																				"workspaceSidebar.deleteConversation",
+																			separated: true,
+																		},
+																	]}
+																	placement="bottom end"
+																	trigger={
+																		<Button
+																			aria-label={t(
+																				"workspaceSidebar.mockConversationActions",
+																				{
+																					conversation: t(
+																						"workspaceSidebar.mockConversation",
+																					),
+																				},
+																			)}
+																			className="size-4 min-w-4 cursor-pointer rounded-sm p-0 text-mute shadow-none outline-none hover:bg-transparent focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+																			isIconOnly
+																			size="sm"
+																			variant="ghost"
+																		>
+																			<Ellipsis
+																				aria-hidden="true"
+																				className="size-4"
+																			/>
+																		</Button>
+																	}
+																/>
+															</div>
+														</div>
+													</>
+												) : null}
+											</div>
 
-									<div
-										aria-expanded={isBenchmarksExpanded}
-										aria-level={2}
-										role="treeitem"
-										tabIndex={-1}
-									>
-										<button
-											className="flex h-8 w-full items-center gap-sm rounded-md pl-xl pr-sm text-left text-body-sm outline-none hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring"
-											onClick={() =>
-												setIsBenchmarksExpanded((expanded) => !expanded)
-											}
-											type="button"
-										>
-											<LayoutColumns3
-												aria-hidden="true"
-												className="size-4 shrink-0"
-											/>
-											<span className="min-w-0 flex-1 truncate">
-												{t("workspaceSidebar.benchmarks")}
-											</span>
-											<span className="text-caption-sm tabular-nums text-mute">
-												0
-											</span>
-										</button>
-									</div>
+											<div
+												aria-expanded={isBenchmarksExpanded}
+												aria-level={2}
+												role="treeitem"
+												tabIndex={-1}
+											>
+												<button
+													className="flex h-8 w-full items-center gap-sm rounded-md pl-xl pr-sm text-left text-body-sm outline-none hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring"
+													onClick={() =>
+														setIsBenchmarksExpanded((expanded) => !expanded)
+													}
+													type="button"
+												>
+													<LayoutColumns3
+														aria-hidden="true"
+														className="size-4 shrink-0"
+													/>
+													<span className="min-w-0 flex-1 truncate">
+														{t("workspaceSidebar.benchmarks")}
+													</span>
+													<span className="text-caption-sm tabular-nums text-mute">
+														0
+													</span>
+												</button>
+											</div>
 
-									<div
-										aria-expanded={isSkillsExpanded}
-										aria-level={2}
-										className="mt-xxs"
-										role="treeitem"
-										tabIndex={-1}
-									>
-										<button
-											className="flex h-8 w-full items-center gap-sm rounded-md pl-xl pr-sm text-left text-body-sm outline-none hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring"
-											onClick={() =>
-												setIsSkillsExpanded((expanded) => !expanded)
-											}
-											type="button"
-										>
-											<Puzzle aria-hidden="true" className="size-4 shrink-0" />
-											<span className="min-w-0 flex-1 truncate">
-												{t("workspaceSidebar.mountedSkills")}
-											</span>
-											<span className="text-caption-sm tabular-nums text-mute">
-												0
-											</span>
-										</button>
+											<div
+												aria-expanded={isSkillsExpanded}
+												aria-level={2}
+												className="mt-xxs"
+												role="treeitem"
+												tabIndex={-1}
+											>
+												<button
+													className="flex h-8 w-full items-center gap-sm rounded-md pl-xl pr-sm text-left text-body-sm outline-none hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring"
+													onClick={() =>
+														setIsSkillsExpanded((expanded) => !expanded)
+													}
+													type="button"
+												>
+													<Puzzle
+														aria-hidden="true"
+														className="size-4 shrink-0"
+													/>
+													<span className="min-w-0 flex-1 truncate">
+														{t("workspaceSidebar.mountedSkills")}
+													</span>
+													<span className="text-caption-sm tabular-nums text-mute">
+														0
+													</span>
+												</button>
+											</div>
+										</div>
 									</div>
 								</div>
 							</div>

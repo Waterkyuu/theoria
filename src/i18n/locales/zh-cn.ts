@@ -29,6 +29,8 @@ const zhCN = {
 			newWorkspaceDescription: "为新工作区设置名称。",
 			workspaceNameLabel: "工作区名称",
 			createWorkspace: "创建",
+			collapseWorkspaces: "收起工作区",
+			expandWorkspaces: "展开工作区",
 			collapseWorkspace: "收起 {{workspace}}",
 			expandWorkspace: "展开 {{workspace}}",
 			workspaceActions: "{{workspace}} 的更多操作",
