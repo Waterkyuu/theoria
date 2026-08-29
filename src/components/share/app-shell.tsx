@@ -57,7 +57,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 					className="sticky top-0 flex h-[100dvh] w-[287px] min-w-[287px] flex-col gap-[9px] overflow-hidden border-r border-hairline bg-surface-soft px-[14px] py-[7px] max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:z-50 max-md:h-16 max-md:w-full max-md:min-w-0 max-md:gap-0 max-md:border-r-0 max-md:border-t max-md:px-0 max-md:py-0"
 				>
 					<header className="flex shrink-0 flex-col gap-[9px] max-md:hidden">
-						<div className="flex h-4 items-center justify-end">
+						<div className="flex h-5 items-center justify-end">
 							<button
 								aria-label={t("collapseSidebar")}
 								className="cursor-pointer rounded-sm outline-none hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring"
