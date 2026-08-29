@@ -224,6 +224,9 @@ describe("WorkspacePage", () => {
 		await user.click(button);
 
 		const dialog = screen.getByRole("dialog", { name: "Agent 环境" });
+		expect(
+			button.closest('[data-component="agent-environment-dropdown"]'),
+		).not.toBeNull();
 		expect(dialog.closest('[data-slot="dropdown-popover"]')).not.toBeNull();
 	});
 });

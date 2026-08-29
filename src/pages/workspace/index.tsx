@@ -1,24 +1,17 @@
-import {
-	type PointerEvent as ReactPointerEvent,
-	useEffect,
-	useRef,
-	useState,
-} from "react";
+import { useEffect, useState } from "react";
 import {
 	ArrowUp,
 	ChevronDown,
 	CircleCheckFill,
-	CircleInfo,
 	CodeTrunk,
 	Paperclip,
 	Puzzle,
 	ShieldCheck,
 	Sliders,
-	Xmark,
 } from "@gravity-ui/icons";
-import { Button, Dropdown } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
+import { AgentEnvironmentDropdown } from "@/components/share/agent-environment-dropdown";
 import { AgentIcon } from "@/components/share/agent-icon";
 import { checkAgentProcesses, onAgentProcessStatesChanged } from "@/api/agent";
 import { checkClaudeLogin } from "@/api/claude";
@@ -28,6 +21,7 @@ import { checkWorkBuddyConfig, checkWorkBuddyLogin } from "@/api/workbuddy";
 import type {
 	AgentKind,
 	AgentProcessStates,
+	AgentRuntimeState,
 	AgentRuntimeStatus,
 } from "@/types/agent";
 
@@ -35,11 +29,6 @@ type WorkspacePageProps = {
 	/** Workspace shown by the composer, or undefined for the unbound homepage. */
 	workspaceName?: string;
 };
-
-type EnvironmentRuntimeState =
-	| { status: "checking" }
-	| { status: "resolved"; value: AgentRuntimeStatus }
-	| { status: "failed" };
 
 const AGENT_KINDS = ["codex", "claude", "opencode", "workbuddy"] as const;
 
@@ -53,7 +42,7 @@ const AGENT_LOGIN_CHECKS: Record<AgentKind, () => Promise<AgentRuntimeStatus>> =
 
 const INITIAL_ENVIRONMENT_RUNTIMES = Object.fromEntries(
 	AGENT_KINDS.map((agent) => [agent, { status: "checking" }]),
-) as Record<AgentKind, EnvironmentRuntimeState>;
+) as Record<AgentKind, AgentRuntimeState>;
 
 const WorkspacePage = ({ workspaceName }: WorkspacePageProps) => {
 	const { t } = useTranslation();
@@ -63,37 +52,15 @@ const WorkspacePage = ({ workspaceName }: WorkspacePageProps) => {
 	const [isAgentMenuOpen, setIsAgentMenuOpen] = useState(false);
 	const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
 	const [isSkillMenuOpen, setIsSkillMenuOpen] = useState(false);
-	const [isEnvironmentOpen, setIsEnvironmentOpen] = useState(false);
-	const [environmentButtonOffset, setEnvironmentButtonOffset] = useState({
-		x: 0,
-		y: 0,
-	});
 	const [submittedTask, setSubmittedTask] = useState<string | null>(null);
 	const [environmentRuntimes, setEnvironmentRuntimes] = useState(
 		INITIAL_ENVIRONMENT_RUNTIMES,
 	);
 	const [agentProcesses, setAgentProcesses] =
 		useState<AgentProcessStates | null>(null);
-	const workspaceRef = useRef<HTMLElement>(null);
-	const suppressEnvironmentClick = useRef(false);
-	const environmentDrag = useRef({
-		pointerId: -1,
-		pointerX: 0,
-		pointerY: 0,
-		offsetX: 0,
-		offsetY: 0,
-		minX: 0,
-		maxX: 0,
-		minY: 0,
-		maxY: 0,
-		moved: false,
-	});
 
 	const isSlashAutocompleteOpen =
 		isAgentMenuOpen || prompt.trimEnd().endsWith("/");
-	const startedAgentCount = agentProcesses
-		? AGENT_KINDS.filter((agent) => agentProcesses[agent]).length
-		: 0;
 
 	useEffect(() => {
 		let isActive = true;
@@ -122,10 +89,7 @@ const WorkspacePage = ({ workspaceName }: WorkspacePageProps) => {
 		).then((entries) => {
 			if (isActive) {
 				setEnvironmentRuntimes(
-					Object.fromEntries(entries) as Record<
-						AgentKind,
-						EnvironmentRuntimeState
-					>,
+					Object.fromEntries(entries) as Record<AgentKind, AgentRuntimeState>,
 				);
 			}
 		});
@@ -180,112 +144,8 @@ const WorkspacePage = ({ workspaceName }: WorkspacePageProps) => {
 		setIsAgentMenuOpen(false);
 	};
 
-	/**
-	 * Captures the button and workspace bounds so dragging cannot leave the visible canvas.
-	 *
-	 * @example
-	 * onPointerDown={startEnvironmentDrag}
-	 */
-	const startEnvironmentDrag = (
-		event: ReactPointerEvent<HTMLButtonElement>,
-	) => {
-		if (event.button !== 0 || !workspaceRef.current) return;
-
-		const buttonBounds = event.currentTarget.getBoundingClientRect();
-		const workspaceBounds = workspaceRef.current.getBoundingClientRect();
-		event.currentTarget.setPointerCapture?.(event.pointerId);
-		suppressEnvironmentClick.current = false;
-		environmentDrag.current = {
-			pointerId: event.pointerId,
-			pointerX: event.clientX,
-			pointerY: event.clientY,
-			offsetX: environmentButtonOffset.x,
-			offsetY: environmentButtonOffset.y,
-			minX:
-				environmentButtonOffset.x + workspaceBounds.left - buttonBounds.left,
-			maxX:
-				environmentButtonOffset.x + workspaceBounds.right - buttonBounds.right,
-			minY: environmentButtonOffset.y + workspaceBounds.top - buttonBounds.top,
-			maxY:
-				environmentButtonOffset.y +
-				workspaceBounds.bottom -
-				buttonBounds.bottom,
-			moved: false,
-		};
-	};
-
-	/**
-	 * Moves the captured environment button after a small click-versus-drag threshold.
-	 *
-	 * @example
-	 * onPointerMove={moveEnvironmentButton}
-	 */
-	const moveEnvironmentButton = (
-		event: ReactPointerEvent<HTMLButtonElement>,
-	) => {
-		const drag = environmentDrag.current;
-		if (drag.pointerId !== event.pointerId) return;
-
-		const deltaX = event.clientX - drag.pointerX;
-		const deltaY = event.clientY - drag.pointerY;
-		if (!drag.moved && Math.hypot(deltaX, deltaY) < 4) return;
-
-		drag.moved = true;
-		suppressEnvironmentClick.current = true;
-		setEnvironmentButtonOffset({
-			x: Math.min(Math.max(drag.offsetX + deltaX, drag.minX), drag.maxX),
-			y: Math.min(Math.max(drag.offsetY + deltaY, drag.minY), drag.maxY),
-		});
-	};
-
-	/**
-	 * Ends the active gesture and prevents its synthetic click from opening the panel.
-	 *
-	 * @example
-	 * onPointerUp={finishEnvironmentDrag}
-	 */
-	const finishEnvironmentDrag = (
-		event: ReactPointerEvent<HTMLButtonElement>,
-	) => {
-		const drag = environmentDrag.current;
-		if (drag.pointerId !== event.pointerId) return;
-
-		suppressEnvironmentClick.current = event.type === "pointerup" && drag.moved;
-		if (drag.moved) {
-			event.preventDefault();
-			event.stopPropagation();
-		}
-		drag.pointerId = -1;
-		if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
-			event.currentTarget.releasePointerCapture(event.pointerId);
-		}
-	};
-
-	/**
-	 * Closes on Dropdown dismiss requests while trigger opening waits for click-versus-drag resolution.
-	 *
-	 * @example
-	 * onOpenChange={changeEnvironmentOpen}
-	 */
-	const changeEnvironmentOpen = (open: boolean) => {
-		if (environmentDrag.current.moved || open) return;
-		setIsEnvironmentOpen(false);
-	};
-
-	/** Opens the Dropdown only after the trigger gesture is confirmed as a click. */
-	const openEnvironment = () => {
-		if (suppressEnvironmentClick.current) {
-			suppressEnvironmentClick.current = false;
-			return;
-		}
-		if (!isEnvironmentOpen) setIsEnvironmentOpen(true);
-	};
-
 	return (
-		<main
-			className="relative flex h-[100dvh] min-w-0 flex-1 flex-col overflow-hidden bg-canvas max-md:h-[calc(100dvh-4rem)]"
-			ref={workspaceRef}
-		>
+		<main className="relative flex h-[100dvh] min-w-0 flex-1 flex-col overflow-hidden bg-canvas max-md:h-[calc(100dvh-4rem)]">
 			{workspaceName ? (
 				<header className="flex h-[34px] shrink-0 items-center justify-between border-b border-hairline px-4 sm:px-xl">
 					<p className="truncate text-body-sm font-medium text-charcoal">
@@ -573,135 +433,11 @@ const WorkspacePage = ({ workspaceName }: WorkspacePageProps) => {
 				</div>
 			</div>
 
-			<div
-				className="absolute bottom-6 right-5 z-30 max-sm:bottom-auto max-sm:right-3 max-sm:top-17"
-				style={{
-					transform: `translate3d(${environmentButtonOffset.x}px, ${environmentButtonOffset.y}px, 0)`,
-				}}
-			>
-				<Dropdown
-					isOpen={isEnvironmentOpen}
-					onOpenChange={changeEnvironmentOpen}
-				>
-					<Button
-						aria-label={t("workspace.viewEnvironment")}
-						className="size-11 min-w-0 cursor-grab touch-none select-none rounded-full border border-hairline-strong bg-canvas p-0 text-ink shadow-[0_8px_24px_rgba(0,0,0,0.12)] outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring active:cursor-grabbing"
-						isIconOnly
-						onClick={openEnvironment}
-						onPointerCancel={finishEnvironmentDrag}
-						onPointerDown={startEnvironmentDrag}
-						onPointerMove={moveEnvironmentButton}
-						onPointerUpCapture={finishEnvironmentDrag}
-						variant="ghost"
-					>
-						<span className="relative">
-							<Sliders aria-hidden="true" className="size-4" />
-							<span className="absolute -right-1 -top-1 size-2 rounded-full border border-canvas bg-terminal-green" />
-						</span>
-					</Button>
-
-					<Dropdown.Popover
-						className="max-w-none overflow-visible bg-transparent p-0 shadow-none"
-						offset={12}
-						placement="top end"
-					>
-						<section
-							aria-label={t("workspace.environment")}
-							aria-modal="false"
-							className="flex h-80 w-90 flex-col overflow-hidden rounded-lg border border-hairline bg-canvas shadow-[0_24px_70px_rgba(0,0,0,0.16)] max-sm:h-[min(24rem,calc(100dvh-8rem))] max-sm:w-[calc(100vw-1.5rem)]"
-							role="dialog"
-						>
-							<header className="flex items-start justify-between border-b border-hairline px-lg py-md">
-								<div>
-									<h2 className="text-body-sm font-semibold">
-										{t("workspace.environment")}
-									</h2>
-									<p className="mt-xs text-caption-sm text-body">
-										{t("workspace.startedAgentCount", {
-											count: startedAgentCount,
-										})}
-									</p>
-								</div>
-								<button
-									aria-label={t("workspace.closeEnvironment")}
-									className="grid size-7 place-items-center rounded-md text-body hover:bg-surface-soft"
-									onClick={() => setIsEnvironmentOpen(false)}
-									type="button"
-								>
-									<Xmark aria-hidden="true" className="size-4" />
-								</button>
-							</header>
-							<div className="min-h-0 flex-1 overflow-y-auto p-sm">
-								{AGENT_KINDS.map((agent) => {
-									const runtimeState = environmentRuntimes[agent];
-									const runtime =
-										runtimeState.status === "resolved"
-											? runtimeState.value
-											: null;
-									const isRunning = agentProcesses?.[agent] ?? false;
-									const runtimeSummary = [
-										runtime?.model,
-										runtime?.reasoningEffort,
-									]
-										.filter(Boolean)
-										.join(" · ");
-
-									return (
-										<div
-											className="flex items-center gap-md rounded-md px-md py-md hover:bg-surface-soft"
-											key={agent}
-										>
-											<span className="grid size-9 place-items-center rounded-md border border-hairline">
-												<AgentIcon name={agent} width={20} height={20} />
-											</span>
-											<div className="min-w-0 flex-1">
-												<p className="text-body-sm font-medium">
-													{t(`agentNames.${agent}`)}
-												</p>
-												<p className="mt-xs truncate text-caption-sm text-body">
-													{runtimeState.status === "checking"
-														? t("checkingLogin", {
-																agent: t(`agentNames.${agent}`),
-															})
-														: runtimeState.status === "failed"
-															? t("loginCheckFailed", {
-																	agent: t(`agentNames.${agent}`),
-																})
-															: runtimeSummary || t("metricUnavailable")}
-												</p>
-											</div>
-											<div className="text-right">
-												<p className="flex items-center justify-end gap-xs text-caption-sm">
-													<span
-														className={cn(
-															"size-1.5 rounded-full",
-															isRunning ? "bg-terminal-green" : "bg-mute",
-														)}
-													/>
-													{t(isRunning ? "agentRunning" : "agentReady")}
-												</p>
-												<p className="mt-xs text-[11px] text-mute">
-													{runtimeState.status === "resolved"
-														? t(
-																runtimeState.value.installed
-																	? "workspace.installed"
-																	: "notInstalled",
-															)
-														: t("metricUnavailable")}
-												</p>
-											</div>
-										</div>
-									);
-								})}
-							</div>
-							<footer className="flex items-center gap-sm border-t border-hairline bg-surface-soft px-lg py-sm text-caption-sm text-body">
-								<CircleInfo aria-hidden="true" className="size-4" />
-								<span>{t("workspace.environmentDescription")}</span>
-							</footer>
-						</section>
-					</Dropdown.Popover>
-				</Dropdown>
-			</div>
+			<AgentEnvironmentDropdown
+				agentKinds={AGENT_KINDS}
+				agentProcesses={agentProcesses}
+				environmentRuntimes={environmentRuntimes}
+			/>
 
 			{mode === "benchmark" ? (
 				<div
