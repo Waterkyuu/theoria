@@ -1,3 +1,6 @@
+/**
+ * Deprecated (old version)
+ */
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { MagicWand, Play } from "@gravity-ui/icons";
 import { Button, Card, TextArea, Toast } from "@heroui/react";
