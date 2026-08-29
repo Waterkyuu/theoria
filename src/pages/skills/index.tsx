@@ -51,7 +51,7 @@ const SkillsPage = () => {
 
 	return (
 		<main className="flex h-[100dvh] min-w-0 flex-1 flex-col overflow-hidden bg-canvas max-md:h-[calc(100dvh-4rem)]">
-			<header className="flex h-14 shrink-0 items-center justify-between border-b border-hairline px-4 sm:px-xl">
+			<header className="flex h-[34px] shrink-0 items-center justify-between border-b border-hairline px-4 sm:px-xl">
 				<p className="text-body-sm font-medium text-charcoal">
 					{t("skills.title")}
 				</p>
