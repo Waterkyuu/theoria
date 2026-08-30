@@ -8,7 +8,11 @@ import {
 	runTaskExecutions,
 	stopTaskAgent,
 } from "@/api/task";
-import type { ContinueTaskRequest, CreateTaskRequest } from "@/types/task";
+import type {
+	ContinueTaskRequest,
+	CreateTaskRequest,
+	TaskDetail,
+} from "@/types/task";
 
 const TASK_POLL_INTERVAL_MS = 750;
 
@@ -77,6 +81,31 @@ const useContinueTask = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: (request: ContinueTaskRequest) => continueTask(request),
+		onMutate: async (request) => {
+			const detailKey = taskKeys.detail(request.taskId);
+			await queryClient.cancelQueries({ queryKey: detailKey });
+			const previous = queryClient.getQueryData<TaskDetail>(detailKey);
+			queryClient.setQueryData<TaskDetail>(detailKey, (detail) => {
+				if (!detail) return detail;
+				const selected = new Set(request.taskAgentIds);
+				return {
+					...detail,
+					task: { ...detail.task, status: "running" },
+					agents: detail.agents.map((agent) =>
+						(selected.size === 0 || selected.has(agent.id)) &&
+						(agent.status === "completed" || agent.status === "waiting")
+							? { ...agent, status: "running" }
+							: agent,
+					),
+				};
+			});
+			return { detailKey, previous };
+		},
+		onError: (_error, _request, context) => {
+			if (context?.previous) {
+				queryClient.setQueryData(context.detailKey, context.previous);
+			}
+		},
 		onSuccess: (detail) => {
 			queryClient.setQueryData(taskKeys.detail(detail.task.id), detail);
 			queryClient.invalidateQueries({
