@@ -62,6 +62,18 @@ pub(crate) struct RunTaskExecutionsRequest {
     task_id: String,
 }
 
+/// Request continuing all or selected Agent sessions with one message.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ContinueTaskRequest {
+    /// Stable persisted Task identifier.
+    task_id: String,
+    /// Follow-up message shared by the selected Agents.
+    prompt: String,
+    /// Empty broadcasts to every resumable Agent; otherwise selects an exact subset.
+    task_agent_ids: Vec<String>,
+}
+
 /// Request selecting one Agent Execution to stop.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -333,6 +345,27 @@ pub(crate) async fn run_task_executions(
     service
         .run(
             &request.task_id,
+            codex_cache.inner().clone(),
+            claude_cache.inner().clone(),
+        )
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
+/// Resumes the original isolated sessions without changing frozen configuration.
+#[tauri::command]
+pub(crate) async fn continue_task(
+    request: ContinueTaskRequest,
+    service: State<'_, TaskExecutionService>,
+    codex_cache: State<'_, crate::adapters::codex::CodexRuntimeDefaultsCache>,
+    claude_cache: State<'_, crate::adapters::claude::ClaudeRuntimeSettingsCache>,
+) -> Result<TaskDetailResponse, IpcError> {
+    service
+        .continue_task(
+            &request.task_id,
+            &request.prompt,
+            &request.task_agent_ids,
             codex_cache.inner().clone(),
             claude_cache.inner().clone(),
         )

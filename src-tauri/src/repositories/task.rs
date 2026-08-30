@@ -144,6 +144,58 @@ impl TaskRepository {
         transaction.commit().await
     }
 
+    /// Atomically reopens one terminal Task and the selected resumable Agent sessions.
+    pub(crate) async fn begin_agent_turns(
+        &self,
+        task_id: &str,
+        task_agent_ids: &[String],
+        updated_at_ms: i64,
+    ) -> Result<bool, DbErr> {
+        if task_agent_ids.is_empty() {
+            return Ok(false);
+        }
+        let transaction = self.database.begin().await?;
+        let task_update = transaction
+            .execute_raw(Statement::from_sql_and_values(
+                DatabaseBackend::Sqlite,
+                r#"
+                UPDATE tasks
+                SET status = 'running', updated_at_ms = ?
+                WHERE id = ? AND status IN ('waiting', 'completed', 'failed')
+                "#,
+                [updated_at_ms.into(), task_id.into()],
+            ))
+            .await?;
+        if task_update.rows_affected() != 1 {
+            transaction.rollback().await?;
+            return Ok(false);
+        }
+        for task_agent_id in task_agent_ids {
+            let agent_update = transaction
+                .execute_raw(Statement::from_sql_and_values(
+                    DatabaseBackend::Sqlite,
+                    r#"
+                    UPDATE task_agents
+                    SET status = 'running', updated_at_ms = ?
+                    WHERE id = ? AND task_id = ? AND session_id IS NOT NULL
+                      AND status IN ('waiting', 'completed')
+                    "#,
+                    [
+                        updated_at_ms.into(),
+                        task_agent_id.as_str().into(),
+                        task_id.into(),
+                    ],
+                ))
+                .await?;
+            if agent_update.rows_affected() != 1 {
+                transaction.rollback().await?;
+                return Ok(false);
+            }
+        }
+        transaction.commit().await?;
+        Ok(true)
+    }
+
     /// Persists one non-terminal Agent lifecycle without fabricating a final result.
     pub(crate) async fn set_agent_status(
         &self,
@@ -743,6 +795,24 @@ mod tests {
                 detail.turns[0].response_text.as_deref(),
                 Some("Initial response")
             );
+
+            repository
+                .set_task_status("task-1", TaskStatus::Completed, 210)
+                .await
+                .expect("task should complete");
+            assert!(repository
+                .begin_agent_turns("task-1", &["agent-1".to_string()], 220)
+                .await
+                .expect("turn should begin"));
+            let resumed = repository
+                .get("task-1")
+                .await
+                .expect("resumed task should load")
+                .expect("resumed task should exist");
+            assert_eq!(resumed.task.status, TaskStatus::Running);
+            assert_eq!(resumed.agents[0].status, TaskStatus::Running);
+            assert_eq!(resumed.agents[0].session_id.as_deref(), Some("session-1"));
+            assert_eq!(resumed.turns.len(), 1);
 
             database.close().await.expect("database should close");
             std::fs::remove_file(path).expect("database should be removable");

@@ -6,11 +6,11 @@ use crate::adapters::opencode::SystemOpenCodeAdapter;
 use crate::adapters::workbuddy::SystemWorkBuddyAdapter;
 use crate::domain::agent_kind::AgentKind;
 use crate::domain::agent_run::{AgentRunMetrics, AgentRunOutput, TokenUsage, ToolCallMetric};
-use crate::domain::task::{TaskAgentResult, TaskDetail, TaskStatus};
+use crate::domain::task::{TaskAgent, TaskAgentResult, TaskDetail, TaskStatus};
 use crate::error::{AppError, IpcError};
 use crate::repositories::task::TaskRepository;
 use crate::services::result::{CollectedChanges, ResultCollector};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -200,8 +200,11 @@ impl TaskExecutionService {
                         model: model_snapshot.as_deref(),
                         mode: mode_snapshot.as_deref(),
                     },
-                    codex_cache,
-                    claude_cache,
+                    AgentRuntimeCaches {
+                        codex: codex_cache,
+                        claude: claude_cache,
+                    },
+                    None,
                     &runner_cancellation,
                 )
             });
@@ -273,6 +276,138 @@ impl TaskExecutionService {
             .map_err(|_| AppError::TaskDatabaseFailed)?
             .ok_or(AppError::TaskNotFound)
     }
+
+    /// Sends one follow-up message to all or selected resumable Agent sessions.
+    pub(crate) async fn continue_task(
+        &self,
+        task_id: &str,
+        prompt: &str,
+        task_agent_ids: &[String],
+        codex_cache: CodexRuntimeDefaultsCache,
+        claude_cache: ClaudeRuntimeSettingsCache,
+    ) -> Result<TaskDetail, AppError> {
+        let prompt = validate_follow_up(prompt)?;
+        let detail = self
+            .repository
+            .get(task_id)
+            .await
+            .map_err(|_| AppError::TaskDatabaseFailed)?
+            .ok_or(AppError::TaskNotFound)?;
+        let agents = select_resumable_agents(&detail, task_agent_ids)?;
+        let selected_ids = agents
+            .iter()
+            .map(|agent| agent.id.clone())
+            .collect::<Vec<_>>();
+        if !self
+            .repository
+            .begin_agent_turns(task_id, &selected_ids, current_time_ms()?)
+            .await
+            .map_err(|_| AppError::TaskDatabaseFailed)?
+        {
+            return Err(AppError::InvalidTask);
+        }
+
+        let mut executions = Vec::with_capacity(agents.len());
+        for agent in agents {
+            let execution_directory = self.app_data_directory.join(&agent.execution_relative_path);
+            let model_snapshot = agent.model_snapshot.clone();
+            let mode_snapshot = agent.mode_snapshot.clone();
+            let session_id = agent.session_id.clone();
+            let prompt = prompt.clone();
+            let codex_cache = codex_cache.clone();
+            let claude_cache = claude_cache.clone();
+            let cancellation = self.active_executions.register(&agent.id);
+            let runner_cancellation = cancellation.clone();
+            let handle = tokio::task::spawn_blocking(move || {
+                run_one_agent(
+                    agent.agent_kind,
+                    &prompt,
+                    &execution_directory,
+                    AgentExecutionConfig {
+                        model: model_snapshot.as_deref(),
+                        mode: mode_snapshot.as_deref(),
+                    },
+                    AgentRuntimeCaches {
+                        codex: codex_cache,
+                        claude: claude_cache,
+                    },
+                    session_id.as_deref(),
+                    &runner_cancellation,
+                )
+            });
+            executions.push((agent, cancellation, handle));
+        }
+
+        for (agent, cancellation, handle) in executions {
+            let output = handle.await.map_err(|_| AppError::WorkerFailed)?;
+            self.active_executions.remove(&agent.id);
+            let updated_at_ms = current_time_ms()?;
+            if !cancellation.load(Ordering::Acquire) && output.as_ref().is_err_and(is_waiting_error)
+            {
+                self.repository
+                    .set_agent_status(&agent.id, TaskStatus::Waiting, updated_at_ms)
+                    .await
+                    .map_err(|_| AppError::TaskDatabaseFailed)?;
+                continue;
+            }
+            let changes = self
+                .result_collector
+                .collect(
+                    task_id,
+                    &agent.id,
+                    Path::new(&detail.task.baseline_relative_path),
+                    Path::new(&agent.execution_relative_path),
+                )
+                .await;
+            let (status, response_text, metrics_json) = if cancellation.load(Ordering::Acquire) {
+                (
+                    TaskStatus::Stopped,
+                    Some("Execution stopped by user.".to_string()),
+                    serde_json::json!({"files": changes.as_ref().ok().map(changes_json)})
+                        .to_string(),
+                )
+            } else {
+                result_payload(output.as_ref().map(|run| &run.output), changes.as_ref())
+            };
+            self.repository
+                .finish_agent_turn(
+                    TaskAgentResult {
+                        task_agent_id: agent.id.clone(),
+                        final_status: status,
+                        response_text,
+                        changes_relative_path: changes
+                            .ok()
+                            .map(|changes| changes.changes_relative_path),
+                        metrics_json,
+                    },
+                    &prompt,
+                    output
+                        .as_ref()
+                        .ok()
+                        .and_then(|run| run.session_id.as_deref()),
+                    updated_at_ms,
+                )
+                .await
+                .map_err(|_| AppError::TaskDatabaseFailed)?;
+        }
+        self.repository
+            .refresh_task_status(task_id, current_time_ms()?)
+            .await
+            .map_err(|_| AppError::TaskDatabaseFailed)?;
+        self.repository
+            .get(task_id)
+            .await
+            .map_err(|_| AppError::TaskDatabaseFailed)?
+            .ok_or(AppError::TaskNotFound)
+    }
+}
+
+/// Runtime configuration caches shared with one blocking Agent adapter call.
+struct AgentRuntimeCaches {
+    /// Cached Codex configuration monitor state.
+    codex: CodexRuntimeDefaultsCache,
+    /// Cached Claude configuration monitor state.
+    claude: ClaudeRuntimeSettingsCache,
 }
 
 /// Dispatches one local Agent while preserving the exact prepared cwd.
@@ -281,42 +416,82 @@ fn run_one_agent(
     prompt: &str,
     execution_directory: &Path,
     config: AgentExecutionConfig<'_>,
-    codex_cache: CodexRuntimeDefaultsCache,
-    claude_cache: ClaudeRuntimeSettingsCache,
+    caches: AgentRuntimeCaches,
+    session_id: Option<&str>,
     cancelled: &AtomicBool,
 ) -> Result<AgentSessionRunOutput, AppError> {
     match agent_kind {
-        AgentKind::Codex => SystemCodexAdapter::new(codex_cache)
+        AgentKind::Codex => SystemCodexAdapter::new(caches.codex)
             .run_session_turn_with_config_cancellable(
                 prompt,
                 execution_directory,
                 config,
-                None,
+                session_id,
                 cancelled,
             ),
-        AgentKind::Claude => SystemClaudeAdapter::new(claude_cache)
+        AgentKind::Claude => SystemClaudeAdapter::new(caches.claude)
             .run_session_turn_with_config_cancellable(
                 prompt,
                 execution_directory,
                 config,
-                None,
+                session_id,
                 cancelled,
             ),
         AgentKind::OpenCode => SystemOpenCodeAdapter.run_session_turn_with_config_cancellable(
             prompt,
             execution_directory,
             config,
-            None,
+            session_id,
             cancelled,
         ),
         AgentKind::WorkBuddy => SystemWorkBuddyAdapter.run_session_turn_with_config_cancellable(
             prompt,
             execution_directory,
             config,
-            None,
+            session_id,
             cancelled,
         ),
     }
+}
+
+/// Trims one follow-up prompt while enforcing the shared request bound.
+fn validate_follow_up(prompt: &str) -> Result<String, AppError> {
+    let prompt = prompt.trim();
+    if prompt.is_empty() || prompt.len() > 16_000 {
+        return Err(AppError::InvalidQuery);
+    }
+    Ok(prompt.to_string())
+}
+
+/// Resolves an all-Agent broadcast or an exact resumable subset in layout order.
+fn select_resumable_agents(
+    detail: &TaskDetail,
+    requested_ids: &[String],
+) -> Result<Vec<TaskAgent>, AppError> {
+    if !matches!(
+        detail.task.status,
+        TaskStatus::Waiting | TaskStatus::Completed | TaskStatus::Failed
+    ) {
+        return Err(AppError::InvalidTask);
+    }
+    let requested = requested_ids.iter().collect::<HashSet<_>>();
+    if requested.len() != requested_ids.len() {
+        return Err(AppError::InvalidTask);
+    }
+    let agents = detail
+        .agents
+        .iter()
+        .filter(|agent| {
+            (requested.is_empty() || requested.contains(&agent.id))
+                && agent.session_id.is_some()
+                && matches!(agent.status, TaskStatus::Waiting | TaskStatus::Completed)
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    if agents.is_empty() || (!requested.is_empty() && agents.len() != requested.len()) {
+        return Err(AppError::InvalidTask);
+    }
+    Ok(agents)
 }
 
 /// Thread-safe registry shared by run and Stop IPC calls.
@@ -483,8 +658,10 @@ fn current_time_ms() -> Result<i64, AppError> {
 
 #[cfg(test)]
 mod tests {
-    use super::aggregate_status;
-    use crate::domain::task::TaskStatus;
+    use super::{aggregate_status, select_resumable_agents, validate_follow_up};
+    use crate::domain::agent_kind::AgentKind;
+    use crate::domain::task::{Task, TaskAgent, TaskDetail, TaskPermissions, TaskStatus};
+    use crate::error::AppError;
 
     #[test]
     fn aggregates_without_scoring_agent_results() {
@@ -500,5 +677,83 @@ mod tests {
             aggregate_status(&[TaskStatus::Completed, TaskStatus::Failed]),
             TaskStatus::Failed
         );
+    }
+
+    #[test]
+    fn selects_only_exact_resumable_agent_sessions() {
+        let detail = resumable_task_detail();
+
+        let broadcast = select_resumable_agents(&detail, &[]).expect("broadcast should resolve");
+        assert_eq!(
+            broadcast
+                .iter()
+                .map(|agent| agent.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["agent-1"]
+        );
+        assert!(select_resumable_agents(&detail, &["agent-2".to_string()]).is_err());
+        assert!(
+            select_resumable_agents(&detail, &["agent-1".to_string(), "agent-1".to_string()])
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn validates_follow_up_text_at_the_shared_prompt_boundary() {
+        assert_eq!(
+            validate_follow_up("  continue  ").expect("prompt should validate"),
+            "continue"
+        );
+        assert_eq!(validate_follow_up("   "), Err(AppError::InvalidQuery));
+        assert_eq!(
+            validate_follow_up(&"x".repeat(16_001)),
+            Err(AppError::InvalidQuery)
+        );
+    }
+
+    /// Builds a terminal Task with one resumable and two ineligible sessions.
+    fn resumable_task_detail() -> TaskDetail {
+        TaskDetail {
+            task: Task {
+                id: "task-1".to_string(),
+                workspace_id: None,
+                title: "Task".to_string(),
+                prompt: "Initial".to_string(),
+                baseline_relative_path: "task-runs/task-1/baseline".to_string(),
+                status: TaskStatus::Failed,
+                configuration_locked_at_ms: Some(1),
+                created_at_ms: 1,
+                updated_at_ms: 2,
+            },
+            agents: vec![
+                task_agent("agent-1", TaskStatus::Completed, Some("session-1")),
+                task_agent("agent-2", TaskStatus::Failed, Some("session-2")),
+                task_agent("agent-3", TaskStatus::Completed, None),
+            ],
+            permissions: TaskPermissions {
+                file_access: "allow_edits".to_string(),
+                command_execution: "allow".to_string(),
+            },
+            skills: Vec::new(),
+            results: Vec::new(),
+            turns: Vec::new(),
+        }
+    }
+
+    /// Builds one frozen Agent fixture; for example, `session_id` enables resumption.
+    fn task_agent(id: &str, status: TaskStatus, session_id: Option<&str>) -> TaskAgent {
+        TaskAgent {
+            id: id.to_string(),
+            task_id: "task-1".to_string(),
+            slot_index: 0,
+            agent_kind: AgentKind::Codex,
+            model_snapshot: Some("gpt-5".to_string()),
+            mode_snapshot: Some("high".to_string()),
+            session_id: session_id.map(str::to_string),
+            execution_relative_path: format!("task-runs/task-1/agents/{id}"),
+            status,
+            created_at_ms: 1,
+            updated_at_ms: 2,
+        }
     }
 }
