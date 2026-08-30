@@ -177,6 +177,7 @@ impl TaskExecutionService {
         {
             return Err(AppError::InvalidTask);
         }
+        validate_frozen_paths(&detail)?;
         self.repository
             .mark_running(task_id, current_time_ms()?)
             .await
@@ -311,6 +312,7 @@ impl TaskExecutionService {
             .await
             .map_err(|_| AppError::TaskDatabaseFailed)?
             .ok_or(AppError::TaskNotFound)?;
+        validate_frozen_paths(&detail)?;
         let agents = select_resumable_agents(&detail, task_agent_ids)?;
         let selected_ids = agents
             .iter()
@@ -497,6 +499,29 @@ fn validate_follow_up(prompt: &str) -> Result<String, AppError> {
         return Err(AppError::InvalidQuery);
     }
     Ok(prompt.to_string())
+}
+
+/// Rejects persisted paths that could route an adapter outside its exact isolated Execution.
+fn validate_frozen_paths(detail: &TaskDetail) -> Result<(), AppError> {
+    let expected_baseline = PathBuf::from("task-runs")
+        .join(&detail.task.id)
+        .join("baseline");
+    if Path::new(&detail.task.baseline_relative_path) != expected_baseline {
+        return Err(AppError::TaskPreparationFailed);
+    }
+    for agent in &detail.agents {
+        let expected_execution = PathBuf::from("task-runs")
+            .join(&detail.task.id)
+            .join("executions")
+            .join(&agent.id)
+            .join("workspace");
+        if agent.task_id != detail.task.id
+            || Path::new(&agent.execution_relative_path) != expected_execution
+        {
+            return Err(AppError::TaskPreparationFailed);
+        }
+    }
+    Ok(())
 }
 
 /// Resolves an all-Agent broadcast or an exact resumable subset in layout order.
@@ -714,7 +739,9 @@ fn current_time_ms() -> Result<i64, AppError> {
 
 #[cfg(test)]
 mod tests {
-    use super::{aggregate_status, select_resumable_agents, validate_follow_up};
+    use super::{
+        aggregate_status, select_resumable_agents, validate_follow_up, validate_frozen_paths,
+    };
     use crate::domain::agent_kind::AgentKind;
     use crate::domain::task::{Task, TaskAgent, TaskDetail, TaskPermissions, TaskStatus};
     use crate::error::AppError;
@@ -767,6 +794,34 @@ mod tests {
         );
     }
 
+    #[test]
+    fn accepts_only_the_exact_frozen_baseline_and_agent_execution_paths() {
+        let mut detail = resumable_task_detail();
+
+        assert_eq!(validate_frozen_paths(&detail), Ok(()));
+
+        detail.agents[0].execution_relative_path =
+            "task-runs/task-1/executions/agent-2/workspace".to_string();
+        assert_eq!(
+            validate_frozen_paths(&detail),
+            Err(AppError::TaskPreparationFailed)
+        );
+
+        detail.agents[0].execution_relative_path = "/Users/me/project".to_string();
+        assert_eq!(
+            validate_frozen_paths(&detail),
+            Err(AppError::TaskPreparationFailed)
+        );
+
+        detail.agents[0].execution_relative_path =
+            "task-runs/task-1/executions/agent-1/workspace".to_string();
+        detail.task.baseline_relative_path = "task-runs/task-2/baseline".to_string();
+        assert_eq!(
+            validate_frozen_paths(&detail),
+            Err(AppError::TaskPreparationFailed)
+        );
+    }
+
     /// Builds a terminal Task with one resumable and two ineligible sessions.
     fn resumable_task_detail() -> TaskDetail {
         TaskDetail {
@@ -806,7 +861,7 @@ mod tests {
             model_snapshot: Some("gpt-5".to_string()),
             mode_snapshot: Some("high".to_string()),
             session_id: session_id.map(str::to_string),
-            execution_relative_path: format!("task-runs/task-1/agents/{id}"),
+            execution_relative_path: format!("task-runs/task-1/executions/{id}/workspace"),
             status,
             created_at_ms: 1,
             updated_at_ms: 2,
