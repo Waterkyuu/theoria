@@ -1,27 +1,23 @@
 import { lazy, type ReactNode, Suspense, useState } from "react";
 import {
-	Archive,
 	ChartColumn,
 	ChevronDown,
 	ChevronRight,
-	Ellipsis,
 	Folder,
 	Gear,
 	LayoutColumns3,
 	LayoutSideContentLeft,
-	PencilToSquare,
 	Pin,
 	Plus,
 	Puzzle,
 	TargetDart,
-	TrashBin,
 } from "@gravity-ui/icons";
-import { Button } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
-import { DropdownMenu } from "@/components/ui/dropdown-menu";
+import { TaskActionDropdown } from "@/components/share/task-action-dropdown";
+import { WorkspaceActionDropdown } from "@/components/share/workspace-action-dropdown";
 
-type AppShellProps = {
+type AppSidebarProps = {
 	/** Active browser path used to highlight the current navigation item. */
 	currentPath: string;
 	/** Page content rendered inside the shared workspace. */
@@ -43,9 +39,9 @@ const NewWorkspaceModal = lazy(() => import("./create-workspace-modal"));
  * Reproduces the Figma sidebar alignment and keeps animated visibility and tree state local.
  *
  * @example
- * <AppShell currentPath="/" onNavigate={navigateTo}><main /></AppShell>
+ * <AppSidebar currentPath="/" onNavigate={navigateTo}><main /></AppSidebar>
  */
-const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
+const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 	const { t } = useTranslation();
 	const isAgentGaugeSelected = currentPath === "/workspaces/agent-gauge";
 	const [isWorkspaceListExpanded, setIsWorkspaceListExpanded] = useState(true);
@@ -225,66 +221,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 												aria-hidden="true"
 												className="size-4 shrink-0 transition-colors hover:text-ink"
 											/>
-											<DropdownMenu
-												items={[
-													{
-														icon: (
-															<Pin
-																aria-hidden="true"
-																className="size-4 shrink-0 text-ink"
-															/>
-														),
-														id: "pin",
-														labelKey: "workspaceSidebar.pinWorkspace",
-													},
-													{
-														icon: (
-															<PencilToSquare
-																aria-hidden="true"
-																className="size-4 shrink-0 text-ink"
-															/>
-														),
-														id: "rename",
-														labelKey: "workspaceSidebar.renameWorkspace",
-													},
-													{
-														icon: (
-															<Archive
-																aria-hidden="true"
-																className="size-4 shrink-0 text-ink"
-															/>
-														),
-														id: "archive",
-														labelKey: "workspaceSidebar.archiveWorkspace",
-													},
-													{
-														danger: true,
-														icon: (
-															<TrashBin
-																aria-hidden="true"
-																className="size-4 shrink-0 text-danger"
-															/>
-														),
-														id: "remove",
-														labelKey: "workspaceSidebar.removeWorkspace",
-														separated: true,
-													},
-												]}
-												placement="bottom end"
-												trigger={
-													<Button
-														aria-label={t("workspaceSidebar.workspaceActions", {
-															workspace: "agent-gauge",
-														})}
-														className="size-4 min-w-4 cursor-pointer rounded-sm p-0 text-mute shadow-none outline-none transition-colors hover:bg-transparent hover:text-ink focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
-														isIconOnly
-														size="sm"
-														variant="ghost"
-													>
-														<Ellipsis aria-hidden="true" className="size-4" />
-													</Button>
-												}
-											/>
+											<WorkspaceActionDropdown workspaceName="agent-gauge" />
 										</div>
 									</div>
 
@@ -348,55 +285,10 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 																	aria-hidden="true"
 																	className="size-4 shrink-0 transition-colors hover:text-ink"
 																/>
-																<DropdownMenu
-																	items={[
-																		{
-																			icon: (
-																				<PencilToSquare
-																					aria-hidden="true"
-																					className="size-4 shrink-0 text-ink"
-																				/>
-																			),
-																			id: "rename",
-																			labelKey:
-																				"workspaceSidebar.renameConversation",
-																		},
-																		{
-																			danger: true,
-																			icon: (
-																				<TrashBin
-																					aria-hidden="true"
-																					className="size-4 shrink-0 text-danger"
-																				/>
-																			),
-																			id: "delete",
-																			labelKey:
-																				"workspaceSidebar.deleteConversation",
-																			separated: true,
-																		},
-																	]}
-																	placement="bottom end"
-																	trigger={
-																		<Button
-																			aria-label={t(
-																				"workspaceSidebar.mockConversationActions",
-																				{
-																					conversation: t(
-																						"workspaceSidebar.mockConversation",
-																					),
-																				},
-																			)}
-																			className="size-4 min-w-4 cursor-pointer rounded-sm p-0 text-mute shadow-none outline-none transition-colors hover:bg-transparent hover:text-ink focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
-																			isIconOnly
-																			size="sm"
-																			variant="ghost"
-																		>
-																			<Ellipsis
-																				aria-hidden="true"
-																				className="size-4"
-																			/>
-																		</Button>
-																	}
+																<TaskActionDropdown
+																	taskName={t(
+																		"workspaceSidebar.mockConversation",
+																	)}
 																/>
 															</div>
 														</div>
@@ -533,4 +425,4 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 	);
 };
 
-export { AppShell };
+export { AppSidebar };

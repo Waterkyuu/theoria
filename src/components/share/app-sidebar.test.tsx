@@ -2,14 +2,14 @@ import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { AppShell } from "./app-shell";
+import { AppSidebar } from "./app-sidebar";
 
-describe("AppShell", () => {
+describe("AppSidebar", () => {
 	it("renders the sidebar navigation regions", () => {
 		render(
-			<AppShell currentPath="/" onNavigate={vi.fn()}>
+			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
 				<main>content</main>
-			</AppShell>,
+			</AppSidebar>,
 		);
 
 		expect(
@@ -27,9 +27,9 @@ describe("AppShell", () => {
 
 	it("renders workspace actions and tree item icons", () => {
 		render(
-			<AppShell currentPath="/" onNavigate={vi.fn()}>
+			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
 				<main>content</main>
-			</AppShell>,
+			</AppSidebar>,
 		);
 
 		const tree = screen.getByRole("tree", { name: "工作区" });
@@ -64,9 +64,9 @@ describe("AppShell", () => {
 
 	it("renders an empty Recent region beneath the workspace tree", () => {
 		render(
-			<AppShell currentPath="/" onNavigate={vi.fn()}>
+			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
 				<main>content</main>
-			</AppShell>,
+			</AppSidebar>,
 		);
 
 		const tree = screen.getByRole("tree", { name: "工作区" });
@@ -80,9 +80,9 @@ describe("AppShell", () => {
 
 	it("places the Settings row at the bottom of the sidebar", () => {
 		render(
-			<AppShell currentPath="/" onNavigate={vi.fn()}>
+			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
 				<main>content</main>
-			</AppShell>,
+			</AppSidebar>,
 		);
 
 		const sidebar = screen.getByRole("complementary", {
@@ -98,9 +98,9 @@ describe("AppShell", () => {
 		const user = userEvent.setup();
 		const onNavigate = vi.fn();
 		render(
-			<AppShell currentPath="/" onNavigate={onNavigate}>
+			<AppSidebar currentPath="/" onNavigate={onNavigate}>
 				<main>content</main>
-			</AppShell>,
+			</AppSidebar>,
 		);
 
 		await user.click(screen.getByRole("button", { name: "收起 agent-gauge" }));
@@ -110,9 +110,9 @@ describe("AppShell", () => {
 	it("opens a workspace name modal from the new workspace action", async () => {
 		const user = userEvent.setup();
 		render(
-			<AppShell currentPath="/" onNavigate={vi.fn()}>
+			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
 				<main>content</main>
-			</AppShell>,
+			</AppSidebar>,
 		);
 
 		await user.click(screen.getByRole("button", { name: "添加工作区" }));
@@ -132,9 +132,9 @@ describe("AppShell", () => {
 	it("opens the workspace action menu", async () => {
 		const user = userEvent.setup();
 		render(
-			<AppShell currentPath="/" onNavigate={vi.fn()}>
+			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
 				<main>content</main>
-			</AppShell>,
+			</AppSidebar>,
 		);
 
 		await user.click(
@@ -153,9 +153,9 @@ describe("AppShell", () => {
 
 	it("renders the temporary mock conversation with pin and more icons", () => {
 		render(
-			<AppShell currentPath="/" onNavigate={vi.fn()}>
+			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
 				<main>content</main>
-			</AppShell>,
+			</AppSidebar>,
 		);
 
 		expect(
@@ -177,9 +177,9 @@ describe("AppShell", () => {
 	it("opens rename and delete actions from the mock conversation menu", async () => {
 		const user = userEvent.setup();
 		render(
-			<AppShell currentPath="/" onNavigate={vi.fn()}>
+			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
 				<main>content</main>
-			</AppShell>,
+			</AppSidebar>,
 		);
 
 		await user.click(
@@ -194,9 +194,9 @@ describe("AppShell", () => {
 
 	it("collapses the active workspace tree", () => {
 		render(
-			<AppShell currentPath="/workspaces/agent-gauge" onNavigate={vi.fn()}>
+			<AppSidebar currentPath="/workspaces/agent-gauge" onNavigate={vi.fn()}>
 				<main>content</main>
-			</AppShell>,
+			</AppSidebar>,
 		);
 
 		fireEvent.click(screen.getByRole("button", { name: "收起 agent-gauge" }));
@@ -210,9 +210,9 @@ describe("AppShell", () => {
 		const user = userEvent.setup();
 		const onNavigate = vi.fn();
 		render(
-			<AppShell currentPath="/" onNavigate={onNavigate}>
+			<AppSidebar currentPath="/" onNavigate={onNavigate}>
 				<main>content</main>
-			</AppShell>,
+			</AppSidebar>,
 		);
 
 		await user.click(screen.getByRole("button", { name: "新任务" }));

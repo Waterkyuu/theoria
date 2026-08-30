@@ -8,7 +8,7 @@ import {
 	useLocation,
 	useNavigate,
 } from "react-router";
-import { AppShell } from "@/components/share/app-shell";
+import { AppSidebar } from "@/components/share/app-sidebar";
 
 const WorkspacePage = lazy(() => import("@/pages/workspace"));
 const BenchmarkPage = lazy(() => import("@/pages/benchmark"));
@@ -40,7 +40,7 @@ const RoutedApplication = () => {
 	const navigate = useNavigate();
 
 	return (
-		<AppShell currentPath={pathname} onNavigate={(path) => navigate(path)}>
+		<AppSidebar currentPath={pathname} onNavigate={(path) => navigate(path)}>
 			<Suspense fallback={<RouteLoadingFallback />}>
 				<Routes>
 					<Route element={<WorkspacePage />} path="/" />
@@ -62,7 +62,7 @@ const RoutedApplication = () => {
 					<Route element={<Navigate replace to="/" />} path="*" />
 				</Routes>
 			</Suspense>
-		</AppShell>
+		</AppSidebar>
 	);
 };
 
