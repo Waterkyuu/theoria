@@ -1,5 +1,5 @@
-use crate::adapters::agent::AgentSessionRunOutput;
 use crate::adapters::agent::{AgentAdapter, AgentExecutionConfig};
+use crate::adapters::agent::{AgentSessionRunOutput, AgentTurnOutcome};
 use crate::adapters::claude::{ClaudeRuntimeSettingsCache, SystemClaudeAdapter};
 use crate::adapters::codex::{CodexRuntimeDefaultsCache, SystemCodexAdapter};
 use crate::adapters::opencode::SystemOpenCodeAdapter;
@@ -219,15 +219,6 @@ impl TaskExecutionService {
             let output = handle.await.map_err(|_| AppError::WorkerFailed)?;
             self.active_executions.remove(&agent.id);
             let updated_at_ms = current_time_ms()?;
-            if !cancellation.load(Ordering::Acquire) && output.as_ref().is_err_and(is_waiting_error)
-            {
-                self.repository
-                    .set_agent_status(&agent.id, TaskStatus::Waiting, updated_at_ms)
-                    .await
-                    .map_err(|_| AppError::TaskDatabaseFailed)?;
-                final_statuses.push(TaskStatus::Waiting);
-                continue;
-            }
             let changes = self
                 .result_collector
                 .collect(
@@ -237,6 +228,27 @@ impl TaskExecutionService {
                     Path::new(&agent.execution_relative_path),
                 )
                 .await;
+            if !cancellation.load(Ordering::Acquire) {
+                if let Ok(run) = &output {
+                    if run.outcome == AgentTurnOutcome::Waiting {
+                        if let Some(session_id) = run.session_id.as_deref() {
+                            self.repository
+                                .wait_agent_turn(
+                                    &agent.id,
+                                    &detail.task.prompt,
+                                    non_empty_response(&run.output.response),
+                                    &metrics_json(&run.output.metrics, changes.as_ref().ok(), None),
+                                    session_id,
+                                    updated_at_ms,
+                                )
+                                .await
+                                .map_err(|_| AppError::TaskDatabaseFailed)?;
+                            final_statuses.push(TaskStatus::Waiting);
+                            continue;
+                        }
+                    }
+                }
+            }
             let (status, response_text, metrics_json) = if cancellation.load(Ordering::Acquire) {
                 (
                     TaskStatus::Stopped,
@@ -244,6 +256,8 @@ impl TaskExecutionService {
                     serde_json::json!({"files": changes.as_ref().ok().map(changes_json)})
                         .to_string(),
                 )
+            } else if waiting_without_session(&output) {
+                missing_session_payload(changes.as_ref())
             } else {
                 result_payload(output.as_ref().map(|run| &run.output), changes.as_ref())
             };
@@ -350,14 +364,6 @@ impl TaskExecutionService {
             let output = handle.await.map_err(|_| AppError::WorkerFailed)?;
             self.active_executions.remove(&agent.id);
             let updated_at_ms = current_time_ms()?;
-            if !cancellation.load(Ordering::Acquire) && output.as_ref().is_err_and(is_waiting_error)
-            {
-                self.repository
-                    .set_agent_status(&agent.id, TaskStatus::Waiting, updated_at_ms)
-                    .await
-                    .map_err(|_| AppError::TaskDatabaseFailed)?;
-                continue;
-            }
             let changes = self
                 .result_collector
                 .collect(
@@ -367,6 +373,26 @@ impl TaskExecutionService {
                     Path::new(&agent.execution_relative_path),
                 )
                 .await;
+            if !cancellation.load(Ordering::Acquire) {
+                if let Ok(run) = &output {
+                    if run.outcome == AgentTurnOutcome::Waiting {
+                        if let Some(session_id) = run.session_id.as_deref() {
+                            self.repository
+                                .wait_agent_turn(
+                                    &agent.id,
+                                    &prompt,
+                                    non_empty_response(&run.output.response),
+                                    &metrics_json(&run.output.metrics, changes.as_ref().ok(), None),
+                                    session_id,
+                                    updated_at_ms,
+                                )
+                                .await
+                                .map_err(|_| AppError::TaskDatabaseFailed)?;
+                            continue;
+                        }
+                    }
+                }
+            }
             let (status, response_text, metrics_json) = if cancellation.load(Ordering::Acquire) {
                 (
                     TaskStatus::Stopped,
@@ -374,6 +400,8 @@ impl TaskExecutionService {
                     serde_json::json!({"files": changes.as_ref().ok().map(changes_json)})
                         .to_string(),
                 )
+            } else if waiting_without_session(&output) {
+                missing_session_payload(changes.as_ref())
             } else {
                 result_payload(output.as_ref().map(|run| &run.output), changes.as_ref())
             };
@@ -548,11 +576,31 @@ impl ActiveExecutions {
     }
 }
 
-/// Distinguishes a resumable input request from a terminal Agent failure.
-fn is_waiting_error(error: &AppError) -> bool {
-    matches!(
-        error,
-        AppError::CodexNeedsInput | AppError::ClaudeNeedsInput | AppError::WorkBuddyNeedsInput
+/// Omits an empty partial response while retaining meaningful Waiting output.
+fn non_empty_response(response: &str) -> Option<&str> {
+    (!response.trim().is_empty()).then_some(response)
+}
+
+/// Detects a protocol bug that would make a Waiting turn impossible to resume.
+fn waiting_without_session(output: &Result<AgentSessionRunOutput, AppError>) -> bool {
+    output
+        .as_ref()
+        .is_ok_and(|run| run.outcome == AgentTurnOutcome::Waiting && run.session_id.is_none())
+}
+
+/// Converts an unresumable Waiting outcome into a persisted terminal failure.
+fn missing_session_payload(
+    changes: Result<&CollectedChanges, &AppError>,
+) -> (TaskStatus, Option<String>, String) {
+    let error = IpcError::from(AppError::WorkerFailed);
+    (
+        TaskStatus::Failed,
+        Some(error.message.clone()),
+        serde_json::json!({
+            "error": {"code": "MISSING_AGENT_SESSION", "message": error.message},
+            "files": changes.ok().map(changes_json),
+        })
+        .to_string(),
     )
 }
 

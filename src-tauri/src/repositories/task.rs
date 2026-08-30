@@ -196,30 +196,57 @@ impl TaskRepository {
         Ok(true)
     }
 
-    /// Persists one non-terminal Agent lifecycle without fabricating a final result.
-    pub(crate) async fn set_agent_status(
+    /// Atomically pauses one Agent and preserves the resumable partial turn.
+    pub(crate) async fn wait_agent_turn(
         &self,
         task_agent_id: &str,
-        status: TaskStatus,
+        prompt: &str,
+        response_text: Option<&str>,
+        metrics_json: &str,
+        session_id: &str,
         updated_at_ms: i64,
     ) -> Result<(), DbErr> {
-        if !matches!(status, TaskStatus::Running | TaskStatus::Waiting) {
+        if session_id.trim().is_empty() {
             return Err(DbErr::Custom(
-                "Agent status update is not non-terminal".to_string(),
+                "Waiting Agent turn requires a session id".to_string(),
             ));
         }
-        self.database
+        let transaction = self.database.begin().await?;
+        let update = transaction
             .execute_raw(Statement::from_sql_and_values(
                 DatabaseBackend::Sqlite,
-                "UPDATE task_agents SET status = ?, updated_at_ms = ? WHERE id = ?",
+                "UPDATE task_agents SET status = 'waiting', session_id = ?, updated_at_ms = ? WHERE id = ? AND status = 'running'",
+                [session_id.into(), updated_at_ms.into(), task_agent_id.into()],
+            ))
+            .await?;
+        if update.rows_affected() != 1 {
+            transaction.rollback().await?;
+            return Err(DbErr::Custom(
+                "Waiting Agent turn is not running".to_string(),
+            ));
+        }
+        transaction
+            .execute_raw(Statement::from_sql_and_values(
+                DatabaseBackend::Sqlite,
+                r#"
+                INSERT INTO task_agent_turns
+                    (task_agent_id, sequence, prompt, final_status, response_text,
+                     metrics_json, created_at_ms)
+                SELECT ?, COALESCE(MAX(sequence) + 1, 0), ?, 'waiting', ?, ?, ?
+                FROM task_agent_turns
+                WHERE task_agent_id = ?
+                "#,
                 [
-                    status.as_str().into(),
+                    task_agent_id.into(),
+                    prompt.into(),
+                    response_text.into(),
+                    metrics_json.into(),
                     updated_at_ms.into(),
                     task_agent_id.into(),
                 ],
             ))
             .await?;
-        Ok(())
+        transaction.commit().await
     }
 
     /// Atomically saves one terminal Agent status and its response, changes, and metrics.
@@ -813,6 +840,27 @@ mod tests {
             assert_eq!(resumed.agents[0].status, TaskStatus::Running);
             assert_eq!(resumed.agents[0].session_id.as_deref(), Some("session-1"));
             assert_eq!(resumed.turns.len(), 1);
+
+            repository
+                .wait_agent_turn(
+                    "agent-1",
+                    "Which test suite?",
+                    Some("Please choose a test suite."),
+                    r#"{"waiting":true}"#,
+                    "session-1",
+                    230,
+                )
+                .await
+                .expect("waiting turn should persist");
+            let waiting = repository
+                .get("task-1")
+                .await
+                .expect("waiting task should load")
+                .expect("waiting task should exist");
+            assert_eq!(waiting.agents[0].status, TaskStatus::Waiting);
+            assert_eq!(waiting.turns.len(), 2);
+            assert_eq!(waiting.turns[1].final_status, TaskStatus::Waiting);
+            assert_eq!(waiting.turns[1].prompt, "Which test suite?");
 
             database.close().await.expect("database should close");
             std::fs::remove_file(path).expect("database should be removable");
