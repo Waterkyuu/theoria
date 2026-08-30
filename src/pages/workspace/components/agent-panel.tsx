@@ -1,7 +1,12 @@
 import { Ellipsis } from "@gravity-ui/icons";
 import { useTranslation } from "react-i18next";
 import { AgentIcon } from "@/components/share/agent-icon";
-import type { TaskAgent, TaskAgentResult, TaskStatus } from "@/types/task";
+import type {
+	TaskAgent,
+	TaskAgentResult,
+	TaskAgentTurn,
+	TaskStatus,
+} from "@/types/task";
 
 type AgentPanelProps = {
 	/** Frozen Agent Execution represented by this panel. */
@@ -10,6 +15,8 @@ type AgentPanelProps = {
 	prompt: string;
 	/** Collected terminal result when execution has finished. */
 	result?: TaskAgentResult;
+	/** Ordered exchanges preserved for this Agent session. */
+	turns?: TaskAgentTurn[];
 	/** Requests cooperative cancellation for only this Agent. */
 	onStop: (taskAgentId: string) => void;
 	/** Prevents repeated stop requests while native state is updating. */
@@ -126,6 +133,7 @@ const AgentPanel = ({
 	agent,
 	prompt,
 	result,
+	turns = [],
 	onStop,
 	stopPending,
 }: AgentPanelProps) => {
@@ -137,8 +145,20 @@ const AgentPanel = ({
 	const tokenUsage = readMetricObject(result?.metrics, "tokenUsage");
 	const totalTokens = readMetricNumber(tokenUsage, "totalTokens");
 	const totalDuration = readMetricNumber(result?.metrics, "totalDurationMs");
-	const latestToolCall = readLatestToolCall(result?.metrics);
-	const output = result?.responseText || t(`taskPanel.process.${agent.status}`);
+	const exchanges: TaskAgentTurn[] =
+		turns.length > 0
+			? turns
+			: [
+					{
+						taskAgentId: agent.id,
+						sequence: 0,
+						prompt,
+						finalStatus: agent.status,
+						responseText: result?.responseText ?? null,
+						metrics: result?.metrics ?? {},
+						createdAtMs: 0,
+					},
+				];
 	const isTerminal = ["completed", "failed", "stopped"].includes(agent.status);
 
 	return (
@@ -172,36 +192,47 @@ const AgentPanel = ({
 			</header>
 
 			<div className="flex h-97 min-h-0 shrink-0 flex-col overflow-y-auto bg-surface-card p-4">
-				<div className="rounded-lg bg-surface-soft px-3 py-[10px]">
-					<p className="text-[10px] font-medium text-mute">
-						{t("taskPanel.run.you")}
-					</p>
-					<p className="mt-[2px] whitespace-pre-wrap text-[14px] leading-[18px] text-ink">
-						{prompt}
-					</p>
+				<div className="space-y-4">
+					{exchanges.map((exchange) => {
+						const latestToolCall = readLatestToolCall(exchange.metrics);
+						const output =
+							exchange.responseText || t(`taskPanel.process.${agent.status}`);
+						return (
+							<div key={`${agent.id}-${exchange.sequence}`}>
+								<div className="rounded-lg bg-surface-soft px-3 py-[10px]">
+									<p className="text-[10px] font-medium text-mute">
+										{t("taskPanel.run.you")}
+									</p>
+									<p className="mt-[2px] whitespace-pre-wrap text-[14px] leading-[18px] text-ink">
+										{exchange.prompt}
+									</p>
+								</div>
+
+								{latestToolCall ? (
+									<div className="mt-3 rounded-lg bg-surface-soft px-3 py-[10px]">
+										<p className="truncate font-mono text-[12px] text-ink">
+											{latestToolCall.name}
+										</p>
+										<p className="mt-[6px] text-[12px] text-charcoal">
+											{latestToolCall.durationMs === null
+												? t("taskPanel.run.toolCompleted")
+												: t("taskPanel.run.toolDuration", {
+														duration: formatDuration(latestToolCall.durationMs),
+													})}
+										</p>
+									</div>
+								) : null}
+
+								<p className="mt-4 text-[10px] font-medium text-mute">
+									{t("taskPanel.run.response")}
+								</p>
+								<p className="mt-2 whitespace-pre-wrap text-[14px] leading-5 text-ink">
+									{output}
+								</p>
+							</div>
+						);
+					})}
 				</div>
-
-				{latestToolCall ? (
-					<div className="mt-3 rounded-lg bg-surface-soft px-3 py-[10px]">
-						<p className="truncate font-mono text-[12px] text-ink">
-							{latestToolCall.name}
-						</p>
-						<p className="mt-[6px] text-[12px] text-charcoal">
-							{latestToolCall.durationMs === null
-								? t("taskPanel.run.toolCompleted")
-								: t("taskPanel.run.toolDuration", {
-										duration: formatDuration(latestToolCall.durationMs),
-									})}
-						</p>
-					</div>
-				) : null}
-
-				<p className="mt-4 text-[10px] font-medium text-mute">
-					{t("taskPanel.run.response")}
-				</p>
-				<p className="mt-2 whitespace-pre-wrap text-[14px] leading-5 text-ink">
-					{output}
-				</p>
 
 				<div className="mt-auto flex h-12 shrink-0 items-center gap-[10px] rounded-lg bg-surface-soft px-3">
 					<span

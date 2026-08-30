@@ -180,6 +180,13 @@ const enUS = {
 				},
 			},
 		},
+		taskFollowUp: {
+			label: "Continue task",
+			placeholder: "Send another message to the existing Agents…",
+			allAgents: "All Agents",
+			targetAgent: "Send only to {{agent}}",
+			send: "Send follow-up",
+		},
 		taskSummary: {
 			title: "Result summary",
 			open: "View result summary",

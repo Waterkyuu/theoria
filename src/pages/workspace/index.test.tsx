@@ -12,6 +12,7 @@ const apiMocks = vi.hoisted(() => ({
 	checkWorkBuddyInitStatus: vi.fn(),
 	onAgentProcessStatesChanged: vi.fn(),
 	createTask: vi.fn(),
+	continueTask: vi.fn(),
 	runTask: vi.fn(),
 	stopTaskAgent: vi.fn(),
 	useTask: vi.fn(),
@@ -55,6 +56,20 @@ const RESTORED_TASK = {
 			},
 		},
 	],
+	turns: [
+		{
+			taskAgentId: "task-agent-1",
+			sequence: 0,
+			prompt: "Inspect repository",
+			finalStatus: "completed",
+			responseText: "Repository inspection complete.",
+			metrics: {
+				totalDurationMs: 1250,
+				toolCalls: [{ name: "workspace.read", durationMs: 250 }],
+			},
+			createdAtMs: 2,
+		},
+	],
 };
 
 vi.mock("@/api/agent", () => ({
@@ -74,6 +89,11 @@ vi.mock("@/api/workbuddy", () => ({
 	checkWorkBuddyInitStatus: apiMocks.checkWorkBuddyInitStatus,
 }));
 vi.mock("@/queries/task", () => ({
+	useContinueTask: () => ({
+		mutateAsync: apiMocks.continueTask,
+		isPending: false,
+		error: null,
+	}),
 	useCreateTask: () => ({
 		mutateAsync: apiMocks.createTask,
 		isPending: false,
@@ -364,5 +384,30 @@ describe("WorkspacePage", () => {
 		expect(summary).toHaveTextContent("1,200");
 		expect(summary).toHaveTextContent("新增 1 · 修改 2 · 删除 0");
 		expect(screen.queryByText("最佳 Agent")).not.toBeInTheDocument();
+	});
+
+	it("continues the restored Task for all or one existing Agent", async () => {
+		const user = userEvent.setup();
+		apiMocks.useTask.mockReturnValue({ data: RESTORED_TASK, isLoading: false });
+		apiMocks.continueTask.mockResolvedValue(RESTORED_TASK);
+		render(<WorkspacePage taskId="task-42" />);
+
+		const followUp = screen.getByRole("textbox", { name: "继续任务" });
+		await user.type(followUp, "Check all tests");
+		await user.click(screen.getByRole("button", { name: "发送继续任务" }));
+		expect(apiMocks.continueTask).toHaveBeenCalledWith({
+			taskId: "task-42",
+			prompt: "Check all tests",
+			taskAgentIds: [],
+		});
+
+		await user.click(screen.getByRole("button", { name: "仅发送给 Codex" }));
+		await user.type(followUp, "Check Codex output");
+		await user.click(screen.getByRole("button", { name: "发送继续任务" }));
+		expect(apiMocks.continueTask).toHaveBeenLastCalledWith({
+			taskId: "task-42",
+			prompt: "Check Codex output",
+			taskAgentIds: ["task-agent-1"],
+		});
 	});
 });

@@ -175,6 +175,13 @@ const zhCN = {
 				},
 			},
 		},
+		taskFollowUp: {
+			label: "继续任务",
+			placeholder: "继续向现有 Agent 发送消息…",
+			allAgents: "全部 Agent",
+			targetAgent: "仅发送给 {{agent}}",
+			send: "发送继续任务",
+		},
 		taskSummary: {
 			title: "结果汇总",
 			open: "查看结果汇总",

@@ -16,9 +16,11 @@ import {
 	Composer,
 	type ComposerSubmission,
 } from "@/pages/workspace/components/composer";
+import { FollowUpComposer } from "@/pages/workspace/components/follow-up-composer";
 import { TaskResultSummary } from "@/pages/workspace/components/task-result-summary";
 import { useSkills, useWorkspaceSkills } from "@/queries/skill";
 import {
+	useContinueTask,
 	useCreateTask,
 	useRunTask,
 	useStopTaskAgent,
@@ -92,6 +94,7 @@ const WorkspacePage = ({ workspaceId, taskId }: WorkspacePageProps) => {
 	const skillLibraryQuery = useSkills();
 	const workspaceSkillsQuery = useWorkspaceSkills(workspaceId ?? null);
 	const createTaskMutation = useCreateTask();
+	const continueTaskMutation = useContinueTask();
 	const runTaskMutation = useRunTask();
 	const stopTaskAgentMutation = useStopTaskAgent();
 	const task = taskQuery.data ?? createdTask;
@@ -174,6 +177,23 @@ const WorkspacePage = ({ workspaceId, taskId }: WorkspacePageProps) => {
 		}
 	};
 
+	/** Continues the restored Task without changing any frozen configuration. */
+	const continueExistingTask = async (
+		prompt: string,
+		taskAgentIds: string[],
+	) => {
+		if (!task) return;
+		try {
+			await continueTaskMutation.mutateAsync({
+				taskId: task.task.id,
+				prompt,
+				taskAgentIds,
+			});
+		} catch (error) {
+			handleError(error, "Task continuation failed");
+		}
+	};
+
 	return (
 		<main className="relative flex h-dvh min-w-0 flex-1 flex-col overflow-hidden bg-canvas max-md:h-[calc(100dvh-4rem)]">
 			{workspaceId || task ? (
@@ -213,7 +233,7 @@ const WorkspacePage = ({ workspaceId, taskId }: WorkspacePageProps) => {
 				<section
 					className={cn(
 						"min-h-0 min-w-0 flex-1 overflow-y-auto px-4 pt-lg sm:px-xl sm:pt-xl",
-						task ? "pb-xl" : "pb-48",
+						task ? "pb-44" : "pb-48",
 					)}
 				>
 					{taskQuery.isLoading && taskId ? (
@@ -244,6 +264,9 @@ const WorkspacePage = ({ workspaceId, taskId }: WorkspacePageProps) => {
 										(result) => result.taskAgentId === agent.id,
 									)}
 									stopPending={stopTaskAgentMutation.isPending}
+									turns={task.turns.filter(
+										(turn) => turn.taskAgentId === agent.id,
+									)}
 								/>
 							))}
 						</div>
@@ -275,6 +298,14 @@ const WorkspacePage = ({ workspaceId, taskId }: WorkspacePageProps) => {
 					onSubmit={submitTask}
 					workspaceName={workspaceName}
 					workspaceSkillsLocked={Boolean(workspaceId)}
+				/>
+			) : null}
+
+			{task ? (
+				<FollowUpComposer
+					agents={task.agents}
+					isSubmitting={continueTaskMutation.isPending}
+					onSubmit={continueExistingTask}
 				/>
 			) : null}
 
