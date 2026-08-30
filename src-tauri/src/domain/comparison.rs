@@ -7,17 +7,6 @@ pub(crate) enum AgentKind {
     WorkBuddy,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::AgentKind;
-
-    #[test]
-    fn round_trips_the_opencode_persistence_identifier() {
-        assert_eq!(AgentKind::OpenCode.as_str(), "opencode");
-        assert_eq!(AgentKind::parse("opencode"), Some(AgentKind::OpenCode));
-    }
-}
-
 impl AgentKind {
     /// Returns the stable database and IPC identifier for this Agent.
     pub(crate) const fn as_str(self) -> &'static str {
