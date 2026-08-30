@@ -23,6 +23,7 @@ import {
 	useStopTaskAgent,
 	useTask,
 } from "@/queries/task";
+import { useWorkspaces } from "@/queries/workspace";
 import type {
 	AgentKind,
 	AgentProcessStates,
@@ -32,8 +33,8 @@ import type {
 import type { CreateTaskRequest, TaskDetail } from "@/types/task";
 
 type WorkspacePageProps = {
-	/** Workspace identifier shown by the composer, or undefined for a normal Task. */
-	workspaceName?: string;
+	/** Workspace route identifier, or undefined for a normal Task. */
+	workspaceId?: string;
 	/** Existing Task restored into this surface, or undefined for a new Task draft. */
 	taskId?: string;
 };
@@ -76,7 +77,7 @@ const openCreatedTask = (task: TaskDetail) => {
 	window.dispatchEvent(new PopStateEvent("popstate"));
 };
 
-const WorkspacePage = ({ workspaceName, taskId }: WorkspacePageProps) => {
+const WorkspacePage = ({ workspaceId, taskId }: WorkspacePageProps) => {
 	const { t } = useTranslation();
 	const [createdTask, setCreatedTask] = useState<TaskDetail | null>(null);
 	const [environmentRuntimes, setEnvironmentRuntimes] = useState(
@@ -85,13 +86,18 @@ const WorkspacePage = ({ workspaceName, taskId }: WorkspacePageProps) => {
 	const [agentProcesses, setAgentProcesses] =
 		useState<AgentProcessStates | null>(null);
 	const taskQuery = useTask(taskId ?? null);
+	const workspacesQuery = useWorkspaces();
 	const skillLibraryQuery = useSkills();
-	const workspaceSkillsQuery = useWorkspaceSkills(workspaceName ?? null);
+	const workspaceSkillsQuery = useWorkspaceSkills(workspaceId ?? null);
 	const createTaskMutation = useCreateTask();
 	const runTaskMutation = useRunTask();
 	const stopTaskAgentMutation = useStopTaskAgent();
 	const task = taskQuery.data ?? createdTask;
-	const availableSkills = workspaceName
+	const workspace = workspacesQuery.data?.find(
+		(item) => item.id === workspaceId,
+	);
+	const workspaceName = workspace?.name ?? workspaceId;
+	const availableSkills = workspaceId
 		? (workspaceSkillsQuery.data ?? [])
 		: (skillLibraryQuery.data ?? []);
 
@@ -148,7 +154,7 @@ const WorkspacePage = ({ workspaceName, taskId }: WorkspacePageProps) => {
 	/** Creates the Task once, opens its stable route, and starts sibling Executions concurrently. */
 	const submitTask = async (submission: ComposerSubmission) => {
 		const request: CreateTaskRequest = {
-			workspaceId: workspaceName ?? null,
+			workspaceId: workspaceId ?? null,
 			title: taskTitleFromPrompt(submission.prompt),
 			prompt: submission.prompt,
 			agents: submission.agents,
@@ -168,18 +174,20 @@ const WorkspacePage = ({ workspaceName, taskId }: WorkspacePageProps) => {
 
 	return (
 		<main className="relative flex h-dvh min-w-0 flex-1 flex-col overflow-hidden bg-canvas max-md:h-[calc(100dvh-4rem)]">
-			{workspaceName || task ? (
+			{workspaceId || task ? (
 				<header className="flex h-[34px] shrink-0 items-center justify-between border-b border-hairline px-4 sm:px-xl">
 					<p className="truncate text-body-sm font-medium text-charcoal">
 						{task
 							? task.task.title
 							: t("workspace.breadcrumb", { workspace: workspaceName })}
 					</p>
-					{workspaceName ? (
+					{workspaceId ? (
 						<div className="hidden items-center gap-sm text-caption-sm text-body sm:flex">
 							<CodeTrunk aria-hidden="true" className="size-4" />
 							<span>
-								{t("workspace.workspacePath", { workspace: workspaceName })}
+								{t("workspace.workspacePath", {
+									workspace: workspace?.sourcePath ?? workspaceName,
+								})}
 							</span>
 						</div>
 					) : null}
@@ -243,7 +251,7 @@ const WorkspacePage = ({ workspaceName, taskId }: WorkspacePageProps) => {
 					isSubmitting={createTaskMutation.isPending}
 					onSubmit={submitTask}
 					workspaceName={workspaceName}
-					workspaceSkillsLocked={Boolean(workspaceName)}
+					workspaceSkillsLocked={Boolean(workspaceId)}
 				/>
 			) : null}
 

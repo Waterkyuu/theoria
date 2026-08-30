@@ -117,7 +117,7 @@ const WorkspaceRoute = () => {
 
 	if (!workspaceId) return <Navigate replace to="/task" />;
 
-	return <WorkspacePage taskId={taskId} workspaceName={workspaceId} />;
+	return <WorkspacePage taskId={taskId} workspaceId={workspaceId} />;
 };
 
 const RoutedApplication = () => {
@@ -131,6 +131,7 @@ const RoutedApplication = () => {
 					<Route element={<StartupRoute />} path="/" />
 					<Route element={<TaskRoute />} path="/task" />
 					<Route element={<TaskRoute />} path="/task/:taskId" />
+					<Route element={<Navigate replace to="/task" />} path="/workspaces" />
 					<Route element={<WorkspaceRoute />} path="/workspaces/:workspaceId" />
 					<Route
 						element={<WorkspaceRoute />}

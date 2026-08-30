@@ -90,6 +90,22 @@ vi.mock("@/queries/skill", () => ({
 	useSkills: () => ({ data: [], isLoading: false }),
 	useWorkspaceSkills: () => ({ data: [], isLoading: false }),
 }));
+vi.mock("@/queries/workspace", () => ({
+	useWorkspaces: () => ({
+		data: [
+			{
+				id: "workspace-docs",
+				name: "docs-lab",
+				sourceKind: "external",
+				sourcePath: "/Users/me/docs-lab",
+				pinnedAtMs: null,
+				createdAtMs: 1,
+				updatedAtMs: 1,
+			},
+		],
+		isLoading: false,
+	}),
+}));
 
 describe("WorkspacePage", () => {
 	beforeEach(() => {
@@ -170,10 +186,10 @@ describe("WorkspacePage", () => {
 	});
 
 	it("shows workspace context after a workspace is selected", () => {
-		render(<WorkspacePage workspaceName="docs-lab" />);
+		render(<WorkspacePage workspaceId="workspace-docs" />);
 
 		expect(screen.getByText("docs-lab / 新任务")).toBeInTheDocument();
-		expect(screen.getAllByText("docs-lab")).toHaveLength(2);
+		expect(screen.getByText("/Users/me/docs-lab")).toBeInTheDocument();
 	});
 
 	it("builds agent autocomplete from backend process and runtime data", async () => {

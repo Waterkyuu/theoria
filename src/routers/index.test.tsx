@@ -16,15 +16,15 @@ vi.mock("@/queries/skill", () => ({
 vi.mock("@/pages/comparison", () => new Promise(() => {}));
 vi.mock("@/pages/workspace", () => ({
 	default: ({
-		workspaceName,
+		workspaceId,
 		taskId,
 	}: {
-		workspaceName?: string;
+		workspaceId?: string;
 		taskId?: string;
 	}) => (
 		<main>
 			workspace composer route
-			{workspaceName ? <span>bound:{workspaceName}</span> : null}
+			{workspaceId ? <span>bound:{workspaceId}</span> : null}
 			{taskId ? <span>task:{taskId}</span> : null}
 		</main>
 	),
