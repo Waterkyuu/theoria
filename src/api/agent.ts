@@ -1,13 +1,17 @@
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
-import type {
-	AgentActivitiesResponse,
-	AgentProcessStates,
+import { invokeWithResponseSchema, listenWithResponseSchema } from "@/api/ipc";
+import {
+	type AgentActivitiesResponse,
+	type AgentProcessStates,
+	agentActivitiesResponseSchema,
+	agentProcessStatesSchema,
 } from "@/types/agent";
 
 /** Reads the latest cached task lifecycle snapshot from the native monitor. */
 const checkAgentActivities = () =>
-	invoke<AgentActivitiesResponse>("check_agent_activities");
+	invokeWithResponseSchema(
+		"check_agent_activities",
+		agentActivitiesResponseSchema,
+	);
 
 /**
  * Subscribes to task snapshots emitted after a supported Agent source changes.
@@ -18,13 +22,15 @@ const checkAgentActivities = () =>
 const onAgentActivitiesChanged = (
 	listener: (response: AgentActivitiesResponse) => void,
 ) =>
-	listen<AgentActivitiesResponse>("agent-activities-changed", (event) => {
-		listener(event.payload);
-	});
+	listenWithResponseSchema(
+		"agent-activities-changed",
+		agentActivitiesResponseSchema,
+		listener,
+	);
 
 /** Reads one lightweight running-process snapshot for every supported Agent. */
 const checkAgentProcesses = () =>
-	invoke<AgentProcessStates>("check_agent_processes");
+	invokeWithResponseSchema("check_agent_processes", agentProcessStatesSchema);
 
 /**
  * Subscribes to process snapshots emitted only after a supported Agent starts or stops.
@@ -35,9 +41,11 @@ const checkAgentProcesses = () =>
 const onAgentProcessStatesChanged = (
 	listener: (states: AgentProcessStates) => void,
 ) =>
-	listen<AgentProcessStates>("agent-process-states-changed", (event) => {
-		listener(event.payload);
-	});
+	listenWithResponseSchema(
+		"agent-process-states-changed",
+		agentProcessStatesSchema,
+		listener,
+	);
 
 export {
 	checkAgentActivities,

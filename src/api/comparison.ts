@@ -1,9 +1,10 @@
-import { invoke } from "@tauri-apps/api/core";
-import type {
-	ComparisonCursor,
-	ComparisonHistoryDetail,
-	ComparisonHistoryPage,
-	SaveComparisonHistoryRequest,
+import { invokeWithResponseSchema } from "@/api/ipc";
+import {
+	type ComparisonCursor,
+	comparisonHistoryDetailSchema,
+	comparisonHistoryPageSchema,
+	type SaveComparisonHistoryRequest,
+	saveComparisonHistoryResponseSchema,
 } from "@/types/comparison";
 
 /**
@@ -11,7 +12,11 @@ import type {
  * @example await saveComparisonHistory({ query, results });
  */
 const saveComparisonHistory = (request: SaveComparisonHistoryRequest) =>
-	invoke<{ id: number }>("save_comparison_history", { request });
+	invokeWithResponseSchema(
+		"save_comparison_history",
+		saveComparisonHistoryResponseSchema,
+		{ request },
+	);
 
 /**
  * Loads one bounded newest-first page without response bodies.
@@ -21,17 +26,21 @@ const listComparisonHistory = (
 	cursor: ComparisonCursor | null = null,
 	limit = 30,
 ) =>
-	invoke<ComparisonHistoryPage>("list_comparison_history", {
-		request: { cursor, limit },
-	});
+	invokeWithResponseSchema(
+		"list_comparison_history",
+		comparisonHistoryPageSchema,
+		{ request: { cursor, limit } },
+	);
 
 /**
  * Loads one complete comparison for the history detail surface.
  * @example await getComparisonHistory(42);
  */
 const getComparisonHistory = (id: number) =>
-	invoke<ComparisonHistoryDetail>("get_comparison_history", {
-		request: { id },
-	});
+	invokeWithResponseSchema(
+		"get_comparison_history",
+		comparisonHistoryDetailSchema,
+		{ request: { id } },
+	);
 
 export { getComparisonHistory, listComparisonHistory, saveComparisonHistory };
