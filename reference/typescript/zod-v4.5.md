@@ -12,7 +12,7 @@ const Player = z.object({
 })
 
 
-const CompiledPlayer = z.complier(Player);
+const CompiledPlayer = z.complie(Player);
 
 Player.parse({...})
 CompilerPlayer.parse({...}); // 9x faster
