@@ -360,6 +360,29 @@ describe("WorkspacePage", () => {
 		expect(apiMocks.runTask).toHaveBeenCalledWith("task-42");
 	});
 
+	it("freezes the Composer permission selection into the created Task", async () => {
+		const user = userEvent.setup();
+		render(<WorkspacePage />);
+
+		await user.click(screen.getByRole("button", { name: "可写入工作区" }));
+		await user.click(screen.getByRole("option", { name: "只读文件" }));
+		await user.click(screen.getByRole("option", { name: "禁止执行命令" }));
+		await user.type(screen.getByRole("textbox", { name: "任务内容" }), "/");
+		await user.click(await screen.findByRole("option", { name: /Codex/ }));
+		await user.type(
+			screen.getByRole("textbox", { name: "任务内容" }),
+			"Inspect safely",
+		);
+		await user.click(screen.getByRole("button", { name: "发送任务" }));
+
+		expect(apiMocks.createTask).toHaveBeenCalledWith(
+			expect.objectContaining({
+				fileAccess: "read_only",
+				commandExecution: "deny",
+			}),
+		);
+	});
+
 	it("restores a completed Task directly into the Figma Agent run panel", () => {
 		apiMocks.useTask.mockReturnValue({ data: RESTORED_TASK, isLoading: false });
 		render(<WorkspacePage taskId="task-42" />);

@@ -26,6 +26,10 @@ type ComposerSubmission = {
 	agents: CreateTaskRequest["agents"];
 	/** Explicit Skill Library choices allowed for an ordinary Task. */
 	skillIds: string[];
+	/** File mutation policy frozen after the first successful submission. */
+	fileAccess: CreateTaskRequest["fileAccess"];
+	/** Command approval policy frozen after the first successful submission. */
+	commandExecution: CreateTaskRequest["commandExecution"];
 };
 
 type ComposerProps = {
@@ -75,10 +79,15 @@ const Composer = ({
 	const [prompt, setPrompt] = useState("");
 	const [selectedAgents, setSelectedAgents] = useState<AgentKind[]>([]);
 	const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([]);
+	const [fileAccess, setFileAccess] =
+		useState<CreateTaskRequest["fileAccess"]>("allow_edits");
+	const [commandExecution, setCommandExecution] =
+		useState<CreateTaskRequest["commandExecution"]>("allow");
 	const [mode, setMode] = useState<"explore" | "benchmark">("explore");
 	const [isAgentMenuOpen, setIsAgentMenuOpen] = useState(false);
 	const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
 	const [isSkillMenuOpen, setIsSkillMenuOpen] = useState(false);
+	const [isPermissionMenuOpen, setIsPermissionMenuOpen] = useState(false);
 	const isSlashAutocompleteOpen =
 		isAgentMenuOpen || prompt.trimEnd().endsWith("/");
 
@@ -100,6 +109,8 @@ const Composer = ({
 			prompt: task,
 			agents,
 			skillIds: workspaceSkillsLocked ? [] : selectedSkillIds,
+			fileAccess,
+			commandExecution,
 		});
 		setPrompt("");
 		setIsAgentMenuOpen(false);
@@ -381,10 +392,83 @@ const Composer = ({
 								</div>
 							</div>
 							<div className="flex shrink-0 items-center gap-md">
-								<span className="hidden items-center gap-xs text-caption-sm text-body min-[1040px]:flex">
-									<ShieldCheck aria-hidden="true" className="size-3.5" />
-									{t("workspace.permission")}
-								</span>
+								<div className="relative hidden min-[1040px]:block">
+									<button
+										aria-expanded={isPermissionMenuOpen}
+										aria-label={t("workspace.permission")}
+										className="flex h-8 items-center gap-xs rounded-md px-sm text-caption-sm text-body outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
+										onClick={() => setIsPermissionMenuOpen((open) => !open)}
+										type="button"
+									>
+										<ShieldCheck aria-hidden="true" className="size-3.5" />
+										{t(
+											fileAccess === "allow_edits"
+												? "workspace.permission"
+												: "workspace.permissionReadOnly",
+										)}
+									</button>
+									{isPermissionMenuOpen ? (
+										<fieldset
+											aria-label={t("workspace.permissionSelection")}
+											className="absolute bottom-[calc(100%+8px)] right-0 w-64 rounded-lg border border-hairline bg-canvas p-sm shadow-[0_16px_40px_rgba(0,0,0,0.12)]"
+										>
+											<p className="px-md pb-xs text-[11px] font-medium uppercase text-mute">
+												{t("workspace.filePermission")}
+											</p>
+											{(["read_only", "allow_edits"] as const).map((access) => (
+												<button
+													aria-label={t(
+														access === "read_only"
+															? "workspace.permissionReadOnly"
+															: "workspace.permissionAllowEdits",
+													)}
+													aria-selected={fileAccess === access}
+													className="flex w-full items-center justify-between rounded-md px-md py-sm text-left text-body-sm hover:bg-surface-soft"
+													key={access}
+													onClick={() => setFileAccess(access)}
+													role="option"
+													type="button"
+												>
+													{t(
+														access === "read_only"
+															? "workspace.permissionReadOnly"
+															: "workspace.permissionAllowEdits",
+													)}
+													{fileAccess === access ? (
+														<CircleCheckFill
+															aria-hidden="true"
+															className="size-4"
+														/>
+													) : null}
+												</button>
+											))}
+											<p className="mt-xs border-t border-hairline px-md pb-xs pt-sm text-[11px] font-medium uppercase text-mute">
+												{t("workspace.commandPermission")}
+											</p>
+											{(["deny", "ask", "allow"] as const).map((permission) => (
+												<button
+													aria-label={t(
+														`workspace.commandPermissionOption.${permission}`,
+													)}
+													aria-selected={commandExecution === permission}
+													className="flex w-full items-center justify-between rounded-md px-md py-sm text-left text-body-sm hover:bg-surface-soft"
+													key={permission}
+													onClick={() => setCommandExecution(permission)}
+													role="option"
+													type="button"
+												>
+													{t(`workspace.commandPermissionOption.${permission}`)}
+													{commandExecution === permission ? (
+														<CircleCheckFill
+															aria-hidden="true"
+															className="size-4"
+														/>
+													) : null}
+												</button>
+											))}
+										</fieldset>
+									) : null}
+								</div>
 								<button
 									aria-label={t("workspace.sendTask")}
 									className="grid size-8 place-items-center rounded-md bg-primary text-on-primary outline-none transition-transform enabled:active:scale-95 disabled:cursor-not-allowed disabled:bg-hairline-strong"
