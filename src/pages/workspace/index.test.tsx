@@ -11,7 +11,49 @@ const apiMocks = vi.hoisted(() => ({
 	checkOpenCodeInitStatus: vi.fn(),
 	checkWorkBuddyInitStatus: vi.fn(),
 	onAgentProcessStatesChanged: vi.fn(),
+	createTask: vi.fn(),
+	runTask: vi.fn(),
+	stopTaskAgent: vi.fn(),
+	useTask: vi.fn(),
 }));
+
+const RESTORED_TASK = {
+	task: {
+		id: "task-42",
+		workspaceId: null,
+		title: "Inspect repository",
+		prompt: "Inspect repository",
+		status: "completed",
+		configurationLockedAtMs: 1,
+		createdAtMs: 1,
+		updatedAtMs: 2,
+	},
+	agents: [
+		{
+			id: "task-agent-1",
+			slotIndex: 0,
+			agentKind: "codex",
+			modelSnapshot: "gpt-runtime",
+			modeSnapshot: "xhigh",
+			status: "completed",
+		},
+	],
+	fileAccess: "workspace-write",
+	commandExecution: "allowed",
+	skills: [],
+	results: [
+		{
+			taskAgentId: "task-agent-1",
+			finalStatus: "completed",
+			responseText: "Repository inspection complete.",
+			metrics: {
+				totalDurationMs: 1250,
+				toolCallCount: 2,
+				files: { added: 1, modified: 2, deleted: 0 },
+			},
+		},
+	],
+};
 
 vi.mock("@/api/agent", () => ({
 	checkAgentProcesses: apiMocks.checkAgentProcesses,
@@ -28,6 +70,23 @@ vi.mock("@/api/opencode", () => ({
 }));
 vi.mock("@/api/workbuddy", () => ({
 	checkWorkBuddyInitStatus: apiMocks.checkWorkBuddyInitStatus,
+}));
+vi.mock("@/queries/task", () => ({
+	useCreateTask: () => ({
+		mutateAsync: apiMocks.createTask,
+		isPending: false,
+		error: null,
+	}),
+	useRunTask: () => ({ mutate: apiMocks.runTask }),
+	useStopTaskAgent: () => ({
+		mutate: apiMocks.stopTaskAgent,
+		isPending: false,
+	}),
+	useTask: apiMocks.useTask,
+}));
+vi.mock("@/queries/skill", () => ({
+	useSkills: () => ({ data: [], isLoading: false }),
+	useWorkspaceSkills: () => ({ data: [], isLoading: false }),
 }));
 
 describe("WorkspacePage", () => {
@@ -68,6 +127,16 @@ describe("WorkspacePage", () => {
 			reasoningEffort: "enabled",
 		});
 		apiMocks.onAgentProcessStatesChanged.mockResolvedValue(vi.fn());
+		apiMocks.createTask.mockResolvedValue({
+			...RESTORED_TASK,
+			task: { ...RESTORED_TASK.task, status: "preparing" },
+			agents: RESTORED_TASK.agents.map((agent) => ({
+				...agent,
+				status: "preparing",
+			})),
+			results: [],
+		});
+		apiMocks.useTask.mockReturnValue({ data: undefined, isLoading: false });
 	});
 
 	it("renders the composer without the welcome empty state", () => {
@@ -221,5 +290,52 @@ describe("WorkspacePage", () => {
 			button.closest('[data-component="agent-environment-dropdown"]'),
 		).not.toBeNull();
 		expect(dialog.closest('[data-slot="dropdown-popover"]')).not.toBeNull();
+	});
+
+	it("creates a locked Task and starts every selected Agent", async () => {
+		const user = userEvent.setup();
+		render(<WorkspacePage />);
+
+		await user.type(screen.getByRole("textbox", { name: "任务内容" }), "/");
+		await user.click(await screen.findByRole("option", { name: /Codex/ }));
+		await user.type(
+			screen.getByRole("textbox", { name: "任务内容" }),
+			"Inspect repository",
+		);
+		await user.click(screen.getByRole("button", { name: "发送任务" }));
+
+		expect(apiMocks.createTask).toHaveBeenCalledWith(
+			expect.objectContaining({
+				prompt: "Inspect repository",
+				agents: [
+					{
+						agentKind: "codex",
+						model: "gpt-runtime",
+						mode: "xhigh",
+					},
+				],
+			}),
+		);
+		expect(
+			await screen.findByRole("region", { name: /Codex/ }),
+		).toBeInTheDocument();
+		expect(apiMocks.runTask).toHaveBeenCalledWith("task-42");
+	});
+
+	it("restores a completed Task into result sections", async () => {
+		const user = userEvent.setup();
+		apiMocks.useTask.mockReturnValue({ data: RESTORED_TASK, isLoading: false });
+		render(<WorkspacePage taskId="task-42" />);
+
+		expect(screen.getByRole("region", { name: /Codex/ })).toBeInTheDocument();
+		await user.click(screen.getByRole("tab", { name: "回答" }));
+
+		expect(
+			screen.getByText("Repository inspection complete."),
+		).toBeInTheDocument();
+		await user.click(screen.getByRole("tab", { name: "文件" }));
+		expect(
+			screen.getByText("1 个新增，2 个修改，0 个删除"),
+		).toBeInTheDocument();
 	});
 });

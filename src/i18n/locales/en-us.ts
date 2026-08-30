@@ -94,6 +94,41 @@ const enUS = {
 			sendTask: "Send task",
 			dispatched: "Task dispatched to {{count}} Agents",
 			workspacePath: "{{workspace}}",
+			noSkills: "No skills are available.",
+		},
+		taskPanel: {
+			panel: "execution panel",
+			loading: "Restoring task",
+			createFailed:
+				"Task creation failed. Check the Workspace and Agent environment, then try again.",
+			sections: "Result sections",
+			stopAgent: "Stop {{agent}}",
+			toolCalls: "{{count}} tool calls",
+			noAnswer: "No answer has been produced yet.",
+			fileSummary:
+				"{{added}} added, {{modified}} modified, {{deleted}} deleted",
+			section: {
+				process: "Process",
+				answer: "Answer",
+				files: "Files",
+				metrics: "Metrics",
+			},
+			status: {
+				preparing: "Preparing",
+				running: "Running",
+				waiting: "Awaiting user",
+				completed: "Completed",
+				failed: "Failed",
+				stopped: "Stopped",
+			},
+			process: {
+				preparing: "Creating the isolated workspace",
+				running: "The Agent is working in its isolated workspace",
+				waiting: "The Agent needs user input to continue",
+				completed: "Execution and result collection completed",
+				failed: "Execution failed. See the answer for error details",
+				stopped: "Execution was stopped by the user",
+			},
 		},
 		skills: {
 			title: "Skills",

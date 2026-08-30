@@ -16,6 +16,17 @@ import type {
 	AgentProcessStates,
 	AgentRuntimeState,
 } from "@/types/agent";
+import type { Skill } from "@/types/skill";
+import type { CreateTaskRequest } from "@/types/task";
+
+type ComposerSubmission = {
+	/** Normalized initial Task request. */
+	prompt: string;
+	/** Agent products with model settings frozen from their latest runtime probe. */
+	agents: CreateTaskRequest["agents"];
+	/** Explicit Skill Library choices allowed for an ordinary Task. */
+	skillIds: string[];
+};
 
 type ComposerProps = {
 	/** Agent kinds that can be selected by the composer. */
@@ -24,8 +35,14 @@ type ComposerProps = {
 	agentProcesses: AgentProcessStates | null;
 	/** Runtime details displayed beside each running agent. */
 	environmentRuntimes: Record<AgentKind, AgentRuntimeState>;
-	/** Receives the normalized task and selected agent count after submission. */
-	onSubmit: (task: string, selectedAgentCount: number) => void;
+	/** Skills available for selection or displayed as locked Workspace mounts. */
+	availableSkills: Skill[];
+	/** Prevents duplicate submission while Task preparation is in progress. */
+	isSubmitting: boolean;
+	/** Receives the complete immutable Task selection after submission. */
+	onSubmit: (submission: ComposerSubmission) => Promise<void>;
+	/** True when Skills come from Workspace mounts instead of per-Task choices. */
+	workspaceSkillsLocked: boolean;
 	/** Workspace shown below the composer, or undefined on the homepage. */
 	workspaceName?: string;
 };
@@ -38,19 +55,26 @@ type ComposerProps = {
  *   agentKinds={["codex"]}
  *   agentProcesses={processes}
  *   environmentRuntimes={runtimes}
- *   onSubmit={(task, count) => dispatch(task, count)}
+ *   availableSkills={skills}
+ *   isSubmitting={false}
+ *   onSubmit={dispatchTask}
+ *   workspaceSkillsLocked={false}
  * />
  */
 const Composer = ({
 	agentKinds,
 	agentProcesses,
 	environmentRuntimes,
+	availableSkills,
+	isSubmitting,
 	onSubmit,
+	workspaceSkillsLocked,
 	workspaceName,
 }: ComposerProps) => {
 	const { t } = useTranslation();
 	const [prompt, setPrompt] = useState("");
 	const [selectedAgents, setSelectedAgents] = useState<AgentKind[]>([]);
+	const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([]);
 	const [mode, setMode] = useState<"explore" | "benchmark">("explore");
 	const [isAgentMenuOpen, setIsAgentMenuOpen] = useState(false);
 	const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
@@ -58,11 +82,25 @@ const Composer = ({
 	const isSlashAutocompleteOpen =
 		isAgentMenuOpen || prompt.trimEnd().endsWith("/");
 
-	/** Submits only complete tasks and resets the transient composer input state. */
-	const submitTask = () => {
+	/** Freezes the latest runtime settings so later global changes cannot alter this Task. */
+	const submitTask = async () => {
 		const task = prompt.trim();
-		if (!task || selectedAgents.length === 0) return;
-		onSubmit(task, selectedAgents.length);
+		if (!task || selectedAgents.length === 0 || isSubmitting) return;
+		const agents = selectedAgents.map((agentKind) => {
+			const runtimeState = environmentRuntimes[agentKind];
+			const runtime =
+				runtimeState.status === "resolved" ? runtimeState.value : null;
+			return {
+				agentKind,
+				model: runtime?.model ?? null,
+				mode: runtime?.reasoningEffort ?? null,
+			};
+		});
+		await onSubmit({
+			prompt: task,
+			agents,
+			skillIds: workspaceSkillsLocked ? [] : selectedSkillIds,
+		});
 		setPrompt("");
 		setIsAgentMenuOpen(false);
 	};
@@ -270,22 +308,76 @@ const Composer = ({
 									<button
 										aria-expanded={isSkillMenuOpen}
 										aria-label={t("workspace.mountedSkillCount", {
-											count: 0,
+											count: workspaceSkillsLocked
+												? availableSkills.length
+												: selectedSkillIds.length,
 										})}
 										className="flex h-8 items-center gap-xs rounded-md px-sm text-caption-sm text-charcoal hover:bg-surface-soft"
 										onClick={() => setIsSkillMenuOpen((open) => !open)}
 										type="button"
 									>
 										<Puzzle aria-hidden="true" className="size-3.5" />
-										<span>0</span>
+										<span>
+											{workspaceSkillsLocked
+												? availableSkills.length
+												: selectedSkillIds.length}
+										</span>
 									</button>
-									{/* {isSkillMenuOpen ? (
+									{isSkillMenuOpen ? (
 										<div
 											aria-label={t("workspace.skillSelection")}
-											className="absolute bottom-[calc(100%+8px)] left-0 w-56 rounded-lg border border-hairline bg-canvas p-sm shadow-[0_16px_40px_rgba(0,0,0,0.12)]"
+											className="absolute bottom-[calc(100%+8px)] left-0 max-h-64 w-64 overflow-y-auto rounded-lg border border-hairline bg-canvas p-sm shadow-[0_16px_40px_rgba(0,0,0,0.12)]"
 											role="listbox"
-										></div>
-									) : null} */}
+										>
+											{availableSkills.length > 0 ? (
+												availableSkills.map((skill) => {
+													const selected =
+														workspaceSkillsLocked ||
+														selectedSkillIds.includes(skill.id);
+													return (
+														<button
+															aria-selected={selected}
+															className="flex w-full items-start gap-sm rounded-md px-md py-sm text-left hover:bg-surface-soft disabled:cursor-default"
+															disabled={workspaceSkillsLocked}
+															key={skill.id}
+															onClick={() =>
+																setSelectedSkillIds((current) =>
+																	current.includes(skill.id)
+																		? current.filter((id) => id !== skill.id)
+																		: [...current, skill.id],
+																)
+															}
+															role="option"
+															type="button"
+														>
+															<Puzzle
+																aria-hidden="true"
+																className="mt-xs size-4"
+															/>
+															<span className="min-w-0 flex-1">
+																<span className="block truncate text-body-sm font-medium">
+																	{skill.displayName}
+																</span>
+																<span className="line-clamp-2 text-caption-sm text-body">
+																	{skill.description}
+																</span>
+															</span>
+															{selected ? (
+																<CircleCheckFill
+																	aria-hidden="true"
+																	className="size-4"
+																/>
+															) : null}
+														</button>
+													);
+												})
+											) : (
+												<p className="px-md py-sm text-caption-sm text-mute">
+													{t("workspace.noSkills")}
+												</p>
+											)}
+										</div>
+									) : null}
 								</div>
 							</div>
 							<div className="flex shrink-0 items-center gap-md">
@@ -296,8 +388,12 @@ const Composer = ({
 								<button
 									aria-label={t("workspace.sendTask")}
 									className="grid size-8 place-items-center rounded-md bg-primary text-on-primary outline-none transition-transform enabled:active:scale-95 disabled:cursor-not-allowed disabled:bg-hairline-strong"
-									disabled={!prompt.trim() || selectedAgents.length === 0}
-									onClick={submitTask}
+									disabled={
+										!prompt.trim() ||
+										selectedAgents.length === 0 ||
+										isSubmitting
+									}
+									onClick={() => submitTask()}
 									type="button"
 								>
 									<ArrowUp aria-hidden="true" className="size-4" />
@@ -339,4 +435,5 @@ const Composer = ({
 	);
 };
 
+export type { ComposerSubmission };
 export { Composer };
