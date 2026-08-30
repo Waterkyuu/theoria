@@ -1,3 +1,4 @@
+use crate::adapters::agent::AgentSessionRunOutput;
 use crate::adapters::agent::{AgentAdapter, AgentExecutionConfig};
 use crate::adapters::claude::{ClaudeRuntimeSettingsCache, SystemClaudeAdapter};
 use crate::adapters::codex::{CodexRuntimeDefaultsCache, SystemCodexAdapter};
@@ -237,12 +238,12 @@ impl TaskExecutionService {
                         .to_string(),
                 )
             } else {
-                result_payload(&output, changes.as_ref())
+                result_payload(output.as_ref().map(|run| &run.output), changes.as_ref())
             };
             self.repository
-                .finish_agent(
+                .finish_agent_turn(
                     TaskAgentResult {
-                        task_agent_id: agent.id,
+                        task_agent_id: agent.id.clone(),
                         final_status: status,
                         response_text,
                         changes_relative_path: changes
@@ -250,6 +251,11 @@ impl TaskExecutionService {
                             .map(|changes| changes.changes_relative_path),
                         metrics_json,
                     },
+                    &detail.task.prompt,
+                    output
+                        .as_ref()
+                        .ok()
+                        .and_then(|run| run.session_id.as_deref()),
                     updated_at_ms,
                 )
                 .await
@@ -278,26 +284,36 @@ fn run_one_agent(
     codex_cache: CodexRuntimeDefaultsCache,
     claude_cache: ClaudeRuntimeSettingsCache,
     cancelled: &AtomicBool,
-) -> Result<AgentRunOutput, AppError> {
+) -> Result<AgentSessionRunOutput, AppError> {
     match agent_kind {
-        AgentKind::Codex => SystemCodexAdapter::new(codex_cache).run_task_with_config_cancellable(
-            prompt,
-            execution_directory,
-            config,
-            cancelled,
-        ),
+        AgentKind::Codex => SystemCodexAdapter::new(codex_cache)
+            .run_session_turn_with_config_cancellable(
+                prompt,
+                execution_directory,
+                config,
+                None,
+                cancelled,
+            ),
         AgentKind::Claude => SystemClaudeAdapter::new(claude_cache)
-            .run_task_with_config_cancellable(prompt, execution_directory, config, cancelled),
-        AgentKind::OpenCode => SystemOpenCodeAdapter.run_task_with_config_cancellable(
+            .run_session_turn_with_config_cancellable(
+                prompt,
+                execution_directory,
+                config,
+                None,
+                cancelled,
+            ),
+        AgentKind::OpenCode => SystemOpenCodeAdapter.run_session_turn_with_config_cancellable(
             prompt,
             execution_directory,
             config,
+            None,
             cancelled,
         ),
-        AgentKind::WorkBuddy => SystemWorkBuddyAdapter.run_task_with_config_cancellable(
+        AgentKind::WorkBuddy => SystemWorkBuddyAdapter.run_session_turn_with_config_cancellable(
             prompt,
             execution_directory,
             config,
+            None,
             cancelled,
         ),
     }
@@ -359,7 +375,7 @@ fn is_waiting_error(error: &AppError) -> bool {
 
 /// Builds one terminal database payload from Agent output and collected file changes.
 fn result_payload(
-    output: &Result<AgentRunOutput, AppError>,
+    output: Result<&AgentRunOutput, &AppError>,
     changes: Result<&CollectedChanges, &AppError>,
 ) -> (TaskStatus, Option<String>, String) {
     match output {

@@ -125,6 +125,25 @@ pub(crate) struct TaskAgentResult {
     pub(crate) metrics_json: String,
 }
 
+/// One preserved user/Agent exchange inside an isolated Execution session.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TaskAgentTurn {
+    /// Parent Execution identifier.
+    pub(crate) task_agent_id: String,
+    /// Zero-based order scoped to the parent Execution.
+    pub(crate) sequence: i64,
+    /// User message sent for this turn.
+    pub(crate) prompt: String,
+    /// Terminal lifecycle of this turn.
+    pub(crate) final_status: TaskStatus,
+    /// Final Agent response, when one was produced.
+    pub(crate) response_text: Option<String>,
+    /// Existing Comparison metrics encoded as JSON.
+    pub(crate) metrics_json: String,
+    /// Turn completion time in Unix milliseconds.
+    pub(crate) created_at_ms: i64,
+}
+
 /// Complete persisted Task view restored by History.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TaskDetail {
@@ -138,4 +157,6 @@ pub(crate) struct TaskDetail {
     pub(crate) skills: Vec<TaskSkill>,
     /// Collected terminal results.
     pub(crate) results: Vec<TaskAgentResult>,
+    /// Complete ordered turn transcript for every Agent Execution.
+    pub(crate) turns: Vec<TaskAgentTurn>,
 }

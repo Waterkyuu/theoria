@@ -1,4 +1,4 @@
-use crate::domain::task::{Task, TaskAgent, TaskAgentResult, TaskDetail, TaskSkill};
+use crate::domain::task::{Task, TaskAgent, TaskAgentResult, TaskAgentTurn, TaskDetail, TaskSkill};
 use crate::error::{AppError, IpcError};
 use crate::services::cleanup::TaskCleanupService;
 use crate::services::task::{CreateTaskAgentInput, CreateTaskInput, TaskService};
@@ -189,6 +189,44 @@ impl From<TaskAgentResult> for TaskAgentResultResponse {
     }
 }
 
+/// One preserved turn restored inside its owning Agent panel.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TaskAgentTurnResponse {
+    /// Parent Execution identifier.
+    task_agent_id: String,
+    /// Zero-based order scoped to the Execution.
+    sequence: i64,
+    /// User message sent for this turn.
+    prompt: String,
+    /// Terminal lifecycle identifier.
+    final_status: &'static str,
+    /// Final Agent response, when available.
+    response_text: Option<String>,
+    /// Existing Comparison metrics for this turn.
+    metrics: serde_json::Value,
+    /// Completion time in Unix milliseconds.
+    created_at_ms: i64,
+}
+
+impl From<TaskAgentTurn> for TaskAgentTurnResponse {
+    fn from(turn: TaskAgentTurn) -> Self {
+        let metrics = match serde_json::from_str(&turn.metrics_json) {
+            Ok(metrics) => metrics,
+            Err(_) => serde_json::json!({}),
+        };
+        Self {
+            task_agent_id: turn.task_agent_id,
+            sequence: turn.sequence,
+            prompt: turn.prompt,
+            final_status: turn.final_status.as_str(),
+            response_text: turn.response_text,
+            metrics,
+            created_at_ms: turn.created_at_ms,
+        }
+    }
+}
+
 /// Complete Task detail used to restore Agent panels and locked configuration.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -205,6 +243,8 @@ pub(crate) struct TaskDetailResponse {
     skills: Vec<TaskSkillResponse>,
     /// Collected terminal results.
     results: Vec<TaskAgentResultResponse>,
+    /// Complete ordered transcript for every Agent Execution.
+    turns: Vec<TaskAgentTurnResponse>,
 }
 
 impl From<TaskDetail> for TaskDetailResponse {
@@ -216,6 +256,7 @@ impl From<TaskDetail> for TaskDetailResponse {
             command_execution: detail.permissions.command_execution,
             skills: detail.skills.into_iter().map(Into::into).collect(),
             results: detail.results.into_iter().map(Into::into).collect(),
+            turns: detail.turns.into_iter().map(Into::into).collect(),
         }
     }
 }

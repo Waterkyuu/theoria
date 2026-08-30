@@ -208,6 +208,7 @@ mod tests {
                     },
                     skills: Vec::new(),
                     results: Vec::new(),
+                    turns: Vec::new(),
                 })
                 .await
                 .expect("Task should save");

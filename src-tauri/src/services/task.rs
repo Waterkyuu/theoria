@@ -166,6 +166,7 @@ impl TaskService {
             },
             skills: prepared.skills,
             results: Vec::new(),
+            turns: Vec::new(),
         };
         match self.repository.create(detail).await {
             Ok(detail) => Ok(detail),

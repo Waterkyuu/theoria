@@ -1,6 +1,7 @@
 use crate::domain::agent_kind::AgentKind;
 use crate::domain::task::{
-    Task, TaskAgent, TaskAgentResult, TaskDetail, TaskPermissions, TaskSkill, TaskStatus,
+    Task, TaskAgent, TaskAgentResult, TaskAgentTurn, TaskDetail, TaskPermissions, TaskSkill,
+    TaskStatus,
 };
 use sea_orm::{
     ConnectionTrait, DatabaseBackend, DatabaseConnection, DbErr, QueryResult, Statement,
@@ -22,7 +23,10 @@ impl TaskRepository {
 
     /// Atomically persists one locked Task and every frozen child configuration.
     pub(crate) async fn create(&self, detail: TaskDetail) -> Result<TaskDetail, DbErr> {
-        if detail.task.configuration_locked_at_ms.is_none() || !detail.results.is_empty() {
+        if detail.task.configuration_locked_at_ms.is_none()
+            || !detail.results.is_empty()
+            || !detail.turns.is_empty()
+        {
             return Err(DbErr::Custom(
                 "New Tasks must be locked and cannot contain results".to_string(),
             ));
@@ -215,6 +219,86 @@ impl TaskRepository {
                     result.metrics_json.into(),
                     updated_at_ms.into(),
                     updated_at_ms.into(),
+                ],
+            ))
+            .await?;
+        transaction.commit().await
+    }
+
+    /// Saves one completed turn, the resumable session id, and the latest result atomically.
+    pub(crate) async fn finish_agent_turn(
+        &self,
+        result: TaskAgentResult,
+        prompt: &str,
+        session_id: Option<&str>,
+        updated_at_ms: i64,
+    ) -> Result<(), DbErr> {
+        if !matches!(
+            result.final_status,
+            TaskStatus::Completed | TaskStatus::Failed | TaskStatus::Stopped
+        ) {
+            return Err(DbErr::Custom(
+                "Agent turn status is not terminal".to_string(),
+            ));
+        }
+        let transaction = self.database.begin().await?;
+        transaction
+            .execute_raw(Statement::from_sql_and_values(
+                DatabaseBackend::Sqlite,
+                "UPDATE task_agents SET status = ?, session_id = COALESCE(?, session_id), updated_at_ms = ? WHERE id = ?",
+                [
+                    result.final_status.as_str().into(),
+                    session_id.into(),
+                    updated_at_ms.into(),
+                    result.task_agent_id.clone().into(),
+                ],
+            ))
+            .await?;
+        transaction
+            .execute_raw(Statement::from_sql_and_values(
+                DatabaseBackend::Sqlite,
+                r#"
+                INSERT INTO task_agent_results
+                    (task_agent_id, final_status, response_text, changes_relative_path,
+                     metrics_json, created_at_ms, updated_at_ms)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(task_agent_id) DO UPDATE SET
+                    final_status = excluded.final_status,
+                    response_text = excluded.response_text,
+                    changes_relative_path = excluded.changes_relative_path,
+                    metrics_json = excluded.metrics_json,
+                    updated_at_ms = excluded.updated_at_ms
+                "#,
+                [
+                    result.task_agent_id.clone().into(),
+                    result.final_status.as_str().into(),
+                    result.response_text.clone().into(),
+                    result.changes_relative_path.into(),
+                    result.metrics_json.clone().into(),
+                    updated_at_ms.into(),
+                    updated_at_ms.into(),
+                ],
+            ))
+            .await?;
+        transaction
+            .execute_raw(Statement::from_sql_and_values(
+                DatabaseBackend::Sqlite,
+                r#"
+                INSERT INTO task_agent_turns
+                    (task_agent_id, sequence, prompt, final_status, response_text,
+                     metrics_json, created_at_ms)
+                SELECT ?, COALESCE(MAX(sequence) + 1, 0), ?, ?, ?, ?, ?
+                FROM task_agent_turns
+                WHERE task_agent_id = ?
+                "#,
+                [
+                    result.task_agent_id.clone().into(),
+                    prompt.into(),
+                    result.final_status.as_str().into(),
+                    result.response_text.into(),
+                    result.metrics_json.into(),
+                    updated_at_ms.into(),
+                    result.task_agent_id.into(),
                 ],
             ))
             .await?;
@@ -449,6 +533,37 @@ impl TaskRepository {
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;
+        let turns = self
+            .database
+            .query_all_raw(Statement::from_sql_and_values(
+                DatabaseBackend::Sqlite,
+                r#"
+                SELECT t.task_agent_id, t.sequence, t.prompt, t.final_status,
+                       t.response_text, t.metrics_json, t.created_at_ms
+                FROM task_agent_turns t
+                JOIN task_agents a ON a.id = t.task_agent_id
+                WHERE a.task_id = ?
+                ORDER BY a.slot_index, t.sequence
+                "#,
+                [task_id.into()],
+            ))
+            .await?
+            .into_iter()
+            .map(|row| -> Result<TaskAgentTurn, DbErr> {
+                let status = row.try_get::<String>("", "final_status")?;
+                Ok(TaskAgentTurn {
+                    task_agent_id: row.try_get("", "task_agent_id")?,
+                    sequence: row.try_get("", "sequence")?,
+                    prompt: row.try_get("", "prompt")?,
+                    final_status: TaskStatus::parse(&status).ok_or_else(|| {
+                        DbErr::Custom("Task turn contains an invalid status".to_string())
+                    })?,
+                    response_text: row.try_get("", "response_text")?,
+                    metrics_json: row.try_get("", "metrics_json")?,
+                    created_at_ms: row.try_get("", "created_at_ms")?,
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(Some(TaskDetail {
             task,
@@ -456,6 +571,7 @@ impl TaskRepository {
             permissions,
             skills,
             results,
+            turns,
         }))
     }
 }
@@ -503,6 +619,7 @@ mod tests {
     use super::TaskRepository;
     use crate::db::connection::connect_sqlite;
     use crate::db::migration::Migrator;
+    use crate::domain::task::{TaskAgentResult, TaskStatus};
     use sea_orm::ConnectionTrait;
     use sea_orm_migration::MigratorTrait;
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -553,6 +670,79 @@ mod tests {
             assert_eq!(global[0].id, "task-global");
             assert_eq!(workspace.len(), 1);
             assert_eq!(workspace[0].id, "task-workspace");
+
+            database.close().await.expect("database should close");
+            std::fs::remove_file(path).expect("database should be removable");
+        });
+    }
+
+    #[test]
+    fn saves_a_resumable_session_and_ordered_agent_turn() {
+        tauri::async_runtime::block_on(async {
+            let sequence = DATABASE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+            let path = std::env::temp_dir().join(format!(
+                "theoria-task-turn-repository-test-{}-{sequence}.sqlite3",
+                std::process::id()
+            ));
+            let database = connect_sqlite(&format!("sqlite://{}?mode=rwc", path.display()))
+                .await
+                .expect("database should connect");
+            Migrator::up(&database, None)
+                .await
+                .expect("migration should run");
+            database
+                .execute_unprepared(
+                    r#"
+                    INSERT INTO tasks
+                        (id, workspace_id, title, prompt, baseline_relative_path, status,
+                         configuration_locked_at_ms, created_at_ms, updated_at_ms)
+                    VALUES ('task-1', NULL, 'Compare', 'Initial prompt',
+                            'task-runs/task-1/baseline', 'running', 100, 100, 100);
+                    INSERT INTO task_agents
+                        (id, task_id, slot_index, agent_kind, model_snapshot, mode_snapshot,
+                         session_id, execution_relative_path, status, created_at_ms, updated_at_ms)
+                    VALUES ('agent-1', 'task-1', 0, 'codex', 'gpt-5', 'high', NULL,
+                            'task-runs/task-1/agents/agent-1', 'running', 100, 100);
+                    INSERT INTO task_permissions
+                        (task_id, file_access, command_execution, created_at_ms)
+                    VALUES ('task-1', 'allow_edits', 'allow', 100);
+                    "#,
+                )
+                .await
+                .expect("fixtures should insert");
+            let repository = TaskRepository::new(database.clone());
+
+            repository
+                .finish_agent_turn(
+                    TaskAgentResult {
+                        task_agent_id: "agent-1".to_string(),
+                        final_status: TaskStatus::Completed,
+                        response_text: Some("Initial response".to_string()),
+                        changes_relative_path: Some(
+                            "task-runs/task-1/agents/agent-1/changes".to_string(),
+                        ),
+                        metrics_json: "{\"totalTokens\":42}".to_string(),
+                    },
+                    "Initial prompt",
+                    Some("session-1"),
+                    200,
+                )
+                .await
+                .expect("turn should persist");
+
+            let detail = repository
+                .get("task-1")
+                .await
+                .expect("task should load")
+                .expect("task should exist");
+            assert_eq!(detail.agents[0].session_id.as_deref(), Some("session-1"));
+            assert_eq!(detail.turns.len(), 1);
+            assert_eq!(detail.turns[0].sequence, 0);
+            assert_eq!(detail.turns[0].prompt, "Initial prompt");
+            assert_eq!(
+                detail.turns[0].response_text.as_deref(),
+                Some("Initial response")
+            );
 
             database.close().await.expect("database should close");
             std::fs::remove_file(path).expect("database should be removable");
