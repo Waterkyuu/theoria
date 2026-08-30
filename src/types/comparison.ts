@@ -1,4 +1,10 @@
-import type { AgentKind, AgentRunResult } from "@/types/agent";
+import * as z from "zod";
+import {
+	type AgentKind,
+	type AgentRunResult,
+	agentKindSchema,
+	agentRunResultSchema,
+} from "@/types/agent";
 
 type ComparisonResultInput = {
 	/** Agent product that produced this outcome. */
@@ -29,71 +35,97 @@ type SaveComparisonHistoryRequest = {
 	results: ComparisonResultInput[];
 };
 
-type ComparisonCursor = {
-	/** UTC timestamp of the final item in the prior page. */
-	createdAtMs: number;
-	/** Primary key of the final item in the prior page. */
-	id: number;
-};
+const saveComparisonHistoryResponseSchema = z.compile(
+	z.object({
+		/** Newly persisted comparison identifier. */
+		id: z.int().positive(),
+	}),
+);
 
-type ComparisonAgentSummary = {
-	/** Agent represented by this summary. */
-	agent: AgentKind;
-	/** Success or failure state. */
-	status: "succeeded" | "failed";
-};
+const comparisonCursorSchema = z.compile(
+	z.object({
+		/** UTC timestamp of the final item in the prior page. */
+		createdAtMs: z.int().positive(),
+		/** Primary key of the final item in the prior page. */
+		id: z.int().positive(),
+	}),
+);
 
-type ComparisonSummary = {
-	/** Persistent comparison identifier. */
-	id: number;
-	/** Shared task text. */
-	query: string;
-	/** Aggregate completion state. */
-	status: "completed" | "partial" | "failed";
-	/** Metric calculation contract version. */
-	metricVersion: number;
-	/** UTC Unix timestamp in milliseconds. */
-	createdAtMs: number;
-	/** Selected Agent outcomes without response bodies. */
-	agents: ComparisonAgentSummary[];
-};
+const comparisonAgentSummarySchema = z.compile(
+	z.object({
+		/** Agent represented by this summary. */
+		agent: agentKindSchema,
+		/** Success or failure state. */
+		status: z.enum(["succeeded", "failed"]),
+	}),
+);
 
-type ComparisonHistoryPage = {
-	/** Summaries ordered newest first. */
-	items: ComparisonSummary[];
-	/** Cursor for the next page. */
-	nextCursor: ComparisonCursor | null;
-};
+const comparisonSummarySchema = z.compile(
+	z.object({
+		/** Persistent comparison identifier. */
+		id: z.int().positive(),
+		/** Shared task text. */
+		query: z.string(),
+		/** Aggregate completion state. */
+		status: z.enum(["completed", "partial", "failed"]),
+		/** Metric calculation contract version. */
+		metricVersion: z.int().positive(),
+		/** UTC Unix timestamp in milliseconds. */
+		createdAtMs: z.int().positive(),
+		/** Selected Agent outcomes without response bodies. */
+		agents: z.array(comparisonAgentSummarySchema),
+	}),
+);
 
-type ComparisonResultDetail = {
-	/** Agent product represented by this result. */
-	agent: AgentKind;
-	/** Model configuration captured at execution time. */
-	model: string | null;
-	/** Reasoning configuration captured at execution time. */
-	reasoningEffort: string | null;
-	/** Success or failure state. */
-	status: "succeeded" | "failed";
-	/** Successful response and metrics. */
-	result: AgentRunResult | null;
-	/** Safe failure detail. */
-	errorMessage: string | null;
-};
+const comparisonHistoryPageSchema = z.compile(
+	z.object({
+		/** Summaries ordered newest first. */
+		items: z.array(comparisonSummarySchema),
+		/** Cursor for the next page. */
+		nextCursor: comparisonCursorSchema.nullable(),
+	}),
+);
 
-type ComparisonHistoryDetail = {
-	/** Persistent comparison identifier. */
-	id: number;
-	/** Shared task text. */
-	query: string;
-	/** Aggregate completion state. */
-	status: "completed" | "partial" | "failed";
-	/** Metric calculation contract version. */
-	metricVersion: number;
-	/** UTC Unix timestamp in milliseconds. */
-	createdAtMs: number;
-	/** Complete outcomes for every selected Agent. */
-	results: ComparisonResultDetail[];
-};
+const comparisonResultDetailSchema = z.compile(
+	z.object({
+		/** Agent product represented by this result. */
+		agent: agentKindSchema,
+		/** Model configuration captured at execution time. */
+		model: z.string().nullable(),
+		/** Reasoning configuration captured at execution time. */
+		reasoningEffort: z.string().nullable(),
+		/** Success or failure state. */
+		status: z.enum(["succeeded", "failed"]),
+		/** Successful response and metrics. */
+		result: agentRunResultSchema.nullable(),
+		/** Safe failure detail. */
+		errorMessage: z.string().nullable(),
+	}),
+);
+
+const comparisonHistoryDetailSchema = z.compile(
+	z.object({
+		/** Persistent comparison identifier. */
+		id: z.int().positive(),
+		/** Shared task text. */
+		query: z.string(),
+		/** Aggregate completion state. */
+		status: z.enum(["completed", "partial", "failed"]),
+		/** Metric calculation contract version. */
+		metricVersion: z.int().positive(),
+		/** UTC Unix timestamp in milliseconds. */
+		createdAtMs: z.int().positive(),
+		/** Complete outcomes for every selected Agent. */
+		results: z.array(comparisonResultDetailSchema),
+	}),
+);
+
+type ComparisonCursor = z.infer<typeof comparisonCursorSchema>;
+type ComparisonAgentSummary = z.infer<typeof comparisonAgentSummarySchema>;
+type ComparisonSummary = z.infer<typeof comparisonSummarySchema>;
+type ComparisonHistoryPage = z.infer<typeof comparisonHistoryPageSchema>;
+type ComparisonResultDetail = z.infer<typeof comparisonResultDetailSchema>;
+type ComparisonHistoryDetail = z.infer<typeof comparisonHistoryDetailSchema>;
 
 export type {
 	ComparisonAgentSummary,
@@ -104,4 +136,9 @@ export type {
 	ComparisonResultInput,
 	ComparisonSummary,
 	SaveComparisonHistoryRequest,
+};
+export {
+	comparisonHistoryDetailSchema,
+	comparisonHistoryPageSchema,
+	saveComparisonHistoryResponseSchema,
 };

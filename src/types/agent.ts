@@ -1,53 +1,132 @@
-type AgentKind = "claude" | "codex" | "opencode" | "workbuddy";
+import * as z from "zod";
 
-type AgentActivityStatus = "running" | "waiting" | "finish" | "error";
+const agentKindSchema = z.compile(
+	z.enum(["claude", "codex", "opencode", "workbuddy"]),
+);
 
-type AgentActivity = {
-	/** Opaque local identifier that does not reveal the product session ID. */
-	id: string;
-	/** Product-provided conversation title when one can be resolved locally. */
-	title: string | null;
-	/** Agent product that owns the observed task. */
-	agent: AgentKind;
-	/** Product-derived lifecycle normalized for the run board. */
-	status: AgentActivityStatus;
-	/** Latest source observation time in Unix milliseconds. */
-	updatedAtMs: number;
-};
+const agentActivityStatusSchema = z.compile(
+	z.enum(["running", "waiting", "finish", "error"]),
+);
 
-type AgentActivitiesResponse = {
-	/** Recent task summaries ordered by latest source activity. */
-	activities: AgentActivity[];
-};
+const agentActivitySchema = z.compile(
+	z.object({
+		/** Opaque local identifier that does not reveal the product session ID. */
+		id: z.string(),
+		/** Product-provided conversation title when one can be resolved locally. */
+		title: z.string().nullable(),
+		/** Agent product that owns the observed task. */
+		agent: agentKindSchema,
+		/** Product-derived lifecycle normalized for the run board. */
+		status: agentActivityStatusSchema,
+		/** Latest source observation time in Unix milliseconds. */
+		updatedAtMs: z.int().nonnegative(),
+	}),
+);
 
-type AgentProcessStates = {
-	/** Whether a Claude Code process is currently running. */
-	claude: boolean;
-	/** Whether a Codex process is currently running. */
-	codex: boolean;
-	/** Whether an OpenCode process is currently running. */
-	opencode: boolean;
-	/** Whether a WorkBuddy process is currently running. */
-	workbuddy: boolean;
-};
+const agentActivitiesResponseSchema = z.compile(
+	z.object({
+		/** Recent task summaries ordered by latest source activity. */
+		activities: z.array(agentActivitySchema),
+	}),
+);
 
-type AgentLoginStatus = {
-	/** Whether the local agent product was discovered. */
-	installed: boolean;
-	/** Whether the local agent product has active credentials. */
-	loggedIn: boolean;
-	/** Safe authentication mode reported by the agent. */
-	authenticationMethod: string | null;
-};
+const agentProcessStatesSchema = z.compile(
+	z.object({
+		/** Whether a Claude Code process is currently running. */
+		claude: z.boolean(),
+		/** Whether a Codex process is currently running. */
+		codex: z.boolean(),
+		/** Whether an OpenCode process is currently running. */
+		opencode: z.boolean(),
+		/** Whether a WorkBuddy process is currently running. */
+		workbuddy: z.boolean(),
+	}),
+);
 
-type AgentRuntimeConfig = {
-	/** Effective model selected for new tasks. */
-	model: string | null;
-	/** Effective reasoning effort selected for new tasks. */
-	reasoningEffort: string | null;
-};
+const agentLoginStatusSchema = z.compile(
+	z.object({
+		/** Whether the local agent product was discovered. */
+		installed: z.boolean(),
+		/** Whether the local agent product has active credentials. */
+		loggedIn: z.boolean(),
+		/** Safe authentication mode reported by the agent. */
+		authenticationMethod: z.string().nullable(),
+	}),
+);
 
-type AgentRuntimeStatus = AgentLoginStatus & AgentRuntimeConfig;
+const agentRuntimeConfigSchema = z.compile(
+	z.object({
+		/** Effective model selected for new tasks. */
+		model: z.string().nullable(),
+		/** Effective reasoning effort selected for new tasks. */
+		reasoningEffort: z.string().nullable(),
+	}),
+);
+
+const agentRuntimeStatusSchema = z.compile(
+	z.object({
+		...agentLoginStatusSchema.shape,
+		...agentRuntimeConfigSchema.shape,
+	}),
+);
+
+const tokenUsageSchema = z.compile(
+	z.object({
+		/** Total tokens consumed by the task. */
+		totalTokens: z.int().nonnegative(),
+		/** Tokens included in the model input. */
+		inputTokens: z.int().nonnegative(),
+		/** Input tokens served from cache. */
+		cachedInputTokens: z.int().nonnegative(),
+		/** Input tokens written into cache. */
+		cacheWriteInputTokens: z.int().nonnegative(),
+		/** Tokens included in the model output. */
+		outputTokens: z.int().nonnegative(),
+		/** Output tokens consumed by reasoning when reported by the agent. */
+		reasoningOutputTokens: z.int().nonnegative().nullable(),
+	}),
+);
+
+const toolCallMetricSchema = z.compile(
+	z.object({
+		/** One-based start order within the current Agent task. */
+		sequence: z.int().positive(),
+		/** Stable tool name supplied by the source Agent protocol. */
+		name: z.string(),
+		/** Wall-clock duration between the tool request and matching result. */
+		durationMs: z.int().nonnegative(),
+	}),
+);
+
+const agentRunResultSchema = z.compile(
+	z.object({
+		/** Incrementally assembled assistant response. */
+		response: z.string(),
+		/** Milliseconds from task submission until completion. */
+		totalDurationMs: z.int().nonnegative(),
+		/** Milliseconds from task submission until the first assistant text delta. */
+		timeToFirstTokenMs: z.int().nonnegative().nullable(),
+		/** Token usage reported for this task. */
+		tokenUsage: tokenUsageSchema.nullable(),
+		/** Sum of explicit reasoning or thinking intervals in milliseconds. */
+		thinkingDurationMs: z.int().nonnegative(),
+		/** Number of context compactions reported during this task. */
+		compactionCount: z.int().nonnegative().nullable(),
+		/** Number of tools invoked during this task. */
+		toolCallCount: z.int().nonnegative(),
+		/** Tool invocations retained in source start order. */
+		toolCalls: z.array(toolCallMetricSchema),
+	}),
+);
+
+type AgentKind = z.infer<typeof agentKindSchema>;
+type AgentActivityStatus = z.infer<typeof agentActivityStatusSchema>;
+type AgentActivity = z.infer<typeof agentActivitySchema>;
+type AgentActivitiesResponse = z.infer<typeof agentActivitiesResponseSchema>;
+type AgentProcessStates = z.infer<typeof agentProcessStatesSchema>;
+type AgentLoginStatus = z.infer<typeof agentLoginStatusSchema>;
+type AgentRuntimeConfig = z.infer<typeof agentRuntimeConfigSchema>;
+type AgentRuntimeStatus = z.infer<typeof agentRuntimeStatusSchema>;
 
 type AgentRuntimeState =
 	| {
@@ -65,48 +144,9 @@ type AgentRuntimeState =
 			status: "failed";
 	  };
 
-type TokenUsage = {
-	/** Total tokens consumed by the task. */
-	totalTokens: number;
-	/** Tokens included in the model input. */
-	inputTokens: number;
-	/** Input tokens served from cache. */
-	cachedInputTokens: number;
-	/** Input tokens written into cache. */
-	cacheWriteInputTokens: number;
-	/** Tokens included in the model output. */
-	outputTokens: number;
-	/** Output tokens consumed by reasoning when reported by the agent. */
-	reasoningOutputTokens: number | null;
-};
-
-type ToolCallMetric = {
-	/** One-based start order within the current Agent task. */
-	sequence: number;
-	/** Stable tool name supplied by the source Agent protocol. */
-	name: string;
-	/** Wall-clock duration between the tool request and matching result. */
-	durationMs: number;
-};
-
-type AgentRunResult = {
-	/** Incrementally assembled assistant response. */
-	response: string;
-	/** Milliseconds from task submission until completion. */
-	totalDurationMs: number;
-	/** Milliseconds from task submission until the first assistant text delta. */
-	timeToFirstTokenMs: number | null;
-	/** Token usage reported for this task. */
-	tokenUsage: TokenUsage | null;
-	/** Sum of explicit reasoning or thinking intervals in milliseconds. */
-	thinkingDurationMs: number;
-	/** Number of context compactions reported during this task. */
-	compactionCount: number | null;
-	/** Number of tools invoked during this task. */
-	toolCallCount: number;
-	/** Tool invocations retained in source start order. */
-	toolCalls: ToolCallMetric[];
-};
+type TokenUsage = z.infer<typeof tokenUsageSchema>;
+type ToolCallMetric = z.infer<typeof toolCallMetricSchema>;
+type AgentRunResult = z.infer<typeof agentRunResultSchema>;
 
 export type {
 	AgentActivitiesResponse,
@@ -121,4 +161,13 @@ export type {
 	AgentRuntimeStatus,
 	TokenUsage,
 	ToolCallMetric,
+};
+export {
+	agentActivitiesResponseSchema,
+	agentKindSchema,
+	agentLoginStatusSchema,
+	agentProcessStatesSchema,
+	agentRunResultSchema,
+	agentRuntimeConfigSchema,
+	agentRuntimeStatusSchema,
 };
