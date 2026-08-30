@@ -63,6 +63,16 @@ const enUS = {
 			renameWorkspace: "Rename",
 			archiveWorkspace: "Archive",
 			removeWorkspace: "Remove",
+			workspaceRemove: {
+				title: "Remove Workspace?",
+				externalDescription:
+					'Tasks and Skill mounts for "{{workspace}}" will be deleted. The original local folder will not be changed or deleted.',
+				managedDescription:
+					'Tasks, Skill mounts, and the platform-managed template directory for "{{workspace}}" will be permanently deleted. Enter the Workspace name to confirm.',
+				confirmationLabel: "Enter {{workspace}} to confirm",
+				confirm: "Remove Workspace",
+				failed: "The Workspace could not be removed. Please try again.",
+			},
 			conversationsLabel: "Tasks",
 			deleteConversation: "Delete",
 			taskDelete: {

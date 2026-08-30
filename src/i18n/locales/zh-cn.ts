@@ -62,6 +62,16 @@ const zhCN = {
 			renameWorkspace: "重命名",
 			archiveWorkspace: "归档",
 			removeWorkspace: "移除",
+			workspaceRemove: {
+				title: "移除工作区？",
+				externalDescription:
+					"“{{workspace}}”的任务和技能挂载会被删除，本地原文件夹不会被修改或删除。",
+				managedDescription:
+					"“{{workspace}}”的任务、技能挂载和平台托管模板目录都会被永久删除。请输入工作区名称确认。",
+				confirmationLabel: "输入 {{workspace}} 以确认",
+				confirm: "移除工作区",
+				failed: "工作区移除失败，请重试。",
+			},
 			conversationsLabel: "任务",
 			deleteConversation: "删除",
 			taskDelete: {

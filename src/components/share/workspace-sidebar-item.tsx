@@ -96,7 +96,12 @@ const WorkspaceSidebarItem = ({
 							className="size-4 shrink-0 transition-colors hover:text-ink"
 						/>
 					</button>
-					<WorkspaceActionDropdown workspaceName={workspace.name} />
+					<WorkspaceActionDropdown
+						onRemoved={() => {
+							if (currentPath.startsWith(workspacePath)) onNavigate("/task");
+						}}
+						workspace={workspace}
+					/>
 				</div>
 			</div>
 

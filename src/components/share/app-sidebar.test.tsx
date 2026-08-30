@@ -7,6 +7,7 @@ import { AppSidebar } from "./app-sidebar";
 const queryMocks = vi.hoisted(() => ({
 	createWorkspace: vi.fn(),
 	deleteTask: vi.fn(),
+	removeWorkspace: vi.fn(),
 	useTasks: vi.fn(),
 	useWorkspaces: vi.fn(),
 	useWorkspaceSkills: vi.fn(),
@@ -26,6 +27,11 @@ vi.mock("@/queries/task", () => ({
 vi.mock("@/queries/workspace", () => ({
 	useCreateWorkspace: () => ({
 		mutateAsync: queryMocks.createWorkspace,
+		isPending: false,
+		error: null,
+	}),
+	useRemoveWorkspace: () => ({
+		mutateAsync: queryMocks.removeWorkspace,
 		isPending: false,
 		error: null,
 	}),
@@ -67,6 +73,7 @@ describe("AppSidebar", () => {
 			updatedAtMs: 1,
 		});
 		queryMocks.deleteTask.mockResolvedValue(undefined);
+		queryMocks.removeWorkspace.mockResolvedValue(undefined);
 		queryMocks.useWorkspaces.mockReturnValue({
 			data: [
 				{
@@ -271,6 +278,56 @@ describe("AppSidebar", () => {
 		).toBeInTheDocument();
 		expect(screen.getByRole("menuitem", { name: "归档" })).toBeInTheDocument();
 		expect(screen.getByRole("menuitem", { name: "移除" })).toBeInTheDocument();
+	});
+
+	it("requires the Workspace name before removing platform-managed files", async () => {
+		const user = userEvent.setup();
+		const onNavigate = vi.fn();
+		queryMocks.useWorkspaces.mockReturnValueOnce({
+			data: [
+				{
+					id: "workspace-managed",
+					name: "docs-lab",
+					sourceKind: "managed",
+					sourcePath: "/managed/docs-lab",
+					pinnedAtMs: null,
+					createdAtMs: 1,
+					updatedAtMs: 1,
+				},
+			],
+			isLoading: false,
+			error: null,
+		});
+		render(
+			<AppSidebar
+				currentPath="/workspaces/workspace-managed"
+				onNavigate={onNavigate}
+			>
+				<main>content</main>
+			</AppSidebar>,
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: "docs-lab 的更多操作" }),
+		);
+		await user.click(await screen.findByRole("menuitem", { name: "移除" }));
+		const dialog = await screen.findByRole("alertdialog", {
+			name: "移除工作区？",
+		});
+		const confirmButton = within(dialog).getByRole("button", {
+			name: "移除工作区",
+		});
+		expect(dialog).toHaveTextContent("平台托管模板目录");
+		expect(confirmButton).toBeDisabled();
+		await user.type(within(dialog).getByRole("textbox"), "docs-lab");
+		expect(confirmButton).toBeEnabled();
+		await user.click(confirmButton);
+
+		expect(queryMocks.removeWorkspace).toHaveBeenCalledWith({
+			managedFilesConfirmed: true,
+			workspaceId: "workspace-managed",
+		});
+		expect(onNavigate).toHaveBeenCalledWith("/task");
 	});
 
 	it("registers an imported local Workspace without transferring ownership", async () => {

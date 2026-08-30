@@ -3,6 +3,7 @@ import {
 	createManagedWorkspace,
 	listWorkspaces,
 	registerExternalWorkspace,
+	removeWorkspace,
 } from "@/api/workspace";
 
 type CreateWorkspaceInput =
@@ -44,5 +45,29 @@ const useCreateWorkspace = () => {
 	});
 };
 
-export type { CreateWorkspaceInput };
-export { useCreateWorkspace, useWorkspaces, workspaceKeys };
+type RemoveWorkspaceInput = {
+	/** Whether deletion of Theoria-owned managed template files was confirmed. */
+	managedFilesConfirmed: boolean;
+	/** Workspace collection removed with its Tasks and Skill mounts. */
+	workspaceId: string;
+};
+
+/** Removes a Workspace collection and refreshes all affected navigation data. */
+const useRemoveWorkspace = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({
+			managedFilesConfirmed,
+			workspaceId,
+		}: RemoveWorkspaceInput) =>
+			removeWorkspace(workspaceId, managedFilesConfirmed),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: workspaceKeys.all });
+			queryClient.invalidateQueries({ queryKey: ["tasks"] });
+			queryClient.invalidateQueries({ queryKey: ["skills"] });
+		},
+	});
+};
+
+export type { CreateWorkspaceInput, RemoveWorkspaceInput };
+export { useCreateWorkspace, useRemoveWorkspace, useWorkspaces, workspaceKeys };
