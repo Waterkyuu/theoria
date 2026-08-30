@@ -1,6 +1,6 @@
 use crate::adapters::agent::{
     validate_execution_directory, AgentAdapter, AgentExecutionConfig, AgentSessionRunOutput,
-    AgentStatusAdapter,
+    AgentStatusAdapter, AgentTurnOutcome,
 };
 use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput, TokenUsage};
 use crate::domain::agent_status::{AgentLoginStatus, AgentRuntimeConfig};
@@ -225,7 +225,10 @@ impl AgentAdapter for SystemWorkBuddyAdapter {
             None,
             cancelled,
         )
-        .map(|run| run.output)
+        .and_then(|run| match run.outcome {
+            AgentTurnOutcome::Completed => Ok(run.output),
+            AgentTurnOutcome::Waiting => Err(AppError::WorkBuddyNeedsInput),
+        })
     }
 
     fn run_session_turn_with_config_cancellable(
@@ -426,7 +429,11 @@ fn run_workbuddy_task(
     let reader_handle = thread::spawn(move || read_stream_events(stdout, event_sender));
     let result = collect_workbuddy_events_cancellable(&event_receiver, started_at, cancelled);
 
-    if result.is_err() {
+    let should_terminate = match &result {
+        Ok(run) => run.outcome == AgentTurnOutcome::Waiting,
+        Err(_) => true,
+    };
+    if should_terminate {
         terminate_child(&mut child)?;
     } else {
         let status = child
@@ -494,7 +501,10 @@ fn collect_workbuddy_events(
     started_at: Instant,
 ) -> Result<AgentRunOutput, AppError> {
     collect_workbuddy_events_cancellable(event_receiver, started_at, &AtomicBool::new(false))
-        .map(|run| run.output)
+        .and_then(|run| match run.outcome {
+            AgentTurnOutcome::Completed => Ok(run.output),
+            AgentTurnOutcome::Waiting => Err(AppError::WorkBuddyNeedsInput),
+        })
 }
 
 fn collect_workbuddy_events_cancellable(
@@ -534,7 +544,7 @@ fn collect_workbuddy_events_cancellable(
             {
                 if content.content_type == "tool_use" {
                     if content.name.as_deref() == Some("AskUserQuestion") {
-                        return Err(AppError::WorkBuddyNeedsInput);
+                        return Ok(waiting_output(response, collector, session_id, started_at));
                     }
                     if let (Some(id), Some(name)) = (content.id, content.name) {
                         collector.record_tool_started(&id, &name, started_at.elapsed());
@@ -585,7 +595,7 @@ fn collect_workbuddy_events_cancellable(
                         && block.name.as_deref() == Some("AskUserQuestion")
                 })
             {
-                return Err(AppError::WorkBuddyNeedsInput);
+                return Ok(waiting_output(response, collector, session_id, started_at));
             }
             if let Some(delta) = message
                 .event
@@ -618,8 +628,26 @@ fn collect_workbuddy_events_cancellable(
                     metrics: collector.finish(started_at.elapsed()),
                 },
                 session_id,
+                outcome: AgentTurnOutcome::Completed,
             });
         }
+    }
+}
+
+/// Preserves the partial response, metrics, and session when WorkBuddy awaits user input.
+fn waiting_output(
+    response: String,
+    collector: AgentRunMetricsCollector,
+    session_id: Option<String>,
+    started_at: Instant,
+) -> AgentSessionRunOutput {
+    AgentSessionRunOutput {
+        output: AgentRunOutput {
+            response,
+            metrics: collector.finish(started_at.elapsed()),
+        },
+        session_id,
+        outcome: AgentTurnOutcome::Waiting,
     }
 }
 
@@ -881,11 +909,13 @@ mod tests {
     use super::{
         authentication_from_acp_response, authentication_from_user_info_response,
         build_workbuddy_task_command, collect_workbuddy_events,
-        global_selection_from_local_storage, AcpMessage, StreamUsage,
+        collect_workbuddy_events_cancellable, global_selection_from_local_storage, AcpMessage,
+        StreamUsage,
     };
-    use crate::adapters::agent::AgentExecutionConfig;
+    use crate::adapters::agent::{AgentExecutionConfig, AgentTurnOutcome};
     use crate::domain::agent_run::TokenUsage;
     use leveldb_forensic::{Encoding, LocalStorageRecord, StorageValue};
+    use std::sync::atomic::AtomicBool;
     use std::sync::mpsc;
     use std::time::Instant;
 
@@ -1175,15 +1205,26 @@ mod tests {
     }
 
     #[test]
-    fn reports_when_workbuddy_asks_the_user_a_question() {
-        let (sender, receiver) = mpsc::sync_channel(1);
-        sender
-            .send(Ok(r#"{"type":"stream_event","event":{"type":"content_block_start","content_block":{"type":"tool_use","name":"AskUserQuestion"}}}"#.to_string()))
-            .expect("fixture should be queued");
+    fn preserves_the_workbuddy_session_when_user_input_is_required() {
+        let (sender, receiver) = mpsc::sync_channel(2);
+        for fixture in [
+            r#"{"type":"system","session_id":"session-42"}"#,
+            r#"{"type":"stream_event","event":{"type":"content_block_start","content_block":{"type":"tool_use","name":"AskUserQuestion"}}}"#,
+        ] {
+            sender
+                .send(Ok(fixture.to_string()))
+                .expect("fixture should be queued");
+        }
         drop(sender);
 
-        let result = collect_workbuddy_events(&receiver, Instant::now());
+        let result = collect_workbuddy_events_cancellable(
+            &receiver,
+            Instant::now(),
+            &AtomicBool::new(false),
+        )
+        .expect("question should be a resumable result");
 
-        assert_eq!(result, Err(crate::error::AppError::WorkBuddyNeedsInput));
+        assert_eq!(result.outcome, AgentTurnOutcome::Waiting);
+        assert_eq!(result.session_id.as_deref(), Some("session-42"));
     }
 }

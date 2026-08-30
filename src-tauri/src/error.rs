@@ -17,6 +17,7 @@ pub(crate) enum AppError {
     OpenCodeNotInstalled,
     OpenCodeProbeFailed,
     OpenCodeProtocolFailed,
+    OpenCodeNeedsInput,
     OpenCodeTaskFailed,
     OpenCodeTimedOut,
     ProcessProbeFailed,
@@ -114,6 +115,10 @@ impl From<AppError> for IpcError {
             AppError::OpenCodeProtocolFailed => Self {
                 code: "OPENCODE_PROTOCOL_FAILED",
                 message: "无法读取本地 OpenCode 事件流。".to_string(),
+            },
+            AppError::OpenCodeNeedsInput => Self {
+                code: "OPENCODE_NEEDS_INPUT",
+                message: "OpenCode 正在等待用户回答。".to_string(),
             },
             AppError::OpenCodeTaskFailed => Self {
                 code: "OPENCODE_TASK_FAILED",

@@ -1,6 +1,6 @@
 use crate::adapters::agent::{
     validate_execution_directory, AgentAdapter, AgentExecutionConfig, AgentSessionRunOutput,
-    AgentStatusAdapter,
+    AgentStatusAdapter, AgentTurnOutcome,
 };
 use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput, TokenUsage};
 use crate::domain::agent_status::{AgentLoginStatus, AgentRuntimeConfig};
@@ -101,7 +101,10 @@ impl AgentAdapter for SystemCodexAdapter {
             None,
             cancelled,
         )
-        .map(|run| run.output)
+        .and_then(|run| match run.outcome {
+            AgentTurnOutcome::Completed => Ok(run.output),
+            AgentTurnOutcome::Waiting => Err(AppError::CodexNeedsInput),
+        })
     }
 
     fn run_session_turn_with_config_cancellable(
@@ -601,12 +604,13 @@ fn run_app_server_task(
     let started_at = Instant::now();
     write_message(stdin, &turn_request.to_string())?;
 
-    collect_run_events_cancellable(event_receiver, started_at, cancelled).map(|output| {
-        AgentSessionRunOutput {
+    collect_run_events_cancellable(event_receiver, started_at, cancelled).map(
+        |(output, outcome)| AgentSessionRunOutput {
             output,
             session_id: Some(runtime_defaults.thread_id),
-        }
-    })
+            outcome,
+        },
+    )
 }
 
 #[cfg(test)]
@@ -614,14 +618,19 @@ fn collect_run_events(
     event_receiver: &Receiver<Result<String, AppError>>,
     started_at: Instant,
 ) -> Result<AgentRunOutput, AppError> {
-    collect_run_events_cancellable(event_receiver, started_at, &AtomicBool::new(false))
+    collect_run_events_cancellable(event_receiver, started_at, &AtomicBool::new(false)).and_then(
+        |(output, outcome)| match outcome {
+            AgentTurnOutcome::Completed => Ok(output),
+            AgentTurnOutcome::Waiting => Err(AppError::CodexNeedsInput),
+        },
+    )
 }
 
 fn collect_run_events_cancellable(
     event_receiver: &Receiver<Result<String, AppError>>,
     started_at: Instant,
     cancelled: &AtomicBool,
-) -> Result<AgentRunOutput, AppError> {
+) -> Result<(AgentRunOutput, AgentTurnOutcome), AppError> {
     let mut collector = AgentRunMetricsCollector::default();
     collector.track_context_compactions();
     let mut response = String::new();
@@ -639,7 +648,15 @@ fn collect_run_events_cancellable(
                 "tool/requestUserInput"
                 | "item/tool/requestUserInput"
                 | "mcpServer/elicitation/request",
-            ) => return Err(AppError::CodexNeedsInput),
+            ) => {
+                return Ok((
+                    AgentRunOutput {
+                        response,
+                        metrics: collector.finish(started_at.elapsed()),
+                    },
+                    AgentTurnOutcome::Waiting,
+                ));
+            }
             Some("item/agentMessage/delta") => {
                 if let Some(delta) = message.params.and_then(|params| params.delta) {
                     collector.record_agent_delta(&delta, started_at.elapsed());
@@ -684,10 +701,13 @@ fn collect_run_events_cancellable(
                     return Err(AppError::CodexTaskFailed);
                 }
 
-                return Ok(AgentRunOutput {
-                    response,
-                    metrics: collector.finish(started_at.elapsed()),
-                });
+                return Ok((
+                    AgentRunOutput {
+                        response,
+                        metrics: collector.finish(started_at.elapsed()),
+                    },
+                    AgentTurnOutcome::Completed,
+                ));
             }
             _ => {}
         }
@@ -832,7 +852,7 @@ mod tests {
         collect_run_events_cancellable, runtime_settings_from_config_layers, with_app_server,
         CodexRuntimeDefaultsCache, CodexRuntimeSettings,
     };
-    use crate::adapters::agent::AgentExecutionConfig;
+    use crate::adapters::agent::{AgentExecutionConfig, AgentTurnOutcome};
     use crate::error::AppError;
     use std::sync::atomic::AtomicBool;
     use std::sync::mpsc;
@@ -978,6 +998,18 @@ wait "$reader_pid"
             let result = collect_run_events(&receiver, Instant::now());
 
             assert_eq!(result, Err(AppError::CodexNeedsInput));
+
+            let (sender, receiver) = mpsc::sync_channel(1);
+            sender
+                .send(Ok(format!(
+                    r#"{{"method":"{method}","id":7,"params":{{}}}}"#
+                )))
+                .expect("resumable fixture should be queued");
+            drop(sender);
+            let (_, outcome) =
+                collect_run_events_cancellable(&receiver, Instant::now(), &AtomicBool::new(false))
+                    .expect("question should be a resumable result");
+            assert_eq!(outcome, AgentTurnOutcome::Waiting);
         }
     }
 

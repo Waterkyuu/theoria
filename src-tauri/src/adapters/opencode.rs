@@ -1,6 +1,6 @@
 use crate::adapters::agent::{
     validate_execution_directory, AgentAdapter, AgentExecutionConfig, AgentSessionRunOutput,
-    AgentStatusAdapter,
+    AgentStatusAdapter, AgentTurnOutcome,
 };
 use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput, TokenUsage};
 use crate::domain::agent_status::{AgentLoginStatus, AgentRuntimeConfig};
@@ -78,7 +78,10 @@ impl AgentAdapter for SystemOpenCodeAdapter {
             None,
             cancelled,
         )
-        .map(|run| run.output)
+        .and_then(|run| match run.outcome {
+            AgentTurnOutcome::Completed => Ok(run.output),
+            AgentTurnOutcome::Waiting => Err(AppError::OpenCodeNeedsInput),
+        })
     }
 
     fn run_session_turn_with_config_cancellable(
@@ -328,7 +331,11 @@ fn run_opencode_task(
         cancelled,
     );
 
-    let status_result = if result.is_err() {
+    let should_terminate = match &result {
+        Ok(run) => run.outcome == AgentTurnOutcome::Waiting,
+        Err(_) => true,
+    };
+    let status_result = if should_terminate {
         terminate_child(&mut child)
     } else {
         let status = child.wait().map_err(|_| AppError::OpenCodeProtocolFailed)?;
@@ -438,7 +445,10 @@ fn collect_opencode_events(
         timeout,
         &AtomicBool::new(false),
     )
-    .map(|run| run.output)
+    .and_then(|run| match run.outcome {
+        AgentTurnOutcome::Completed => Ok(run.output),
+        AgentTurnOutcome::Waiting => Err(AppError::OpenCodeNeedsInput),
+    })
 }
 
 fn collect_opencode_events_cancellable(
@@ -504,6 +514,17 @@ fn collect_opencode_events_cancellable(
             }
             "tool" => {
                 if let (Some(tool), Some(state)) = (part.tool, part.state) {
+                    if tool == "question" && matches!(state.status.as_str(), "pending" | "running")
+                    {
+                        return Ok(AgentSessionRunOutput {
+                            output: AgentRunOutput {
+                                response,
+                                metrics: collector.finish(started_at.elapsed()),
+                            },
+                            session_id,
+                            outcome: AgentTurnOutcome::Waiting,
+                        });
+                    }
                     if matches!(state.status.as_str(), "completed" | "error") {
                         if let Some(time) = state.time.and_then(completed_interval) {
                             collector.record_tool_started(
@@ -539,6 +560,7 @@ fn collect_opencode_events_cancellable(
             metrics: collector.finish(total_duration),
         },
         session_id,
+        outcome: AgentTurnOutcome::Completed,
     })
 }
 
@@ -616,10 +638,11 @@ fn opencode_executable_candidates() -> Vec<OsString> {
 #[cfg(test)]
 mod tests {
     use super::{
-        build_opencode_task_command, collect_opencode_events, login_from_auth_output,
-        opencode_permission_config, runtime_config_from_json,
+        build_opencode_task_command, collect_opencode_events, collect_opencode_events_cancellable,
+        login_from_auth_output, opencode_permission_config, runtime_config_from_json,
     };
-    use crate::adapters::agent::AgentExecutionConfig;
+    use crate::adapters::agent::{AgentExecutionConfig, AgentTurnOutcome};
+    use std::sync::atomic::AtomicBool;
     use std::sync::mpsc;
     use std::time::{Duration, Instant};
 
@@ -775,5 +798,28 @@ mod tests {
             collect_opencode_events(&receiver, Instant::now(), Duration::from_secs(1),),
             Err(crate::error::AppError::OpenCodeTaskFailed)
         );
+    }
+
+    #[test]
+    fn preserves_the_opencode_session_when_a_question_is_pending() {
+        let (sender, receiver) = mpsc::sync_channel(1);
+        sender
+            .send(Ok(
+                r#"{"type":"tool","timestamp":1000,"sessionID":"ses-42","part":{"type":"tool","id":"tool-1","tool":"question","state":{"status":"pending"}}}"#
+                    .to_string(),
+            ))
+            .expect("fixture should queue");
+        drop(sender);
+
+        let result = collect_opencode_events_cancellable(
+            &receiver,
+            Instant::now(),
+            Duration::from_secs(1),
+            &AtomicBool::new(false),
+        )
+        .expect("question should be a resumable result");
+
+        assert_eq!(result.outcome, AgentTurnOutcome::Waiting);
+        assert_eq!(result.session_id.as_deref(), Some("ses-42"));
     }
 }

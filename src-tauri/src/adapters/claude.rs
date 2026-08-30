@@ -1,6 +1,6 @@
 use crate::adapters::agent::{
     validate_execution_directory, AgentAdapter, AgentExecutionConfig, AgentSessionRunOutput,
-    AgentStatusAdapter,
+    AgentStatusAdapter, AgentTurnOutcome,
 };
 use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput, TokenUsage};
 use crate::domain::agent_status::{AgentLoginStatus, AgentRuntimeConfig};
@@ -103,7 +103,10 @@ impl AgentAdapter for SystemClaudeAdapter {
             None,
             cancelled,
         )
-        .map(|run| run.output)
+        .and_then(|run| match run.outcome {
+            AgentTurnOutcome::Completed => Ok(run.output),
+            AgentTurnOutcome::Waiting => Err(AppError::ClaudeNeedsInput),
+        })
     }
 
     fn run_session_turn_with_config_cancellable(
@@ -456,7 +459,11 @@ fn run_claude_task(
     let reader_handle = thread::spawn(move || read_stream_events(stdout, event_sender));
     let result = collect_claude_events_cancellable(&event_receiver, started_at, cancelled);
 
-    if result.is_err() {
+    let should_terminate = match &result {
+        Ok(run) => run.outcome == AgentTurnOutcome::Waiting,
+        Err(_) => true,
+    };
+    if should_terminate {
         terminate_child(&mut child)?;
     } else {
         let status = child.wait().map_err(|_| AppError::ClaudeProtocolFailed)?;
@@ -517,8 +524,12 @@ fn collect_claude_events(
     event_receiver: &Receiver<Result<String, AppError>>,
     started_at: Instant,
 ) -> Result<AgentRunOutput, AppError> {
-    collect_claude_events_cancellable(event_receiver, started_at, &AtomicBool::new(false))
-        .map(|run| run.output)
+    collect_claude_events_cancellable(event_receiver, started_at, &AtomicBool::new(false)).and_then(
+        |run| match run.outcome {
+            AgentTurnOutcome::Completed => Ok(run.output),
+            AgentTurnOutcome::Waiting => Err(AppError::ClaudeNeedsInput),
+        },
+    )
 }
 
 fn collect_claude_events_cancellable(
@@ -559,7 +570,7 @@ fn collect_claude_events_cancellable(
             {
                 if content.content_type == "tool_use" {
                     if content.name.as_deref() == Some("AskUserQuestion") {
-                        return Err(AppError::ClaudeNeedsInput);
+                        return Ok(waiting_output(response, collector, session_id, started_at));
                     }
                     if let (Some(id), Some(name)) = (content.id, content.name) {
                         collector.record_tool_started(&id, &name, started_at.elapsed());
@@ -610,7 +621,7 @@ fn collect_claude_events_cancellable(
                         && block.name.as_deref() == Some("AskUserQuestion")
                 })
             {
-                return Err(AppError::ClaudeNeedsInput);
+                return Ok(waiting_output(response, collector, session_id, started_at));
             }
             if let Some(delta) = message
                 .event
@@ -643,8 +654,26 @@ fn collect_claude_events_cancellable(
                     metrics: collector.finish(started_at.elapsed()),
                 },
                 session_id,
+                outcome: AgentTurnOutcome::Completed,
             });
         }
+    }
+}
+
+/// Preserves the partial response, metrics, and session when Claude pauses for user input.
+fn waiting_output(
+    response: String,
+    collector: AgentRunMetricsCollector,
+    session_id: Option<String>,
+    started_at: Instant,
+) -> AgentSessionRunOutput {
+    AgentSessionRunOutput {
+        output: AgentRunOutput {
+            response,
+            metrics: collector.finish(started_at.elapsed()),
+        },
+        session_id,
+        outcome: AgentTurnOutcome::Waiting,
     }
 }
 
@@ -736,10 +765,12 @@ fn claude_executable_candidates() -> Vec<OsString> {
 mod tests {
     use super::{
         authentication_from_status, build_claude_task_command, collect_claude_events,
-        runtime_settings_from_json, ClaudeRuntimeSettingsCache, StreamUsage,
+        collect_claude_events_cancellable, runtime_settings_from_json, ClaudeRuntimeSettingsCache,
+        StreamUsage,
     };
-    use crate::adapters::agent::AgentExecutionConfig;
+    use crate::adapters::agent::{AgentExecutionConfig, AgentTurnOutcome};
     use crate::domain::agent_run::TokenUsage;
+    use std::sync::atomic::AtomicBool;
     use std::sync::mpsc;
     use std::time::Instant;
 
@@ -931,15 +962,23 @@ mod tests {
     }
 
     #[test]
-    fn reports_when_claude_asks_the_user_a_question() {
-        let (sender, receiver) = mpsc::sync_channel(1);
-        sender
-            .send(Ok(r#"{"type":"stream_event","event":{"type":"content_block_start","content_block":{"type":"tool_use","name":"AskUserQuestion"}}}"#.to_string()))
-            .expect("fixture should be queued");
+    fn preserves_the_claude_session_when_user_input_is_required() {
+        let (sender, receiver) = mpsc::sync_channel(2);
+        for fixture in [
+            r#"{"type":"system","session_id":"session-42"}"#,
+            r#"{"type":"stream_event","event":{"type":"content_block_start","content_block":{"type":"tool_use","name":"AskUserQuestion"}}}"#,
+        ] {
+            sender
+                .send(Ok(fixture.to_string()))
+                .expect("fixture should be queued");
+        }
         drop(sender);
 
-        let result = collect_claude_events(&receiver, Instant::now());
+        let result =
+            collect_claude_events_cancellable(&receiver, Instant::now(), &AtomicBool::new(false))
+                .expect("question should be a resumable result");
 
-        assert_eq!(result, Err(crate::error::AppError::ClaudeNeedsInput));
+        assert_eq!(result.outcome, AgentTurnOutcome::Waiting);
+        assert_eq!(result.session_id.as_deref(), Some("session-42"));
     }
 }

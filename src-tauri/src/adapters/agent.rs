@@ -24,6 +24,15 @@ pub(crate) struct AgentSessionRunOutput {
     pub(crate) output: AgentRunOutput,
     /// Product-owned session or thread identifier, when supported by the adapter.
     pub(crate) session_id: Option<String>,
+    /// Whether the turn completed or paused for another user message.
+    pub(crate) outcome: AgentTurnOutcome,
+}
+
+/// Adapter-level lifecycle that preserves resumable Waiting without treating it as failure.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AgentTurnOutcome {
+    Completed,
+    Waiting,
 }
 
 /// Normalized status boundary that keeps frequent login probes independent from configuration IO.
@@ -90,6 +99,7 @@ pub(crate) trait AgentAdapter {
             .map(|output| AgentSessionRunOutput {
                 output,
                 session_id: None,
+                outcome: AgentTurnOutcome::Completed,
             })
     }
 }
