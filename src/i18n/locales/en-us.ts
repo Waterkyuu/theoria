@@ -64,7 +64,7 @@ const enUS = {
 			appSettings: "App settings",
 		},
 		workspace: {
-			breadcrumb: "agent-gauge / New conversation",
+			breadcrumb: "{{workspace}} / New task",
 			taskLabel: "Task",
 			composerPlaceholder: "Describe a task, type / to select a running Agent",
 			composerHint: "Enter to send, Shift + Enter for a new line",
@@ -93,7 +93,7 @@ const enUS = {
 			closeEnvironment: "Close Agent environment",
 			sendTask: "Send task",
 			dispatched: "Task dispatched to {{count}} Agents",
-			workspacePath: "agent-gauge · main",
+			workspacePath: "{{workspace}}",
 		},
 		skills: {
 			title: "Skills",

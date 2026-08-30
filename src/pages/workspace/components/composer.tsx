@@ -318,7 +318,9 @@ const Composer = ({
 						</span>
 						{workspaceName ? (
 							<span className="hidden sm:inline">
-								{t("workspace.workspacePath")}
+								{t("workspace.workspacePath", {
+									workspace: workspaceName,
+								})}
 							</span>
 						) : null}
 					</div>

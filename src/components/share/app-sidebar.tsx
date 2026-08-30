@@ -27,7 +27,7 @@ type AppSidebarProps = {
 };
 
 const NAVIGATION_ITEMS = [
-	{ path: "/", labelKey: "navigation.newTask", icon: TargetDart },
+	{ path: "/task", labelKey: "navigation.newTask", icon: TargetDart },
 	{ path: "/skills", labelKey: "navigation.skills", icon: Puzzle },
 	{ path: "/runs", labelKey: "navigation.runs", icon: LayoutColumns3 },
 	{ path: "/benchmark", labelKey: "navigation.benchmark", icon: ChartColumn },
@@ -39,11 +39,13 @@ const NewWorkspaceModal = lazy(() => import("./create-workspace-modal"));
  * Reproduces the Figma sidebar alignment and keeps animated visibility and tree state local.
  *
  * @example
- * <AppSidebar currentPath="/" onNavigate={navigateTo}><main /></AppSidebar>
+ * <AppSidebar currentPath="/task" onNavigate={navigateTo}><main /></AppSidebar>
  */
 const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 	const { t } = useTranslation();
-	const isAgentGaugeSelected = currentPath === "/workspaces/agent-gauge";
+	const isAgentGaugeSelected = currentPath.startsWith(
+		"/workspaces/agent-gauge",
+	);
 	const [isWorkspaceListExpanded, setIsWorkspaceListExpanded] = useState(true);
 	const [isWorkspaceExpanded, setIsWorkspaceExpanded] = useState(true);
 	const [isConversationsExpanded, setIsConversationsExpanded] = useState(true);
@@ -96,10 +98,7 @@ const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 				>
 					{NAVIGATION_ITEMS.map((item) => {
 						const ItemIcon = item.icon;
-						const isActive =
-							item.path === "/"
-								? currentPath === "/"
-								: currentPath.startsWith(item.path);
+						const isActive = currentPath.startsWith(item.path);
 
 						return (
 							<button
@@ -372,7 +371,7 @@ const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 							<button
 								aria-label={`${t("workspaceSidebar.recent")} ${t("navigation.newTask")}`}
 								className="size-3 rounded-sm text-mute outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-focus-ring"
-								onClick={() => onNavigate("/")}
+								onClick={() => onNavigate("/task")}
 								type="button"
 							>
 								<Plus aria-hidden="true" className="size-3 text-mute" />

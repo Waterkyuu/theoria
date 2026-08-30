@@ -99,10 +99,10 @@ describe("WorkspacePage", () => {
 	});
 
 	it("shows workspace context after a workspace is selected", () => {
-		render(<WorkspacePage workspaceName="agent-gauge" />);
+		render(<WorkspacePage workspaceName="docs-lab" />);
 
-		expect(screen.getByText("agent-gauge / 新会话")).toBeInTheDocument();
-		expect(screen.getAllByText("agent-gauge · main")).toHaveLength(2);
+		expect(screen.getByText("docs-lab / 新任务")).toBeInTheDocument();
+		expect(screen.getAllByText("docs-lab")).toHaveLength(2);
 	});
 
 	it("builds agent autocomplete from backend process and runtime data", async () => {

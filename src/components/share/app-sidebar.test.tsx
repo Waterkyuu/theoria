@@ -216,7 +216,7 @@ describe("AppSidebar", () => {
 		);
 
 		await user.click(screen.getByRole("button", { name: "新任务" }));
-		expect(onNavigate).toHaveBeenCalledWith("/");
+		expect(onNavigate).toHaveBeenCalledWith("/task");
 
 		await user.click(screen.getByRole("button", { name: "收起侧边栏" }));
 		expect(

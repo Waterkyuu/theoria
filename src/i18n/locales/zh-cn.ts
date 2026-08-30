@@ -64,7 +64,7 @@ const zhCN = {
 			appSettings: "应用设置",
 		},
 		workspace: {
-			breadcrumb: "agent-gauge / 新会话",
+			breadcrumb: "{{workspace}} / 新任务",
 			taskLabel: "任务内容",
 			composerPlaceholder: "描述任务，输入 / 选择已启动的 Agent",
 			composerHint: "Enter 发送，Shift + Enter 换行",
@@ -91,7 +91,7 @@ const zhCN = {
 			closeEnvironment: "关闭 Agent 环境",
 			sendTask: "发送任务",
 			dispatched: "任务已分发到 {{count}} 个 Agent",
-			workspacePath: "agent-gauge · main",
+			workspacePath: "{{workspace}}",
 		},
 		skills: {
 			title: "技能",
