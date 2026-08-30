@@ -1,4 +1,6 @@
-use crate::adapters::agent::{validate_execution_directory, AgentAdapter, AgentStatusAdapter};
+use crate::adapters::agent::{
+    validate_execution_directory, AgentAdapter, AgentExecutionConfig, AgentStatusAdapter,
+};
 use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput, TokenUsage};
 use crate::domain::agent_status::{AgentLoginStatus, AgentRuntimeConfig};
 use crate::error::AppError;
@@ -140,11 +142,6 @@ fn is_bounded_workbuddy_local_storage(path: &Path) -> bool {
     true
 }
 
-fn read_workbuddy_global_selection() -> Option<WorkBuddyGlobalSelection> {
-    let path = workbuddy_local_storage_path()?;
-    read_workbuddy_global_selection_from_path(&path).ok()?
-}
-
 fn read_workbuddy_global_selection_from_path(
     path: &Path,
 ) -> Result<Option<WorkBuddyGlobalSelection>, AppError> {
@@ -213,15 +210,16 @@ impl AgentStatusAdapter for SystemWorkBuddyAdapter {
 }
 
 impl AgentAdapter for SystemWorkBuddyAdapter {
-    fn run_task_cancellable(
+    fn run_task_with_config_cancellable(
         &self,
         query: &str,
         execution_directory: &Path,
+        config: AgentExecutionConfig<'_>,
         cancelled: &AtomicBool,
     ) -> Result<AgentRunOutput, AppError> {
         validate_execution_directory(execution_directory)?;
         let executable = find_workbuddy_executable()?;
-        run_workbuddy_task(&executable, query, execution_directory, cancelled)
+        run_workbuddy_task(&executable, query, execution_directory, config, cancelled)
     }
 }
 
@@ -379,11 +377,11 @@ fn run_workbuddy_task(
     executable: &OsStr,
     query: &str,
     execution_directory: &Path,
+    config: AgentExecutionConfig<'_>,
     cancelled: &AtomicBool,
 ) -> Result<AgentRunOutput, AppError> {
     let started_at = Instant::now();
-    let global_selection = read_workbuddy_global_selection();
-    let mut command = build_workbuddy_task_command(executable, query, global_selection.as_ref());
+    let mut command = build_workbuddy_task_command(executable, query, config);
     command.current_dir(execution_directory);
     let mut child = command
         .spawn()
@@ -419,21 +417,19 @@ fn run_workbuddy_task(
 fn build_workbuddy_task_command(
     executable: &OsStr,
     query: &str,
-    global_selection: Option<&WorkBuddyGlobalSelection>,
+    config: AgentExecutionConfig<'_>,
 ) -> Command {
     let mut command = Command::new(executable);
-    if let Some(selection) = global_selection {
-        command.args(["--model", selection.id.as_str()]);
-        if selection.is_thinking {
-            if let Some(effort) = selection.reasoning_effort.as_deref().filter(|effort| {
-                matches!(
-                    *effort,
-                    "minimal" | "low" | "medium" | "high" | "xhigh" | "max"
-                )
-            }) {
-                command.args(["--effort", effort]);
-            }
-        }
+    if let Some(model) = config.model {
+        command.args(["--model", model]);
+    }
+    if let Some(effort) = config.mode.filter(|effort| {
+        matches!(
+            *effort,
+            "minimal" | "low" | "medium" | "high" | "xhigh" | "max"
+        )
+    }) {
+        command.args(["--effort", effort]);
     }
     command
         .args([
@@ -840,10 +836,30 @@ mod tests {
         build_workbuddy_task_command, collect_workbuddy_events,
         global_selection_from_local_storage, AcpMessage, StreamUsage,
     };
+    use crate::adapters::agent::AgentExecutionConfig;
     use crate::domain::agent_run::TokenUsage;
     use leveldb_forensic::{Encoding, LocalStorageRecord, StorageValue};
     use std::sync::mpsc;
     use std::time::Instant;
+
+    #[test]
+    fn task_command_uses_the_frozen_model_and_effort() {
+        let command = build_workbuddy_task_command(
+            "codebuddy".as_ref(),
+            "test prompt",
+            AgentExecutionConfig {
+                model: Some("kimi-k3"),
+                mode: Some("high"),
+            },
+        );
+        let args = command
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        assert!(args.windows(2).any(|args| args == ["--model", "kimi-k3"]));
+        assert!(args.windows(2).any(|args| args == ["--effort", "high"]));
+    }
 
     #[test]
     fn normalizes_final_workbuddy_usage_without_double_counting_cache_tokens() {
@@ -985,15 +1001,15 @@ mod tests {
     }
 
     #[test]
-    fn task_command_uses_global_model_and_keeps_default_reasoning() {
-        let selection = super::WorkBuddyGlobalSelection {
-            id: "kimi-k3".to_string(),
-            is_thinking: true,
-            reasoning_effort: None,
-        };
-
-        let command =
-            build_workbuddy_task_command("codebuddy".as_ref(), "test prompt", Some(&selection));
+    fn task_command_keeps_default_reasoning_without_a_frozen_mode() {
+        let command = build_workbuddy_task_command(
+            "codebuddy".as_ref(),
+            "test prompt",
+            AgentExecutionConfig {
+                model: Some("kimi-k3"),
+                mode: None,
+            },
+        );
         let args = command
             .get_args()
             .map(|arg| arg.to_string_lossy().into_owned())
@@ -1004,21 +1020,21 @@ mod tests {
     }
 
     #[test]
-    fn task_command_uses_explicit_global_reasoning() {
-        let selection = super::WorkBuddyGlobalSelection {
-            id: "kimi-k3".to_string(),
-            is_thinking: true,
-            reasoning_effort: Some("high".to_string()),
-        };
-
-        let command =
-            build_workbuddy_task_command("codebuddy".as_ref(), "test prompt", Some(&selection));
+    fn task_command_rejects_unknown_frozen_reasoning_flags() {
+        let command = build_workbuddy_task_command(
+            "codebuddy".as_ref(),
+            "test prompt",
+            AgentExecutionConfig {
+                model: Some("kimi-k3"),
+                mode: Some("enabled"),
+            },
+        );
         let args = command
             .get_args()
             .map(|arg| arg.to_string_lossy().into_owned())
             .collect::<Vec<_>>();
 
-        assert!(args.windows(2).any(|args| args == ["--effort", "high"]));
+        assert!(!args.iter().any(|arg| arg == "--effort"));
     }
 
     #[test]

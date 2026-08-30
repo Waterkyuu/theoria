@@ -1,4 +1,4 @@
-use crate::adapters::agent::AgentAdapter;
+use crate::adapters::agent::{AgentAdapter, AgentExecutionConfig};
 use crate::adapters::claude::{ClaudeRuntimeSettingsCache, SystemClaudeAdapter};
 use crate::adapters::codex::{CodexRuntimeDefaultsCache, SystemCodexAdapter};
 use crate::adapters::opencode::SystemOpenCodeAdapter;
@@ -184,6 +184,8 @@ impl TaskExecutionService {
         for agent in detail.agents.clone() {
             let prompt = detail.task.prompt.clone();
             let execution_directory = self.app_data_directory.join(&agent.execution_relative_path);
+            let model_snapshot = agent.model_snapshot.clone();
+            let mode_snapshot = agent.mode_snapshot.clone();
             let codex_cache = codex_cache.clone();
             let claude_cache = claude_cache.clone();
             let cancellation = self.active_executions.register(&agent.id);
@@ -193,6 +195,10 @@ impl TaskExecutionService {
                     agent.agent_kind,
                     &prompt,
                     &execution_directory,
+                    AgentExecutionConfig {
+                        model: model_snapshot.as_deref(),
+                        mode: mode_snapshot.as_deref(),
+                    },
                     codex_cache,
                     claude_cache,
                     &runner_cancellation,
@@ -268,27 +274,32 @@ fn run_one_agent(
     agent_kind: AgentKind,
     prompt: &str,
     execution_directory: &Path,
+    config: AgentExecutionConfig<'_>,
     codex_cache: CodexRuntimeDefaultsCache,
     claude_cache: ClaudeRuntimeSettingsCache,
     cancelled: &AtomicBool,
 ) -> Result<AgentRunOutput, AppError> {
     match agent_kind {
-        AgentKind::Codex => SystemCodexAdapter::new(codex_cache).run_task_cancellable(
+        AgentKind::Codex => SystemCodexAdapter::new(codex_cache).run_task_with_config_cancellable(
             prompt,
             execution_directory,
+            config,
             cancelled,
         ),
-        AgentKind::Claude => SystemClaudeAdapter::new(claude_cache).run_task_cancellable(
+        AgentKind::Claude => SystemClaudeAdapter::new(claude_cache)
+            .run_task_with_config_cancellable(prompt, execution_directory, config, cancelled),
+        AgentKind::OpenCode => SystemOpenCodeAdapter.run_task_with_config_cancellable(
             prompt,
             execution_directory,
+            config,
             cancelled,
         ),
-        AgentKind::OpenCode => {
-            SystemOpenCodeAdapter.run_task_cancellable(prompt, execution_directory, cancelled)
-        }
-        AgentKind::WorkBuddy => {
-            SystemWorkBuddyAdapter.run_task_cancellable(prompt, execution_directory, cancelled)
-        }
+        AgentKind::WorkBuddy => SystemWorkBuddyAdapter.run_task_with_config_cancellable(
+            prompt,
+            execution_directory,
+            config,
+            cancelled,
+        ),
     }
 }
 

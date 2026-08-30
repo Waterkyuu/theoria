@@ -4,6 +4,15 @@ use crate::error::AppError;
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
 
+/// Immutable model settings captured when a Task is created.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct AgentExecutionConfig<'a> {
+    /// Exact model identifier selected for this Agent Execution.
+    pub(crate) model: Option<&'a str>,
+    /// Exact reasoning effort, thinking mode, or provider variant.
+    pub(crate) mode: Option<&'a str>,
+}
+
 /// Normalized status boundary that keeps frequent login probes independent from configuration IO.
 pub(crate) trait AgentStatusAdapter {
     /// Checks installation and authentication without loading model configuration.
@@ -21,7 +30,12 @@ pub(crate) trait AgentAdapter {
         query: &str,
         execution_directory: &Path,
     ) -> Result<AgentRunOutput, AppError> {
-        self.run_task_cancellable(query, execution_directory, &AtomicBool::new(false))
+        self.run_task_with_config_cancellable(
+            query,
+            execution_directory,
+            AgentExecutionConfig::default(),
+            &AtomicBool::new(false),
+        )
     }
 
     /// Runs one task while allowing the owning Task Agent to request cooperative termination.
@@ -29,9 +43,25 @@ pub(crate) trait AgentAdapter {
         &self,
         query: &str,
         execution_directory: &Path,
-        _cancelled: &AtomicBool,
+        cancelled: &AtomicBool,
     ) -> Result<AgentRunOutput, AppError> {
-        self.run_task_in(query, execution_directory)
+        self.run_task_with_config_cancellable(
+            query,
+            execution_directory,
+            AgentExecutionConfig::default(),
+            cancelled,
+        )
+    }
+
+    /// Runs one task using the frozen model settings stored with its Task Agent row.
+    fn run_task_with_config_cancellable(
+        &self,
+        query: &str,
+        execution_directory: &Path,
+        _config: AgentExecutionConfig<'_>,
+        cancelled: &AtomicBool,
+    ) -> Result<AgentRunOutput, AppError> {
+        self.run_task_cancellable(query, execution_directory, cancelled)
     }
 }
 

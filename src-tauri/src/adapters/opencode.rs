@@ -1,4 +1,6 @@
-use crate::adapters::agent::{validate_execution_directory, AgentAdapter, AgentStatusAdapter};
+use crate::adapters::agent::{
+    validate_execution_directory, AgentAdapter, AgentExecutionConfig, AgentStatusAdapter,
+};
 use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput, TokenUsage};
 use crate::domain::agent_status::{AgentLoginStatus, AgentRuntimeConfig};
 use crate::error::AppError;
@@ -61,15 +63,16 @@ impl AgentStatusAdapter for SystemOpenCodeAdapter {
 }
 
 impl AgentAdapter for SystemOpenCodeAdapter {
-    fn run_task_cancellable(
+    fn run_task_with_config_cancellable(
         &self,
         query: &str,
         execution_directory: &Path,
+        config: AgentExecutionConfig<'_>,
         cancelled: &AtomicBool,
     ) -> Result<AgentRunOutput, AppError> {
         validate_execution_directory(execution_directory)?;
         let executable = find_usable_opencode_executable()?;
-        run_opencode_task(&executable, query, execution_directory, cancelled)
+        run_opencode_task(&executable, query, execution_directory, config, cancelled)
     }
 }
 
@@ -270,16 +273,13 @@ fn run_opencode_task(
     executable: &OsStr,
     query: &str,
     execution_directory: &Path,
+    config: AgentExecutionConfig<'_>,
     cancelled: &AtomicBool,
 ) -> Result<AgentRunOutput, AppError> {
     let started_at = Instant::now();
-    let mut child = Command::new(executable)
-        .args(["run", "--format", "json", "--thinking", "--"])
-        .arg(query)
-        .current_dir(execution_directory)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
+    let mut command = build_opencode_task_command(executable, query, config);
+    command.current_dir(execution_directory);
+    let mut child = command
         .spawn()
         .map_err(|_| AppError::OpenCodeProtocolFailed)?;
     let stdout = match child.stdout.take() {
@@ -314,6 +314,29 @@ fn run_opencode_task(
         .map_err(|_| AppError::OpenCodeProtocolFailed)?;
     status_result?;
     result
+}
+
+/// Builds OpenCode's JSON command from the immutable Task model and variant.
+fn build_opencode_task_command(
+    executable: &OsStr,
+    query: &str,
+    config: AgentExecutionConfig<'_>,
+) -> Command {
+    let mut command = Command::new(executable);
+    command.args(["run", "--format", "json", "--thinking"]);
+    if let Some(model) = config.model {
+        command.args(["--model", model]);
+    }
+    if let Some(mode) = config.mode {
+        command.args(["--variant", mode]);
+    }
+    command
+        .arg("--")
+        .arg(query)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+    command
 }
 
 /// Consumes newline-delimited CLI events until the official stream closes after step completion.
@@ -498,9 +521,34 @@ fn opencode_executable_candidates() -> Vec<OsString> {
 
 #[cfg(test)]
 mod tests {
-    use super::{collect_opencode_events, login_from_auth_output, runtime_config_from_json};
+    use super::{
+        build_opencode_task_command, collect_opencode_events, login_from_auth_output,
+        runtime_config_from_json,
+    };
+    use crate::adapters::agent::AgentExecutionConfig;
     use std::sync::mpsc;
     use std::time::{Duration, Instant};
+
+    #[test]
+    fn task_command_uses_the_frozen_model_and_variant() {
+        let command = build_opencode_task_command(
+            "opencode".as_ref(),
+            "test prompt",
+            AgentExecutionConfig {
+                model: Some("anthropic/claude-sonnet-4-6"),
+                mode: Some("high"),
+            },
+        );
+        let args = command
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        assert!(args
+            .windows(2)
+            .any(|args| args == ["--model", "anthropic/claude-sonnet-4-6"]));
+        assert!(args.windows(2).any(|args| args == ["--variant", "high"]));
+    }
 
     #[test]
     fn reads_credentials_and_effective_runtime_configuration() {

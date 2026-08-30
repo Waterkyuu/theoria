@@ -1,4 +1,6 @@
-use crate::adapters::agent::{validate_execution_directory, AgentAdapter, AgentStatusAdapter};
+use crate::adapters::agent::{
+    validate_execution_directory, AgentAdapter, AgentExecutionConfig, AgentStatusAdapter,
+};
 use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput, TokenUsage};
 use crate::domain::agent_status::{AgentLoginStatus, AgentRuntimeConfig};
 use crate::error::AppError;
@@ -84,10 +86,11 @@ impl AgentStatusAdapter for SystemCodexAdapter {
 }
 
 impl AgentAdapter for SystemCodexAdapter {
-    fn run_task_cancellable(
+    fn run_task_with_config_cancellable(
         &self,
         query: &str,
         execution_directory: &Path,
+        config: AgentExecutionConfig<'_>,
         cancelled: &AtomicBool,
     ) -> Result<AgentRunOutput, AppError> {
         validate_execution_directory(execution_directory)?;
@@ -95,7 +98,9 @@ impl AgentAdapter for SystemCodexAdapter {
         with_app_server(
             &executable,
             Some(execution_directory),
-            |stdin, event_receiver| run_app_server_task(stdin, event_receiver, query, cancelled),
+            |stdin, event_receiver| {
+                run_app_server_task(stdin, event_receiver, query, config, cancelled)
+            },
         )
     }
 }
@@ -431,7 +436,9 @@ fn non_empty_config_value(value: Option<String>) -> Option<String> {
 
 /// Starts an ephemeral App Server session to resolve the model defaults used by new Codex tasks.
 fn resolve_codex_runtime_defaults(executable: &OsStr) -> Result<CodexRuntimeDefaults, AppError> {
-    with_app_server(executable, None, initialize_app_server_thread)
+    with_app_server(executable, None, |stdin, event_receiver| {
+        initialize_app_server_thread(stdin, event_receiver, AgentExecutionConfig::default())
+    })
 }
 
 /// Runs one bounded App Server exchange and always terminates the child before returning.
@@ -484,6 +491,7 @@ fn with_app_server<T>(
 fn initialize_app_server_thread(
     stdin: &mut ChildStdin,
     event_receiver: &Receiver<Result<String, AppError>>,
+    config: AgentExecutionConfig<'_>,
 ) -> Result<CodexRuntimeDefaults, AppError> {
     write_message(
         stdin,
@@ -491,10 +499,7 @@ fn initialize_app_server_thread(
     )?;
     wait_for_response(event_receiver, 0, APP_SERVER_START_TIMEOUT)?;
     write_message(stdin, r#"{"method":"initialized","params":{}}"#)?;
-    write_message(
-        stdin,
-        r#"{"method":"thread/start","id":1,"params":{"approvalPolicy":"never","sandbox":"workspace-write","ephemeral":true,"serviceName":"agent_gauge"}}"#,
-    )?;
+    write_message(stdin, &build_codex_thread_start_request(config).to_string())?;
     let thread_response = wait_for_response(event_receiver, 1, APP_SERVER_START_TIMEOUT)?;
     let result = thread_response
         .result
@@ -510,13 +515,31 @@ fn initialize_app_server_thread(
     })
 }
 
+/// Builds the thread request separately so frozen Task settings remain directly testable.
+fn build_codex_thread_start_request(config: AgentExecutionConfig<'_>) -> serde_json::Value {
+    let mut params = serde_json::json!({
+        "approvalPolicy": "never",
+        "sandbox": "workspace-write",
+        "ephemeral": true,
+        "serviceName": "agent_gauge"
+    });
+    if let Some(model) = config.model {
+        params["model"] = serde_json::Value::String(model.to_string());
+    }
+    if let Some(mode) = config.mode {
+        params["effort"] = serde_json::Value::String(mode.to_string());
+    }
+    serde_json::json!({"method": "thread/start", "id": 1, "params": params})
+}
+
 fn run_app_server_task(
     stdin: &mut ChildStdin,
     event_receiver: &Receiver<Result<String, AppError>>,
     query: &str,
+    config: AgentExecutionConfig<'_>,
     cancelled: &AtomicBool,
 ) -> Result<AgentRunOutput, AppError> {
-    let runtime_defaults = initialize_app_server_thread(stdin, event_receiver)?;
+    let runtime_defaults = initialize_app_server_thread(stdin, event_receiver, config)?;
     let turn_request = serde_json::json!({
         "method": "turn/start",
         "id": 2,
@@ -750,14 +773,26 @@ fn codex_executable_candidates() -> Vec<OsString> {
 #[cfg(test)]
 mod tests {
     use super::{
-        codex_executable_candidates, collect_run_events, collect_run_events_cancellable,
-        runtime_settings_from_config_layers, with_app_server, CodexRuntimeDefaultsCache,
-        CodexRuntimeSettings,
+        build_codex_thread_start_request, codex_executable_candidates, collect_run_events,
+        collect_run_events_cancellable, runtime_settings_from_config_layers, with_app_server,
+        CodexRuntimeDefaultsCache, CodexRuntimeSettings,
     };
+    use crate::adapters::agent::AgentExecutionConfig;
     use crate::error::AppError;
     use std::sync::atomic::AtomicBool;
     use std::sync::mpsc;
     use std::time::{Duration, Instant};
+
+    #[test]
+    fn starts_task_thread_with_the_frozen_model_and_effort() {
+        let request = build_codex_thread_start_request(AgentExecutionConfig {
+            model: Some("gpt-5.6-sol"),
+            mode: Some("high"),
+        });
+
+        assert_eq!(request["params"]["model"], "gpt-5.6-sol");
+        assert_eq!(request["params"]["effort"], "high");
+    }
 
     #[cfg(unix)]
     #[test]

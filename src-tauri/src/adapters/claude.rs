@@ -1,4 +1,6 @@
-use crate::adapters::agent::{validate_execution_directory, AgentAdapter, AgentStatusAdapter};
+use crate::adapters::agent::{
+    validate_execution_directory, AgentAdapter, AgentExecutionConfig, AgentStatusAdapter,
+};
 use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput, TokenUsage};
 use crate::domain::agent_status::{AgentLoginStatus, AgentRuntimeConfig};
 use crate::error::AppError;
@@ -86,15 +88,16 @@ impl AgentStatusAdapter for SystemClaudeAdapter {
 }
 
 impl AgentAdapter for SystemClaudeAdapter {
-    fn run_task_cancellable(
+    fn run_task_with_config_cancellable(
         &self,
         query: &str,
         execution_directory: &Path,
+        config: AgentExecutionConfig<'_>,
         cancelled: &AtomicBool,
     ) -> Result<AgentRunOutput, AppError> {
         validate_execution_directory(execution_directory)?;
         let executable = resolve_claude_executable()?;
-        run_claude_task(&executable, query, execution_directory, cancelled)
+        run_claude_task(&executable, query, execution_directory, config, cancelled)
     }
 }
 
@@ -404,25 +407,13 @@ fn run_claude_task(
     executable: &OsStr,
     query: &str,
     execution_directory: &Path,
+    config: AgentExecutionConfig<'_>,
     cancelled: &AtomicBool,
 ) -> Result<AgentRunOutput, AppError> {
     let started_at = Instant::now();
-    let mut child = Command::new(executable)
-        .args([
-            "--print",
-            query,
-            "--output-format",
-            "stream-json",
-            "--include-partial-messages",
-            "--verbose",
-            "--permission-mode",
-            "plan",
-            "--no-session-persistence",
-        ])
-        .current_dir(execution_directory)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
+    let mut command = build_claude_task_command(executable, query, config);
+    command.current_dir(execution_directory);
+    let mut child = command
         .spawn()
         .map_err(|_| AppError::ClaudeProtocolFailed)?;
     let stdout = match child.stdout.take() {
@@ -449,6 +440,37 @@ fn run_claude_task(
         .map_err(|_| AppError::ClaudeProtocolFailed)?;
 
     result
+}
+
+/// Builds Claude's non-interactive command from the immutable Task snapshot.
+fn build_claude_task_command(
+    executable: &OsStr,
+    query: &str,
+    config: AgentExecutionConfig<'_>,
+) -> Command {
+    let mut command = Command::new(executable);
+    if let Some(model) = config.model {
+        command.args(["--model", model]);
+    }
+    if let Some(mode) = config.mode {
+        command.args(["--effort", mode]);
+    }
+    command
+        .args([
+            "--print",
+            query,
+            "--output-format",
+            "stream-json",
+            "--include-partial-messages",
+            "--verbose",
+            "--permission-mode",
+            "plan",
+            "--no-session-persistence",
+        ])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+    command
 }
 
 #[cfg(test)]
@@ -666,12 +688,34 @@ fn claude_executable_candidates() -> Vec<OsString> {
 #[cfg(test)]
 mod tests {
     use super::{
-        authentication_from_status, collect_claude_events, runtime_settings_from_json,
-        ClaudeRuntimeSettingsCache, StreamUsage,
+        authentication_from_status, build_claude_task_command, collect_claude_events,
+        runtime_settings_from_json, ClaudeRuntimeSettingsCache, StreamUsage,
     };
+    use crate::adapters::agent::AgentExecutionConfig;
     use crate::domain::agent_run::TokenUsage;
     use std::sync::mpsc;
     use std::time::Instant;
+
+    #[test]
+    fn task_command_uses_the_frozen_model_and_effort() {
+        let command = build_claude_task_command(
+            "claude".as_ref(),
+            "test prompt",
+            AgentExecutionConfig {
+                model: Some("claude-opus-4-1"),
+                mode: Some("high"),
+            },
+        );
+        let args = command
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        assert!(args
+            .windows(2)
+            .any(|args| args == ["--model", "claude-opus-4-1"]));
+        assert!(args.windows(2).any(|args| args == ["--effort", "high"]));
+    }
 
     #[test]
     fn reads_authenticated_claude_account_status() {
