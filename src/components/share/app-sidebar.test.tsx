@@ -6,6 +6,7 @@ import { AppSidebar } from "./app-sidebar";
 
 const queryMocks = vi.hoisted(() => ({
 	createWorkspace: vi.fn(),
+	deleteTask: vi.fn(),
 	useTasks: vi.fn(),
 	useWorkspaces: vi.fn(),
 	useWorkspaceSkills: vi.fn(),
@@ -14,7 +15,14 @@ const dialogMocks = vi.hoisted(() => ({ open: vi.fn() }));
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: dialogMocks.open }));
 
-vi.mock("@/queries/task", () => ({ useTasks: queryMocks.useTasks }));
+vi.mock("@/queries/task", () => ({
+	useDeleteTask: () => ({
+		mutateAsync: queryMocks.deleteTask,
+		isPending: false,
+		error: null,
+	}),
+	useTasks: queryMocks.useTasks,
+}));
 vi.mock("@/queries/workspace", () => ({
 	useCreateWorkspace: () => ({
 		mutateAsync: queryMocks.createWorkspace,
@@ -58,6 +66,7 @@ describe("AppSidebar", () => {
 			createdAtMs: 1,
 			updatedAtMs: 1,
 		});
+		queryMocks.deleteTask.mockResolvedValue(undefined);
 		queryMocks.useWorkspaces.mockReturnValue({
 			data: [
 				{
@@ -322,7 +331,7 @@ describe("AppSidebar", () => {
 		expect(workspaceTask.querySelectorAll("svg")).toHaveLength(2);
 	});
 
-	it("opens rename and delete actions from the mock conversation menu", async () => {
+	it("deletes a Task and its run files from the existing conversation menu", async () => {
 		const user = userEvent.setup();
 		render(
 			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
@@ -337,7 +346,13 @@ describe("AppSidebar", () => {
 		expect(
 			await screen.findByRole("menuitem", { name: "重命名" }),
 		).toBeInTheDocument();
-		expect(screen.getByRole("menuitem", { name: "删除" })).toBeInTheDocument();
+		await user.click(screen.getByRole("menuitem", { name: "删除" }));
+		const dialog = await screen.findByRole("alertdialog", {
+			name: "删除任务？",
+		});
+		expect(dialog).toHaveTextContent("隔离运行目录和结果文件");
+		await user.click(within(dialog).getByRole("button", { name: "删除任务" }));
+		expect(queryMocks.deleteTask).toHaveBeenCalledWith("workspace-task-1");
 	});
 
 	it("collapses the active workspace tree", () => {

@@ -252,7 +252,15 @@ const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 											aria-hidden="true"
 											className="size-4 shrink-0 transition-colors hover:text-ink"
 										/>
-										<TaskActionDropdown taskName={task.title} />
+										<TaskActionDropdown
+											onDeleted={() => {
+												if (currentPath === `/task/${task.id}`) {
+													onNavigate("/task");
+												}
+											}}
+											taskId={task.id}
+											taskName={task.title}
+										/>
 									</div>
 								</div>
 							))

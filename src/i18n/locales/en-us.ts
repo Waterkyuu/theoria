@@ -65,6 +65,13 @@ const enUS = {
 			removeWorkspace: "Remove",
 			conversationsLabel: "Tasks",
 			deleteConversation: "Delete",
+			taskDelete: {
+				title: "Delete Task?",
+				description:
+					'"{{task}}", its isolated run directories, and result files will be permanently deleted. This cannot be undone.',
+				confirm: "Delete Task",
+				failed: "The Task could not be deleted. Please try again.",
+			},
 			mockConversation: "Current task",
 			mockConversationActions: "More actions for {{conversation}}",
 			newConversation: "New task",

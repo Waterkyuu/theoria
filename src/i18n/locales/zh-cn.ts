@@ -64,6 +64,13 @@ const zhCN = {
 			removeWorkspace: "移除",
 			conversationsLabel: "任务",
 			deleteConversation: "删除",
+			taskDelete: {
+				title: "删除任务？",
+				description:
+					"“{{task}}”及其隔离运行目录和结果文件会被永久删除，此操作无法撤销。",
+				confirm: "删除任务",
+				failed: "任务删除失败，请重试。",
+			},
 			mockConversation: "当前任务",
 			mockConversationActions: "{{conversation}}的更多操作",
 			newConversation: "新建任务",

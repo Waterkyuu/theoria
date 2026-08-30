@@ -184,7 +184,17 @@ const WorkspaceSidebarItem = ({
 												aria-hidden="true"
 												className="size-4 shrink-0 transition-colors hover:text-ink"
 											/>
-											<TaskActionDropdown taskName={task.title} />
+											<TaskActionDropdown
+												onDeleted={() => {
+													if (
+														currentPath === `${workspacePath}/task/${task.id}`
+													) {
+														onNavigate(workspacePath);
+													}
+												}}
+												taskId={task.id}
+												taskName={task.title}
+											/>
 										</div>
 									</div>
 								))
