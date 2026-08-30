@@ -53,7 +53,7 @@ Do not add tests solely for:
 - enum variant existence, derives, type aliases, visibility, or module layout;
 - constants whose values have no independent business rule;
 - trivial getters, setters, constructors that only assign fields, or direct delegation wrappers;
-- one arbitrary happy-path mapping such as asserting a single `enum.as_str()` value;
+- one arbitrary happy-path constant or enum-to-string mapping;
 - private function call counts, internal collection choice, exact helper boundaries, or other
   implementation details;
 - behavior guaranteed by Rust, Serde, Tauri, the standard library, or a dependency itself;
@@ -90,7 +90,7 @@ above reveals an observable behavior that was not already protected.
 - Do not assert exact error prose unless the text is a stable user-facing contract. Prefer typed
   error variants or machine-readable codes.
 - Make tests deterministic and independent of execution order, wall-clock timing, the network, the
-  developer's home directory, or installed Agent products.
+  developer's home directory, or locally installed applications and services.
 - Use temporary directories and owned resources for filesystem and process tests.
 - A test must fail when its protected behavior is broken. Delete or rewrite tests that cannot catch
   a realistic regression.
@@ -121,13 +121,3 @@ cases have the same behavior and risk.
 - Test IPC DTOs at the serialization boundary and keep domain tests independent of Tauri types.
 - Use platform-gated tests only for genuinely operating-system-specific behavior; keep portable
   contract tests for shared behavior.
-
-## Examples
-
-Worth testing:
-
-- an invalid persisted Agent identifier is rejected instead of silently mapped;
-- keyset pagination does not duplicate or skip records with equal timestamps;
-- a partial transcript produces the correct safe activity state;
-- an IPC response retains its required camelCase field contract;
-- cancellation terminates an owned child process and releases its resources.
