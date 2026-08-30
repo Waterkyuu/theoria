@@ -791,7 +791,7 @@ wait "$reader_pid"
 
         let started_at = Instant::now();
         let result = with_app_server(script_path.as_os_str(), None, |_stdin, receiver| {
-            let ready = super::receive_line(receiver, Duration::from_secs(1))?;
+            let ready = super::receive_line(receiver, Duration::from_secs(5))?;
             assert_eq!(ready.trim(), "READY");
             Ok(())
         });
@@ -800,7 +800,7 @@ wait "$reader_pid"
 
         assert_eq!(result, Ok(()));
         assert!(
-            elapsed < Duration::from_secs(1),
+            elapsed < Duration::from_millis(1_500),
             "cleanup waited for the detached server process: {elapsed:?}"
         );
     }

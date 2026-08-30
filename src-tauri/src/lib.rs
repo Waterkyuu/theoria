@@ -57,6 +57,7 @@ mod repositories {
 mod services {
     pub(crate) mod activity;
     pub(crate) mod agent;
+    pub(crate) mod cleanup;
     pub(crate) mod comparison;
     pub(crate) mod process;
     pub(crate) mod result;
@@ -96,6 +97,7 @@ use crate::repositories::skill::SkillRepository;
 use crate::repositories::task::TaskRepository;
 use crate::repositories::workspace::WorkspaceRepository;
 use crate::services::activity::SystemAgentActivityMonitor;
+use crate::services::cleanup::TaskCleanupService;
 use crate::services::comparison::ComparisonService;
 use crate::services::process::AgentProcessMonitor;
 use crate::services::result::ResultCollector;
@@ -152,10 +154,16 @@ pub fn run() {
                 SnapshotService::new(app_data_directory.clone()),
                 app_data_directory.clone(),
             ));
-            app.manage(TaskExecutionService::new(
+            let task_execution_service = TaskExecutionService::new(
                 TaskRepository::new(comparison_database.clone()),
                 ResultCollector::new(app_data_directory.clone()),
                 app_data_directory.clone(),
+            );
+            app.manage(task_execution_service.clone());
+            app.manage(TaskCleanupService::new(
+                TaskRepository::new(comparison_database.clone()),
+                SnapshotService::new(app_data_directory.clone()),
+                task_execution_service,
             ));
             app.manage(ComparisonService::new(ComparisonRepository::new(
                 comparison_database,
@@ -317,8 +325,10 @@ pub fn run() {
             commands::skill::unmount_workspace_skill,
             commands::task::get_task,
             commands::task::create_task,
+            commands::task::delete_task,
             commands::task::list_tasks,
             commands::task::run_task_executions,
+            commands::task::stop_task_agent,
             commands::opencode::check_opencode_init_status,
             commands::opencode::check_opencode_login,
             commands::opencode::get_opencode_runtime_config,

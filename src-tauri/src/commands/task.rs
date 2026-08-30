@@ -1,5 +1,6 @@
 use crate::domain::task::{Task, TaskAgent, TaskAgentResult, TaskDetail, TaskSkill};
 use crate::error::{AppError, IpcError};
+use crate::services::cleanup::TaskCleanupService;
 use crate::services::task::{CreateTaskAgentInput, CreateTaskInput, TaskService};
 use crate::services::task_execution::TaskExecutionService;
 use serde::{Deserialize, Serialize};
@@ -59,6 +60,14 @@ pub(crate) struct CreateTaskRequest {
 pub(crate) struct RunTaskExecutionsRequest {
     /// Stable prepared Task identifier.
     task_id: String,
+}
+
+/// Request selecting one Agent Execution to stop.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct StopTaskAgentRequest {
+    /// Stable Task Agent identifier.
+    task_agent_id: String,
 }
 
 /// Task metadata shown in Recent, History, and detail headers.
@@ -288,5 +297,30 @@ pub(crate) async fn run_task_executions(
         )
         .await
         .map(Into::into)
+        .map_err(Into::into)
+}
+
+/// Stops one Agent without changing sibling Execution workspaces.
+#[tauri::command]
+pub(crate) async fn stop_task_agent(
+    request: StopTaskAgentRequest,
+    service: State<'_, TaskExecutionService>,
+) -> Result<TaskDetailResponse, IpcError> {
+    service
+        .stop_agent(&request.task_agent_id)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
+/// Stops writers, removes all Task files, then cascades database records.
+#[tauri::command]
+pub(crate) async fn delete_task(
+    request: GetTaskRequest,
+    service: State<'_, TaskCleanupService>,
+) -> Result<(), IpcError> {
+    service
+        .delete_task(&request.task_id)
+        .await
         .map_err(Into::into)
 }

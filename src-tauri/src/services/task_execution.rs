@@ -15,6 +15,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+const STOP_WAIT_TIMEOUT: Duration = Duration::from_secs(30);
+
 /// Runs every prepared Agent in its own workspace and persists independent results.
 #[derive(Clone)]
 pub(crate) struct TaskExecutionService {
@@ -41,6 +43,116 @@ impl TaskExecutionService {
             app_data_directory,
             active_executions: ActiveExecutions::default(),
         }
+    }
+
+    /// Stops one active or waiting Agent while leaving sibling Executions unchanged.
+    pub(crate) async fn stop_agent(&self, task_agent_id: &str) -> Result<TaskDetail, AppError> {
+        let task_id = self
+            .repository
+            .task_id_for_agent(task_agent_id)
+            .await
+            .map_err(|_| AppError::TaskDatabaseFailed)?
+            .ok_or(AppError::TaskNotFound)?;
+        let detail = self
+            .repository
+            .get(&task_id)
+            .await
+            .map_err(|_| AppError::TaskDatabaseFailed)?
+            .ok_or(AppError::TaskNotFound)?;
+        let agent = detail
+            .agents
+            .iter()
+            .find(|agent| agent.id == task_agent_id)
+            .ok_or(AppError::TaskNotFound)?;
+        if matches!(
+            agent.status,
+            TaskStatus::Completed | TaskStatus::Failed | TaskStatus::Stopped
+        ) {
+            return Ok(detail);
+        }
+        self.active_executions.stop(task_agent_id);
+        let updated_at_ms = current_time_ms()?;
+        self.repository
+            .finish_agent(
+                TaskAgentResult {
+                    task_agent_id: task_agent_id.to_string(),
+                    final_status: TaskStatus::Stopped,
+                    response_text: Some("Execution stopped by user.".to_string()),
+                    changes_relative_path: None,
+                    metrics_json: serde_json::json!({"stopped": true}).to_string(),
+                },
+                updated_at_ms,
+            )
+            .await
+            .map_err(|_| AppError::TaskDatabaseFailed)?;
+        self.repository
+            .refresh_task_status(&task_id, updated_at_ms)
+            .await
+            .map_err(|_| AppError::TaskDatabaseFailed)?;
+        self.repository
+            .get(&task_id)
+            .await
+            .map_err(|_| AppError::TaskDatabaseFailed)?
+            .ok_or(AppError::TaskNotFound)
+    }
+
+    /// Stops every active Agent and waits until no child process can write into Task files.
+    pub(crate) async fn stop_task_and_wait(&self, task_id: &str) -> Result<(), AppError> {
+        let detail = match self
+            .repository
+            .get(task_id)
+            .await
+            .map_err(|_| AppError::TaskDatabaseFailed)?
+        {
+            Some(detail) => detail,
+            None => return Ok(()),
+        };
+        for agent in &detail.agents {
+            self.active_executions.stop(&agent.id);
+        }
+        let started_at = std::time::Instant::now();
+        while detail
+            .agents
+            .iter()
+            .any(|agent| self.active_executions.is_active(&agent.id))
+        {
+            if started_at.elapsed() >= STOP_WAIT_TIMEOUT {
+                return Err(AppError::TaskPreparationFailed);
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        let refreshed = self
+            .repository
+            .get(task_id)
+            .await
+            .map_err(|_| AppError::TaskDatabaseFailed)?
+            .ok_or(AppError::TaskNotFound)?;
+        let updated_at_ms = current_time_ms()?;
+        for agent in refreshed.agents.iter().filter(|agent| {
+            matches!(
+                agent.status,
+                TaskStatus::Preparing | TaskStatus::Running | TaskStatus::Waiting
+            )
+        }) {
+            self.repository
+                .finish_agent(
+                    TaskAgentResult {
+                        task_agent_id: agent.id.clone(),
+                        final_status: TaskStatus::Stopped,
+                        response_text: Some("Execution stopped during Task cleanup.".to_string()),
+                        changes_relative_path: None,
+                        metrics_json: serde_json::json!({"stopped": true}).to_string(),
+                    },
+                    updated_at_ms,
+                )
+                .await
+                .map_err(|_| AppError::TaskDatabaseFailed)?;
+        }
+        self.repository
+            .refresh_task_status(task_id, updated_at_ms)
+            .await
+            .map_err(|_| AppError::TaskDatabaseFailed)?;
+        Ok(())
     }
 
     /// Runs all prepared Agents concurrently and restores the completed Task view.
@@ -194,6 +306,22 @@ impl ActiveExecutions {
         self.lock()
             .insert(task_agent_id.to_string(), cancellation.clone());
         cancellation
+    }
+
+    /// Signals one active Agent if its blocking process is still registered.
+    fn stop(&self, task_agent_id: &str) -> bool {
+        let cancellation = self.lock().get(task_agent_id).cloned();
+        if let Some(cancellation) = cancellation {
+            cancellation.store(true, Ordering::Release);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Reports whether cleanup still needs to wait for one Agent process.
+    fn is_active(&self, task_agent_id: &str) -> bool {
+        self.lock().contains_key(task_agent_id)
     }
 
     /// Removes one completed Agent token.

@@ -243,6 +243,81 @@ impl TaskRepository {
         Ok(())
     }
 
+    /// Finds the owning Task for one Agent Stop request.
+    pub(crate) async fn task_id_for_agent(
+        &self,
+        task_agent_id: &str,
+    ) -> Result<Option<String>, DbErr> {
+        self.database
+            .query_one_raw(Statement::from_sql_and_values(
+                DatabaseBackend::Sqlite,
+                "SELECT task_id FROM task_agents WHERE id = ?",
+                [task_agent_id.into()],
+            ))
+            .await?
+            .map(|row| row.try_get("", "task_id"))
+            .transpose()
+    }
+
+    /// Recomputes the aggregate lifecycle after an independent Agent Stop.
+    pub(crate) async fn refresh_task_status(
+        &self,
+        task_id: &str,
+        updated_at_ms: i64,
+    ) -> Result<TaskStatus, DbErr> {
+        let statuses = self
+            .database
+            .query_all_raw(Statement::from_sql_and_values(
+                DatabaseBackend::Sqlite,
+                "SELECT status FROM task_agents WHERE task_id = ?",
+                [task_id.into()],
+            ))
+            .await?
+            .into_iter()
+            .map(|row| {
+                let status = row.try_get::<String>("", "status")?;
+                TaskStatus::parse(&status)
+                    .ok_or_else(|| DbErr::Custom("Task Agent status is invalid".to_string()))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        if statuses.is_empty() {
+            return Err(DbErr::Custom("Task has no Agent Executions".to_string()));
+        }
+        let status = if statuses.contains(&TaskStatus::Running) {
+            TaskStatus::Running
+        } else if statuses.contains(&TaskStatus::Preparing) {
+            TaskStatus::Preparing
+        } else if statuses.contains(&TaskStatus::Waiting) {
+            TaskStatus::Waiting
+        } else if statuses.contains(&TaskStatus::Failed) {
+            TaskStatus::Failed
+        } else if statuses.contains(&TaskStatus::Stopped) {
+            TaskStatus::Stopped
+        } else {
+            TaskStatus::Completed
+        };
+        self.database
+            .execute_raw(Statement::from_sql_and_values(
+                DatabaseBackend::Sqlite,
+                "UPDATE tasks SET status = ?, updated_at_ms = ? WHERE id = ?",
+                [status.as_str().into(), updated_at_ms.into(), task_id.into()],
+            ))
+            .await?;
+        Ok(status)
+    }
+
+    /// Deletes one Task after its entire filesystem tree has been removed.
+    pub(crate) async fn delete(&self, task_id: &str) -> Result<(), DbErr> {
+        self.database
+            .execute_raw(Statement::from_sql_and_values(
+                DatabaseBackend::Sqlite,
+                "DELETE FROM tasks WHERE id = ?",
+                [task_id.into()],
+            ))
+            .await?;
+        Ok(())
+    }
+
     /// Lists global Recent or one Workspace's History without mixing scopes.
     pub(crate) async fn list(&self, workspace_id: Option<&str>) -> Result<Vec<Task>, DbErr> {
         let (condition, values) = match workspace_id {
