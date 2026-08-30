@@ -1,14 +1,21 @@
 import "@testing-library/jest-dom/vitest";
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppRouter } from ".";
 
 vi.mock("@/pages/comparison", () => new Promise(() => {}));
 vi.mock("@/pages/workspace", () => ({
-	default: ({ workspaceName }: { workspaceName?: string }) => (
+	default: ({
+		workspaceName,
+		taskId,
+	}: {
+		workspaceName?: string;
+		taskId?: string;
+	}) => (
 		<main>
 			workspace composer route
 			{workspaceName ? <span>bound:{workspaceName}</span> : null}
+			{taskId ? <span>task:{taskId}</span> : null}
 		</main>
 	),
 }));
@@ -20,32 +27,51 @@ vi.mock("@/pages/skills", () => ({
 }));
 
 describe("AppRouter", () => {
-	it("opens the workspace composer at the root route", async () => {
+	beforeEach(() => {
+		window.localStorage.clear();
+	});
+
+	it("restores the ordinary Task composer from the root route by default", async () => {
 		window.history.pushState({}, "", "/");
 		render(<AppRouter />);
 
 		expect(
 			await screen.findByText("workspace composer route"),
 		).toBeInTheDocument();
+		expect(window.location.pathname).toBe("/task");
 	});
 
-	it("opens a workspace-bound composer from the workspace route", async () => {
-		window.history.pushState({}, "", "/workspaces/agent-gauge");
+	it("restores the last Workspace composer from the root route", async () => {
+		window.localStorage.setItem(
+			"theoria:last-task-context",
+			JSON.stringify({ scope: "workspace", workspaceId: "docs-lab" }),
+		);
+		window.history.pushState({}, "", "/");
 		render(<AppRouter />);
 
 		expect(
 			await screen.findByText("workspace composer route"),
 		).toBeInTheDocument();
-		expect(screen.getByText("bound:agent-gauge")).toBeInTheDocument();
+		expect(screen.getByText("bound:docs-lab")).toBeInTheDocument();
+		expect(window.location.pathname).toBe("/workspaces/docs-lab");
 	});
 
-	it("renders comparison detail ids through the history route", async () => {
-		window.history.pushState({}, "", "/comparison-history/42");
+	it("opens an ordinary Task detail route", async () => {
+		window.history.pushState({}, "", "/task/task-42");
 		render(<AppRouter />);
 
 		expect(
-			await screen.findByText("comparison history route"),
+			await screen.findByText("workspace composer route"),
 		).toBeInTheDocument();
+		expect(screen.getByText("task:task-42")).toBeInTheDocument();
+	});
+
+	it("opens dynamic Workspace composer and Task detail routes", async () => {
+		window.history.pushState({}, "", "/workspaces/research-kit/task/task-84");
+		render(<AppRouter />);
+
+		expect(await screen.findByText("bound:research-kit")).toBeInTheDocument();
+		expect(screen.getByText("task:task-84")).toBeInTheDocument();
 	});
 
 	it("opens the skill library from its dedicated route", async () => {

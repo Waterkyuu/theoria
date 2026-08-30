@@ -20,6 +20,8 @@ import type {
 type WorkspacePageProps = {
 	/** Workspace shown by the composer, or undefined for the unbound homepage. */
 	workspaceName?: string;
+	/** Existing Task restored into this surface, or undefined for a new Task draft. */
+	taskId?: string;
 };
 
 type SubmittedTask = {
@@ -126,11 +128,13 @@ const WorkspacePage = ({ workspaceName }: WorkspacePageProps) => {
 			{workspaceName ? (
 				<header className="flex h-[34px] shrink-0 items-center justify-between border-b border-hairline px-4 sm:px-xl">
 					<p className="truncate text-body-sm font-medium text-charcoal">
-						{t("workspace.breadcrumb")}
+						{t("workspace.breadcrumb", { workspace: workspaceName })}
 					</p>
 					<div className="hidden items-center gap-sm text-caption-sm text-body sm:flex">
 						<CodeTrunk aria-hidden="true" className="size-4" />
-						<span>{t("workspace.workspacePath")}</span>
+						<span>
+							{t("workspace.workspacePath", { workspace: workspaceName })}
+						</span>
 					</div>
 				</header>
 			) : null}
