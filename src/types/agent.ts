@@ -1,4 +1,4 @@
-import * as z from "zod";
+import { z } from "zod";
 
 const AgentKindSchema = z.literal(["claude", "codex", "opencode", "workbuddy"]);
 
