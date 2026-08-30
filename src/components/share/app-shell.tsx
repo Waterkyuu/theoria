@@ -1,5 +1,6 @@
 import { lazy, type ReactNode, Suspense, useState } from "react";
 import {
+	Archive,
 	ChartColumn,
 	ChevronDown,
 	ChevronRight,
@@ -190,37 +191,92 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 									role="treeitem"
 									tabIndex={-1}
 								>
-									<button
-										aria-label={t(
-											isWorkspaceExpanded
-												? "workspaceSidebar.collapseWorkspace"
-												: "workspaceSidebar.expandWorkspace",
-											{ workspace: "agent-gauge" },
-										)}
+									<div
 										className={cn(
-											"group flex h-8 w-full items-center gap-sm rounded-md px-sm text-left text-body-sm font-medium outline-none hover:bg-hairline focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring",
+											"group flex h-8 w-full items-center rounded-md text-body-sm font-medium hover:bg-hairline",
 											isAgentGaugeSelected && "bg-hairline",
 										)}
-										onClick={() => {
-											if (isAgentGaugeSelected) {
-												setIsWorkspaceExpanded((expanded) => !expanded);
-												return;
-											}
-											setIsWorkspaceExpanded(true);
-											onNavigate("/workspaces/agent-gauge");
-										}}
-										type="button"
 									>
-										<Folder aria-hidden="true" className="size-4 shrink-0" />
-										<span className="min-w-0 flex-1 truncate">agent-gauge</span>
-										<span
-											aria-hidden="true"
-											className="flex shrink-0 items-center gap-sm text-mute opacity-0 transition-opacity group-hover:opacity-100 motion-reduce:transition-none"
+										<button
+											aria-label={t(
+												isWorkspaceExpanded
+													? "workspaceSidebar.collapseWorkspace"
+													: "workspaceSidebar.expandWorkspace",
+												{ workspace: "agent-gauge" },
+											)}
+											className="flex h-full min-w-0 flex-1 items-center gap-sm rounded-md px-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+											onClick={() => {
+												if (isAgentGaugeSelected) {
+													setIsWorkspaceExpanded((expanded) => !expanded);
+													return;
+												}
+												setIsWorkspaceExpanded(true);
+												onNavigate("/workspaces/agent-gauge");
+											}}
+											type="button"
 										>
-											<Plus className="size-4 shrink-0" />
-											<Ellipsis className="size-4 shrink-0" />
-										</span>
-									</button>
+											<Folder aria-hidden="true" className="size-4 shrink-0" />
+											<span className="min-w-0 flex-1 truncate">
+												agent-gauge
+											</span>
+										</button>
+										<div className="flex shrink-0 items-center gap-sm pr-sm text-mute opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:transition-none">
+											<Plus
+												aria-hidden="true"
+												className="size-4 shrink-0 transition-colors hover:text-ink"
+											/>
+											<DropdownMenu
+												items={[
+													{
+														icon: (
+															<Pin
+																aria-hidden="true"
+																className="size-4 shrink-0 text-ink"
+															/>
+														),
+														id: "pin",
+														labelKey: "workspaceSidebar.pinWorkspace",
+													},
+													{
+														icon: (
+															<Archive
+																aria-hidden="true"
+																className="size-4 shrink-0 text-ink"
+															/>
+														),
+														id: "archive",
+														labelKey: "workspaceSidebar.archiveWorkspace",
+													},
+													{
+														danger: true,
+														icon: (
+															<TrashBin
+																aria-hidden="true"
+																className="size-4 shrink-0 text-danger"
+															/>
+														),
+														id: "remove",
+														labelKey: "workspaceSidebar.removeWorkspace",
+														separated: true,
+													},
+												]}
+												placement="bottom end"
+												trigger={
+													<Button
+														aria-label={t("workspaceSidebar.workspaceActions", {
+															workspace: "agent-gauge",
+														})}
+														className="size-4 min-w-4 cursor-pointer rounded-sm p-0 text-mute shadow-none outline-none transition-colors hover:bg-transparent hover:text-ink focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+														isIconOnly
+														size="sm"
+														variant="ghost"
+													>
+														<Ellipsis aria-hidden="true" className="size-4" />
+													</Button>
+												}
+											/>
+										</div>
+									</div>
 
 									{/* biome-ignore lint/a11y/useSemanticElements: WAI-ARIA trees use group to own child treeitems. */}
 									<div
@@ -280,7 +336,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 															<div className="flex shrink-0 items-center gap-sm text-mute opacity-0 transition-opacity group-hover:opacity-100 motion-reduce:transition-none">
 																<Pin
 																	aria-hidden="true"
-																	className="size-4 shrink-0"
+																	className="size-4 shrink-0 transition-colors hover:text-ink"
 																/>
 																<DropdownMenu
 																	items={[
@@ -320,7 +376,7 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 																					),
 																				},
 																			)}
-																			className="size-4 min-w-4 cursor-pointer rounded-sm p-0 text-mute shadow-none outline-none hover:bg-transparent focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+																			className="size-4 min-w-4 cursor-pointer rounded-sm p-0 text-mute shadow-none outline-none transition-colors hover:bg-transparent hover:text-ink focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
 																			isIconOnly
 																			size="sm"
 																			variant="ghost"

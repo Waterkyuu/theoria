@@ -38,7 +38,12 @@ describe("AppShell", () => {
 			screen
 				.getByRole("button", { name: "收起 agent-gauge" })
 				.querySelectorAll("svg"),
-		).toHaveLength(3);
+		).toHaveLength(1);
+		expect(
+			screen
+				.getByRole("button", { name: "agent-gauge 的更多操作" })
+				.querySelectorAll("svg"),
+		).toHaveLength(1);
 		expect(
 			screen.getByRole("button", { name: "任务1" }).querySelectorAll("svg"),
 		).toHaveLength(1);
@@ -122,6 +127,25 @@ describe("AppShell", () => {
 		expect(createButton).toBeDisabled();
 		await user.type(nameInput, "docs-lab");
 		expect(createButton).toBeEnabled();
+	});
+
+	it("opens pin, archive, and remove actions from the workspace menu", async () => {
+		const user = userEvent.setup();
+		render(
+			<AppShell currentPath="/" onNavigate={vi.fn()}>
+				<main>content</main>
+			</AppShell>,
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: "agent-gauge 的更多操作" }),
+		);
+
+		expect(
+			await screen.findByRole("menuitem", { name: "置顶" }),
+		).toBeInTheDocument();
+		expect(screen.getByRole("menuitem", { name: "归档" })).toBeInTheDocument();
+		expect(screen.getByRole("menuitem", { name: "移除" })).toBeInTheDocument();
 	});
 
 	it("renders the temporary mock conversation with pin and more icons", () => {
