@@ -125,6 +125,7 @@ pub fn run() {
         .manage(claude_runtime_settings_cache)
         .manage(runtime_defaults_cache)
         .manage(WorkBuddyConfigWatcherState::default())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let app_data_directory = app.path().app_data_dir()?;
