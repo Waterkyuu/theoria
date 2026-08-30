@@ -9,6 +9,8 @@ const TaskStatusSchema = z.literal([
 	"failed",
 	"stopped",
 ]);
+const TaskFileAccessSchema = z.literal(["read_only", "allow_edits"]);
+const TaskCommandExecutionSchema = z.literal(["deny", "ask", "allow"]);
 const TaskSchema = z.object({
 	/** Stable Task route identifier. */
 	id: z.string().min(1),
@@ -86,9 +88,9 @@ const TaskDetailSchema = z.object({
 	/** Agent panels in stable slot order. */
 	agents: z.array(TaskAgentSchema).min(1).max(6),
 	/** Frozen file access policy. */
-	fileAccess: z.string().min(1),
+	fileAccess: TaskFileAccessSchema,
 	/** Frozen command execution policy. */
-	commandExecution: z.string().min(1),
+	commandExecution: TaskCommandExecutionSchema,
 	/** Skill set captured into the baseline. */
 	skills: z.array(TaskSkillSchema),
 	/** Terminal results collected so far. */
@@ -115,9 +117,9 @@ const CreateTaskRequestSchema = z.object({
 	/** One through six ordered Agent selections. */
 	agents: z.array(CreateTaskAgentSchema).min(1).max(6),
 	/** Frozen file access policy identifier. */
-	fileAccess: z.string().min(1),
+	fileAccess: TaskFileAccessSchema,
 	/** Frozen command execution policy identifier. */
-	commandExecution: z.string().min(1),
+	commandExecution: TaskCommandExecutionSchema,
 	/** Managed Skill choices for a normal Task. */
 	skillIds: z.array(z.string()),
 });

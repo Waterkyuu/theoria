@@ -39,8 +39,8 @@ const RESTORED_TASK = {
 			status: "completed",
 		},
 	],
-	fileAccess: "workspace-write",
-	commandExecution: "allowed",
+	fileAccess: "allow_edits",
+	commandExecution: "allow",
 	skills: [],
 	results: [
 		{

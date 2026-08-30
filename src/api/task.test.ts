@@ -7,6 +7,7 @@ import {
 	listTasks,
 	runTaskExecutions,
 } from "@/api/task";
+import type { CreateTaskRequest } from "@/types/task";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
@@ -31,8 +32,8 @@ const TASK_DETAIL = {
 			status: "preparing",
 		},
 	],
-	fileAccess: "workspace-write",
-	commandExecution: "allowed",
+	fileAccess: "allow_edits",
+	commandExecution: "allow",
 	skills: [],
 	results: [],
 	turns: [],
@@ -50,10 +51,10 @@ describe("Task IPC", () => {
 			agents: [
 				{ agentKind: "codex" as const, model: "gpt-5.6-sol", mode: "high" },
 			],
-			fileAccess: "workspace-write",
-			commandExecution: "allowed",
+			fileAccess: "allow_edits",
+			commandExecution: "allow",
 			skillIds: [],
-		};
+		} satisfies CreateTaskRequest;
 
 		await expect(createTask(request)).resolves.toEqual(TASK_DETAIL);
 		expect(invoke).toHaveBeenCalledWith("create_task", { request });

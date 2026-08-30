@@ -163,8 +163,8 @@ const WorkspacePage = ({ workspaceId, taskId }: WorkspacePageProps) => {
 			title: taskTitleFromPrompt(submission.prompt),
 			prompt: submission.prompt,
 			agents: submission.agents,
-			fileAccess: "workspace-write",
-			commandExecution: "allowed",
+			fileAccess: "allow_edits",
+			commandExecution: "allow",
 			skillIds: submission.skillIds,
 		};
 		try {
