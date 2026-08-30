@@ -94,6 +94,50 @@ impl SkillLibraryService {
             .await
             .map_err(|_| AppError::SkillDatabaseFailed)
     }
+
+    /// Mounts an active Library Skill for future Tasks from one Workspace.
+    pub(crate) async fn mount_to_workspace(
+        &self,
+        workspace_id: &str,
+        skill_id: &str,
+    ) -> Result<Skill, AppError> {
+        let skill = self
+            .repository
+            .list()
+            .await
+            .map_err(|_| AppError::SkillDatabaseFailed)?
+            .into_iter()
+            .find(|skill| skill.id == skill_id)
+            .ok_or(AppError::InvalidSkill)?;
+        self.repository
+            .mount(workspace_id, &skill, current_time_ms()?)
+            .await
+            .map_err(|_| AppError::SkillDatabaseFailed)?;
+        Ok(skill)
+    }
+
+    /// Removes one Workspace mount without modifying Workspace or Library files.
+    pub(crate) async fn unmount_from_workspace(
+        &self,
+        workspace_id: &str,
+        skill_id: &str,
+    ) -> Result<(), AppError> {
+        self.repository
+            .unmount(workspace_id, skill_id)
+            .await
+            .map_err(|_| AppError::SkillDatabaseFailed)
+    }
+
+    /// Lists active Library Skills mounted to one Workspace.
+    pub(crate) async fn list_for_workspace(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<Skill>, AppError> {
+        self.repository
+            .list_for_workspace(workspace_id)
+            .await
+            .map_err(|_| AppError::SkillDatabaseFailed)
+    }
 }
 
 /// Accepts portable project Skill directory names only.
