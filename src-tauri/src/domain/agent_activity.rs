@@ -30,3 +30,14 @@ pub(crate) struct AgentActivity {
     /// Last filesystem observation time in Unix milliseconds.
     pub(crate) updated_at_ms: u64,
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::domain::agent_kind::AgentKind;
+
+    #[test]
+    fn shared_agent_kind_uses_stable_product_identifiers() {
+        assert_eq!(AgentKind::Codex.as_str(), "codex");
+        assert_eq!(AgentKind::parse("workbuddy"), Some(AgentKind::WorkBuddy));
+    }
+}

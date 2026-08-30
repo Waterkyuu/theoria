@@ -26,6 +26,7 @@ mod dto {
 }
 mod domain {
     pub(crate) mod agent_activity;
+    pub(crate) mod agent_kind;
     pub(crate) mod agent_run;
     pub(crate) mod agent_status;
     pub(crate) mod comparison;
