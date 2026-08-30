@@ -36,6 +36,8 @@ pub(crate) enum AppError {
     InvalidSkill,
     SkillDatabaseFailed,
     SkillFilesystemFailed,
+    TaskDatabaseFailed,
+    TaskNotFound,
     WorkerFailed,
 }
 
@@ -187,6 +189,14 @@ impl From<AppError> for IpcError {
             AppError::SkillFilesystemFailed => Self {
                 code: "SKILL_FILESYSTEM_FAILED",
                 message: "无法复制本地技能目录。",
+            },
+            AppError::TaskDatabaseFailed => Self {
+                code: "TASK_DATABASE_FAILED",
+                message: "无法访问本地任务历史数据库。",
+            },
+            AppError::TaskNotFound => Self {
+                code: "TASK_NOT_FOUND",
+                message: "未找到对应的任务记录。",
             },
             AppError::WorkerFailed => Self {
                 code: "WORKER_FAILED",
