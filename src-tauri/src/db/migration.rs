@@ -12,7 +12,197 @@ impl MigratorTrait for Migrator {
             Box::new(CreateComparisonHistory),
             Box::new(AddOpenCodeComparisonAgent),
             Box::new(AddComparisonCompactionCount),
+            Box::new(CreateWorkspaceTaskSystem),
         ]
+    }
+}
+
+/// Creates the reusable Workspace inputs and immutable Task execution records.
+struct CreateWorkspaceTaskSystem;
+
+impl MigrationName for CreateWorkspaceTaskSystem {
+    fn name(&self) -> &str {
+        "m20260831_000004_create_workspace_task_system"
+    }
+}
+
+#[sea_orm_migration::async_trait::async_trait]
+impl MigrationTrait for CreateWorkspaceTaskSystem {
+    fn use_transaction(&self) -> Option<bool> {
+        Some(true)
+    }
+
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(
+                r#"
+                CREATE TABLE workspaces (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    source_kind TEXT NOT NULL,
+                    source_path TEXT NOT NULL,
+                    pinned_at_ms INTEGER,
+                    created_at_ms INTEGER NOT NULL,
+                    updated_at_ms INTEGER NOT NULL,
+                    CHECK (source_kind IN ('external', 'managed')),
+                    CHECK (length(trim(name)) BETWEEN 1 AND 120),
+                    CHECK (length(source_path) > 0),
+                    CHECK (pinned_at_ms IS NULL OR pinned_at_ms > 0),
+                    CHECK (created_at_ms > 0),
+                    CHECK (updated_at_ms > 0)
+                );
+
+                CREATE UNIQUE INDEX idx_workspaces_source
+                    ON workspaces(source_path);
+
+                CREATE TABLE skills (
+                    id TEXT PRIMARY KEY,
+                    folder_name TEXT NOT NULL COLLATE NOCASE,
+                    display_name TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    source_type TEXT NOT NULL,
+                    storage_relative_path TEXT NOT NULL,
+                    source_path TEXT,
+                    deleted_at_ms INTEGER,
+                    created_at_ms INTEGER NOT NULL,
+                    updated_at_ms INTEGER NOT NULL,
+                    CHECK (length(folder_name) BETWEEN 1 AND 64),
+                    CHECK (length(trim(display_name)) BETWEEN 1 AND 120),
+                    CHECK (source_type IN ('local_folder', 'platform', 'git')),
+                    CHECK (length(storage_relative_path) > 0),
+                    CHECK (deleted_at_ms IS NULL OR deleted_at_ms > 0),
+                    CHECK (created_at_ms > 0),
+                    CHECK (updated_at_ms > 0)
+                );
+
+                CREATE UNIQUE INDEX idx_skills_active_folder_name
+                    ON skills(folder_name)
+                    WHERE deleted_at_ms IS NULL;
+
+                CREATE TABLE workspace_skill_mounts (
+                    workspace_id TEXT NOT NULL,
+                    skill_id TEXT NOT NULL,
+                    folder_name_snapshot TEXT NOT NULL,
+                    created_at_ms INTEGER NOT NULL,
+                    PRIMARY KEY (workspace_id, skill_id),
+                    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+                    FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE RESTRICT,
+                    CHECK (length(folder_name_snapshot) BETWEEN 1 AND 64),
+                    CHECK (created_at_ms > 0)
+                );
+
+                CREATE TABLE tasks (
+                    id TEXT PRIMARY KEY,
+                    workspace_id TEXT,
+                    title TEXT NOT NULL,
+                    prompt TEXT NOT NULL,
+                    baseline_relative_path TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    configuration_locked_at_ms INTEGER,
+                    created_at_ms INTEGER NOT NULL,
+                    updated_at_ms INTEGER NOT NULL,
+                    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+                    CHECK (length(trim(title)) BETWEEN 1 AND 120),
+                    CHECK (length(trim(prompt)) BETWEEN 1 AND 16000),
+                    CHECK (length(baseline_relative_path) > 0),
+                    CHECK (status IN ('preparing', 'running', 'waiting', 'completed', 'failed', 'stopped')),
+                    CHECK (configuration_locked_at_ms IS NULL OR configuration_locked_at_ms > 0),
+                    CHECK (created_at_ms > 0),
+                    CHECK (updated_at_ms > 0)
+                );
+
+                CREATE INDEX idx_tasks_scope_history
+                    ON tasks(workspace_id, created_at_ms DESC);
+
+                CREATE TABLE task_agents (
+                    id TEXT PRIMARY KEY,
+                    task_id TEXT NOT NULL,
+                    slot_index INTEGER NOT NULL,
+                    agent_kind TEXT NOT NULL,
+                    model_snapshot TEXT,
+                    mode_snapshot TEXT,
+                    session_id TEXT,
+                    execution_relative_path TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    created_at_ms INTEGER NOT NULL,
+                    updated_at_ms INTEGER NOT NULL,
+                    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+                    UNIQUE (task_id, slot_index),
+                    CHECK (slot_index BETWEEN 0 AND 5),
+                    CHECK (agent_kind IN ('codex', 'claude', 'opencode', 'workbuddy')),
+                    CHECK (length(execution_relative_path) > 0),
+                    CHECK (status IN ('preparing', 'running', 'waiting', 'completed', 'failed', 'stopped')),
+                    CHECK (created_at_ms > 0),
+                    CHECK (updated_at_ms > 0)
+                );
+
+                CREATE TABLE task_permissions (
+                    task_id TEXT PRIMARY KEY,
+                    file_access TEXT NOT NULL,
+                    command_execution TEXT NOT NULL,
+                    created_at_ms INTEGER NOT NULL,
+                    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+                    CHECK (file_access IN ('read_only', 'allow_edits')),
+                    CHECK (command_execution IN ('deny', 'ask', 'allow')),
+                    CHECK (created_at_ms > 0)
+                );
+
+                CREATE TABLE task_skills (
+                    task_id TEXT NOT NULL,
+                    folder_name TEXT NOT NULL COLLATE NOCASE,
+                    origin TEXT NOT NULL,
+                    library_skill_id TEXT,
+                    relative_path TEXT NOT NULL,
+                    created_at_ms INTEGER NOT NULL,
+                    PRIMARY KEY (task_id, folder_name),
+                    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+                    FOREIGN KEY (library_skill_id) REFERENCES skills(id) ON DELETE SET NULL,
+                    CHECK (origin IN ('workspace_source', 'workspace_mount', 'task_selection')),
+                    CHECK (length(folder_name) BETWEEN 1 AND 64),
+                    CHECK (length(relative_path) > 0),
+                    CHECK (created_at_ms > 0)
+                );
+
+                CREATE TABLE task_agent_results (
+                    task_agent_id TEXT PRIMARY KEY,
+                    final_status TEXT NOT NULL,
+                    response_text TEXT,
+                    changes_relative_path TEXT,
+                    metrics_json TEXT NOT NULL DEFAULT '{}',
+                    created_at_ms INTEGER NOT NULL,
+                    updated_at_ms INTEGER NOT NULL,
+                    FOREIGN KEY (task_agent_id) REFERENCES task_agents(id) ON DELETE CASCADE,
+                    CHECK (final_status IN ('completed', 'failed', 'stopped')),
+                    CHECK (json_valid(metrics_json)),
+                    CHECK (created_at_ms > 0),
+                    CHECK (updated_at_ms > 0)
+                );
+                "#,
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(
+                r#"
+                DROP TABLE task_agent_results;
+                DROP TABLE task_skills;
+                DROP TABLE task_permissions;
+                DROP TABLE task_agents;
+                DROP TABLE tasks;
+                DROP TABLE workspace_skill_mounts;
+                DROP TABLE skills;
+                DROP TABLE workspaces;
+                "#,
+            )
+            .await?;
+
+        Ok(())
     }
 }
 
@@ -351,6 +541,51 @@ mod tests {
                 )
                 .await
                 .expect("OpenCode should satisfy the migrated agent constraint");
+
+            database.close().await.expect("database should close");
+            std::fs::remove_file(path).expect("temporary database should be removable");
+        });
+    }
+
+    #[test]
+    fn creates_workspace_skill_and_task_execution_tables() {
+        tauri::async_runtime::block_on(async {
+            let (path, url) = temporary_database_url();
+            let database = connect_sqlite(&url).await.expect("database should connect");
+            Migrator::up(&database, None)
+                .await
+                .expect("migration should succeed");
+
+            let objects = database
+                .query_all_raw(Statement::from_string(
+                    DatabaseBackend::Sqlite,
+                    "SELECT name FROM sqlite_master WHERE name IN ('workspaces', 'skills', 'workspace_skill_mounts', 'tasks', 'task_agents', 'task_permissions', 'task_skills', 'task_agent_results', 'idx_workspaces_source', 'idx_skills_active_folder_name', 'idx_tasks_scope_history') ORDER BY name".to_string(),
+                ))
+                .await
+                .expect("workspace schema should be readable")
+                .into_iter()
+                .map(|row| {
+                    row.try_get::<String>("", "name")
+                        .expect("schema name should be text")
+                })
+                .collect::<Vec<_>>();
+
+            assert_eq!(
+                objects,
+                vec![
+                    "idx_skills_active_folder_name",
+                    "idx_tasks_scope_history",
+                    "idx_workspaces_source",
+                    "skills",
+                    "task_agent_results",
+                    "task_agents",
+                    "task_permissions",
+                    "task_skills",
+                    "tasks",
+                    "workspace_skill_mounts",
+                    "workspaces",
+                ]
+            );
 
             database.close().await.expect("database should close");
             std::fs::remove_file(path).expect("temporary database should be removable");
