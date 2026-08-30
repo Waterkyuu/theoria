@@ -1,6 +1,6 @@
 use crate::domain::task::{Task, TaskAgent, TaskAgentResult, TaskDetail, TaskSkill};
-use crate::error::IpcError;
-use crate::services::task::TaskService;
+use crate::error::{AppError, IpcError};
+use crate::services::task::{CreateTaskAgentInput, CreateTaskInput, TaskService};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -18,6 +18,38 @@ pub(crate) struct ListTasksRequest {
 pub(crate) struct GetTaskRequest {
     /// Stable Task identifier from an internal route.
     task_id: String,
+}
+
+/// One ordered Agent choice submitted from the Composer.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CreateTaskAgentRequest {
+    /// Local Agent product identifier.
+    agent_kind: String,
+    /// Optional explicit model choice.
+    model: Option<String>,
+    /// Optional mode or reasoning choice.
+    mode: Option<String>,
+}
+
+/// Complete Composer payload accepted exactly once.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CreateTaskRequest {
+    /// Optional owning Workspace.
+    workspace_id: Option<String>,
+    /// User-visible Task title.
+    title: String,
+    /// Initial natural-language request.
+    prompt: String,
+    /// One through six ordered Agent choices.
+    agents: Vec<CreateTaskAgentRequest>,
+    /// Frozen file access identifier.
+    file_access: String,
+    /// Frozen command execution identifier.
+    command_execution: String,
+    /// Managed Skill choices allowed only for normal Tasks.
+    skill_ids: Vec<String>,
 }
 
 /// Task metadata shown in Recent, History, and detail headers.
@@ -191,6 +223,41 @@ pub(crate) async fn get_task(
 ) -> Result<TaskDetailResponse, IpcError> {
     service
         .get(&request.task_id)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
+/// Freezes one Composer into an immutable Baseline and isolated Agent workspaces.
+#[tauri::command]
+pub(crate) async fn create_task(
+    request: CreateTaskRequest,
+    service: State<'_, TaskService>,
+) -> Result<TaskDetailResponse, IpcError> {
+    let agents = request
+        .agents
+        .into_iter()
+        .map(|agent| {
+            let agent_kind = crate::domain::agent_kind::AgentKind::parse(&agent.agent_kind)
+                .ok_or(AppError::InvalidTask)?;
+            Ok(CreateTaskAgentInput {
+                agent_kind,
+                model: agent.model,
+                mode: agent.mode,
+            })
+        })
+        .collect::<Result<Vec<_>, AppError>>()
+        .map_err(IpcError::from)?;
+    service
+        .create(CreateTaskInput {
+            workspace_id: request.workspace_id,
+            title: request.title,
+            prompt: request.prompt,
+            agents,
+            file_access: request.file_access,
+            command_execution: request.command_execution,
+            skill_ids: request.skill_ids,
+        })
         .await
         .map(Into::into)
         .map_err(Into::into)

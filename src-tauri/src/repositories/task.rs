@@ -4,6 +4,7 @@ use crate::domain::task::{
 };
 use sea_orm::{
     ConnectionTrait, DatabaseBackend, DatabaseConnection, DbErr, QueryResult, Statement,
+    TransactionTrait,
 };
 
 /// SQLite persistence boundary for Task History and execution snapshots.
@@ -17,6 +18,102 @@ impl TaskRepository {
     /// Creates a repository over migrated application storage.
     pub(crate) fn new(database: DatabaseConnection) -> Self {
         Self { database }
+    }
+
+    /// Atomically persists one locked Task and every frozen child configuration.
+    pub(crate) async fn create(&self, detail: TaskDetail) -> Result<TaskDetail, DbErr> {
+        if detail.task.configuration_locked_at_ms.is_none() || !detail.results.is_empty() {
+            return Err(DbErr::Custom(
+                "New Tasks must be locked and cannot contain results".to_string(),
+            ));
+        }
+        let transaction = self.database.begin().await?;
+        transaction
+            .execute_raw(Statement::from_sql_and_values(
+                DatabaseBackend::Sqlite,
+                r#"
+                INSERT INTO tasks
+                    (id, workspace_id, title, prompt, baseline_relative_path, status,
+                     configuration_locked_at_ms, created_at_ms, updated_at_ms)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                "#,
+                [
+                    detail.task.id.clone().into(),
+                    detail.task.workspace_id.clone().into(),
+                    detail.task.title.clone().into(),
+                    detail.task.prompt.clone().into(),
+                    detail.task.baseline_relative_path.clone().into(),
+                    detail.task.status.as_str().into(),
+                    detail.task.configuration_locked_at_ms.into(),
+                    detail.task.created_at_ms.into(),
+                    detail.task.updated_at_ms.into(),
+                ],
+            ))
+            .await?;
+        for agent in &detail.agents {
+            transaction
+                .execute_raw(Statement::from_sql_and_values(
+                    DatabaseBackend::Sqlite,
+                    r#"
+                    INSERT INTO task_agents
+                        (id, task_id, slot_index, agent_kind, model_snapshot, mode_snapshot,
+                         session_id, execution_relative_path, status, created_at_ms, updated_at_ms)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    "#,
+                    [
+                        agent.id.clone().into(),
+                        agent.task_id.clone().into(),
+                        agent.slot_index.into(),
+                        agent.agent_kind.as_str().into(),
+                        agent.model_snapshot.clone().into(),
+                        agent.mode_snapshot.clone().into(),
+                        agent.session_id.clone().into(),
+                        agent.execution_relative_path.clone().into(),
+                        agent.status.as_str().into(),
+                        agent.created_at_ms.into(),
+                        agent.updated_at_ms.into(),
+                    ],
+                ))
+                .await?;
+        }
+        transaction
+            .execute_raw(Statement::from_sql_and_values(
+                DatabaseBackend::Sqlite,
+                r#"
+                INSERT INTO task_permissions
+                    (task_id, file_access, command_execution, created_at_ms)
+                VALUES (?, ?, ?, ?)
+                "#,
+                [
+                    detail.task.id.clone().into(),
+                    detail.permissions.file_access.clone().into(),
+                    detail.permissions.command_execution.clone().into(),
+                    detail.task.created_at_ms.into(),
+                ],
+            ))
+            .await?;
+        for skill in &detail.skills {
+            transaction
+                .execute_raw(Statement::from_sql_and_values(
+                    DatabaseBackend::Sqlite,
+                    r#"
+                    INSERT INTO task_skills
+                        (task_id, folder_name, origin, library_skill_id, relative_path, created_at_ms)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    "#,
+                    [
+                        detail.task.id.clone().into(),
+                        skill.folder_name.clone().into(),
+                        skill.origin.clone().into(),
+                        skill.library_skill_id.clone().into(),
+                        skill.relative_path.clone().into(),
+                        detail.task.created_at_ms.into(),
+                    ],
+                ))
+                .await?;
+        }
+        transaction.commit().await?;
+        Ok(detail)
     }
 
     /// Lists global Recent or one Workspace's History without mixing scopes.

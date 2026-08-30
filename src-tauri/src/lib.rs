@@ -60,6 +60,7 @@ mod services {
     pub(crate) mod comparison;
     pub(crate) mod process;
     pub(crate) mod skill;
+    pub(crate) mod snapshot;
     pub(crate) mod task;
     pub(crate) mod workspace;
 }
@@ -96,6 +97,7 @@ use crate::services::activity::SystemAgentActivityMonitor;
 use crate::services::comparison::ComparisonService;
 use crate::services::process::AgentProcessMonitor;
 use crate::services::skill::SkillLibraryService;
+use crate::services::snapshot::SnapshotService;
 use crate::services::task::TaskService;
 use crate::services::workspace::WorkspaceService;
 use sea_orm_migration::MigratorTrait;
@@ -139,9 +141,13 @@ pub fn run() {
                 SkillRepository::new(comparison_database.clone()),
                 app_data_directory.clone(),
             ));
-            app.manage(TaskService::new(TaskRepository::new(
-                comparison_database.clone(),
-            )));
+            app.manage(TaskService::new(
+                TaskRepository::new(comparison_database.clone()),
+                WorkspaceRepository::new(comparison_database.clone()),
+                SkillRepository::new(comparison_database.clone()),
+                SnapshotService::new(app_data_directory.clone()),
+                app_data_directory.clone(),
+            ));
             app.manage(ComparisonService::new(ComparisonRepository::new(
                 comparison_database,
             )));
@@ -301,6 +307,7 @@ pub fn run() {
             commands::skill::mount_workspace_skill,
             commands::skill::unmount_workspace_skill,
             commands::task::get_task,
+            commands::task::create_task,
             commands::task::list_tasks,
             commands::opencode::check_opencode_init_status,
             commands::opencode::check_opencode_login,
