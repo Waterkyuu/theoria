@@ -42,7 +42,7 @@ pub(crate) struct CreateTaskInput {
     pub(crate) skill_ids: Vec<String>,
 }
 
-/// Restores immutable Task conditions and scoped History from local storage.
+/// Restores immutable Task conditions and scoped Task lists from local storage.
 #[derive(Clone)]
 pub(crate) struct TaskService {
     /// Persisted Task aggregate boundary.
@@ -177,7 +177,7 @@ impl TaskService {
         }
     }
 
-    /// Lists global Recent or one Workspace History as distinct scopes.
+    /// Lists global Recent or one Workspace's Tasks as distinct scopes.
     pub(crate) async fn list(&self, workspace_id: Option<&str>) -> Result<Vec<Task>, AppError> {
         self.repository
             .list(workspace_id)

@@ -6,11 +6,11 @@ use crate::services::task_execution::TaskExecutionService;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-/// Request selecting global Recent or one Workspace History.
+/// Request selecting global Recent or one Workspace Task list.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ListTasksRequest {
-    /// Omitted for global Recent and present for Workspace History.
+    /// Omitted for global Recent and present for a Workspace Task list.
     workspace_id: Option<String>,
 }
 
@@ -82,7 +82,7 @@ pub(crate) struct StopTaskAgentRequest {
     task_agent_id: String,
 }
 
-/// Task metadata shown in Recent, History, and detail headers.
+/// Task metadata shown in Recent, Workspace lists, and detail headers.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct TaskResponse {
@@ -273,7 +273,7 @@ impl From<TaskDetail> for TaskDetailResponse {
     }
 }
 
-/// Lists global Recent or one Workspace's Task History.
+/// Lists global Recent or one Workspace's Tasks.
 #[tauri::command]
 pub(crate) async fn list_tasks(
     request: ListTasksRequest,

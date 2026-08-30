@@ -8,7 +8,7 @@ use sea_orm::{
     TransactionTrait,
 };
 
-/// SQLite persistence boundary for Task History and execution snapshots.
+/// SQLite persistence boundary for Tasks and execution snapshots.
 #[derive(Clone)]
 pub(crate) struct TaskRepository {
     /// Shared application database connection pool.
@@ -454,7 +454,7 @@ impl TaskRepository {
         Ok(())
     }
 
-    /// Lists global Recent or one Workspace's History without mixing scopes.
+    /// Lists global Recent or one Workspace's Tasks without mixing scopes.
     pub(crate) async fn list(&self, workspace_id: Option<&str>) -> Result<Vec<Task>, DbErr> {
         let (condition, values) = match workspace_id {
             Some(workspace_id) => ("workspace_id = ?", vec![workspace_id.into()]),
@@ -679,7 +679,7 @@ mod tests {
     static DATABASE_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 
     #[test]
-    fn keeps_global_recent_separate_from_workspace_history() {
+    fn keeps_global_recent_separate_from_workspace_tasks() {
         tauri::async_runtime::block_on(async {
             let sequence = DATABASE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
             let path = std::env::temp_dir().join(format!(
@@ -716,7 +716,7 @@ mod tests {
             let workspace = repository
                 .list(Some("workspace-1"))
                 .await
-                .expect("Workspace History should list");
+                .expect("Workspace Tasks should list");
 
             assert_eq!(global.len(), 1);
             assert_eq!(global[0].id, "task-global");

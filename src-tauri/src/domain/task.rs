@@ -43,7 +43,7 @@ impl TaskStatus {
 pub(crate) struct Task {
     /// Stable Task identifier.
     pub(crate) id: String,
-    /// Optional owning Workspace for scoped History.
+    /// Optional owning Workspace for scoped Task navigation.
     pub(crate) workspace_id: Option<String>,
     /// User-visible task title.
     pub(crate) title: String,
@@ -144,7 +144,7 @@ pub(crate) struct TaskAgentTurn {
     pub(crate) created_at_ms: i64,
 }
 
-/// Complete persisted Task view restored by History.
+/// Complete persisted Task view restored from direct Task navigation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TaskDetail {
     /// Immutable Task metadata.
