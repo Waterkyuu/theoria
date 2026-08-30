@@ -13,6 +13,15 @@ pub(crate) struct AgentExecutionConfig<'a> {
     pub(crate) mode: Option<&'a str>,
 }
 
+/// One Agent turn plus the opaque session identifier required for a later turn.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct AgentSessionRunOutput {
+    /// Normalized response and measurements for this turn.
+    pub(crate) output: AgentRunOutput,
+    /// Product-owned session or thread identifier, when supported by the adapter.
+    pub(crate) session_id: Option<String>,
+}
+
 /// Normalized status boundary that keeps frequent login probes independent from configuration IO.
 pub(crate) trait AgentStatusAdapter {
     /// Checks installation and authentication without loading model configuration.
@@ -62,6 +71,22 @@ pub(crate) trait AgentAdapter {
         cancelled: &AtomicBool,
     ) -> Result<AgentRunOutput, AppError> {
         self.run_task_cancellable(query, execution_directory, cancelled)
+    }
+
+    /// Runs a first or follow-up turn and returns the session needed to continue it later.
+    fn run_session_turn_with_config_cancellable(
+        &self,
+        query: &str,
+        execution_directory: &Path,
+        config: AgentExecutionConfig<'_>,
+        _session_id: Option<&str>,
+        cancelled: &AtomicBool,
+    ) -> Result<AgentSessionRunOutput, AppError> {
+        self.run_task_with_config_cancellable(query, execution_directory, config, cancelled)
+            .map(|output| AgentSessionRunOutput {
+                output,
+                session_id: None,
+            })
     }
 }
 

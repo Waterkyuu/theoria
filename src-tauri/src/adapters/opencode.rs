@@ -1,5 +1,6 @@
 use crate::adapters::agent::{
-    validate_execution_directory, AgentAdapter, AgentExecutionConfig, AgentStatusAdapter,
+    validate_execution_directory, AgentAdapter, AgentExecutionConfig, AgentSessionRunOutput,
+    AgentStatusAdapter,
 };
 use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput, TokenUsage};
 use crate::domain::agent_status::{AgentLoginStatus, AgentRuntimeConfig};
@@ -70,9 +71,34 @@ impl AgentAdapter for SystemOpenCodeAdapter {
         config: AgentExecutionConfig<'_>,
         cancelled: &AtomicBool,
     ) -> Result<AgentRunOutput, AppError> {
+        self.run_session_turn_with_config_cancellable(
+            query,
+            execution_directory,
+            config,
+            None,
+            cancelled,
+        )
+        .map(|run| run.output)
+    }
+
+    fn run_session_turn_with_config_cancellable(
+        &self,
+        query: &str,
+        execution_directory: &Path,
+        config: AgentExecutionConfig<'_>,
+        session_id: Option<&str>,
+        cancelled: &AtomicBool,
+    ) -> Result<AgentSessionRunOutput, AppError> {
         validate_execution_directory(execution_directory)?;
         let executable = find_usable_opencode_executable()?;
-        run_opencode_task(&executable, query, execution_directory, config, cancelled)
+        run_opencode_task(
+            &executable,
+            query,
+            execution_directory,
+            config,
+            session_id,
+            cancelled,
+        )
     }
 }
 
@@ -104,6 +130,9 @@ struct OpenCodeRunEvent {
     timestamp: Option<u64>,
     /// Completed message part carried by text, reasoning, tool, and step events.
     part: Option<OpenCodePart>,
+    /// Opaque session identifier shared by every event in one OpenCode run.
+    #[serde(rename = "sessionID")]
+    session_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -274,10 +303,11 @@ fn run_opencode_task(
     query: &str,
     execution_directory: &Path,
     config: AgentExecutionConfig<'_>,
+    session_id: Option<&str>,
     cancelled: &AtomicBool,
-) -> Result<AgentRunOutput, AppError> {
+) -> Result<AgentSessionRunOutput, AppError> {
     let started_at = Instant::now();
-    let mut command = build_opencode_task_command(executable, query, config);
+    let mut command = build_opencode_task_command(executable, query, config, session_id);
     command.current_dir(execution_directory);
     let mut child = command
         .spawn()
@@ -321,6 +351,7 @@ fn build_opencode_task_command(
     executable: &OsStr,
     query: &str,
     config: AgentExecutionConfig<'_>,
+    session_id: Option<&str>,
 ) -> Command {
     let mut command = Command::new(executable);
     command.args(["run", "--format", "json", "--thinking"]);
@@ -329,6 +360,9 @@ fn build_opencode_task_command(
     }
     if let Some(mode) = config.mode {
         command.args(["--variant", mode]);
+    }
+    if let Some(session_id) = session_id {
+        command.args(["--session", session_id]);
     }
     command
         .arg("--")
@@ -352,6 +386,7 @@ fn collect_opencode_events(
         timeout,
         &AtomicBool::new(false),
     )
+    .map(|run| run.output)
 }
 
 fn collect_opencode_events_cancellable(
@@ -359,11 +394,12 @@ fn collect_opencode_events_cancellable(
     started_at: Instant,
     timeout: Duration,
     cancelled: &AtomicBool,
-) -> Result<AgentRunOutput, AppError> {
+) -> Result<AgentSessionRunOutput, AppError> {
     let mut collector = AgentRunMetricsCollector::default();
     let mut response = String::new();
     let mut protocol_started_at_ms = None;
     let mut completed = false;
+    let mut session_id = None;
 
     loop {
         let remaining = timeout
@@ -379,6 +415,9 @@ fn collect_opencode_events_cancellable(
         };
         let event: OpenCodeRunEvent =
             serde_json::from_str(&line).map_err(|_| AppError::OpenCodeProtocolFailed)?;
+        if event.session_id.is_some() {
+            session_id = event.session_id.clone();
+        }
         if event.event_type == "error" {
             return Err(AppError::OpenCodeTaskFailed);
         }
@@ -442,9 +481,12 @@ fn collect_opencode_events_cancellable(
         return Err(AppError::OpenCodeProtocolFailed);
     }
     let total_duration = started_at.elapsed();
-    Ok(AgentRunOutput {
-        response,
-        metrics: collector.finish(total_duration),
+    Ok(AgentSessionRunOutput {
+        output: AgentRunOutput {
+            response,
+            metrics: collector.finish(total_duration),
+        },
+        session_id,
     })
 }
 
@@ -538,6 +580,7 @@ mod tests {
                 model: Some("anthropic/claude-sonnet-4-6"),
                 mode: Some("high"),
             },
+            None,
         );
         let args = command
             .get_args()
@@ -548,6 +591,24 @@ mod tests {
             .windows(2)
             .any(|args| args == ["--model", "anthropic/claude-sonnet-4-6"]));
         assert!(args.windows(2).any(|args| args == ["--variant", "high"]));
+    }
+
+    #[test]
+    fn resumes_the_exact_opencode_session() {
+        let command = build_opencode_task_command(
+            "opencode".as_ref(),
+            "follow up",
+            AgentExecutionConfig::default(),
+            Some("session-42"),
+        );
+        let args = command
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        assert!(args
+            .windows(2)
+            .any(|args| args == ["--session", "session-42"]));
     }
 
     #[test]

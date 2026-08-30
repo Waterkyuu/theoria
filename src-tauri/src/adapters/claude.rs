@@ -1,5 +1,6 @@
 use crate::adapters::agent::{
-    validate_execution_directory, AgentAdapter, AgentExecutionConfig, AgentStatusAdapter,
+    validate_execution_directory, AgentAdapter, AgentExecutionConfig, AgentSessionRunOutput,
+    AgentStatusAdapter,
 };
 use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput, TokenUsage};
 use crate::domain::agent_status::{AgentLoginStatus, AgentRuntimeConfig};
@@ -95,9 +96,34 @@ impl AgentAdapter for SystemClaudeAdapter {
         config: AgentExecutionConfig<'_>,
         cancelled: &AtomicBool,
     ) -> Result<AgentRunOutput, AppError> {
+        self.run_session_turn_with_config_cancellable(
+            query,
+            execution_directory,
+            config,
+            None,
+            cancelled,
+        )
+        .map(|run| run.output)
+    }
+
+    fn run_session_turn_with_config_cancellable(
+        &self,
+        query: &str,
+        execution_directory: &Path,
+        config: AgentExecutionConfig<'_>,
+        session_id: Option<&str>,
+        cancelled: &AtomicBool,
+    ) -> Result<AgentSessionRunOutput, AppError> {
         validate_execution_directory(execution_directory)?;
         let executable = resolve_claude_executable()?;
-        run_claude_task(&executable, query, execution_directory, config, cancelled)
+        run_claude_task(
+            &executable,
+            query,
+            execution_directory,
+            config,
+            session_id,
+            cancelled,
+        )
     }
 }
 
@@ -224,6 +250,8 @@ struct StreamMessage {
     is_error: Option<bool>,
     /// Full conversation message carried by an assistant message event.
     message: Option<StreamConversationMessage>,
+    /// Opaque Claude session identifier emitted on initialization and completion.
+    session_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -408,10 +436,11 @@ fn run_claude_task(
     query: &str,
     execution_directory: &Path,
     config: AgentExecutionConfig<'_>,
+    session_id: Option<&str>,
     cancelled: &AtomicBool,
-) -> Result<AgentRunOutput, AppError> {
+) -> Result<AgentSessionRunOutput, AppError> {
     let started_at = Instant::now();
-    let mut command = build_claude_task_command(executable, query, config);
+    let mut command = build_claude_task_command(executable, query, config, session_id);
     command.current_dir(execution_directory);
     let mut child = command
         .spawn()
@@ -447,6 +476,7 @@ fn build_claude_task_command(
     executable: &OsStr,
     query: &str,
     config: AgentExecutionConfig<'_>,
+    session_id: Option<&str>,
 ) -> Command {
     let mut command = Command::new(executable);
     if let Some(model) = config.model {
@@ -454,6 +484,9 @@ fn build_claude_task_command(
     }
     if let Some(mode) = config.mode {
         command.args(["--effort", mode]);
+    }
+    if let Some(session_id) = session_id {
+        command.args(["--resume", session_id]);
     }
     command
         .args([
@@ -465,7 +498,6 @@ fn build_claude_task_command(
             "--verbose",
             "--permission-mode",
             "plan",
-            "--no-session-persistence",
         ])
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -479,16 +511,18 @@ fn collect_claude_events(
     started_at: Instant,
 ) -> Result<AgentRunOutput, AppError> {
     collect_claude_events_cancellable(event_receiver, started_at, &AtomicBool::new(false))
+        .map(|run| run.output)
 }
 
 fn collect_claude_events_cancellable(
     event_receiver: &Receiver<Result<String, AppError>>,
     started_at: Instant,
     cancelled: &AtomicBool,
-) -> Result<AgentRunOutput, AppError> {
+) -> Result<AgentSessionRunOutput, AppError> {
     let mut collector = AgentRunMetricsCollector::default();
     collector.track_context_compactions();
     let mut response = String::new();
+    let mut session_id = None;
 
     loop {
         let remaining = CLAUDE_RUN_TIMEOUT
@@ -497,6 +531,9 @@ fn collect_claude_events_cancellable(
         let line = receive_cancellable_line(event_receiver, remaining, cancelled)?;
         let message: StreamMessage =
             serde_json::from_str(&line).map_err(|_| AppError::ClaudeProtocolFailed)?;
+        if message.session_id.is_some() {
+            session_id = message.session_id.clone();
+        }
 
         if message.message_type == "system"
             && message.subtype.as_deref() == Some("compact_boundary")
@@ -593,9 +630,12 @@ fn collect_claude_events_cancellable(
             if response.is_empty() {
                 response = message.result.unwrap_or_default();
             }
-            return Ok(AgentRunOutput {
-                response,
-                metrics: collector.finish(started_at.elapsed()),
+            return Ok(AgentSessionRunOutput {
+                output: AgentRunOutput {
+                    response,
+                    metrics: collector.finish(started_at.elapsed()),
+                },
+                session_id,
             });
         }
     }
@@ -705,6 +745,7 @@ mod tests {
                 model: Some("claude-opus-4-1"),
                 mode: Some("high"),
             },
+            None,
         );
         let args = command
             .get_args()
@@ -715,6 +756,25 @@ mod tests {
             .windows(2)
             .any(|args| args == ["--model", "claude-opus-4-1"]));
         assert!(args.windows(2).any(|args| args == ["--effort", "high"]));
+        assert!(!args.iter().any(|arg| arg == "--no-session-persistence"));
+    }
+
+    #[test]
+    fn resumes_the_exact_claude_session() {
+        let command = build_claude_task_command(
+            "claude".as_ref(),
+            "follow up",
+            AgentExecutionConfig::default(),
+            Some("session-42"),
+        );
+        let args = command
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        assert!(args
+            .windows(2)
+            .any(|args| args == ["--resume", "session-42"]));
     }
 
     #[test]
