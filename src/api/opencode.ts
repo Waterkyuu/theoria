@@ -1,15 +1,18 @@
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
-import type {
-	AgentLoginStatus,
-	AgentRunResult,
-	AgentRuntimeConfig,
-	AgentRuntimeStatus,
+import { invokeWithResponseSchema, listenWithResponseSchema } from "@/api/ipc";
+import {
+	type AgentRuntimeConfig,
+	CompiledAgentLoginStatusSchema,
+	CompiledAgentRunResultSchema,
+	CompiledAgentRuntimeConfigSchema,
+	CompiledAgentRuntimeStatusSchema,
 } from "@/types/agent";
 
 /** Checks OpenCode credentials and resolved runtime configuration through official CLI commands. */
 const checkOpenCodeLogin = () =>
-	invoke<AgentLoginStatus>("check_opencode_login");
+	invokeWithResponseSchema(
+		"check_opencode_login",
+		CompiledAgentLoginStatusSchema,
+	);
 
 /**
  * Returns the complete OpenCode status needed for the first render.
@@ -18,7 +21,10 @@ const checkOpenCodeLogin = () =>
  * checkOpenCodeInitStatus();
  */
 const checkOpenCodeInitStatus = () =>
-	invoke<AgentRuntimeStatus>("check_opencode_init_status");
+	invokeWithResponseSchema(
+		"check_opencode_init_status",
+		CompiledAgentRuntimeStatusSchema,
+	);
 
 /**
  * Reads OpenCode's resolved model configuration without checking credentials.
@@ -27,7 +33,10 @@ const checkOpenCodeInitStatus = () =>
  * getOpenCodeRuntimeConfig();
  */
 const getOpenCodeRuntimeConfig = () =>
-	invoke<AgentRuntimeConfig>("get_opencode_runtime_config");
+	invokeWithResponseSchema(
+		"get_opencode_runtime_config",
+		CompiledAgentRuntimeConfigSchema,
+	);
 
 /**
  * Subscribes to native changes across OpenCode's file-backed configuration layers.
@@ -38,9 +47,11 @@ const getOpenCodeRuntimeConfig = () =>
 const onOpenCodeConfigChanged = (
 	listener: (config: AgentRuntimeConfig) => void,
 ) =>
-	listen<AgentRuntimeConfig>("opencode-config-changed", (event) => {
-		listener(event.payload);
-	});
+	listenWithResponseSchema(
+		"opencode-config-changed",
+		CompiledAgentRuntimeConfigSchema,
+		listener,
+	);
 
 /**
  * Sends one task through OpenCode's documented non-interactive JSON event mode.
@@ -49,7 +60,9 @@ const onOpenCodeConfigChanged = (
  * runOpenCodeTask("解释这个仓库");
  */
 const runOpenCodeTask = (query: string) =>
-	invoke<AgentRunResult>("run_opencode_task", { request: { query } });
+	invokeWithResponseSchema("run_opencode_task", CompiledAgentRunResultSchema, {
+		request: { query },
+	});
 
 export {
 	checkOpenCodeInitStatus,

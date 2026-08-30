@@ -1,14 +1,15 @@
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
-import type {
-	AgentLoginStatus,
-	AgentRunResult,
-	AgentRuntimeConfig,
-	AgentRuntimeStatus,
+import { invokeWithResponseSchema, listenWithResponseSchema } from "@/api/ipc";
+import {
+	type AgentRuntimeConfig,
+	CompiledAgentLoginStatusSchema,
+	CompiledAgentRunResultSchema,
+	CompiledAgentRuntimeConfigSchema,
+	CompiledAgentRuntimeStatusSchema,
 } from "@/types/agent";
 
 /** Checks the local Codex credential state through the Tauri backend. */
-const checkCodexLogin = () => invoke<AgentLoginStatus>("check_codex_login");
+const checkCodexLogin = () =>
+	invokeWithResponseSchema("check_codex_login", CompiledAgentLoginStatusSchema);
 
 /**
  * Returns the complete Codex status needed for the first render.
@@ -17,7 +18,10 @@ const checkCodexLogin = () => invoke<AgentLoginStatus>("check_codex_login");
  * checkCodexInitStatus();
  */
 const checkCodexInitStatus = () =>
-	invoke<AgentRuntimeStatus>("check_codex_init_status");
+	invokeWithResponseSchema(
+		"check_codex_init_status",
+		CompiledAgentRuntimeStatusSchema,
+	);
 
 /**
  * Reads effective Codex defaults without repeating `codex login status`.
@@ -26,13 +30,18 @@ const checkCodexInitStatus = () =>
  * getCodexRuntimeConfig();
  */
 const getCodexRuntimeConfig = () =>
-	invoke<AgentRuntimeConfig>("get_codex_runtime_config");
+	invokeWithResponseSchema(
+		"get_codex_runtime_config",
+		CompiledAgentRuntimeConfigSchema,
+	);
 
 /** Subscribes to native changes in the effective local Codex configuration. */
 const onCodexConfigChanged = (listener: (config: AgentRuntimeConfig) => void) =>
-	listen<AgentRuntimeConfig>("codex-config-changed", (event) => {
-		listener(event.payload);
-	});
+	listenWithResponseSchema(
+		"codex-config-changed",
+		CompiledAgentRuntimeConfigSchema,
+		listener,
+	);
 
 /**
  * Sends one natural-language task to the local Codex App Server.
@@ -41,7 +50,9 @@ const onCodexConfigChanged = (listener: (config: AgentRuntimeConfig) => void) =>
  * runCodexTask("解释这个仓库");
  */
 const runCodexTask = (query: string) =>
-	invoke<AgentRunResult>("run_codex_task", { request: { query } });
+	invokeWithResponseSchema("run_codex_task", CompiledAgentRunResultSchema, {
+		request: { query },
+	});
 
 export {
 	checkCodexInitStatus,
