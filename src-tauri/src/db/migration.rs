@@ -13,7 +13,63 @@ impl MigratorTrait for Migrator {
             Box::new(AddOpenCodeComparisonAgent),
             Box::new(AddComparisonCompactionCount),
             Box::new(CreateWorkspaceTaskSystem),
+            Box::new(AddTaskAgentTurns),
         ]
+    }
+}
+
+/// Preserves every Agent turn without changing the immutable Task configuration tables.
+struct AddTaskAgentTurns;
+
+impl MigrationName for AddTaskAgentTurns {
+    fn name(&self) -> &str {
+        "m20260831_000005_add_task_agent_turns"
+    }
+}
+
+#[sea_orm_migration::async_trait::async_trait]
+impl MigrationTrait for AddTaskAgentTurns {
+    fn use_transaction(&self) -> Option<bool> {
+        Some(true)
+    }
+
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(
+                r#"
+                CREATE TABLE task_agent_turns (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    task_agent_id TEXT NOT NULL,
+                    sequence INTEGER NOT NULL,
+                    prompt TEXT NOT NULL,
+                    final_status TEXT NOT NULL,
+                    response_text TEXT,
+                    metrics_json TEXT NOT NULL DEFAULT '{}',
+                    created_at_ms INTEGER NOT NULL,
+                    FOREIGN KEY (task_agent_id) REFERENCES task_agents(id) ON DELETE CASCADE,
+                    UNIQUE (task_agent_id, sequence),
+                    CHECK (sequence >= 0),
+                    CHECK (length(trim(prompt)) BETWEEN 1 AND 16000),
+                    CHECK (final_status IN ('completed', 'failed', 'stopped')),
+                    CHECK (json_valid(metrics_json)),
+                    CHECK (created_at_ms > 0)
+                );
+
+                CREATE INDEX idx_task_agent_turns_agent_sequence
+                    ON task_agent_turns(task_agent_id, sequence);
+                "#,
+            )
+            .await?;
+        Ok(())
+    }
+
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared("DROP TABLE task_agent_turns;")
+            .await?;
+        Ok(())
     }
 }
 
@@ -559,7 +615,7 @@ mod tests {
             let objects = database
                 .query_all_raw(Statement::from_string(
                     DatabaseBackend::Sqlite,
-                    "SELECT name FROM sqlite_master WHERE name IN ('workspaces', 'skills', 'workspace_skill_mounts', 'tasks', 'task_agents', 'task_permissions', 'task_skills', 'task_agent_results', 'idx_workspaces_source', 'idx_skills_active_folder_name', 'idx_tasks_scope_history') ORDER BY name".to_string(),
+                    "SELECT name FROM sqlite_master WHERE name IN ('workspaces', 'skills', 'workspace_skill_mounts', 'tasks', 'task_agents', 'task_permissions', 'task_skills', 'task_agent_results', 'task_agent_turns', 'idx_workspaces_source', 'idx_skills_active_folder_name', 'idx_tasks_scope_history', 'idx_task_agent_turns_agent_sequence') ORDER BY name".to_string(),
                 ))
                 .await
                 .expect("workspace schema should be readable")
@@ -574,10 +630,12 @@ mod tests {
                 objects,
                 vec![
                     "idx_skills_active_folder_name",
+                    "idx_task_agent_turns_agent_sequence",
                     "idx_tasks_scope_history",
                     "idx_workspaces_source",
                     "skills",
                     "task_agent_results",
+                    "task_agent_turns",
                     "task_agents",
                     "task_permissions",
                     "task_skills",
