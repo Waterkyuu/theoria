@@ -1,8 +1,14 @@
 import { useState } from "react";
 import { Puzzle } from "@gravity-ui/icons";
+import { open } from "@tauri-apps/plugin-dialog";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
-import { useSkillMountCounts, useSkills } from "@/queries/skill";
+import { handleError } from "@/utils/error";
+import {
+	useImportSkill,
+	useSkillMountCounts,
+	useSkills,
+} from "@/queries/skill";
 import type { Skill } from "@/types/skill";
 
 const SKILL_FILTERS = ["all", "mounted", "local", "github"] as const;
@@ -33,8 +39,10 @@ const SkillsPage = () => {
 	const [searchValue, setSearchValue] = useState("");
 	const skillsQuery = useSkills();
 	const mountCountsQuery = useSkillMountCounts();
+	const importSkillMutation = useImportSkill();
 	const isLoading = skillsQuery.isLoading || mountCountsQuery.isLoading;
 	const loadError = skillsQuery.error ?? mountCountsQuery.error;
+	const pageError = loadError ?? importSkillMutation.error;
 	const searchTerm = searchValue.trim().toLocaleLowerCase();
 	const localizedSkills = (skillsQuery.data ?? [])
 		.map((skill) =>
@@ -64,6 +72,21 @@ const SkillsPage = () => {
 		return matchesFilter && searchableText.includes(searchTerm);
 	});
 
+	/** Opens the native picker and delegates SKILL.md validation to native storage. */
+	const importSkillFolder = async () => {
+		if (importSkillMutation.isPending) return;
+		try {
+			const sourcePath = await open({
+				directory: true,
+				multiple: false,
+				title: t("skills.chooseFolderTitle"),
+			});
+			if (sourcePath) await importSkillMutation.mutateAsync(sourcePath);
+		} catch (error) {
+			handleError(error, "Skill import failed");
+		}
+	};
+
 	return (
 		<main className="flex h-[100dvh] min-w-0 flex-1 flex-col overflow-hidden bg-canvas max-md:h-[calc(100dvh-4rem)]">
 			<header className="flex h-[34px] shrink-0 items-center justify-between border-b border-hairline px-4 sm:px-xl">
@@ -87,6 +110,8 @@ const SkillsPage = () => {
 					</div>
 					<button
 						className="h-9 w-full shrink-0 rounded-md bg-surface-dark px-lg text-body-sm font-medium text-on-dark outline-none hover:bg-ink-deep focus-visible:ring-2 focus-visible:ring-focus-ring sm:w-auto sm:min-w-34"
+						disabled={importSkillMutation.isPending}
+						onClick={() => importSkillFolder()}
 						type="button"
 					>
 						{t("skills.addSkill")}
@@ -203,18 +228,24 @@ const SkillsPage = () => {
 									</td>
 								</tr>
 							))}
-							{isLoading || loadError ? (
+							{isLoading || pageError ? (
 								<tr>
 									<td
 										className="h-24 px-lg text-center text-body-sm text-mute"
 										colSpan={5}
-										role={loadError ? "alert" : "status"}
+										role={pageError ? "alert" : "status"}
 									>
-										{t(loadError ? "skills.loadFailed" : "skills.loading")}
+										{t(
+											pageError
+												? importSkillMutation.error
+													? "skills.importFailed"
+													: "skills.loadFailed"
+												: "skills.loading",
+										)}
 									</td>
 								</tr>
 							) : null}
-							{!isLoading && !loadError && visibleSkills.length === 0 ? (
+							{!isLoading && !pageError && visibleSkills.length === 0 ? (
 								<tr>
 									<td
 										className="h-24 px-lg text-center text-body-sm text-mute"

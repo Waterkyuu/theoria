@@ -168,6 +168,9 @@ const enUS = {
 			description:
 				"A reusable library of capabilities. Mount a skill into one or more Workspaces when needed.",
 			addSkill: "Add skill",
+			chooseFolderTitle: "Choose a Skill folder",
+			importFailed:
+				"Skill import failed. Confirm that the folder contains a valid SKILL.md.",
 			loading: "Loading skills",
 			loadFailed: "The Skill Library could not be loaded.",
 			searchPlaceholder: "Search by name, source, or capability",

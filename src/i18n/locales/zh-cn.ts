@@ -162,6 +162,8 @@ const zhCN = {
 			path: "~/.theoria/skills",
 			description: "可复用的能力库。需要时可将技能挂载到一个或多个工作区。",
 			addSkill: "添加技能",
+			chooseFolderTitle: "选择技能文件夹",
+			importFailed: "技能导入失败，请确认文件夹中包含有效的 SKILL.md。",
 			loading: "正在加载技能",
 			loadFailed: "无法读取技能库。",
 			searchPlaceholder: "按名称、来源或能力搜索",

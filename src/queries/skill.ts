@@ -1,5 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
-import { listSkills, listWorkspaceSkills } from "@/api/skill";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { importLocalSkill, listSkills, listWorkspaceSkills } from "@/api/skill";
 import { listWorkspaces } from "@/api/workspace";
 
 const skillKeys = {
@@ -47,4 +47,21 @@ const useSkillMountCounts = () =>
 		queryFn: loadSkillMountCounts,
 	});
 
-export { skillKeys, useSkillMountCounts, useSkills, useWorkspaceSkills };
+/** Imports a validated local Skill folder and refreshes every library consumer. */
+const useImportSkill = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (sourcePath: string) => importLocalSkill(sourcePath),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: skillKeys.all });
+		},
+	});
+};
+
+export {
+	skillKeys,
+	useImportSkill,
+	useSkillMountCounts,
+	useSkills,
+	useWorkspaceSkills,
+};
