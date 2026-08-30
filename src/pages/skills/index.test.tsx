@@ -6,8 +6,12 @@ import SkillsPage from ".";
 
 const queryMocks = vi.hoisted(() => ({
 	importSkill: vi.fn(),
+	mountWorkspaceSkill: vi.fn(),
+	unmountWorkspaceSkill: vi.fn(),
 	useSkillMountCounts: vi.fn(),
 	useSkills: vi.fn(),
+	useWorkspaceSkills: vi.fn(),
+	useWorkspaces: vi.fn(),
 }));
 const dialogMocks = vi.hoisted(() => ({ open: vi.fn() }));
 
@@ -21,6 +25,19 @@ vi.mock("@/queries/skill", () => ({
 	}),
 	useSkillMountCounts: queryMocks.useSkillMountCounts,
 	useSkills: queryMocks.useSkills,
+	useMountWorkspaceSkill: () => ({
+		mutateAsync: queryMocks.mountWorkspaceSkill,
+		isPending: false,
+	}),
+	useUnmountWorkspaceSkill: () => ({
+		mutateAsync: queryMocks.unmountWorkspaceSkill,
+		isPending: false,
+	}),
+	useWorkspaceSkills: queryMocks.useWorkspaceSkills,
+}));
+
+vi.mock("@/queries/workspace", () => ({
+	useWorkspaces: queryMocks.useWorkspaces,
 }));
 
 const SKILLS = [
@@ -62,6 +79,47 @@ describe("SkillsPage", () => {
 			data: { "skill-1": 2 },
 			isLoading: false,
 			error: null,
+		});
+		queryMocks.useWorkspaces.mockReturnValue({
+			data: [
+				{ id: "workspace-1", name: "Website", sourceKind: "managed" },
+				{ id: "workspace-2", name: "API", sourceKind: "external" },
+			],
+			isLoading: false,
+			error: null,
+		});
+		queryMocks.useWorkspaceSkills.mockImplementation((workspaceId: string) => ({
+			data: workspaceId === "workspace-1" ? [SKILLS[0]] : [],
+			isLoading: false,
+			error: null,
+		}));
+		queryMocks.mountWorkspaceSkill.mockResolvedValue(SKILLS[0]);
+		queryMocks.unmountWorkspaceSkill.mockResolvedValue(undefined);
+	});
+
+	it("manages persisted Workspace mounts from the existing table action", async () => {
+		const user = userEvent.setup();
+		render(<SkillsPage />);
+
+		await user.click(screen.getByRole("button", { name: "管理" }));
+
+		expect(
+			screen.getByRole("heading", { name: "管理工作区挂载" }),
+		).toBeInTheDocument();
+		const website = screen.getByRole("checkbox", { name: "Website" });
+		const api = screen.getByRole("checkbox", { name: "API" });
+		expect(website).toBeChecked();
+		expect(api).not.toBeChecked();
+
+		await user.click(api);
+		expect(queryMocks.mountWorkspaceSkill).toHaveBeenCalledWith({
+			skillId: "skill-1",
+			workspaceId: "workspace-2",
+		});
+		await user.click(website);
+		expect(queryMocks.unmountWorkspaceSkill).toHaveBeenCalledWith({
+			skillId: "skill-1",
+			workspaceId: "workspace-1",
 		});
 	});
 

@@ -7,6 +7,7 @@ const zhCN = {
 		expandSidebar: "展开侧边栏",
 		loadingPage: "正在加载页面",
 		common: {
+			done: "完成",
 			cancel: "取消",
 			search: "搜索",
 			clearSearch: "清除搜索",
@@ -187,6 +188,14 @@ const zhCN = {
 			notMounted: "未挂载",
 			manage: "管理",
 			mount: "挂载",
+			mountDialog: {
+				title: "管理工作区挂载",
+				description: "选择以后创建任务时使用 {{skill}} 的工作区。",
+				loading: "正在读取工作区挂载",
+				loadFailed: "无法读取 {{workspace}} 的挂载状态。",
+				workspacesFailed: "无法读取工作区列表。",
+				empty: "还没有工作区，请先创建一个工作区。",
+			},
 			noResults: "没有匹配的技能。",
 			mock: {
 				repositoryMap: {

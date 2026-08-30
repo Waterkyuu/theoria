@@ -7,6 +7,7 @@ const enUS = {
 		expandSidebar: "Expand sidebar",
 		loadingPage: "Loading page",
 		common: {
+			done: "Done",
 			cancel: "Cancel",
 			search: "Search",
 			clearSearch: "Clear search",
@@ -194,6 +195,15 @@ const enUS = {
 			notMounted: "Not mounted",
 			manage: "Manage",
 			mount: "Mount",
+			mountDialog: {
+				title: "Manage Workspace mounts",
+				description:
+					"Select the Workspaces that will use {{skill}} in future Tasks.",
+				loading: "Loading Workspace mount",
+				loadFailed: "The mount state for {{workspace}} could not be loaded.",
+				workspacesFailed: "The Workspace list could not be loaded.",
+				empty: "No Workspaces yet. Create a Workspace first.",
+			},
 			noResults: "No matching skills.",
 			mock: {
 				repositoryMap: {

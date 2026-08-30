@@ -1,5 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { importLocalSkill, listSkills, listWorkspaceSkills } from "@/api/skill";
+import {
+	importLocalSkill,
+	listSkills,
+	listWorkspaceSkills,
+	mountWorkspaceSkill,
+	unmountWorkspaceSkill,
+} from "@/api/skill";
 import { listWorkspaces } from "@/api/workspace";
 
 const skillKeys = {
@@ -58,10 +64,43 @@ const useImportSkill = () => {
 	});
 };
 
+type WorkspaceSkillMutationInput = {
+	/** Managed Skill whose future-Task mount relationship changes. */
+	skillId: string;
+	/** Workspace receiving or losing the managed Skill. */
+	workspaceId: string;
+};
+
+/** Mounts one Skill and refreshes every Workspace and library mount view. */
+const useMountWorkspaceSkill = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({ skillId, workspaceId }: WorkspaceSkillMutationInput) =>
+			mountWorkspaceSkill(workspaceId, skillId),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: skillKeys.all });
+		},
+	});
+};
+
+/** Unmounts one Skill and refreshes every Workspace and library mount view. */
+const useUnmountWorkspaceSkill = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({ skillId, workspaceId }: WorkspaceSkillMutationInput) =>
+			unmountWorkspaceSkill(workspaceId, skillId),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: skillKeys.all });
+		},
+	});
+};
+
 export {
 	skillKeys,
 	useImportSkill,
+	useMountWorkspaceSkill,
 	useSkillMountCounts,
 	useSkills,
+	useUnmountWorkspaceSkill,
 	useWorkspaceSkills,
 };

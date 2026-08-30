@@ -10,6 +10,7 @@ import {
 	useSkills,
 } from "@/queries/skill";
 import type { Skill } from "@/types/skill";
+import { WorkspaceMountModal } from "./workspace-mount-modal";
 
 const SKILL_FILTERS = ["all", "mounted", "local", "github"] as const;
 type SkillFilter = (typeof SKILL_FILTERS)[number];
@@ -37,6 +38,7 @@ const SkillsPage = () => {
 	const { t } = useTranslation();
 	const [activeFilter, setActiveFilter] = useState<SkillFilter>("all");
 	const [searchValue, setSearchValue] = useState("");
+	const [managedSkill, setManagedSkill] = useState<Skill | null>(null);
 	const skillsQuery = useSkills();
 	const mountCountsQuery = useSkillMountCounts();
 	const importSkillMutation = useImportSkill();
@@ -217,6 +219,7 @@ const SkillsPage = () => {
 									<td className="px-sm text-right">
 										<button
 											className="h-9 w-[94px] rounded-md border border-hairline bg-surface-card text-body-sm font-medium text-ink outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+											onClick={() => setManagedSkill(skill)}
 											type="button"
 										>
 											{t(
@@ -259,6 +262,15 @@ const SkillsPage = () => {
 					</table>
 				</div>
 			</div>
+			{managedSkill ? (
+				<WorkspaceMountModal
+					isOpen
+					onOpenChange={(isOpen) => {
+						if (!isOpen) setManagedSkill(null);
+					}}
+					skill={managedSkill}
+				/>
+			) : null}
 		</main>
 	);
 };
