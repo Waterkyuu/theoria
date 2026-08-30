@@ -180,6 +180,22 @@ const enUS = {
 				},
 			},
 		},
+		taskSummary: {
+			title: "Result summary",
+			open: "View result summary",
+			close: "Close",
+			readOnly: "Read-only Task comparison",
+			metric: "Metric",
+			status: "Status",
+			duration: "Total duration",
+			firstToken: "First token",
+			tokens: "Total tokens",
+			toolCalls: "Tool calls",
+			files: "File changes",
+			fileCounts:
+				"Added {{added}} · Modified {{modified}} · Deleted {{deleted}}",
+			unavailable: "Unavailable",
+		},
 		skills: {
 			title: "Skills",
 			path: "~/.theoria/skills",

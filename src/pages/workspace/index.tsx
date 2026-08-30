@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CodeTrunk } from "@gravity-ui/icons";
+import { CodeTrunk, LayoutColumns3 } from "@gravity-ui/icons";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { AgentEnvironmentDropdown } from "@/components/share/agent-environment-dropdown";
@@ -16,6 +16,7 @@ import {
 	Composer,
 	type ComposerSubmission,
 } from "@/pages/workspace/components/composer";
+import { TaskResultSummary } from "@/pages/workspace/components/task-result-summary";
 import { useSkills, useWorkspaceSkills } from "@/queries/skill";
 import {
 	useCreateTask,
@@ -80,6 +81,7 @@ const openCreatedTask = (task: TaskDetail) => {
 const WorkspacePage = ({ workspaceId, taskId }: WorkspacePageProps) => {
 	const { t } = useTranslation();
 	const [createdTask, setCreatedTask] = useState<TaskDetail | null>(null);
+	const [isResultSummaryOpen, setIsResultSummaryOpen] = useState(false);
 	const [environmentRuntimes, setEnvironmentRuntimes] = useState(
 		INITIAL_ENVIRONMENT_RUNTIMES,
 	);
@@ -181,66 +183,87 @@ const WorkspacePage = ({ workspaceId, taskId }: WorkspacePageProps) => {
 							? task.task.title
 							: t("workspace.breadcrumb", { workspace: workspaceName })}
 					</p>
-					{workspaceId ? (
-						<div className="hidden items-center gap-sm text-caption-sm text-body sm:flex">
-							<CodeTrunk aria-hidden="true" className="size-4" />
-							<span>
-								{t("workspace.workspacePath", {
-									workspace: workspace?.sourcePath ?? workspaceName,
-								})}
-							</span>
-						</div>
-					) : null}
+					<div className="flex shrink-0 items-center gap-md">
+						{workspaceId ? (
+							<div className="hidden items-center gap-sm text-caption-sm text-body sm:flex">
+								<CodeTrunk aria-hidden="true" className="size-4" />
+								<span className="max-w-64 truncate">
+									{t("workspace.workspacePath", {
+										workspace: workspace?.sourcePath ?? workspaceName,
+									})}
+								</span>
+							</div>
+						) : null}
+						{task ? (
+							<button
+								aria-pressed={isResultSummaryOpen}
+								className="flex h-7 items-center gap-xs rounded-md border border-hairline bg-surface-card px-sm text-caption-sm font-medium text-charcoal outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
+								onClick={() => setIsResultSummaryOpen((open) => !open)}
+								type="button"
+							>
+								<LayoutColumns3 aria-hidden="true" className="size-4" />
+								{t("taskSummary.open")}
+							</button>
+						) : null}
+					</div>
 				</header>
 			) : null}
 
-			<section
-				className={cn(
-					"min-h-0 flex-1 overflow-y-auto px-4 pt-lg sm:px-xl sm:pt-xl",
-					task ? "pb-xl" : "pb-48",
-				)}
-			>
-				{taskQuery.isLoading && taskId ? (
-					<div
-						aria-label={t("taskPanel.loading")}
-						className="grid gap-lg"
-						role="status"
-					>
-						<div className="h-40 animate-pulse rounded-xl bg-surface-soft motion-reduce:animate-none" />
-					</div>
+			<div className="flex min-h-0 flex-1">
+				<section
+					className={cn(
+						"min-h-0 min-w-0 flex-1 overflow-y-auto px-4 pt-lg sm:px-xl sm:pt-xl",
+						task ? "pb-xl" : "pb-48",
+					)}
+				>
+					{taskQuery.isLoading && taskId ? (
+						<div
+							aria-label={t("taskPanel.loading")}
+							className="grid gap-lg"
+							role="status"
+						>
+							<div className="h-40 animate-pulse rounded-xl bg-surface-soft motion-reduce:animate-none" />
+						</div>
+					) : null}
+					{task ? (
+						<div
+							className={cn(
+								"mx-auto grid w-full max-w-330 gap-lg",
+								PANEL_GRID_CLASSES[task.agents.length] ?? "grid-cols-1",
+							)}
+						>
+							{task.agents.map((agent) => (
+								<AgentPanel
+									agent={agent}
+									key={agent.id}
+									onStop={(taskAgentId) =>
+										stopTaskAgentMutation.mutate(taskAgentId)
+									}
+									prompt={task.task.prompt}
+									result={task.results.find(
+										(result) => result.taskAgentId === agent.id,
+									)}
+									stopPending={stopTaskAgentMutation.isPending}
+								/>
+							))}
+						</div>
+					) : null}
+					{createTaskMutation.error ? (
+						<p
+							className="mx-auto max-w-180 rounded-lg border border-terminal-red/30 bg-terminal-red/5 px-lg py-md text-body-sm text-charcoal"
+							role="alert"
+						>
+							{t("taskPanel.createFailed")}
+						</p>
+					) : null}
+				</section>
+				{task && isResultSummaryOpen ? (
+					<TaskResultSummary
+						onClose={() => setIsResultSummaryOpen(false)}
+						task={task}
+					/>
 				) : null}
-				{task ? (
-					<div
-						className={cn(
-							"mx-auto grid w-full max-w-330 gap-lg",
-							PANEL_GRID_CLASSES[task.agents.length] ?? "grid-cols-1",
-						)}
-					>
-						{task.agents.map((agent) => (
-							<AgentPanel
-								agent={agent}
-								key={agent.id}
-								onStop={(taskAgentId) =>
-									stopTaskAgentMutation.mutate(taskAgentId)
-								}
-								prompt={task.task.prompt}
-								result={task.results.find(
-									(result) => result.taskAgentId === agent.id,
-								)}
-								stopPending={stopTaskAgentMutation.isPending}
-							/>
-						))}
-					</div>
-				) : null}
-				{createTaskMutation.error ? (
-					<p
-						className="mx-auto max-w-180 rounded-lg border border-terminal-red/30 bg-terminal-red/5 px-lg py-md text-body-sm text-charcoal"
-						role="alert"
-					>
-						{t("taskPanel.createFailed")}
-					</p>
-				) : null}
-			</section>
+			</div>
 
 			{!task && !taskId ? (
 				<Composer

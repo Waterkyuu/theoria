@@ -350,4 +350,19 @@ describe("WorkspacePage", () => {
 		).toBeInTheDocument();
 		expect(screen.getByText("workspace.read")).toBeInTheDocument();
 	});
+
+	it("opens a read-only result summary split from the Task header", async () => {
+		const user = userEvent.setup();
+		apiMocks.useTask.mockReturnValue({ data: RESTORED_TASK, isLoading: false });
+		render(<WorkspacePage taskId="task-42" />);
+
+		await user.click(screen.getByRole("button", { name: "查看结果汇总" }));
+
+		const summary = screen.getByRole("complementary", { name: "结果汇总" });
+		expect(summary).toHaveTextContent("Codex");
+		expect(summary).toHaveTextContent("1.25 s");
+		expect(summary).toHaveTextContent("1,200");
+		expect(summary).toHaveTextContent("新增 1 · 修改 2 · 删除 0");
+		expect(screen.queryByText("最佳 Agent")).not.toBeInTheDocument();
+	});
 });
