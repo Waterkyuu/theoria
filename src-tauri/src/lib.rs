@@ -14,6 +14,7 @@ mod commands {
     pub(crate) mod codex;
     pub(crate) mod comparison;
     pub(crate) mod opencode;
+    pub(crate) mod skill;
     pub(crate) mod workbuddy;
     pub(crate) mod workspace;
 }
@@ -31,6 +32,7 @@ mod domain {
     pub(crate) mod agent_run;
     pub(crate) mod agent_status;
     pub(crate) mod comparison;
+    pub(crate) mod skill;
     pub(crate) mod workspace;
 }
 mod error;
@@ -46,6 +48,7 @@ mod models {
 }
 mod repositories {
     pub(crate) mod comparison;
+    pub(crate) mod skill;
     pub(crate) mod workspace;
 }
 mod services {
@@ -53,6 +56,7 @@ mod services {
     pub(crate) mod agent;
     pub(crate) mod comparison;
     pub(crate) mod process;
+    pub(crate) mod skill;
     pub(crate) mod workspace;
 }
 mod utils {
@@ -81,10 +85,12 @@ use crate::platform::opencode_config::{
 };
 use crate::platform::workbuddy_config::WorkBuddyConfigWatcherState;
 use crate::repositories::comparison::ComparisonRepository;
+use crate::repositories::skill::SkillRepository;
 use crate::repositories::workspace::WorkspaceRepository;
 use crate::services::activity::SystemAgentActivityMonitor;
 use crate::services::comparison::ComparisonService;
 use crate::services::process::AgentProcessMonitor;
+use crate::services::skill::SkillLibraryService;
 use crate::services::workspace::WorkspaceService;
 use sea_orm_migration::MigratorTrait;
 use std::time::Duration;
@@ -121,6 +127,10 @@ pub fn run() {
             })?;
             app.manage(WorkspaceService::new(
                 WorkspaceRepository::new(comparison_database.clone()),
+                app_data_directory.clone(),
+            ));
+            app.manage(SkillLibraryService::new(
+                SkillRepository::new(comparison_database.clone()),
                 app_data_directory.clone(),
             ));
             app.manage(ComparisonService::new(ComparisonRepository::new(
@@ -276,6 +286,8 @@ pub fn run() {
             commands::comparison::get_comparison_history,
             commands::comparison::list_comparison_history,
             commands::comparison::save_comparison_history,
+            commands::skill::import_local_skill,
+            commands::skill::list_skills,
             commands::opencode::check_opencode_init_status,
             commands::opencode::check_opencode_login,
             commands::opencode::get_opencode_runtime_config,

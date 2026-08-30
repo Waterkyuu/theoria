@@ -33,6 +33,9 @@ pub(crate) enum AppError {
     InvalidWorkspace,
     WorkspaceDatabaseFailed,
     WorkspaceFilesystemFailed,
+    InvalidSkill,
+    SkillDatabaseFailed,
+    SkillFilesystemFailed,
     WorkerFailed,
 }
 
@@ -172,6 +175,18 @@ impl From<AppError> for IpcError {
             AppError::WorkspaceFilesystemFailed => Self {
                 code: "WORKSPACE_FILESYSTEM_FAILED",
                 message: "无法准备本地工作区目录。",
+            },
+            AppError::InvalidSkill => Self {
+                code: "INVALID_SKILL",
+                message: "技能目录或 SKILL.md 无效。",
+            },
+            AppError::SkillDatabaseFailed => Self {
+                code: "SKILL_DATABASE_FAILED",
+                message: "无法访问本地技能库数据库。",
+            },
+            AppError::SkillFilesystemFailed => Self {
+                code: "SKILL_FILESYSTEM_FAILED",
+                message: "无法复制本地技能目录。",
             },
             AppError::WorkerFailed => Self {
                 code: "WORKER_FAILED",
