@@ -3,7 +3,6 @@ import {
 	ChartColumn,
 	ChevronDown,
 	ChevronRight,
-	Folder,
 	Gear,
 	LayoutColumns3,
 	LayoutSideContentLeft,
@@ -15,7 +14,9 @@ import {
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { TaskActionDropdown } from "@/components/share/task-action-dropdown";
-import { WorkspaceActionDropdown } from "@/components/share/workspace-action-dropdown";
+import { WorkspaceSidebarItem } from "@/components/share/workspace-sidebar-item";
+import { useTasks } from "@/queries/task";
+import { useWorkspaces } from "@/queries/workspace";
 
 type AppSidebarProps = {
 	/** Active browser path used to highlight the current navigation item. */
@@ -43,16 +44,11 @@ const NewWorkspaceModal = lazy(() => import("./create-workspace-modal"));
  */
 const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 	const { t } = useTranslation();
-	const isAgentGaugeSelected = currentPath.startsWith(
-		"/workspaces/agent-gauge",
-	);
 	const [isWorkspaceListExpanded, setIsWorkspaceListExpanded] = useState(true);
-	const [isWorkspaceExpanded, setIsWorkspaceExpanded] = useState(true);
-	const [isConversationsExpanded, setIsConversationsExpanded] = useState(true);
-	const [isBenchmarksExpanded, setIsBenchmarksExpanded] = useState(false);
-	const [isSkillsExpanded, setIsSkillsExpanded] = useState(false);
 	const [isNewWorkspaceOpen, setIsNewWorkspaceOpen] = useState(false);
 	const [isSidebarVisible, setIsSidebarVisible] = useState(true);
+	const workspacesQuery = useWorkspaces();
+	const recentTasksQuery = useTasks(null);
 
 	return (
 		<div className="flex min-h-[100dvh] bg-canvas text-ink">
@@ -177,179 +173,26 @@ const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 							)}
 						>
 							<div className="min-h-0 overflow-hidden">
-								<div
-									aria-label="agent-gauge"
-									aria-expanded={isWorkspaceExpanded}
-									aria-level={1}
-									aria-selected={isAgentGaugeSelected}
-									className="flex flex-col gap-xxs"
-									role="treeitem"
-									tabIndex={-1}
-								>
+								{workspacesQuery.isLoading ? (
 									<div
-										className={cn(
-											"group flex h-8 w-full items-center rounded-md text-body-sm font-medium hover:bg-hairline",
-											isAgentGaugeSelected && "bg-hairline",
-										)}
+										aria-label={t("loadingPage")}
+										className="space-y-xs py-xs"
+										role="status"
 									>
-										<button
-											aria-label={t(
-												isWorkspaceExpanded
-													? "workspaceSidebar.collapseWorkspace"
-													: "workspaceSidebar.expandWorkspace",
-												{ workspace: "agent-gauge" },
-											)}
-											className="flex h-full min-w-0 flex-1 items-center gap-sm rounded-md px-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
-											onClick={() => {
-												if (isAgentGaugeSelected) {
-													setIsWorkspaceExpanded((expanded) => !expanded);
-													return;
-												}
-												setIsWorkspaceExpanded(true);
-												onNavigate("/workspaces/agent-gauge");
-											}}
-											type="button"
-										>
-											<Folder aria-hidden="true" className="size-4 shrink-0" />
-											<span className="min-w-0 flex-1 truncate">
-												agent-gauge
-											</span>
-										</button>
-										<div className="flex shrink-0 items-center gap-sm pr-sm text-mute opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:transition-none">
-											<Plus
-												aria-hidden="true"
-												className="size-4 shrink-0 transition-colors hover:text-ink"
-											/>
-											<WorkspaceActionDropdown workspaceName="agent-gauge" />
-										</div>
+										<div className="h-8 animate-pulse rounded-md bg-hairline motion-reduce:animate-none" />
+										<div className="ml-xl h-8 animate-pulse rounded-md bg-hairline motion-reduce:animate-none" />
+										<div className="ml-12 h-8 animate-pulse rounded-md bg-hairline motion-reduce:animate-none" />
 									</div>
-
-									{/* biome-ignore lint/a11y/useSemanticElements: WAI-ARIA trees use group to own child treeitems. */}
-									<div
-										aria-hidden={!isWorkspaceExpanded}
-										className={cn(
-											"grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none",
-											isWorkspaceExpanded
-												? "grid-rows-[1fr] opacity-100"
-												: "pointer-events-none grid-rows-[0fr] opacity-0",
-										)}
-										inert={!isWorkspaceExpanded}
-										role="group"
-									>
-										<div className="min-h-0 overflow-hidden">
-											<div
-												aria-label={`${t("workspaceSidebar.conversationsLabel")} 1`}
-												aria-expanded={isConversationsExpanded}
-												className="flex flex-col"
-												aria-level={2}
-												role="treeitem"
-												tabIndex={-1}
-											>
-												<button
-													className="flex h-8 w-full items-center gap-sm rounded-md pl-xl pr-sm text-left text-body-sm outline-none hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring"
-													onClick={() =>
-														setIsConversationsExpanded((expanded) => !expanded)
-													}
-													type="button"
-												>
-													<TargetDart
-														aria-hidden="true"
-														className="size-4 shrink-0"
-													/>
-													<span className="min-w-0 flex-1 truncate">
-														{t("workspaceSidebar.conversationsLabel")}
-													</span>
-													<span className="text-caption-sm tabular-nums text-mute">
-														1
-													</span>
-												</button>
-
-												{isConversationsExpanded ? (
-													<>
-														{/* Temporary UI mock for Figma alignment; remove after conversations come from workspace data. */}
-														<div
-															aria-label={t(
-																"workspaceSidebar.mockConversation",
-															)}
-															aria-level={3}
-															className="group mt-xs flex h-8 items-center gap-[7px] rounded-md pl-12 pr-[6px] text-body-sm font-medium hover:bg-hairline"
-															role="treeitem"
-															tabIndex={-1}
-														>
-															<span className="min-w-0 flex-1 truncate">
-																{t("workspaceSidebar.mockConversation")}
-															</span>
-															<div className="flex shrink-0 items-center gap-sm text-mute opacity-0 transition-opacity group-hover:opacity-100 motion-reduce:transition-none">
-																<Pin
-																	aria-hidden="true"
-																	className="size-4 shrink-0 transition-colors hover:text-ink"
-																/>
-																<TaskActionDropdown
-																	taskName={t(
-																		"workspaceSidebar.mockConversation",
-																	)}
-																/>
-															</div>
-														</div>
-													</>
-												) : null}
-											</div>
-
-											<div
-												aria-expanded={isBenchmarksExpanded}
-												aria-level={2}
-												role="treeitem"
-												tabIndex={-1}
-											>
-												<button
-													className="flex h-8 w-full items-center gap-sm rounded-md pl-xl pr-sm text-left text-body-sm outline-none hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring"
-													onClick={() =>
-														setIsBenchmarksExpanded((expanded) => !expanded)
-													}
-													type="button"
-												>
-													<LayoutColumns3
-														aria-hidden="true"
-														className="size-4 shrink-0"
-													/>
-													<span className="min-w-0 flex-1 truncate">
-														{t("workspaceSidebar.benchmarks")}
-													</span>
-													<span className="text-caption-sm tabular-nums text-mute">
-														0
-													</span>
-												</button>
-											</div>
-
-											<div
-												aria-expanded={isSkillsExpanded}
-												aria-level={2}
-												className="mt-xxs"
-												role="treeitem"
-												tabIndex={-1}
-											>
-												<button
-													className="flex h-8 w-full items-center gap-sm rounded-md pl-xl pr-sm text-left text-body-sm outline-none hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring"
-													onClick={() =>
-														setIsSkillsExpanded((expanded) => !expanded)
-													}
-													type="button"
-												>
-													<Puzzle
-														aria-hidden="true"
-														className="size-4 shrink-0"
-													/>
-													<span className="min-w-0 flex-1 truncate">
-														{t("workspaceSidebar.mountedSkills")}
-													</span>
-													<span className="text-caption-sm tabular-nums text-mute">
-														0
-													</span>
-												</button>
-											</div>
-										</div>
-									</div>
-								</div>
+								) : (
+									(workspacesQuery.data ?? []).map((workspace) => (
+										<WorkspaceSidebarItem
+											currentPath={currentPath}
+											key={workspace.id}
+											onNavigate={onNavigate}
+											workspace={workspace}
+										/>
+									))
+								)}
 							</div>
 						</div>
 					</div>
@@ -377,6 +220,43 @@ const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 								<Plus aria-hidden="true" className="size-3 text-mute" />
 							</button>
 						</div>
+						{recentTasksQuery.isLoading ? (
+							<div
+								aria-label={t("loadingPage")}
+								className="space-y-xs"
+								role="status"
+							>
+								<div className="h-8 animate-pulse rounded-md bg-hairline motion-reduce:animate-none" />
+								<div className="h-8 animate-pulse rounded-md bg-hairline motion-reduce:animate-none" />
+							</div>
+						) : (
+							(recentTasksQuery.data ?? []).map((task) => (
+								<div
+									className={cn(
+										"group flex h-8 items-center gap-[7px] rounded-md px-sm text-body-sm font-medium hover:bg-hairline",
+										currentPath === `/task/${task.id}` && "bg-hairline",
+									)}
+									key={task.id}
+								>
+									<button
+										className="min-w-0 flex-1 truncate text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+										onClick={() =>
+											onNavigate(`/task/${encodeURIComponent(task.id)}`)
+										}
+										type="button"
+									>
+										{task.title}
+									</button>
+									<div className="flex shrink-0 items-center gap-sm text-mute opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:transition-none">
+										<Pin
+											aria-hidden="true"
+											className="size-4 shrink-0 transition-colors hover:text-ink"
+										/>
+										<TaskActionDropdown taskName={task.title} />
+									</div>
+								</div>
+							))
+						)}
 					</section>
 				</div>
 

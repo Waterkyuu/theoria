@@ -3,6 +3,16 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppRouter } from ".";
 
+vi.mock("@/queries/workspace", () => ({
+	useWorkspaces: () => ({ data: [], isLoading: false, error: null }),
+}));
+vi.mock("@/queries/task", () => ({
+	useTasks: () => ({ data: [], isLoading: false, error: null }),
+}));
+vi.mock("@/queries/skill", () => ({
+	useWorkspaceSkills: () => ({ data: [], isLoading: false, error: null }),
+}));
+
 vi.mock("@/pages/comparison", () => new Promise(() => {}));
 vi.mock("@/pages/workspace", () => ({
 	default: ({

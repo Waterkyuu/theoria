@@ -1,10 +1,70 @@
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppSidebar } from "./app-sidebar";
 
+const queryMocks = vi.hoisted(() => ({
+	useTasks: vi.fn(),
+	useWorkspaces: vi.fn(),
+	useWorkspaceSkills: vi.fn(),
+}));
+
+vi.mock("@/queries/task", () => ({ useTasks: queryMocks.useTasks }));
+vi.mock("@/queries/workspace", () => ({
+	useWorkspaces: queryMocks.useWorkspaces,
+}));
+vi.mock("@/queries/skill", () => ({
+	useWorkspaceSkills: queryMocks.useWorkspaceSkills,
+}));
+
+const WORKSPACE_TASK = {
+	id: "workspace-task-1",
+	workspaceId: "workspace-1",
+	title: "当前任务",
+	prompt: "Inspect the workspace",
+	status: "running",
+	configurationLockedAtMs: 1,
+	createdAtMs: 1,
+	updatedAtMs: 2,
+};
+
+const RECENT_TASK = {
+	...WORKSPACE_TASK,
+	id: "recent-task-1",
+	workspaceId: null,
+	title: "普通任务",
+};
+
 describe("AppSidebar", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		queryMocks.useWorkspaces.mockReturnValue({
+			data: [
+				{
+					id: "workspace-1",
+					name: "agent-gauge",
+					sourceKind: "external",
+					sourcePath: "/tmp/agent-gauge",
+					pinnedAtMs: null,
+					createdAtMs: 1,
+					updatedAtMs: 1,
+				},
+			],
+			isLoading: false,
+			error: null,
+		});
+		queryMocks.useTasks.mockImplementation((workspaceId: string | null) => ({
+			data: workspaceId ? [WORKSPACE_TASK] : [RECENT_TASK],
+			isLoading: false,
+			error: null,
+		}));
+		queryMocks.useWorkspaceSkills.mockReturnValue({
+			data: [{ id: "skill-1" }, { id: "skill-2" }],
+			isLoading: false,
+			error: null,
+		});
+	});
 	it("renders the sidebar navigation regions", () => {
 		render(
 			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
@@ -52,7 +112,7 @@ describe("AppSidebar", () => {
 		).toHaveLength(1);
 		expect(
 			screen
-				.getByRole("button", { name: "已挂载技能0" })
+				.getByRole("button", { name: "已挂载技能2" })
 				.querySelectorAll("svg"),
 		).toHaveLength(1);
 		const addWorkspace = screen.getByRole("button", { name: "添加工作区" });
@@ -62,7 +122,7 @@ describe("AppSidebar", () => {
 		expect(workspaceHeader?.querySelectorAll("svg")).toHaveLength(2);
 	});
 
-	it("renders an empty Recent region beneath the workspace tree", () => {
+	it("renders ordinary Tasks directly in Recent beneath the workspace tree", () => {
 		render(
 			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
 				<main>content</main>
@@ -74,8 +134,34 @@ describe("AppSidebar", () => {
 
 		expect(tree.nextElementSibling).toBe(recent);
 		expect(within(recent).getByText("最近")).toBeInTheDocument();
-		expect(recent.querySelectorAll("svg")).toHaveLength(2);
-		expect(within(recent).queryByRole("treeitem")).not.toBeInTheDocument();
+		expect(recent.querySelectorAll("svg")).toHaveLength(4);
+		expect(within(recent).getByText("普通任务")).toBeInTheDocument();
+		expect(within(recent).queryByText("History")).not.toBeInTheDocument();
+	});
+
+	it("uses in-place skeleton rows while Sidebar data is loading", () => {
+		queryMocks.useWorkspaces.mockReturnValueOnce({
+			data: undefined,
+			isLoading: true,
+			error: null,
+		});
+		queryMocks.useTasks.mockReturnValueOnce({
+			data: undefined,
+			isLoading: true,
+			error: null,
+		});
+
+		render(
+			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
+				<main>content</main>
+			</AppSidebar>,
+		);
+
+		expect(
+			screen.getAllByRole("status", { name: "正在加载页面" }),
+		).toHaveLength(2);
+		expect(screen.queryByText("agent-gauge")).not.toBeInTheDocument();
+		expect(screen.queryByText("普通任务")).not.toBeInTheDocument();
 	});
 
 	it("places the Settings row at the bottom of the sidebar", () => {
@@ -104,7 +190,7 @@ describe("AppSidebar", () => {
 		);
 
 		await user.click(screen.getByRole("button", { name: "收起 agent-gauge" }));
-		expect(onNavigate).toHaveBeenCalledWith("/workspaces/agent-gauge");
+		expect(onNavigate).toHaveBeenCalledWith("/workspaces/workspace-1");
 	});
 
 	it("opens a workspace name modal from the new workspace action", async () => {
@@ -151,7 +237,7 @@ describe("AppSidebar", () => {
 		expect(screen.getByRole("menuitem", { name: "移除" })).toBeInTheDocument();
 	});
 
-	it("renders the temporary mock conversation with pin and more icons", () => {
+	it("renders persisted Workspace Tasks with the original row actions", () => {
 		render(
 			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
 				<main>content</main>
@@ -166,12 +252,12 @@ describe("AppSidebar", () => {
 			"2",
 		);
 
-		const mockConversation = screen.getByRole("treeitem", {
+		const workspaceTask = screen.getByRole("treeitem", {
 			name: "当前任务",
 		});
 
-		expect(mockConversation).toHaveAttribute("aria-level", "3");
-		expect(mockConversation.querySelectorAll("svg")).toHaveLength(2);
+		expect(workspaceTask).toHaveAttribute("aria-level", "3");
+		expect(workspaceTask.querySelectorAll("svg")).toHaveLength(2);
 	});
 
 	it("opens rename and delete actions from the mock conversation menu", async () => {
@@ -194,7 +280,7 @@ describe("AppSidebar", () => {
 
 	it("collapses the active workspace tree", () => {
 		render(
-			<AppSidebar currentPath="/workspaces/agent-gauge" onNavigate={vi.fn()}>
+			<AppSidebar currentPath="/workspaces/workspace-1" onNavigate={vi.fn()}>
 				<main>content</main>
 			</AppSidebar>,
 		);
@@ -204,6 +290,24 @@ describe("AppSidebar", () => {
 		expect(
 			screen.queryByRole("treeitem", { name: /任务 1/ }),
 		).not.toBeInTheDocument();
+	});
+
+	it("opens Workspace and ordinary Tasks directly without a History route", async () => {
+		const user = userEvent.setup();
+		const onNavigate = vi.fn();
+		render(
+			<AppSidebar currentPath="/" onNavigate={onNavigate}>
+				<main>content</main>
+			</AppSidebar>,
+		);
+
+		await user.click(screen.getByRole("button", { name: "当前任务" }));
+		expect(onNavigate).toHaveBeenCalledWith(
+			"/workspaces/workspace-1/task/workspace-task-1",
+		);
+
+		await user.click(screen.getByRole("button", { name: "普通任务" }));
+		expect(onNavigate).toHaveBeenCalledWith("/task/recent-task-1");
 	});
 
 	it("navigates to a new task and lets the user hide and restore the sidebar", async () => {
