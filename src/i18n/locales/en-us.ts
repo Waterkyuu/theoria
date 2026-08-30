@@ -48,6 +48,7 @@ const enUS = {
 			expandWorkspace: "Expand {{workspace}}",
 			workspaceActions: "More actions for {{workspace}}",
 			pinWorkspace: "Pin",
+			renameWorkspace: "Rename",
 			archiveWorkspace: "Archive",
 			removeWorkspace: "Remove",
 			conversationsLabel: "Tasks",

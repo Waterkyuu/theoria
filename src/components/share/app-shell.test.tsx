@@ -129,7 +129,7 @@ describe("AppShell", () => {
 		expect(createButton).toBeEnabled();
 	});
 
-	it("opens pin, archive, and remove actions from the workspace menu", async () => {
+	it("opens the workspace action menu", async () => {
 		const user = userEvent.setup();
 		render(
 			<AppShell currentPath="/" onNavigate={vi.fn()}>
@@ -143,6 +143,9 @@ describe("AppShell", () => {
 
 		expect(
 			await screen.findByRole("menuitem", { name: "置顶" }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("menuitem", { name: "重命名" }),
 		).toBeInTheDocument();
 		expect(screen.getByRole("menuitem", { name: "归档" })).toBeInTheDocument();
 		expect(screen.getByRole("menuitem", { name: "移除" })).toBeInTheDocument();

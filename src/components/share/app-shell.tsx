@@ -239,6 +239,16 @@ const AppShell = ({ currentPath, children, onNavigate }: AppShellProps) => {
 													},
 													{
 														icon: (
+															<PencilToSquare
+																aria-hidden="true"
+																className="size-4 shrink-0 text-ink"
+															/>
+														),
+														id: "rename",
+														labelKey: "workspaceSidebar.renameWorkspace",
+													},
+													{
+														icon: (
 															<Archive
 																aria-hidden="true"
 																className="size-4 shrink-0 text-ink"
