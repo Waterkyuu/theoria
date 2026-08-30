@@ -1,4 +1,4 @@
-use crate::adapters::agent::{AgentAdapter, AgentStatusAdapter};
+use crate::adapters::agent::{validate_execution_directory, AgentAdapter, AgentStatusAdapter};
 use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput, TokenUsage};
 use crate::domain::agent_status::{AgentLoginStatus, AgentRuntimeConfig};
 use crate::error::AppError;
@@ -6,6 +6,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 use std::io::{self, BufRead, BufReader, Read};
+use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, SyncSender};
 use std::thread;
@@ -59,9 +60,14 @@ impl AgentStatusAdapter for SystemOpenCodeAdapter {
 }
 
 impl AgentAdapter for SystemOpenCodeAdapter {
-    fn run_task(&self, query: &str) -> Result<AgentRunOutput, AppError> {
+    fn run_task_in(
+        &self,
+        query: &str,
+        execution_directory: &Path,
+    ) -> Result<AgentRunOutput, AppError> {
+        validate_execution_directory(execution_directory)?;
         let executable = find_usable_opencode_executable()?;
-        run_opencode_task(&executable, query)
+        run_opencode_task(&executable, query, execution_directory)
     }
 }
 
@@ -258,11 +264,16 @@ fn find_usable_opencode_executable() -> Result<OsString, AppError> {
 }
 
 /// Runs the documented non-interactive JSON mode and keeps all protocol parsing off the UI thread.
-fn run_opencode_task(executable: &OsStr, query: &str) -> Result<AgentRunOutput, AppError> {
+fn run_opencode_task(
+    executable: &OsStr,
+    query: &str,
+    execution_directory: &Path,
+) -> Result<AgentRunOutput, AppError> {
     let started_at = Instant::now();
     let mut child = Command::new(executable)
         .args(["run", "--format", "json", "--thinking", "--"])
         .arg(query)
+        .current_dir(execution_directory)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())

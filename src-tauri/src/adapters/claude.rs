@@ -1,4 +1,4 @@
-use crate::adapters::agent::{AgentAdapter, AgentStatusAdapter};
+use crate::adapters::agent::{validate_execution_directory, AgentAdapter, AgentStatusAdapter};
 use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput, TokenUsage};
 use crate::domain::agent_status::{AgentLoginStatus, AgentRuntimeConfig};
 use crate::error::AppError;
@@ -86,9 +86,14 @@ impl AgentStatusAdapter for SystemClaudeAdapter {
 }
 
 impl AgentAdapter for SystemClaudeAdapter {
-    fn run_task(&self, query: &str) -> Result<AgentRunOutput, AppError> {
+    fn run_task_in(
+        &self,
+        query: &str,
+        execution_directory: &Path,
+    ) -> Result<AgentRunOutput, AppError> {
+        validate_execution_directory(execution_directory)?;
         let executable = resolve_claude_executable()?;
-        run_claude_task(&executable, query)
+        run_claude_task(&executable, query, execution_directory)
     }
 }
 
@@ -394,7 +399,11 @@ fn resolve_claude_executable() -> Result<OsString, AppError> {
     Err(AppError::ClaudeNotInstalled)
 }
 
-fn run_claude_task(executable: &OsStr, query: &str) -> Result<AgentRunOutput, AppError> {
+fn run_claude_task(
+    executable: &OsStr,
+    query: &str,
+    execution_directory: &Path,
+) -> Result<AgentRunOutput, AppError> {
     let started_at = Instant::now();
     let mut child = Command::new(executable)
         .args([
@@ -408,6 +417,7 @@ fn run_claude_task(executable: &OsStr, query: &str) -> Result<AgentRunOutput, Ap
             "plan",
             "--no-session-persistence",
         ])
+        .current_dir(execution_directory)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())

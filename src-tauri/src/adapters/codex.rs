@@ -1,4 +1,4 @@
-use crate::adapters::agent::{AgentAdapter, AgentStatusAdapter};
+use crate::adapters::agent::{validate_execution_directory, AgentAdapter, AgentStatusAdapter};
 use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput, TokenUsage};
 use crate::domain::agent_status::{AgentLoginStatus, AgentRuntimeConfig};
 use crate::error::AppError;
@@ -84,11 +84,18 @@ impl AgentStatusAdapter for SystemCodexAdapter {
 }
 
 impl AgentAdapter for SystemCodexAdapter {
-    fn run_task(&self, query: &str) -> Result<AgentRunOutput, AppError> {
+    fn run_task_in(
+        &self,
+        query: &str,
+        execution_directory: &Path,
+    ) -> Result<AgentRunOutput, AppError> {
+        validate_execution_directory(execution_directory)?;
         let executable = find_usable_codex_executable()?;
-        with_app_server(&executable, |stdin, event_receiver| {
-            run_app_server_task(stdin, event_receiver, query)
-        })
+        with_app_server(
+            &executable,
+            Some(execution_directory),
+            |stdin, event_receiver| run_app_server_task(stdin, event_receiver, query),
+        )
     }
 }
 
@@ -423,21 +430,25 @@ fn non_empty_config_value(value: Option<String>) -> Option<String> {
 
 /// Starts an ephemeral App Server session to resolve the model defaults used by new Codex tasks.
 fn resolve_codex_runtime_defaults(executable: &OsStr) -> Result<CodexRuntimeDefaults, AppError> {
-    with_app_server(executable, initialize_app_server_thread)
+    with_app_server(executable, None, initialize_app_server_thread)
 }
 
 /// Runs one bounded App Server exchange and always terminates the child before returning.
 fn with_app_server<T>(
     executable: &OsStr,
+    execution_directory: Option<&Path>,
     operation: impl FnOnce(&mut ChildStdin, &Receiver<Result<String, AppError>>) -> Result<T, AppError>,
 ) -> Result<T, AppError> {
-    let mut child = Command::new(executable)
+    let mut command = Command::new(executable);
+    command
         .args(["app-server", "--stdio"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .map_err(|_| AppError::CodexProtocolFailed)?;
+        .stderr(Stdio::null());
+    if let Some(execution_directory) = execution_directory {
+        command.current_dir(execution_directory);
+    }
+    let mut child = command.spawn().map_err(|_| AppError::CodexProtocolFailed)?;
     let stdout = match child.stdout.take() {
         Some(stdout) => stdout,
         None => {
@@ -744,7 +755,7 @@ wait "$reader_pid"
             .expect("wrapper fixture should be executable");
 
         let started_at = Instant::now();
-        let result = with_app_server(script_path.as_os_str(), |_stdin, receiver| {
+        let result = with_app_server(script_path.as_os_str(), None, |_stdin, receiver| {
             let ready = super::receive_line(receiver, Duration::from_secs(1))?;
             assert_eq!(ready.trim(), "READY");
             Ok(())
@@ -757,6 +768,42 @@ wait "$reader_pid"
             elapsed < Duration::from_secs(1),
             "cleanup waited for the detached server process: {elapsed:?}"
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn starts_the_app_server_in_the_requested_execution_directory() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root =
+            std::env::temp_dir().join(format!("theoria-codex-cwd-test-{}", std::process::id()));
+        let execution = root.join("execution");
+        let script_path = root.join("codex-wrapper");
+        std::fs::create_dir_all(&execution).expect("Execution fixture should be created");
+        std::fs::write(&script_path, "#!/bin/sh\npwd\ncat <&0 >/dev/null\n")
+            .expect("wrapper fixture should be written");
+        let mut permissions = std::fs::metadata(&script_path)
+            .expect("wrapper fixture metadata should be readable")
+            .permissions();
+        permissions.set_mode(0o700);
+        std::fs::set_permissions(&script_path, permissions)
+            .expect("wrapper fixture should be executable");
+
+        let result = with_app_server(
+            script_path.as_os_str(),
+            Some(&execution),
+            |_stdin, receiver| {
+                let cwd = super::receive_line(receiver, Duration::from_secs(5))?;
+                assert_eq!(
+                    cwd.trim(),
+                    execution.canonicalize().unwrap().to_string_lossy()
+                );
+                Ok(())
+            },
+        );
+
+        std::fs::remove_dir_all(root).expect("fixture should be removable");
+        assert_eq!(result, Ok(()));
     }
 
     #[cfg(target_os = "macos")]

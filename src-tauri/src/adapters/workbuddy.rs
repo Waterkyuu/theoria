@@ -1,4 +1,4 @@
-use crate::adapters::agent::{AgentAdapter, AgentStatusAdapter};
+use crate::adapters::agent::{validate_execution_directory, AgentAdapter, AgentStatusAdapter};
 use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput, TokenUsage};
 use crate::domain::agent_status::{AgentLoginStatus, AgentRuntimeConfig};
 use crate::error::AppError;
@@ -212,9 +212,14 @@ impl AgentStatusAdapter for SystemWorkBuddyAdapter {
 }
 
 impl AgentAdapter for SystemWorkBuddyAdapter {
-    fn run_task(&self, query: &str) -> Result<AgentRunOutput, AppError> {
+    fn run_task_in(
+        &self,
+        query: &str,
+        execution_directory: &Path,
+    ) -> Result<AgentRunOutput, AppError> {
+        validate_execution_directory(execution_directory)?;
         let executable = find_workbuddy_executable()?;
-        run_workbuddy_task(&executable, query)
+        run_workbuddy_task(&executable, query, execution_directory)
     }
 }
 
@@ -368,10 +373,16 @@ fn find_workbuddy_executable() -> Result<OsString, AppError> {
     Err(AppError::WorkBuddyNotInstalled)
 }
 
-fn run_workbuddy_task(executable: &OsStr, query: &str) -> Result<AgentRunOutput, AppError> {
+fn run_workbuddy_task(
+    executable: &OsStr,
+    query: &str,
+    execution_directory: &Path,
+) -> Result<AgentRunOutput, AppError> {
     let started_at = Instant::now();
     let global_selection = read_workbuddy_global_selection();
-    let mut child = build_workbuddy_task_command(executable, query, global_selection.as_ref())
+    let mut command = build_workbuddy_task_command(executable, query, global_selection.as_ref());
+    command.current_dir(execution_directory);
+    let mut child = command
         .spawn()
         .map_err(|_| AppError::WorkBuddyProtocolFailed)?;
     let stdout = match child.stdout.take() {

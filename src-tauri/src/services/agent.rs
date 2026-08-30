@@ -2,6 +2,10 @@ use crate::adapters::agent::{AgentAdapter, AgentStatusAdapter};
 use crate::domain::agent_run::AgentRunOutput;
 use crate::domain::agent_status::{AgentInitStatus, AgentLoginStatus, AgentRuntimeConfig};
 use crate::error::AppError;
+use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+static LEGACY_EXECUTION_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 
 /// Checks only installation and authentication so periodic polling never loads model settings.
 pub(crate) fn check_agent_login(
@@ -39,8 +43,31 @@ pub(crate) fn run_agent_task(
     if query.trim().is_empty() || query.len() > 16_000 {
         return Err(AppError::InvalidQuery);
     }
+    let sequence = LEGACY_EXECUTION_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+    let execution_directory = std::env::temp_dir().join(format!(
+        "theoria-legacy-execution-{}-{sequence}",
+        std::process::id()
+    ));
+    std::fs::create_dir(&execution_directory).map_err(|_| AppError::WorkerFailed)?;
+    let result = run_agent_task_in(adapter, query, &execution_directory);
+    let cleanup = std::fs::remove_dir_all(execution_directory);
+    match (result, cleanup) {
+        (Ok(output), Ok(())) => Ok(output),
+        (Err(error), _) => Err(error),
+        (Ok(_), Err(_)) => Err(AppError::WorkerFailed),
+    }
+}
 
-    adapter.run_task(query)
+/// Runs one bounded task only inside its prepared isolated Execution directory.
+pub(crate) fn run_agent_task_in(
+    adapter: &impl AgentAdapter,
+    query: &str,
+    execution_directory: &Path,
+) -> Result<AgentRunOutput, AppError> {
+    if query.trim().is_empty() || query.len() > 16_000 {
+        return Err(AppError::InvalidQuery);
+    }
+    adapter.run_task_in(query, execution_directory)
 }
 
 #[cfg(test)]
@@ -54,7 +81,11 @@ mod tests {
     struct FakeAgentAdapter;
 
     impl AgentAdapter for FakeAgentAdapter {
-        fn run_task(&self, _query: &str) -> Result<AgentRunOutput, AppError> {
+        fn run_task_in(
+            &self,
+            _query: &str,
+            _execution_directory: &std::path::Path,
+        ) -> Result<AgentRunOutput, AppError> {
             Err(AppError::CodexTaskFailed)
         }
     }

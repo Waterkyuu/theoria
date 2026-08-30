@@ -1,6 +1,7 @@
 use crate::domain::agent_run::AgentRunOutput;
 use crate::domain::agent_status::{AgentLoginStatus, AgentRuntimeConfig};
 use crate::error::AppError;
+use std::path::Path;
 
 /// Normalized status boundary that keeps frequent login probes independent from configuration IO.
 pub(crate) trait AgentStatusAdapter {
@@ -13,6 +14,19 @@ pub(crate) trait AgentStatusAdapter {
 
 /// Normalized execution boundary shared by every locally monitored agent product.
 pub(crate) trait AgentAdapter {
-    /// Runs one task and returns normalized response, latency, and token metrics.
-    fn run_task(&self, query: &str) -> Result<AgentRunOutput, AppError>;
+    /// Runs one task in the exact isolated Execution directory supplied by Task preparation.
+    fn run_task_in(
+        &self,
+        query: &str,
+        execution_directory: &Path,
+    ) -> Result<AgentRunOutput, AppError>;
+}
+
+/// Rejects relative, missing, or non-directory execution locations before spawning a CLI.
+pub(crate) fn validate_execution_directory(path: &Path) -> Result<(), AppError> {
+    if path.is_absolute() && path.is_dir() {
+        Ok(())
+    } else {
+        Err(AppError::TaskPreparationFailed)
+    }
 }
