@@ -136,6 +136,8 @@ const enUS = {
 			description:
 				"A reusable library of capabilities. Mount a skill into one or more Workspaces when needed.",
 			addSkill: "Add skill",
+			loading: "Loading skills",
+			loadFailed: "The Skill Library could not be loaded.",
 			searchPlaceholder: "Search by name, source, or capability",
 			libraryLabel: "Skill library",
 			filters: {

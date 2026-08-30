@@ -2,36 +2,50 @@ import { useState } from "react";
 import { Puzzle } from "@gravity-ui/icons";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
+import { useSkillMountCounts, useSkills } from "@/queries/skill";
+import type { Skill } from "@/types/skill";
 
 const SKILL_FILTERS = ["all", "mounted", "local", "github"] as const;
+type SkillFilter = (typeof SKILL_FILTERS)[number];
 
-// Temporary mock skill library for the Figma prototype; remove when the skills API is connected.
-const MOCK_SKILLS = [
-	{ access: "read", id: "repositoryMap", mountedCount: 2, source: "local" },
-	{ access: "execute", id: "testRunner", mountedCount: 1, source: "github" },
-	{ access: "read", id: "uiAudit", mountedCount: 0, source: "local" },
-	{
-		access: "read",
-		id: "benchmarkEvaluator",
-		mountedCount: 1,
-		source: "github",
-	},
-	{ access: "read", id: "releaseNotes", mountedCount: 0, source: "local" },
-] as const;
+type LibrarySkill = Skill & {
+	/** Existing UI source grouping derived from the persisted source type. */
+	source: "local" | "github";
+	/** Number of persisted Workspace mount relationships. */
+	mountedCount: number;
+};
+
+/**
+ * Adapts persisted Skill metadata to the existing Skill Library presentation.
+ *
+ * @example
+ * toLibrarySkill(skill, 2);
+ */
+const toLibrarySkill = (skill: Skill, mountedCount: number): LibrarySkill => ({
+	...skill,
+	source: skill.sourceType === "git" ? "github" : "local",
+	mountedCount,
+});
 
 const SkillsPage = () => {
 	const { t } = useTranslation();
-	const [activeFilter, setActiveFilter] =
-		useState<(typeof SKILL_FILTERS)[number]>("all");
+	const [activeFilter, setActiveFilter] = useState<SkillFilter>("all");
 	const [searchValue, setSearchValue] = useState("");
+	const skillsQuery = useSkills();
+	const mountCountsQuery = useSkillMountCounts();
+	const isLoading = skillsQuery.isLoading || mountCountsQuery.isLoading;
+	const loadError = skillsQuery.error ?? mountCountsQuery.error;
 	const searchTerm = searchValue.trim().toLocaleLowerCase();
-	const localizedSkills = MOCK_SKILLS.map((skill) => ({
-		...skill,
-		accessLabel: t(`skills.access.${skill.access}`),
-		description: t(`skills.mock.${skill.id}.description`),
-		name: t(`skills.mock.${skill.id}.name`),
-		sourceLabel: t(`skills.source.${skill.source}`),
-	}));
+	const localizedSkills = (skillsQuery.data ?? [])
+		.map((skill) =>
+			toLibrarySkill(skill, mountCountsQuery.data?.[skill.id] ?? 0),
+		)
+		.map((skill) => ({
+			...skill,
+			accessLabel: t("skills.access.read"),
+			name: skill.folderName,
+			sourceLabel: t(`skills.source.${skill.source}`),
+		}));
 	const visibleSkills = localizedSkills.filter((skill) => {
 		const matchesFilter =
 			activeFilter === "all" ||
@@ -39,6 +53,7 @@ const SkillsPage = () => {
 			skill.source === activeFilter;
 		const searchableText = [
 			skill.name,
+			skill.displayName,
 			skill.description,
 			skill.sourceLabel,
 			skill.accessLabel,
@@ -188,7 +203,18 @@ const SkillsPage = () => {
 									</td>
 								</tr>
 							))}
-							{visibleSkills.length === 0 ? (
+							{isLoading || loadError ? (
+								<tr>
+									<td
+										className="h-24 px-lg text-center text-body-sm text-mute"
+										colSpan={5}
+										role={loadError ? "alert" : "status"}
+									>
+										{t(loadError ? "skills.loadFailed" : "skills.loading")}
+									</td>
+								</tr>
+							) : null}
+							{!isLoading && !loadError && visibleSkills.length === 0 ? (
 								<tr>
 									<td
 										className="h-24 px-lg text-center text-body-sm text-mute"

@@ -1,11 +1,28 @@
 import { useQuery } from "@tanstack/react-query";
 import { listSkills, listWorkspaceSkills } from "@/api/skill";
+import { listWorkspaces } from "@/api/workspace";
 
 const skillKeys = {
 	all: ["skills"] as const,
 	library: () => [...skillKeys.all, "library"] as const,
+	mountCounts: () => [...skillKeys.all, "mount-counts"] as const,
 	workspace: (workspaceId: string) =>
 		[...skillKeys.all, "workspace", workspaceId] as const,
+};
+
+/** Loads the number of Workspace mount relationships for every managed Skill. */
+const loadSkillMountCounts = async () => {
+	const workspaces = await listWorkspaces();
+	const mountedLibraries = await Promise.all(
+		workspaces.map((workspace) => listWorkspaceSkills(workspace.id)),
+	);
+	const counts: Record<string, number> = {};
+	for (const skills of mountedLibraries) {
+		for (const skill of skills) {
+			counts[skill.id] = (counts[skill.id] ?? 0) + 1;
+		}
+	}
+	return counts;
 };
 
 /** Loads the complete managed Skill Library. */
@@ -23,4 +40,11 @@ const useWorkspaceSkills = (workspaceId: string | null) =>
 		enabled: workspaceId !== null,
 	});
 
-export { skillKeys, useSkills, useWorkspaceSkills };
+/** Supplies mount counts to the existing Skill Library table and filter. */
+const useSkillMountCounts = () =>
+	useQuery({
+		queryKey: skillKeys.mountCounts(),
+		queryFn: loadSkillMountCounts,
+	});
+
+export { skillKeys, useSkillMountCounts, useSkills, useWorkspaceSkills };
