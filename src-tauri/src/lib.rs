@@ -15,6 +15,7 @@ mod commands {
     pub(crate) mod comparison;
     pub(crate) mod opencode;
     pub(crate) mod workbuddy;
+    pub(crate) mod workspace;
 }
 mod db {
     pub(crate) mod connection;
@@ -30,6 +31,7 @@ mod domain {
     pub(crate) mod agent_run;
     pub(crate) mod agent_status;
     pub(crate) mod comparison;
+    pub(crate) mod workspace;
 }
 mod error;
 mod platform {
@@ -44,12 +46,14 @@ mod models {
 }
 mod repositories {
     pub(crate) mod comparison;
+    pub(crate) mod workspace;
 }
 mod services {
     pub(crate) mod activity;
     pub(crate) mod agent;
     pub(crate) mod comparison;
     pub(crate) mod process;
+    pub(crate) mod workspace;
 }
 mod utils {
     pub(crate) mod debounce;
@@ -77,9 +81,11 @@ use crate::platform::opencode_config::{
 };
 use crate::platform::workbuddy_config::WorkBuddyConfigWatcherState;
 use crate::repositories::comparison::ComparisonRepository;
+use crate::repositories::workspace::WorkspaceRepository;
 use crate::services::activity::SystemAgentActivityMonitor;
 use crate::services::comparison::ComparisonService;
 use crate::services::process::AgentProcessMonitor;
+use crate::services::workspace::WorkspaceService;
 use sea_orm_migration::MigratorTrait;
 use std::time::Duration;
 use tauri::{Emitter, Manager};
@@ -113,6 +119,10 @@ pub fn run() {
                     .map_err(std::io::Error::other)?;
                 Ok::<_, std::io::Error>(database)
             })?;
+            app.manage(WorkspaceService::new(
+                WorkspaceRepository::new(comparison_database.clone()),
+                app_data_directory.clone(),
+            ));
             app.manage(ComparisonService::new(ComparisonRepository::new(
                 comparison_database,
             )));
@@ -273,7 +283,10 @@ pub fn run() {
             commands::workbuddy::check_workbuddy_init_status,
             commands::workbuddy::check_workbuddy_login,
             commands::workbuddy::get_workbuddy_runtime_config,
-            commands::workbuddy::run_workbuddy_task
+            commands::workbuddy::run_workbuddy_task,
+            commands::workspace::create_managed_workspace,
+            commands::workspace::list_workspaces,
+            commands::workspace::register_external_workspace
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

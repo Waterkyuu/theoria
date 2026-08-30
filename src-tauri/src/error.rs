@@ -30,6 +30,9 @@ pub(crate) enum AppError {
     InvalidComparison,
     ComparisonDatabaseFailed,
     ComparisonNotFound,
+    InvalidWorkspace,
+    WorkspaceDatabaseFailed,
+    WorkspaceFilesystemFailed,
     WorkerFailed,
 }
 
@@ -157,6 +160,18 @@ impl From<AppError> for IpcError {
             AppError::ComparisonNotFound => Self {
                 code: "COMPARISON_NOT_FOUND",
                 message: "未找到对应的历史对比记录。",
+            },
+            AppError::InvalidWorkspace => Self {
+                code: "INVALID_WORKSPACE",
+                message: "工作区名称或来源目录无效。",
+            },
+            AppError::WorkspaceDatabaseFailed => Self {
+                code: "WORKSPACE_DATABASE_FAILED",
+                message: "无法访问本地工作区数据库。",
+            },
+            AppError::WorkspaceFilesystemFailed => Self {
+                code: "WORKSPACE_FILESYSTEM_FAILED",
+                message: "无法准备本地工作区目录。",
             },
             AppError::WorkerFailed => Self {
                 code: "WORKER_FAILED",
