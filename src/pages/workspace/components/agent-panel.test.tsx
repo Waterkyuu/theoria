@@ -69,6 +69,22 @@ describe("AgentPanel", () => {
 		expect(screen.getByText("打开记录")).toBeInTheDocument();
 	});
 
+	it("keeps the existing Stop control available while an Agent is waiting", async () => {
+		const user = userEvent.setup();
+		const stopAgent = vi.fn();
+		render(
+			<AgentPanel
+				agent={{ ...RUNNING_AGENT, status: "waiting" }}
+				onStop={stopAgent}
+				prompt="Choose a test suite."
+				stopPending={false}
+			/>,
+		);
+
+		await user.click(screen.getByRole("button", { name: "停止 Codex" }));
+		expect(stopAgent).toHaveBeenCalledWith("agent-run-1");
+	});
+
 	it("maps failed and stopped executions to the Figma Error treatment", () => {
 		render(
 			<AgentPanel

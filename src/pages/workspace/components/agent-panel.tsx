@@ -138,7 +138,10 @@ const AgentPanel = ({
 	stopPending,
 }: AgentPanelProps) => {
 	const { t } = useTranslation();
-	const canStop = agent.status === "preparing" || agent.status === "running";
+	const canStop =
+		agent.status === "preparing" ||
+		agent.status === "running" ||
+		agent.status === "waiting";
 	const metadata = [agent.modelSnapshot, agent.modeSnapshot]
 		.filter(Boolean)
 		.join(" ");
