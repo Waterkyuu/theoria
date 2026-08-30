@@ -86,14 +86,15 @@ impl AgentStatusAdapter for SystemClaudeAdapter {
 }
 
 impl AgentAdapter for SystemClaudeAdapter {
-    fn run_task_in(
+    fn run_task_cancellable(
         &self,
         query: &str,
         execution_directory: &Path,
+        cancelled: &AtomicBool,
     ) -> Result<AgentRunOutput, AppError> {
         validate_execution_directory(execution_directory)?;
         let executable = resolve_claude_executable()?;
-        run_claude_task(&executable, query, execution_directory)
+        run_claude_task(&executable, query, execution_directory, cancelled)
     }
 }
 
@@ -403,6 +404,7 @@ fn run_claude_task(
     executable: &OsStr,
     query: &str,
     execution_directory: &Path,
+    cancelled: &AtomicBool,
 ) -> Result<AgentRunOutput, AppError> {
     let started_at = Instant::now();
     let mut child = Command::new(executable)
@@ -432,7 +434,7 @@ fn run_claude_task(
     };
     let (event_sender, event_receiver) = mpsc::sync_channel(EVENT_QUEUE_CAPACITY);
     let reader_handle = thread::spawn(move || read_stream_events(stdout, event_sender));
-    let result = collect_claude_events(&event_receiver, started_at);
+    let result = collect_claude_events_cancellable(&event_receiver, started_at, cancelled);
 
     if result.is_err() {
         terminate_child(&mut child)?;
@@ -449,9 +451,18 @@ fn run_claude_task(
     result
 }
 
+#[cfg(test)]
 fn collect_claude_events(
     event_receiver: &Receiver<Result<String, AppError>>,
     started_at: Instant,
+) -> Result<AgentRunOutput, AppError> {
+    collect_claude_events_cancellable(event_receiver, started_at, &AtomicBool::new(false))
+}
+
+fn collect_claude_events_cancellable(
+    event_receiver: &Receiver<Result<String, AppError>>,
+    started_at: Instant,
+    cancelled: &AtomicBool,
 ) -> Result<AgentRunOutput, AppError> {
     let mut collector = AgentRunMetricsCollector::default();
     collector.track_context_compactions();
@@ -461,7 +472,7 @@ fn collect_claude_events(
         let remaining = CLAUDE_RUN_TIMEOUT
             .checked_sub(started_at.elapsed())
             .ok_or(AppError::ClaudeTimedOut)?;
-        let line = receive_line(event_receiver, remaining)?;
+        let line = receive_cancellable_line(event_receiver, remaining, cancelled)?;
         let message: StreamMessage =
             serde_json::from_str(&line).map_err(|_| AppError::ClaudeProtocolFailed)?;
 
@@ -568,14 +579,25 @@ fn collect_claude_events(
     }
 }
 
-fn receive_line(
+/// Polls in short intervals so Stop can terminate a silent Claude process promptly.
+fn receive_cancellable_line(
     event_receiver: &Receiver<Result<String, AppError>>,
     timeout: Duration,
+    cancelled: &AtomicBool,
 ) -> Result<String, AppError> {
-    match event_receiver.recv_timeout(timeout) {
-        Ok(result) => result,
-        Err(RecvTimeoutError::Timeout) => Err(AppError::ClaudeTimedOut),
-        Err(RecvTimeoutError::Disconnected) => Err(AppError::ClaudeProtocolFailed),
+    let started_at = Instant::now();
+    loop {
+        if cancelled.load(Ordering::Acquire) {
+            return Err(AppError::ClaudeTaskFailed);
+        }
+        let remaining = timeout
+            .checked_sub(started_at.elapsed())
+            .ok_or(AppError::ClaudeTimedOut)?;
+        match event_receiver.recv_timeout(remaining.min(Duration::from_millis(100))) {
+            Ok(result) => return result,
+            Err(RecvTimeoutError::Timeout) => continue,
+            Err(RecvTimeoutError::Disconnected) => return Err(AppError::ClaudeProtocolFailed),
+        }
     }
 }
 

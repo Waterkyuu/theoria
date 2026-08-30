@@ -9,6 +9,7 @@ use std::fs;
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, SyncSender};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -212,14 +213,15 @@ impl AgentStatusAdapter for SystemWorkBuddyAdapter {
 }
 
 impl AgentAdapter for SystemWorkBuddyAdapter {
-    fn run_task_in(
+    fn run_task_cancellable(
         &self,
         query: &str,
         execution_directory: &Path,
+        cancelled: &AtomicBool,
     ) -> Result<AgentRunOutput, AppError> {
         validate_execution_directory(execution_directory)?;
         let executable = find_workbuddy_executable()?;
-        run_workbuddy_task(&executable, query, execution_directory)
+        run_workbuddy_task(&executable, query, execution_directory, cancelled)
     }
 }
 
@@ -377,6 +379,7 @@ fn run_workbuddy_task(
     executable: &OsStr,
     query: &str,
     execution_directory: &Path,
+    cancelled: &AtomicBool,
 ) -> Result<AgentRunOutput, AppError> {
     let started_at = Instant::now();
     let global_selection = read_workbuddy_global_selection();
@@ -394,7 +397,7 @@ fn run_workbuddy_task(
     };
     let (event_sender, event_receiver) = mpsc::sync_channel(EVENT_QUEUE_CAPACITY);
     let reader_handle = thread::spawn(move || read_stream_events(stdout, event_sender));
-    let result = collect_workbuddy_events(&event_receiver, started_at);
+    let result = collect_workbuddy_events_cancellable(&event_receiver, started_at, cancelled);
 
     if result.is_err() {
         terminate_child(&mut child)?;
@@ -450,9 +453,18 @@ fn build_workbuddy_task_command(
     command
 }
 
+#[cfg(test)]
 fn collect_workbuddy_events(
     event_receiver: &Receiver<Result<String, AppError>>,
     started_at: Instant,
+) -> Result<AgentRunOutput, AppError> {
+    collect_workbuddy_events_cancellable(event_receiver, started_at, &AtomicBool::new(false))
+}
+
+fn collect_workbuddy_events_cancellable(
+    event_receiver: &Receiver<Result<String, AppError>>,
+    started_at: Instant,
+    cancelled: &AtomicBool,
 ) -> Result<AgentRunOutput, AppError> {
     let mut collector = AgentRunMetricsCollector::default();
     collector.track_context_compactions();
@@ -462,7 +474,7 @@ fn collect_workbuddy_events(
         let remaining = WORKBUDDY_RUN_TIMEOUT
             .checked_sub(started_at.elapsed())
             .ok_or(AppError::WorkBuddyTimedOut)?;
-        let line = receive_line(event_receiver, remaining)?;
+        let line = receive_cancellable_line(event_receiver, remaining, cancelled)?;
         let message: StreamMessage =
             serde_json::from_str(&line).map_err(|_| AppError::WorkBuddyProtocolFailed)?;
 
@@ -564,6 +576,28 @@ fn collect_workbuddy_events(
                 response,
                 metrics: collector.finish(started_at.elapsed()),
             });
+        }
+    }
+}
+
+/// Polls in short intervals so Stop can terminate a silent WorkBuddy process promptly.
+fn receive_cancellable_line(
+    event_receiver: &Receiver<Result<String, AppError>>,
+    timeout: Duration,
+    cancelled: &AtomicBool,
+) -> Result<String, AppError> {
+    let started_at = Instant::now();
+    loop {
+        if cancelled.load(Ordering::Acquire) {
+            return Err(AppError::WorkBuddyTaskFailed);
+        }
+        let remaining = timeout
+            .checked_sub(started_at.elapsed())
+            .ok_or(AppError::WorkBuddyTimedOut)?;
+        match event_receiver.recv_timeout(remaining.min(Duration::from_millis(100))) {
+            Ok(result) => return result,
+            Err(RecvTimeoutError::Timeout) => continue,
+            Err(RecvTimeoutError::Disconnected) => return Err(AppError::WorkBuddyProtocolFailed),
         }
     }
 }

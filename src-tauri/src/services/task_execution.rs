@@ -1,3 +1,4 @@
+use crate::adapters::agent::AgentAdapter;
 use crate::adapters::claude::{ClaudeRuntimeSettingsCache, SystemClaudeAdapter};
 use crate::adapters::codex::{CodexRuntimeDefaultsCache, SystemCodexAdapter};
 use crate::adapters::opencode::SystemOpenCodeAdapter;
@@ -7,9 +8,11 @@ use crate::domain::agent_run::{AgentRunMetrics, AgentRunOutput, TokenUsage, Tool
 use crate::domain::task::{TaskAgentResult, TaskDetail, TaskStatus};
 use crate::error::{AppError, IpcError};
 use crate::repositories::task::TaskRepository;
-use crate::services::agent::run_agent_task_in;
 use crate::services::result::{CollectedChanges, ResultCollector};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// Runs every prepared Agent in its own workspace and persists independent results.
@@ -21,6 +24,8 @@ pub(crate) struct TaskExecutionService {
     result_collector: ResultCollector,
     /// Root used to expand persisted Execution paths.
     app_data_directory: PathBuf,
+    /// Cancellation tokens for currently running Task Agents.
+    active_executions: ActiveExecutions,
 }
 
 impl TaskExecutionService {
@@ -34,6 +39,7 @@ impl TaskExecutionService {
             repository,
             result_collector,
             app_data_directory,
+            active_executions: ActiveExecutions::default(),
         }
     }
 
@@ -68,6 +74,8 @@ impl TaskExecutionService {
             let execution_directory = self.app_data_directory.join(&agent.execution_relative_path);
             let codex_cache = codex_cache.clone();
             let claude_cache = claude_cache.clone();
+            let cancellation = self.active_executions.register(&agent.id);
+            let runner_cancellation = cancellation.clone();
             let handle = tokio::task::spawn_blocking(move || {
                 run_one_agent(
                     agent.agent_kind,
@@ -75,15 +83,18 @@ impl TaskExecutionService {
                     &execution_directory,
                     codex_cache,
                     claude_cache,
+                    &runner_cancellation,
                 )
             });
-            executions.push((agent, handle));
+            executions.push((agent, cancellation, handle));
         }
         let mut final_statuses = Vec::with_capacity(executions.len());
-        for (agent, handle) in executions {
+        for (agent, cancellation, handle) in executions {
             let output = handle.await.map_err(|_| AppError::WorkerFailed)?;
+            self.active_executions.remove(&agent.id);
             let updated_at_ms = current_time_ms()?;
-            if output.as_ref().is_err_and(is_waiting_error) {
+            if !cancellation.load(Ordering::Acquire) && output.as_ref().is_err_and(is_waiting_error)
+            {
                 self.repository
                     .set_agent_status(&agent.id, TaskStatus::Waiting, updated_at_ms)
                     .await
@@ -100,7 +111,16 @@ impl TaskExecutionService {
                     Path::new(&agent.execution_relative_path),
                 )
                 .await;
-            let (status, response_text, metrics_json) = result_payload(&output, changes.as_ref());
+            let (status, response_text, metrics_json) = if cancellation.load(Ordering::Acquire) {
+                (
+                    TaskStatus::Stopped,
+                    Some("Execution stopped by user.".to_string()),
+                    serde_json::json!({"files": changes.as_ref().ok().map(changes_json)})
+                        .to_string(),
+                )
+            } else {
+                result_payload(&output, changes.as_ref())
+            };
             self.repository
                 .finish_agent(
                     TaskAgentResult {
@@ -138,23 +158,54 @@ fn run_one_agent(
     execution_directory: &Path,
     codex_cache: CodexRuntimeDefaultsCache,
     claude_cache: ClaudeRuntimeSettingsCache,
+    cancelled: &AtomicBool,
 ) -> Result<AgentRunOutput, AppError> {
     match agent_kind {
-        AgentKind::Codex => run_agent_task_in(
-            &SystemCodexAdapter::new(codex_cache),
+        AgentKind::Codex => SystemCodexAdapter::new(codex_cache).run_task_cancellable(
             prompt,
             execution_directory,
+            cancelled,
         ),
-        AgentKind::Claude => run_agent_task_in(
-            &SystemClaudeAdapter::new(claude_cache),
+        AgentKind::Claude => SystemClaudeAdapter::new(claude_cache).run_task_cancellable(
             prompt,
             execution_directory,
+            cancelled,
         ),
         AgentKind::OpenCode => {
-            run_agent_task_in(&SystemOpenCodeAdapter, prompt, execution_directory)
+            SystemOpenCodeAdapter.run_task_cancellable(prompt, execution_directory, cancelled)
         }
         AgentKind::WorkBuddy => {
-            run_agent_task_in(&SystemWorkBuddyAdapter, prompt, execution_directory)
+            SystemWorkBuddyAdapter.run_task_cancellable(prompt, execution_directory, cancelled)
+        }
+    }
+}
+
+/// Thread-safe registry shared by run and Stop IPC calls.
+#[derive(Clone, Default)]
+struct ActiveExecutions {
+    /// Task Agent identifiers paired with cooperative cancellation flags.
+    items: Arc<Mutex<HashMap<String, Arc<AtomicBool>>>>,
+}
+
+impl ActiveExecutions {
+    /// Registers one Agent before its blocking process starts.
+    fn register(&self, task_agent_id: &str) -> Arc<AtomicBool> {
+        let cancellation = Arc::new(AtomicBool::new(false));
+        self.lock()
+            .insert(task_agent_id.to_string(), cancellation.clone());
+        cancellation
+    }
+
+    /// Removes one completed Agent token.
+    fn remove(&self, task_agent_id: &str) {
+        self.lock().remove(task_agent_id);
+    }
+
+    /// Recovers a poisoned lock because losing cancellation would strand a child process.
+    fn lock(&self) -> MutexGuard<'_, HashMap<String, Arc<AtomicBool>>> {
+        match self.items.lock() {
+            Ok(items) => items,
+            Err(poisoned) => poisoned.into_inner(),
         }
     }
 }

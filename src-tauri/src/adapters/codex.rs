@@ -84,17 +84,18 @@ impl AgentStatusAdapter for SystemCodexAdapter {
 }
 
 impl AgentAdapter for SystemCodexAdapter {
-    fn run_task_in(
+    fn run_task_cancellable(
         &self,
         query: &str,
         execution_directory: &Path,
+        cancelled: &AtomicBool,
     ) -> Result<AgentRunOutput, AppError> {
         validate_execution_directory(execution_directory)?;
         let executable = find_usable_codex_executable()?;
         with_app_server(
             &executable,
             Some(execution_directory),
-            |stdin, event_receiver| run_app_server_task(stdin, event_receiver, query),
+            |stdin, event_receiver| run_app_server_task(stdin, event_receiver, query, cancelled),
         )
     }
 }
@@ -513,6 +514,7 @@ fn run_app_server_task(
     stdin: &mut ChildStdin,
     event_receiver: &Receiver<Result<String, AppError>>,
     query: &str,
+    cancelled: &AtomicBool,
 ) -> Result<AgentRunOutput, AppError> {
     let runtime_defaults = initialize_app_server_thread(stdin, event_receiver)?;
     let turn_request = serde_json::json!({
@@ -526,12 +528,21 @@ fn run_app_server_task(
     let started_at = Instant::now();
     write_message(stdin, &turn_request.to_string())?;
 
-    collect_run_events(event_receiver, started_at)
+    collect_run_events_cancellable(event_receiver, started_at, cancelled)
 }
 
+#[cfg(test)]
 fn collect_run_events(
     event_receiver: &Receiver<Result<String, AppError>>,
     started_at: Instant,
+) -> Result<AgentRunOutput, AppError> {
+    collect_run_events_cancellable(event_receiver, started_at, &AtomicBool::new(false))
+}
+
+fn collect_run_events_cancellable(
+    event_receiver: &Receiver<Result<String, AppError>>,
+    started_at: Instant,
+    cancelled: &AtomicBool,
 ) -> Result<AgentRunOutput, AppError> {
     let mut collector = AgentRunMetricsCollector::default();
     collector.track_context_compactions();
@@ -541,7 +552,7 @@ fn collect_run_events(
         let remaining = CODEX_RUN_TIMEOUT
             .checked_sub(started_at.elapsed())
             .ok_or(AppError::CodexTimedOut)?;
-        let line = receive_line(event_receiver, remaining)?;
+        let line = receive_cancellable_line(event_receiver, remaining, cancelled)?;
         let message: AppServerMessage =
             serde_json::from_str(&line).map_err(|_| AppError::CodexProtocolFailed)?;
 
@@ -601,6 +612,28 @@ fn collect_run_events(
                 });
             }
             _ => {}
+        }
+    }
+}
+
+/// Polls in short intervals so Stop can terminate a silent Codex process promptly.
+fn receive_cancellable_line(
+    event_receiver: &Receiver<Result<String, AppError>>,
+    timeout: Duration,
+    cancelled: &AtomicBool,
+) -> Result<String, AppError> {
+    let started_at = Instant::now();
+    loop {
+        if cancelled.load(Ordering::Acquire) {
+            return Err(AppError::CodexTaskFailed);
+        }
+        let remaining = timeout
+            .checked_sub(started_at.elapsed())
+            .ok_or(AppError::CodexTimedOut)?;
+        match event_receiver.recv_timeout(remaining.min(Duration::from_millis(100))) {
+            Ok(result) => return result,
+            Err(RecvTimeoutError::Timeout) => continue,
+            Err(RecvTimeoutError::Disconnected) => return Err(AppError::CodexProtocolFailed),
         }
     }
 }
@@ -717,10 +750,12 @@ fn codex_executable_candidates() -> Vec<OsString> {
 #[cfg(test)]
 mod tests {
     use super::{
-        codex_executable_candidates, collect_run_events, runtime_settings_from_config_layers,
-        with_app_server, CodexRuntimeDefaultsCache, CodexRuntimeSettings,
+        codex_executable_candidates, collect_run_events, collect_run_events_cancellable,
+        runtime_settings_from_config_layers, with_app_server, CodexRuntimeDefaultsCache,
+        CodexRuntimeSettings,
     };
     use crate::error::AppError;
+    use std::sync::atomic::AtomicBool;
     use std::sync::mpsc;
     use std::time::{Duration, Instant};
 
@@ -835,6 +870,16 @@ wait "$reader_pid"
 
             assert_eq!(result, Err(AppError::CodexNeedsInput));
         }
+    }
+
+    #[test]
+    fn stops_waiting_for_codex_events_when_the_execution_is_cancelled() {
+        let (_sender, receiver) = mpsc::sync_channel(1);
+        let cancelled = AtomicBool::new(true);
+
+        let result = collect_run_events_cancellable(&receiver, Instant::now(), &cancelled);
+
+        assert_eq!(result, Err(AppError::CodexTaskFailed));
     }
 
     #[test]

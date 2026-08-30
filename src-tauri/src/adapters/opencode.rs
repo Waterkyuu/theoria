@@ -8,6 +8,7 @@ use std::ffi::{OsStr, OsString};
 use std::io::{self, BufRead, BufReader, Read};
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, SyncSender};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -60,14 +61,15 @@ impl AgentStatusAdapter for SystemOpenCodeAdapter {
 }
 
 impl AgentAdapter for SystemOpenCodeAdapter {
-    fn run_task_in(
+    fn run_task_cancellable(
         &self,
         query: &str,
         execution_directory: &Path,
+        cancelled: &AtomicBool,
     ) -> Result<AgentRunOutput, AppError> {
         validate_execution_directory(execution_directory)?;
         let executable = find_usable_opencode_executable()?;
-        run_opencode_task(&executable, query, execution_directory)
+        run_opencode_task(&executable, query, execution_directory, cancelled)
     }
 }
 
@@ -268,6 +270,7 @@ fn run_opencode_task(
     executable: &OsStr,
     query: &str,
     execution_directory: &Path,
+    cancelled: &AtomicBool,
 ) -> Result<AgentRunOutput, AppError> {
     let started_at = Instant::now();
     let mut child = Command::new(executable)
@@ -288,7 +291,12 @@ fn run_opencode_task(
     };
     let (event_sender, event_receiver) = mpsc::sync_channel(EVENT_QUEUE_CAPACITY);
     let reader_handle = thread::spawn(move || read_stream_events(stdout, event_sender));
-    let result = collect_opencode_events(&event_receiver, started_at, OPENCODE_RUN_TIMEOUT);
+    let result = collect_opencode_events_cancellable(
+        &event_receiver,
+        started_at,
+        OPENCODE_RUN_TIMEOUT,
+        cancelled,
+    );
 
     let status_result = if result.is_err() {
         terminate_child(&mut child)
@@ -309,10 +317,25 @@ fn run_opencode_task(
 }
 
 /// Consumes newline-delimited CLI events until the official stream closes after step completion.
+#[cfg(test)]
 fn collect_opencode_events(
     event_receiver: &Receiver<Result<String, AppError>>,
     started_at: Instant,
     timeout: Duration,
+) -> Result<AgentRunOutput, AppError> {
+    collect_opencode_events_cancellable(
+        event_receiver,
+        started_at,
+        timeout,
+        &AtomicBool::new(false),
+    )
+}
+
+fn collect_opencode_events_cancellable(
+    event_receiver: &Receiver<Result<String, AppError>>,
+    started_at: Instant,
+    timeout: Duration,
+    cancelled: &AtomicBool,
 ) -> Result<AgentRunOutput, AppError> {
     let mut collector = AgentRunMetricsCollector::default();
     let mut response = String::new();
@@ -323,9 +346,12 @@ fn collect_opencode_events(
         let remaining = timeout
             .checked_sub(started_at.elapsed())
             .ok_or(AppError::OpenCodeTimedOut)?;
-        let line = match event_receiver.recv_timeout(remaining) {
+        if cancelled.load(Ordering::Acquire) {
+            return Err(AppError::OpenCodeTaskFailed);
+        }
+        let line = match event_receiver.recv_timeout(remaining.min(Duration::from_millis(100))) {
             Ok(result) => result?,
-            Err(RecvTimeoutError::Timeout) => return Err(AppError::OpenCodeTimedOut),
+            Err(RecvTimeoutError::Timeout) => continue,
             Err(RecvTimeoutError::Disconnected) => break,
         };
         let event: OpenCodeRunEvent =

@@ -2,6 +2,7 @@ use crate::domain::agent_run::AgentRunOutput;
 use crate::domain::agent_status::{AgentLoginStatus, AgentRuntimeConfig};
 use crate::error::AppError;
 use std::path::Path;
+use std::sync::atomic::AtomicBool;
 
 /// Normalized status boundary that keeps frequent login probes independent from configuration IO.
 pub(crate) trait AgentStatusAdapter {
@@ -19,7 +20,19 @@ pub(crate) trait AgentAdapter {
         &self,
         query: &str,
         execution_directory: &Path,
-    ) -> Result<AgentRunOutput, AppError>;
+    ) -> Result<AgentRunOutput, AppError> {
+        self.run_task_cancellable(query, execution_directory, &AtomicBool::new(false))
+    }
+
+    /// Runs one task while allowing the owning Task Agent to request cooperative termination.
+    fn run_task_cancellable(
+        &self,
+        query: &str,
+        execution_directory: &Path,
+        _cancelled: &AtomicBool,
+    ) -> Result<AgentRunOutput, AppError> {
+        self.run_task_in(query, execution_directory)
+    }
 }
 
 /// Rejects relative, missing, or non-directory execution locations before spawning a CLI.
