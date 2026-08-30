@@ -2,15 +2,15 @@ import { invokeWithResponseSchema, listenWithResponseSchema } from "@/api/ipc";
 import {
 	type AgentActivitiesResponse,
 	type AgentProcessStates,
-	agentActivitiesResponseSchema,
-	agentProcessStatesSchema,
+	CompiledAgentActivitiesResponseSchema,
+	CompiledAgentProcessStatesSchema,
 } from "@/types/agent";
 
 /** Reads the latest cached task lifecycle snapshot from the native monitor. */
 const checkAgentActivities = () =>
 	invokeWithResponseSchema(
 		"check_agent_activities",
-		agentActivitiesResponseSchema,
+		CompiledAgentActivitiesResponseSchema,
 	);
 
 /**
@@ -24,13 +24,16 @@ const onAgentActivitiesChanged = (
 ) =>
 	listenWithResponseSchema(
 		"agent-activities-changed",
-		agentActivitiesResponseSchema,
+		CompiledAgentActivitiesResponseSchema,
 		listener,
 	);
 
 /** Reads one lightweight running-process snapshot for every supported Agent. */
 const checkAgentProcesses = () =>
-	invokeWithResponseSchema("check_agent_processes", agentProcessStatesSchema);
+	invokeWithResponseSchema(
+		"check_agent_processes",
+		CompiledAgentProcessStatesSchema,
+	);
 
 /**
  * Subscribes to process snapshots emitted only after a supported Agent starts or stops.
@@ -43,7 +46,7 @@ const onAgentProcessStatesChanged = (
 ) =>
 	listenWithResponseSchema(
 		"agent-process-states-changed",
-		agentProcessStatesSchema,
+		CompiledAgentProcessStatesSchema,
 		listener,
 	);
 
