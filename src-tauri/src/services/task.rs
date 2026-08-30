@@ -282,7 +282,7 @@ mod tests {
     use crate::db::migration::Migrator;
     use crate::domain::agent_kind::AgentKind;
     use crate::domain::skill::{NewSkill, SkillSourceType};
-    use crate::domain::task::TaskStatus;
+    use crate::domain::task::{TaskDetail, TaskStatus};
     use crate::domain::workspace::{NewWorkspace, WorkspaceSourceKind};
     use crate::repositories::skill::SkillRepository;
     use crate::repositories::task::TaskRepository;
@@ -420,6 +420,105 @@ mod tests {
                 .join(".agents/skills/map/SKILL.md")
                 .is_file());
             assert_eq!(service.get(&task_a.task.id).await.unwrap(), task_a);
+
+            snapshot_service
+                .remove_task_files(&task_a.task.id)
+                .await
+                .expect("Task A files should clean up");
+            snapshot_service
+                .remove_task_files(&task_b.task.id)
+                .await
+                .expect("Task B files should clean up");
+            database.close().await.expect("database should close");
+            std::fs::remove_dir_all(root).expect("fixture should be removable");
+        });
+    }
+
+    #[test]
+    fn freezes_normal_task_skills_against_later_library_changes() {
+        tauri::async_runtime::block_on(async {
+            let sequence = RESOURCE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+            let root = std::env::temp_dir().join(format!(
+                "theoria-normal-task-skill-lock-test-{}-{sequence}",
+                std::process::id()
+            ));
+            let app_data = root.join("app-data");
+            let managed_skill = app_data.join("skills/skill-normal");
+            std::fs::create_dir_all(&managed_skill).expect("Skill fixture should be created");
+            std::fs::write(
+                managed_skill.join("SKILL.md"),
+                "name: Frozen\ndescription: version one\n",
+            )
+            .expect("Skill manifest should be written");
+            let database_path = root.join("theoria.sqlite3");
+            let database =
+                connect_sqlite(&format!("sqlite://{}?mode=rwc", database_path.display()))
+                    .await
+                    .expect("database should connect");
+            Migrator::up(&database, None)
+                .await
+                .expect("migration should run");
+            let skill_repository = SkillRepository::new(database.clone());
+            skill_repository
+                .create(NewSkill {
+                    id: "skill-normal".to_string(),
+                    folder_name: "frozen".to_string(),
+                    display_name: "Frozen".to_string(),
+                    description: "version one".to_string(),
+                    source_type: SkillSourceType::LocalFolder,
+                    storage_relative_path: PathBuf::from("skills/skill-normal"),
+                    source_path: None,
+                    created_at_ms: 100,
+                })
+                .await
+                .expect("Skill should save");
+            let snapshot_service = SnapshotService::new(app_data.clone());
+            let service = TaskService::new(
+                TaskRepository::new(database.clone()),
+                WorkspaceRepository::new(database.clone()),
+                skill_repository,
+                snapshot_service.clone(),
+                app_data.clone(),
+            );
+            let input = || CreateTaskInput {
+                workspace_id: None,
+                title: "Freeze Skill".to_string(),
+                prompt: "Use the selected Skill".to_string(),
+                agents: vec![CreateTaskAgentInput {
+                    agent_kind: AgentKind::Codex,
+                    model: Some("codex-model".to_string()),
+                    mode: None,
+                }],
+                file_access: "allow_edits".to_string(),
+                command_execution: "ask".to_string(),
+                skill_ids: vec!["skill-normal".to_string()],
+            };
+
+            let task_a = service
+                .create(input())
+                .await
+                .expect("Task A should prepare");
+            std::fs::write(
+                managed_skill.join("SKILL.md"),
+                "name: Frozen\ndescription: version two\n",
+            )
+            .expect("Library Skill should remain independently editable");
+            let task_b = service
+                .create(input())
+                .await
+                .expect("Task B should prepare");
+            let manifest = |task: &TaskDetail| {
+                std::fs::read_to_string(
+                    app_data
+                        .join(&task.task.baseline_relative_path)
+                        .join(".agents/skills/frozen/SKILL.md"),
+                )
+                .expect("frozen manifest should exist")
+            };
+
+            assert!(manifest(&task_a).contains("version one"));
+            assert!(manifest(&task_b).contains("version two"));
+            assert_eq!(task_a.skills[0].origin, "task_selection");
 
             snapshot_service
                 .remove_task_files(&task_a.task.id)
