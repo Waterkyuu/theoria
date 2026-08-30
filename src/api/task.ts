@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { invokeWithResponseSchema } from "@/api/ipc";
-import type { CreateTaskRequest } from "@/types/task";
+import type { ContinueTaskRequest, CreateTaskRequest } from "@/types/task";
 import { CompiledTaskDetailSchema, CompiledTasksSchema } from "@/types/task";
 
 const EmptyResponseSchema = z.compile(z.void());
 
-/** Lists global Recent Tasks or the History for one Workspace. */
+/** Lists global Recent Tasks or the Task list for one Workspace. */
 const listTasks = (workspaceId: string | null = null) =>
 	invokeWithResponseSchema("list_tasks", CompiledTasksSchema, {
 		request: { workspaceId },
@@ -29,6 +29,12 @@ const runTaskExecutions = (taskId: string) =>
 		request: { taskId },
 	});
 
+/** Continues all or selected Agent sessions without changing frozen configuration. */
+const continueTask = (request: ContinueTaskRequest) =>
+	invokeWithResponseSchema("continue_task", CompiledTaskDetailSchema, {
+		request,
+	});
+
 /** Stops one active Agent while preserving its siblings and collected file state. */
 const stopTaskAgent = (taskAgentId: string) =>
 	invokeWithResponseSchema("stop_task_agent", CompiledTaskDetailSchema, {
@@ -42,6 +48,7 @@ const deleteTask = (taskId: string) =>
 	});
 
 export {
+	continueTask,
 	createTask,
 	deleteTask,
 	getTask,

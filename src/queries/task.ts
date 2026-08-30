@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+	continueTask,
 	createTask,
 	deleteTask,
 	getTask,
@@ -7,7 +8,7 @@ import {
 	runTaskExecutions,
 	stopTaskAgent,
 } from "@/api/task";
-import type { CreateTaskRequest } from "@/types/task";
+import type { ContinueTaskRequest, CreateTaskRequest } from "@/types/task";
 
 const TASK_POLL_INTERVAL_MS = 750;
 
@@ -19,7 +20,7 @@ const taskKeys = {
 		[...taskKeys.all, "detail", taskId ?? "draft"] as const,
 };
 
-/** Loads global Recent or Workspace-scoped History. */
+/** Loads global Recent or one Workspace's Task list. */
 const useTasks = (workspaceId: string | null) =>
 	useQuery({
 		queryKey: taskKeys.list(workspaceId),
@@ -43,7 +44,7 @@ const useTask = (taskId: string | null) =>
 		},
 	});
 
-/** Creates a locked Task and seeds both detail and History caches. */
+/** Creates a locked Task and seeds both detail and Task-list caches. */
 const useCreateTask = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
@@ -71,6 +72,20 @@ const useRunTask = () => {
 	});
 };
 
+/** Continues persisted sessions and replaces the cached Task transcript. */
+const useContinueTask = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (request: ContinueTaskRequest) => continueTask(request),
+		onSuccess: (detail) => {
+			queryClient.setQueryData(taskKeys.detail(detail.task.id), detail);
+			queryClient.invalidateQueries({
+				queryKey: taskKeys.list(detail.task.workspaceId),
+			});
+		},
+	});
+};
+
 /** Stops one Agent and updates the shared Task snapshot immediately. */
 const useStopTaskAgent = () => {
 	const queryClient = useQueryClient();
@@ -82,7 +97,7 @@ const useStopTaskAgent = () => {
 	});
 };
 
-/** Deletes Task-owned files and removes matching detail and History cache entries. */
+/** Deletes Task-owned files and removes matching detail and Task-list cache entries. */
 const useDeleteTask = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
@@ -96,6 +111,7 @@ const useDeleteTask = () => {
 
 export {
 	taskKeys,
+	useContinueTask,
 	useCreateTask,
 	useDeleteTask,
 	useRunTask,

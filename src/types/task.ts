@@ -63,6 +63,23 @@ const TaskAgentResultSchema = z.object({
 	metrics: z.record(z.string(), z.unknown()),
 });
 
+const TaskAgentTurnSchema = z.object({
+	/** Agent Execution that owns this preserved exchange. */
+	taskAgentId: z.string().min(1),
+	/** Zero-based exchange order scoped to the Agent Execution. */
+	sequence: z.int().nonnegative(),
+	/** User message sent for this exchange. */
+	prompt: z.string().min(1),
+	/** Terminal lifecycle captured for this exchange. */
+	finalStatus: TaskStatusSchema,
+	/** Final assistant text, or null when no response was produced. */
+	responseText: z.string().nullable(),
+	/** Timing, token, tool, file, and error measurements for this exchange. */
+	metrics: z.record(z.string(), z.unknown()),
+	/** Completion time in Unix milliseconds. */
+	createdAtMs: z.int().nonnegative(),
+});
+
 const TaskDetailSchema = z.object({
 	/** Immutable Task metadata. */
 	task: TaskSchema,
@@ -76,6 +93,8 @@ const TaskDetailSchema = z.object({
 	skills: z.array(TaskSkillSchema),
 	/** Terminal results collected so far. */
 	results: z.array(TaskAgentResultSchema),
+	/** Complete ordered exchanges restored into their owning Agent panels. */
+	turns: z.array(TaskAgentTurnSchema),
 });
 
 const CreateTaskAgentSchema = z.object({
@@ -103,6 +122,15 @@ const CreateTaskRequestSchema = z.object({
 	skillIds: z.array(z.string()),
 });
 
+const ContinueTaskRequestSchema = z.object({
+	/** Persisted Task whose Agent sessions should continue. */
+	taskId: z.string().min(1),
+	/** Follow-up message shared by all selected Agent sessions. */
+	prompt: z.string().trim().min(1).max(16_000),
+	/** Empty broadcasts to all resumable Agents; otherwise selects exact IDs. */
+	taskAgentIds: z.array(z.string().min(1)),
+});
+
 const CompiledTaskDetailSchema = z.compile(TaskDetailSchema);
 const CompiledTasksSchema = z.compile(z.array(TaskSchema));
 
@@ -110,20 +138,25 @@ type TaskStatus = z.infer<typeof TaskStatusSchema>;
 type Task = z.infer<typeof TaskSchema>;
 type TaskAgent = z.infer<typeof TaskAgentSchema>;
 type TaskAgentResult = z.infer<typeof TaskAgentResultSchema>;
+type TaskAgentTurn = z.infer<typeof TaskAgentTurnSchema>;
 type TaskDetail = z.infer<typeof TaskDetailSchema>;
 type CreateTaskRequest = z.infer<typeof CreateTaskRequestSchema>;
+type ContinueTaskRequest = z.infer<typeof ContinueTaskRequestSchema>;
 
 export type {
+	ContinueTaskRequest,
 	CreateTaskRequest,
 	Task,
 	TaskAgent,
 	TaskAgentResult,
+	TaskAgentTurn,
 	TaskDetail,
 	TaskStatus,
 };
 export {
 	CompiledTaskDetailSchema,
 	CompiledTasksSchema,
+	ContinueTaskRequestSchema,
 	CreateTaskRequestSchema,
 	TaskStatusSchema,
 };

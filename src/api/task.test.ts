@@ -1,7 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ZodError } from "zod";
-import { createTask, listTasks, runTaskExecutions } from "@/api/task";
+import {
+	continueTask,
+	createTask,
+	listTasks,
+	runTaskExecutions,
+} from "@/api/task";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
@@ -30,6 +35,7 @@ const TASK_DETAIL = {
 	commandExecution: "allowed",
 	skills: [],
 	results: [],
+	turns: [],
 };
 
 describe("Task IPC", () => {
@@ -79,5 +85,33 @@ describe("Task IPC", () => {
 		});
 
 		await expect(runTaskExecutions("task-1")).rejects.toBeInstanceOf(ZodError);
+	});
+
+	it("continues an exact set of persisted Agent sessions", async () => {
+		vi.mocked(invoke).mockResolvedValue({
+			...TASK_DETAIL,
+			task: { ...TASK_DETAIL.task, status: "completed" },
+			turns: [
+				{
+					taskAgentId: "agent-1",
+					sequence: 1,
+					prompt: "Check tests",
+					finalStatus: "completed",
+					responseText: "Tests pass.",
+					metrics: {},
+					createdAtMs: 2,
+				},
+			],
+		});
+		const request = {
+			taskId: "task-1",
+			prompt: "Check tests",
+			taskAgentIds: ["agent-1"],
+		};
+
+		await expect(continueTask(request)).resolves.toMatchObject({
+			turns: [{ prompt: "Check tests" }],
+		});
+		expect(invoke).toHaveBeenCalledWith("continue_task", { request });
 	});
 });
