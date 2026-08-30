@@ -5,13 +5,22 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppSidebar } from "./app-sidebar";
 
 const queryMocks = vi.hoisted(() => ({
+	createWorkspace: vi.fn(),
 	useTasks: vi.fn(),
 	useWorkspaces: vi.fn(),
 	useWorkspaceSkills: vi.fn(),
 }));
+const dialogMocks = vi.hoisted(() => ({ open: vi.fn() }));
+
+vi.mock("@tauri-apps/plugin-dialog", () => ({ open: dialogMocks.open }));
 
 vi.mock("@/queries/task", () => ({ useTasks: queryMocks.useTasks }));
 vi.mock("@/queries/workspace", () => ({
+	useCreateWorkspace: () => ({
+		mutateAsync: queryMocks.createWorkspace,
+		isPending: false,
+		error: null,
+	}),
 	useWorkspaces: queryMocks.useWorkspaces,
 }));
 vi.mock("@/queries/skill", () => ({
@@ -39,6 +48,16 @@ const RECENT_TASK = {
 describe("AppSidebar", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		dialogMocks.open.mockResolvedValue("/Users/me/projects/local-kit");
+		queryMocks.createWorkspace.mockResolvedValue({
+			id: "workspace-created",
+			name: "docs-lab",
+			sourceKind: "managed",
+			sourcePath: "/managed/docs-lab",
+			pinnedAtMs: null,
+			createdAtMs: 1,
+			updatedAtMs: 1,
+		});
 		queryMocks.useWorkspaces.mockReturnValue({
 			data: [
 				{
@@ -195,8 +214,9 @@ describe("AppSidebar", () => {
 
 	it("opens a workspace name modal from the new workspace action", async () => {
 		const user = userEvent.setup();
+		const onNavigate = vi.fn();
 		render(
-			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
+			<AppSidebar currentPath="/" onNavigate={onNavigate}>
 				<main>content</main>
 			</AppSidebar>,
 		);
@@ -213,6 +233,13 @@ describe("AppSidebar", () => {
 		expect(createButton).toBeDisabled();
 		await user.type(nameInput, "docs-lab");
 		expect(createButton).toBeEnabled();
+		await user.click(createButton);
+
+		expect(queryMocks.createWorkspace).toHaveBeenCalledWith({
+			name: "docs-lab",
+			sourceKind: "managed",
+		});
+		expect(onNavigate).toHaveBeenCalledWith("/workspaces/workspace-created");
 	});
 
 	it("opens the workspace action menu", async () => {
@@ -235,6 +262,41 @@ describe("AppSidebar", () => {
 		).toBeInTheDocument();
 		expect(screen.getByRole("menuitem", { name: "归档" })).toBeInTheDocument();
 		expect(screen.getByRole("menuitem", { name: "移除" })).toBeInTheDocument();
+	});
+
+	it("registers an imported local Workspace without transferring ownership", async () => {
+		const user = userEvent.setup();
+		render(
+			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
+				<main>content</main>
+			</AppSidebar>,
+		);
+
+		await user.click(screen.getByRole("button", { name: "添加工作区" }));
+		const dialog = await screen.findByRole("dialog", { name: "新建工作区" });
+		await user.click(within(dialog).getByRole("tab", { name: "导入本地" }));
+		await user.type(
+			within(dialog).getByRole("textbox", { name: "工作区名称" }),
+			"local-kit",
+		);
+		await user.click(
+			within(dialog).getByRole("button", { name: "选择本地文件夹" }),
+		);
+		expect(dialogMocks.open).toHaveBeenCalledWith({
+			directory: true,
+			multiple: false,
+			title: "选择 Workspace 文件夹",
+		});
+		expect(
+			within(dialog).getByRole("textbox", { name: "本地文件夹路径" }),
+		).toHaveValue("/Users/me/projects/local-kit");
+		await user.click(within(dialog).getByRole("button", { name: "创建" }));
+
+		expect(queryMocks.createWorkspace).toHaveBeenCalledWith({
+			name: "local-kit",
+			sourceKind: "external",
+			sourcePath: "/Users/me/projects/local-kit",
+		});
 	});
 
 	it("renders persisted Workspace Tasks with the original row actions", () => {

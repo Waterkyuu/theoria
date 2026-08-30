@@ -273,6 +273,9 @@ const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 				<Suspense fallback={null}>
 					<NewWorkspaceModal
 						isOpen={isNewWorkspaceOpen}
+						onCreated={(workspace) =>
+							onNavigate(`/workspaces/${encodeURIComponent(workspace.id)}`)
+						}
 						onOpenChange={setIsNewWorkspaceOpen}
 					/>
 				</Suspense>
