@@ -49,6 +49,8 @@ const RESTORED_TASK = {
 			metrics: {
 				totalDurationMs: 1250,
 				toolCallCount: 2,
+				toolCalls: [{ name: "workspace.read", durationMs: 250 }],
+				tokenUsage: { totalTokens: 1200 },
 				files: { added: 1, modified: 2, deleted: 0 },
 			},
 		},
@@ -322,20 +324,14 @@ describe("WorkspacePage", () => {
 		expect(apiMocks.runTask).toHaveBeenCalledWith("task-42");
 	});
 
-	it("restores a completed Task into result sections", async () => {
-		const user = userEvent.setup();
+	it("restores a completed Task directly into the Figma Agent run panel", () => {
 		apiMocks.useTask.mockReturnValue({ data: RESTORED_TASK, isLoading: false });
 		render(<WorkspacePage taskId="task-42" />);
 
 		expect(screen.getByRole("region", { name: /Codex/ })).toBeInTheDocument();
-		await user.click(screen.getByRole("tab", { name: "回答" }));
-
 		expect(
 			screen.getByText("Repository inspection complete."),
 		).toBeInTheDocument();
-		await user.click(screen.getByRole("tab", { name: "文件" }));
-		expect(
-			screen.getByText("1 个新增，2 个修改，0 个删除"),
-		).toBeInTheDocument();
+		expect(screen.getByText("workspace.read")).toBeInTheDocument();
 	});
 });

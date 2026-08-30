@@ -215,6 +215,7 @@ const WorkspacePage = ({ workspaceName, taskId }: WorkspacePageProps) => {
 								onStop={(taskAgentId) =>
 									stopTaskAgentMutation.mutate(taskAgentId)
 								}
+								prompt={task.task.prompt}
 								result={task.results.find(
 									(result) => result.taskAgentId === agent.id,
 								)}

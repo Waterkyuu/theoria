@@ -125,6 +125,27 @@ const zhCN = {
 				failed: "执行失败，请查看回答中的错误信息",
 				stopped: "执行已由用户停止",
 			},
+			run: {
+				you: "你",
+				response: "回答",
+				tokens: "tokens",
+				moreActions: "{{agent}} 更多操作",
+				toolCompleted: "工具调用已完成",
+				toolDuration: "工具调用耗时 {{duration}}",
+				activity: {
+					preparing: "正在准备隔离运行目录",
+					running: "正在生成回答…",
+					waiting: "正在等待批准",
+					completed: "执行记录已保存",
+					failed: "执行失败，请检查日志",
+					stopped: "执行已停止，请检查日志",
+				},
+				action: {
+					approve: "批准",
+					stop: "停止",
+					openRecord: "打开记录",
+				},
+			},
 		},
 		skills: {
 			title: "技能",

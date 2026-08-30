@@ -129,6 +129,27 @@ const enUS = {
 				failed: "Execution failed. See the answer for error details",
 				stopped: "Execution was stopped by the user",
 			},
+			run: {
+				you: "YOU",
+				response: "RESPONSE",
+				tokens: "tokens",
+				moreActions: "More actions for {{agent}}",
+				toolCompleted: "Tool call completed",
+				toolDuration: "Tool call completed in {{duration}}",
+				activity: {
+					preparing: "Preparing the isolated run directory",
+					running: "Generating response…",
+					waiting: "Waiting for approval",
+					completed: "Execution record saved",
+					failed: "Execution failed · inspect logs",
+					stopped: "Execution stopped · inspect logs",
+				},
+				action: {
+					approve: "Approve",
+					stop: "Stop",
+					openRecord: "Open record",
+				},
+			},
 		},
 		skills: {
 			title: "Skills",

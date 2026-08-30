@@ -1,19 +1,13 @@
-import { useState } from "react";
-import {
-	ChartColumn,
-	CircleStop,
-	Clock,
-	FileText,
-	ListUl,
-} from "@gravity-ui/icons";
-import { cn } from "cnfast";
+import { Ellipsis } from "@gravity-ui/icons";
 import { useTranslation } from "react-i18next";
 import { AgentIcon } from "@/components/share/agent-icon";
-import type { TaskAgent, TaskAgentResult } from "@/types/task";
+import type { TaskAgent, TaskAgentResult, TaskStatus } from "@/types/task";
 
 type AgentPanelProps = {
 	/** Frozen Agent Execution represented by this panel. */
 	agent: TaskAgent;
+	/** Initial Task prompt shared by every sibling Agent. */
+	prompt: string;
 	/** Collected terminal result when execution has finished. */
 	result?: TaskAgentResult;
 	/** Requests cooperative cancellation for only this Agent. */
@@ -22,20 +16,27 @@ type AgentPanelProps = {
 	stopPending: boolean;
 };
 
-const PANEL_SECTIONS = ["process", "answer", "files", "metrics"] as const;
-type PanelSection = (typeof PANEL_SECTIONS)[number];
-
-/** Reads an optional numeric metric without spreading response validation into the page. */
-const metricNumber = (
-	metrics: Record<string, unknown> | undefined,
-	key: string,
-) => {
-	const value = metrics?.[key];
-	return typeof value === "number" ? value : null;
+type ToolCallSummary = {
+	name: string;
+	durationMs: number | null;
 };
 
-/** Reads one nested metric group used by Files and token summaries. */
-const metricGroup = (
+const STATUS_DOT_CLASSES: Record<TaskStatus, string> = {
+	preparing: "bg-terminal-yellow",
+	running: "bg-ink",
+	waiting: "bg-terminal-yellow",
+	completed: "bg-terminal-green",
+	failed: "bg-terminal-red",
+	stopped: "bg-terminal-red",
+};
+
+/**
+ * Reads a nested metric object without weakening the validated IPC boundary.
+ *
+ * @example
+ * readMetricObject(result.metrics, "tokenUsage");
+ */
+const readMetricObject = (
 	metrics: Record<string, unknown> | undefined,
 	key: string,
 ) => {
@@ -45,146 +46,201 @@ const metricGroup = (
 		: undefined;
 };
 
-/** Formats compact durations consistently across every Agent panel. */
-const formatDuration = (milliseconds: number | null) => {
-	if (milliseconds === null) return "-";
-	return milliseconds < 1000
-		? `${milliseconds} ms`
-		: `${(milliseconds / 1000).toFixed(1)} s`;
+/**
+ * Reads an optional numeric metric used in the compact footer.
+ *
+ * @example
+ * readMetricNumber(result.metrics, "totalDurationMs");
+ */
+const readMetricNumber = (
+	metrics: Record<string, unknown> | undefined,
+	key: string,
+) => {
+	const value = metrics?.[key];
+	return typeof value === "number" && Number.isFinite(value) ? value : null;
 };
 
 /**
- * Keeps each Agent's process, answer, files, and metrics independently inspectable.
+ * Returns the latest persisted tool call that contains a usable name.
  *
  * @example
- * <AgentPanel agent={agent} result={result} onStop={stopAgent} stopPending={false} />
+ * readLatestToolCall(result.metrics);
+ */
+const readLatestToolCall = (
+	metrics: Record<string, unknown> | undefined,
+): ToolCallSummary | null => {
+	const value = metrics?.toolCalls;
+	if (!Array.isArray(value)) return null;
+	for (let index = value.length - 1; index >= 0; index -= 1) {
+		const item = value[index];
+		if (typeof item !== "object" || item === null || Array.isArray(item))
+			continue;
+		const record = item as Record<string, unknown>;
+		if (typeof record.name !== "string" || !record.name.trim()) continue;
+		return {
+			name: record.name,
+			durationMs:
+				typeof record.durationMs === "number" &&
+				Number.isFinite(record.durationMs)
+					? record.durationMs
+					: null,
+		};
+	}
+	return null;
+};
+
+/**
+ * Formats milliseconds using the compact duration shown in the Figma footer.
+ *
+ * @example
+ * formatDuration(134000); // "2m 14s"
+ */
+const formatDuration = (milliseconds: number | null) => {
+	if (milliseconds === null) return "-";
+	const totalSeconds = Math.max(0, Math.round(milliseconds / 1000));
+	const minutes = Math.floor(totalSeconds / 60);
+	const seconds = totalSeconds % 60;
+	return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+};
+
+/**
+ * Formats a token count without hiding the source Agent's reported precision.
+ *
+ * @example
+ * formatTokens(18400); // "18.4k"
+ */
+const formatTokens = (total: number | null) => {
+	if (total === null) return "-";
+	if (total < 1000) return String(total);
+	const compact = (total / 1000).toFixed(1);
+	return `${compact.replace(/\.0$/, "")}k`;
+};
+
+/**
+ * Renders the four-state transcript panel defined by Figma node 25:247.
+ *
+ * @example
+ * <AgentPanel agent={agent} prompt={prompt} result={result} onStop={stopAgent} stopPending={false} />
  */
 const AgentPanel = ({
 	agent,
+	prompt,
 	result,
 	onStop,
 	stopPending,
 }: AgentPanelProps) => {
 	const { t } = useTranslation();
-	const [section, setSection] = useState<PanelSection>("process");
 	const canStop = agent.status === "preparing" || agent.status === "running";
-	const files = metricGroup(result?.metrics, "files");
-	const added = metricNumber(files, "added") ?? 0;
-	const modified = metricNumber(files, "modified") ?? 0;
-	const deleted = metricNumber(files, "deleted") ?? 0;
-	const totalDuration = metricNumber(result?.metrics, "totalDurationMs");
-	const timeToFirstToken = metricNumber(result?.metrics, "timeToFirstTokenMs");
-	const toolCallCount = metricNumber(result?.metrics, "toolCallCount");
+	const metadata = [agent.modelSnapshot, agent.modeSnapshot]
+		.filter(Boolean)
+		.join(" ");
+	const tokenUsage = readMetricObject(result?.metrics, "tokenUsage");
+	const totalTokens = readMetricNumber(tokenUsage, "totalTokens");
+	const totalDuration = readMetricNumber(result?.metrics, "totalDurationMs");
+	const latestToolCall = readLatestToolCall(result?.metrics);
+	const output = result?.responseText || t(`taskPanel.process.${agent.status}`);
+	const isTerminal = ["completed", "failed", "stopped"].includes(agent.status);
 
 	return (
 		<section
 			aria-label={`${t(`agentNames.${agent.agentKind}`)} ${t("taskPanel.panel")}`}
-			className="flex min-h-80 min-w-0 flex-col overflow-hidden rounded-xl border border-hairline bg-surface-card"
+			className="flex h-125 min-w-70 flex-1 flex-col overflow-hidden rounded-xl border border-hairline bg-surface-card"
 		>
-			<header className="flex items-center gap-md border-b border-hairline px-lg py-md">
-				<span className="grid size-8 shrink-0 place-items-center rounded-md border border-hairline bg-surface-soft">
-					<AgentIcon name={agent.agentKind} width={16} height={16} />
+			<header className="flex h-16 shrink-0 items-center gap-[10px] overflow-hidden border-b border-hairline px-4">
+				<span className="grid size-6 shrink-0 place-items-center overflow-hidden">
+					<AgentIcon name={agent.agentKind} width={24} height={24} />
 				</span>
-				<div className="min-w-0 flex-1">
-					<h2 className="truncate text-body-sm font-medium text-ink">
-						{t(`agentNames.${agent.agentKind}`)}
-					</h2>
-					<p className="truncate text-caption-sm text-body">
-						{[agent.modelSnapshot, agent.modeSnapshot]
-							.filter(Boolean)
-							.join(" / ") || t("metricUnavailable")}
-					</p>
-				</div>
-				<span className="rounded-full bg-surface-soft px-sm py-xs text-caption-sm text-charcoal">
+				<p className="min-w-0 flex-1 truncate text-[12px] text-mute">
+					{metadata || t("metricUnavailable")}
+				</p>
+				<span className="flex shrink-0 items-center gap-[6px] text-[12px] font-medium text-charcoal">
+					<span
+						aria-hidden="true"
+						className={`size-2 rounded-full ${STATUS_DOT_CLASSES[agent.status]}`}
+					/>
 					{t(`taskPanel.status.${agent.status}`)}
 				</span>
+				<button
+					aria-label={t("taskPanel.run.moreActions", {
+						agent: t(`agentNames.${agent.agentKind}`),
+					})}
+					className="grid size-4 shrink-0 place-items-center text-ink outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+					type="button"
+				>
+					<Ellipsis aria-hidden="true" className="size-4" />
+				</button>
+			</header>
+
+			<div className="flex h-97 min-h-0 shrink-0 flex-col overflow-y-auto bg-surface-card p-4">
+				<div className="rounded-lg bg-surface-soft px-3 py-[10px]">
+					<p className="text-[10px] font-medium text-mute">
+						{t("taskPanel.run.you")}
+					</p>
+					<p className="mt-[2px] whitespace-pre-wrap text-[14px] leading-[18px] text-ink">
+						{prompt}
+					</p>
+				</div>
+
+				{latestToolCall ? (
+					<div className="mt-3 rounded-lg bg-surface-soft px-3 py-[10px]">
+						<p className="truncate font-mono text-[12px] text-ink">
+							{latestToolCall.name}
+						</p>
+						<p className="mt-[6px] text-[12px] text-charcoal">
+							{latestToolCall.durationMs === null
+								? t("taskPanel.run.toolCompleted")
+								: t("taskPanel.run.toolDuration", {
+										duration: formatDuration(latestToolCall.durationMs),
+									})}
+						</p>
+					</div>
+				) : null}
+
+				<p className="mt-4 text-[10px] font-medium text-mute">
+					{t("taskPanel.run.response")}
+				</p>
+				<p className="mt-2 whitespace-pre-wrap text-[14px] leading-5 text-ink">
+					{output}
+				</p>
+
+				<div className="mt-auto flex h-12 shrink-0 items-center gap-[10px] rounded-lg bg-surface-soft px-3">
+					<span
+						aria-hidden="true"
+						className={`size-2 shrink-0 rounded-full ${STATUS_DOT_CLASSES[agent.status]}`}
+					/>
+					<p className="truncate text-[13px] text-charcoal">
+						{t(`taskPanel.run.activity.${agent.status}`)}
+					</p>
+				</div>
+			</div>
+
+			<footer className="flex h-12 shrink-0 items-center justify-between bg-surface-soft px-4 text-[12px]">
+				<p className="min-w-0 truncate text-mute">
+					{formatDuration(totalDuration)} · {formatTokens(totalTokens)}{" "}
+					{t("taskPanel.run.tokens")}
+				</p>
 				{canStop ? (
 					<button
 						aria-label={t("taskPanel.stopAgent", {
 							agent: t(`agentNames.${agent.agentKind}`),
 						})}
-						className="grid size-8 shrink-0 place-items-center rounded-md text-charcoal outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring active:translate-y-px disabled:text-mute"
+						className="shrink-0 font-medium text-ink outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:text-mute"
 						disabled={stopPending}
 						onClick={() => onStop(agent.id)}
 						type="button"
 					>
-						<CircleStop aria-hidden="true" className="size-4" />
+						{t("taskPanel.run.action.stop")}
 					</button>
-				) : null}
-			</header>
-
-			<div
-				aria-label={t("taskPanel.sections")}
-				className="flex border-b border-hairline px-sm"
-				role="tablist"
-			>
-				{PANEL_SECTIONS.map((item) => (
-					<button
-						aria-selected={section === item}
-						className={cn(
-							"border-b-2 border-transparent px-md py-sm text-caption-sm text-body outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-focus-ring",
-							section === item && "border-ink text-ink",
+				) : (
+					<p className="shrink-0 font-medium text-ink">
+						{t(
+							isTerminal
+								? "taskPanel.run.action.openRecord"
+								: "taskPanel.run.action.approve",
 						)}
-						key={item}
-						onClick={() => setSection(item)}
-						role="tab"
-						type="button"
-					>
-						{t(`taskPanel.section.${item}`)}
-					</button>
-				))}
-			</div>
-
-			<div className="min-h-0 flex-1 overflow-y-auto p-lg" role="tabpanel">
-				{section === "process" ? (
-					<div className="space-y-md text-body-sm">
-						<div className="flex items-center gap-sm text-charcoal">
-							<ListUl aria-hidden="true" className="size-4" />
-							<span>{t(`taskPanel.process.${agent.status}`)}</span>
-						</div>
-						{toolCallCount !== null ? (
-							<p className="text-body">
-								{t("taskPanel.toolCalls", { count: toolCallCount })}
-							</p>
-						) : null}
-					</div>
-				) : null}
-				{section === "answer" ? (
-					<div className="whitespace-pre-wrap text-body-sm leading-6 text-charcoal">
-						{result?.responseText || t("taskPanel.noAnswer")}
-					</div>
-				) : null}
-				{section === "files" ? (
-					<div className="flex items-start gap-sm text-body-sm text-charcoal">
-						<FileText aria-hidden="true" className="mt-xs size-4" />
-						<span>
-							{t("taskPanel.fileSummary", { added, modified, deleted })}
-						</span>
-					</div>
-				) : null}
-				{section === "metrics" ? (
-					<dl className="grid grid-cols-2 gap-lg text-body-sm">
-						<div>
-							<dt className="flex items-center gap-xs text-caption-sm text-body">
-								<Clock aria-hidden="true" className="size-3.5" />
-								{t("totalDuration")}
-							</dt>
-							<dd className="mt-xs font-mono text-ink">
-								{formatDuration(totalDuration)}
-							</dd>
-						</div>
-						<div>
-							<dt className="flex items-center gap-xs text-caption-sm text-body">
-								<ChartColumn aria-hidden="true" className="size-3.5" />
-								{t("firstToken")}
-							</dt>
-							<dd className="mt-xs font-mono text-ink">
-								{formatDuration(timeToFirstToken)}
-							</dd>
-						</div>
-					</dl>
-				) : null}
-			</div>
+					</p>
+				)}
+			</footer>
 		</section>
 	);
 };
