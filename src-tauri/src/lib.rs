@@ -59,9 +59,11 @@ mod services {
     pub(crate) mod agent;
     pub(crate) mod comparison;
     pub(crate) mod process;
+    pub(crate) mod result;
     pub(crate) mod skill;
     pub(crate) mod snapshot;
     pub(crate) mod task;
+    pub(crate) mod task_execution;
     pub(crate) mod workspace;
 }
 mod utils {
@@ -96,9 +98,11 @@ use crate::repositories::workspace::WorkspaceRepository;
 use crate::services::activity::SystemAgentActivityMonitor;
 use crate::services::comparison::ComparisonService;
 use crate::services::process::AgentProcessMonitor;
+use crate::services::result::ResultCollector;
 use crate::services::skill::SkillLibraryService;
 use crate::services::snapshot::SnapshotService;
 use crate::services::task::TaskService;
+use crate::services::task_execution::TaskExecutionService;
 use crate::services::workspace::WorkspaceService;
 use sea_orm_migration::MigratorTrait;
 use std::time::Duration;
@@ -146,6 +150,11 @@ pub fn run() {
                 WorkspaceRepository::new(comparison_database.clone()),
                 SkillRepository::new(comparison_database.clone()),
                 SnapshotService::new(app_data_directory.clone()),
+                app_data_directory.clone(),
+            ));
+            app.manage(TaskExecutionService::new(
+                TaskRepository::new(comparison_database.clone()),
+                ResultCollector::new(app_data_directory.clone()),
                 app_data_directory.clone(),
             ));
             app.manage(ComparisonService::new(ComparisonRepository::new(
@@ -309,6 +318,7 @@ pub fn run() {
             commands::task::get_task,
             commands::task::create_task,
             commands::task::list_tasks,
+            commands::task::run_task_executions,
             commands::opencode::check_opencode_init_status,
             commands::opencode::check_opencode_login,
             commands::opencode::get_opencode_runtime_config,

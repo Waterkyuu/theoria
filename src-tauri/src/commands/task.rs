@@ -1,6 +1,7 @@
 use crate::domain::task::{Task, TaskAgent, TaskAgentResult, TaskDetail, TaskSkill};
 use crate::error::{AppError, IpcError};
 use crate::services::task::{CreateTaskAgentInput, CreateTaskInput, TaskService};
+use crate::services::task_execution::TaskExecutionService;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -50,6 +51,14 @@ pub(crate) struct CreateTaskRequest {
     command_execution: String,
     /// Managed Skill choices allowed only for normal Tasks.
     skill_ids: Vec<String>,
+}
+
+/// Request selecting one prepared Task to execute.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct RunTaskExecutionsRequest {
+    /// Stable prepared Task identifier.
+    task_id: String,
 }
 
 /// Task metadata shown in Recent, History, and detail headers.
@@ -258,6 +267,25 @@ pub(crate) async fn create_task(
             command_execution: request.command_execution,
             skill_ids: request.skill_ids,
         })
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
+/// Runs every prepared Agent concurrently in its own Execution workspace.
+#[tauri::command]
+pub(crate) async fn run_task_executions(
+    request: RunTaskExecutionsRequest,
+    service: State<'_, TaskExecutionService>,
+    codex_cache: State<'_, crate::adapters::codex::CodexRuntimeDefaultsCache>,
+    claude_cache: State<'_, crate::adapters::claude::ClaudeRuntimeSettingsCache>,
+) -> Result<TaskDetailResponse, IpcError> {
+    service
+        .run(
+            &request.task_id,
+            codex_cache.inner().clone(),
+            claude_cache.inner().clone(),
+        )
         .await
         .map(Into::into)
         .map_err(Into::into)

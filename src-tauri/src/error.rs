@@ -41,6 +41,7 @@ pub(crate) enum AppError {
     InvalidTask,
     TaskNotFound,
     TaskPreparationFailed,
+    TaskResultFailed,
     UnsafeWorkspaceLink(PathBuf),
     WorkerFailed,
 }
@@ -209,6 +210,10 @@ impl From<AppError> for IpcError {
             AppError::TaskPreparationFailed => Self {
                 code: "TASK_PREPARATION_FAILED",
                 message: "无法创建安全且隔离的任务执行目录。".to_string(),
+            },
+            AppError::TaskResultFailed => Self {
+                code: "TASK_RESULT_FAILED",
+                message: "无法收集或保存 Agent 的文件变化。".to_string(),
             },
             AppError::UnsafeWorkspaceLink(path) => Self {
                 code: "UNSAFE_WORKSPACE_LINK",

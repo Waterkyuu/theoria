@@ -116,6 +116,133 @@ impl TaskRepository {
         Ok(detail)
     }
 
+    /// Moves a prepared Task and all prepared Agent rows into Running atomically.
+    pub(crate) async fn mark_running(
+        &self,
+        task_id: &str,
+        updated_at_ms: i64,
+    ) -> Result<(), DbErr> {
+        let transaction = self.database.begin().await?;
+        transaction
+            .execute_raw(Statement::from_sql_and_values(
+                DatabaseBackend::Sqlite,
+                "UPDATE tasks SET status = 'running', updated_at_ms = ? WHERE id = ? AND status = 'preparing'",
+                [updated_at_ms.into(), task_id.into()],
+            ))
+            .await?;
+        transaction
+            .execute_raw(Statement::from_sql_and_values(
+                DatabaseBackend::Sqlite,
+                "UPDATE task_agents SET status = 'running', updated_at_ms = ? WHERE task_id = ? AND status = 'preparing'",
+                [updated_at_ms.into(), task_id.into()],
+            ))
+            .await?;
+        transaction.commit().await
+    }
+
+    /// Persists one non-terminal Agent lifecycle without fabricating a final result.
+    pub(crate) async fn set_agent_status(
+        &self,
+        task_agent_id: &str,
+        status: TaskStatus,
+        updated_at_ms: i64,
+    ) -> Result<(), DbErr> {
+        if !matches!(status, TaskStatus::Running | TaskStatus::Waiting) {
+            return Err(DbErr::Custom(
+                "Agent status update is not non-terminal".to_string(),
+            ));
+        }
+        self.database
+            .execute_raw(Statement::from_sql_and_values(
+                DatabaseBackend::Sqlite,
+                "UPDATE task_agents SET status = ?, updated_at_ms = ? WHERE id = ?",
+                [
+                    status.as_str().into(),
+                    updated_at_ms.into(),
+                    task_agent_id.into(),
+                ],
+            ))
+            .await?;
+        Ok(())
+    }
+
+    /// Atomically saves one terminal Agent status and its response, changes, and metrics.
+    pub(crate) async fn finish_agent(
+        &self,
+        result: TaskAgentResult,
+        updated_at_ms: i64,
+    ) -> Result<(), DbErr> {
+        if !matches!(
+            result.final_status,
+            TaskStatus::Completed | TaskStatus::Failed | TaskStatus::Stopped
+        ) {
+            return Err(DbErr::Custom(
+                "Agent result status is not terminal".to_string(),
+            ));
+        }
+        let transaction = self.database.begin().await?;
+        transaction
+            .execute_raw(Statement::from_sql_and_values(
+                DatabaseBackend::Sqlite,
+                "UPDATE task_agents SET status = ?, updated_at_ms = ? WHERE id = ?",
+                [
+                    result.final_status.as_str().into(),
+                    updated_at_ms.into(),
+                    result.task_agent_id.clone().into(),
+                ],
+            ))
+            .await?;
+        transaction
+            .execute_raw(Statement::from_sql_and_values(
+                DatabaseBackend::Sqlite,
+                r#"
+                INSERT INTO task_agent_results
+                    (task_agent_id, final_status, response_text, changes_relative_path,
+                     metrics_json, created_at_ms, updated_at_ms)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(task_agent_id) DO UPDATE SET
+                    final_status = excluded.final_status,
+                    response_text = excluded.response_text,
+                    changes_relative_path = excluded.changes_relative_path,
+                    metrics_json = excluded.metrics_json,
+                    updated_at_ms = excluded.updated_at_ms
+                "#,
+                [
+                    result.task_agent_id.into(),
+                    result.final_status.as_str().into(),
+                    result.response_text.into(),
+                    result.changes_relative_path.into(),
+                    result.metrics_json.into(),
+                    updated_at_ms.into(),
+                    updated_at_ms.into(),
+                ],
+            ))
+            .await?;
+        transaction.commit().await
+    }
+
+    /// Moves the Task aggregate to its current waiting or terminal lifecycle.
+    pub(crate) async fn set_task_status(
+        &self,
+        task_id: &str,
+        status: TaskStatus,
+        updated_at_ms: i64,
+    ) -> Result<(), DbErr> {
+        if matches!(status, TaskStatus::Preparing | TaskStatus::Running) {
+            return Err(DbErr::Custom(
+                "Task completion status is not final".to_string(),
+            ));
+        }
+        self.database
+            .execute_raw(Statement::from_sql_and_values(
+                DatabaseBackend::Sqlite,
+                "UPDATE tasks SET status = ?, updated_at_ms = ? WHERE id = ?",
+                [status.as_str().into(), updated_at_ms.into(), task_id.into()],
+            ))
+            .await?;
+        Ok(())
+    }
+
     /// Lists global Recent or one Workspace's History without mixing scopes.
     pub(crate) async fn list(&self, workspace_id: Option<&str>) -> Result<Vec<Task>, DbErr> {
         let (condition, values) = match workspace_id {
