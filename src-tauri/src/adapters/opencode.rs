@@ -364,6 +364,12 @@ fn build_opencode_task_command(
     if let Some(session_id) = session_id {
         command.args(["--session", session_id]);
     }
+    if let Some(inline_config) = opencode_permission_config(
+        config,
+        std::env::var("OPENCODE_CONFIG_CONTENT").ok().as_deref(),
+    ) {
+        command.env("OPENCODE_CONFIG_CONTENT", inline_config);
+    }
     command
         .arg("--")
         .arg(query)
@@ -371,6 +377,52 @@ fn build_opencode_task_command(
         .stdout(Stdio::piped())
         .stderr(Stdio::null());
     command
+}
+
+/// Merges frozen Task permissions into OpenCode's highest-precedence inline config.
+fn opencode_permission_config(
+    config: AgentExecutionConfig<'_>,
+    existing: Option<&str>,
+) -> Option<String> {
+    if config.file_access.is_none() && config.command_execution.is_none() {
+        return None;
+    }
+    let mut root = existing
+        .and_then(|content| serde_json::from_str::<serde_json::Value>(content).ok())
+        .filter(serde_json::Value::is_object)
+        .unwrap_or_else(|| serde_json::json!({}));
+    let mut permission = match root.get("permission") {
+        Some(serde_json::Value::Object(permission)) => permission.clone(),
+        _ => serde_json::Map::new(),
+    };
+    if let Some(file_access) = config.file_access {
+        permission.insert(
+            "edit".to_string(),
+            serde_json::Value::String(
+                if file_access == "read_only" {
+                    "deny"
+                } else {
+                    "allow"
+                }
+                .to_string(),
+            ),
+        );
+        permission.insert(
+            "external_directory".to_string(),
+            serde_json::Value::String("deny".to_string()),
+        );
+    }
+    if let Some(command_execution) = config.command_execution {
+        permission.insert(
+            "bash".to_string(),
+            serde_json::Value::String(command_execution.to_string()),
+        );
+    }
+    root.as_object_mut()?.insert(
+        "permission".to_string(),
+        serde_json::Value::Object(permission),
+    );
+    Some(root.to_string())
 }
 
 /// Consumes newline-delimited CLI events until the official stream closes after step completion.
@@ -565,7 +617,7 @@ fn opencode_executable_candidates() -> Vec<OsString> {
 mod tests {
     use super::{
         build_opencode_task_command, collect_opencode_events, login_from_auth_output,
-        runtime_config_from_json,
+        opencode_permission_config, runtime_config_from_json,
     };
     use crate::adapters::agent::AgentExecutionConfig;
     use std::sync::mpsc;
@@ -579,6 +631,8 @@ mod tests {
             AgentExecutionConfig {
                 model: Some("anthropic/claude-sonnet-4-6"),
                 mode: Some("high"),
+                file_access: Some("read_only"),
+                command_execution: Some("deny"),
             },
             None,
         );
@@ -591,6 +645,21 @@ mod tests {
             .windows(2)
             .any(|args| args == ["--model", "anthropic/claude-sonnet-4-6"]));
         assert!(args.windows(2).any(|args| args == ["--variant", "high"]));
+        let permissions = opencode_permission_config(
+            AgentExecutionConfig {
+                file_access: Some("read_only"),
+                command_execution: Some("deny"),
+                ..AgentExecutionConfig::default()
+            },
+            Some(r#"{"provider":{"example":{"name":"Example"}}}"#),
+        )
+        .expect("Task permissions should create inline config");
+        let permissions: serde_json::Value =
+            serde_json::from_str(&permissions).expect("inline config should be JSON");
+        assert_eq!(permissions["permission"]["edit"], "deny");
+        assert_eq!(permissions["permission"]["bash"], "deny");
+        assert_eq!(permissions["permission"]["external_directory"], "deny");
+        assert_eq!(permissions["provider"]["example"]["name"], "Example");
     }
 
     #[test]

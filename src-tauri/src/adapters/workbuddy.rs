@@ -450,6 +450,13 @@ fn build_workbuddy_task_command(
     session_id: Option<&str>,
 ) -> Command {
     let mut command = Command::new(executable);
+    let permission_mode = match (config.file_access, config.command_execution) {
+        (Some("read_only"), _) => "plan",
+        (Some("allow_edits"), Some("allow")) => "bypassPermissions",
+        (Some("allow_edits"), Some("ask")) => "default",
+        (Some("allow_edits"), Some("deny")) => "acceptEdits",
+        _ => "acceptEdits",
+    };
     if let Some(model) = config.model {
         command.args(["--model", model]);
     }
@@ -473,7 +480,7 @@ fn build_workbuddy_task_command(
             "--include-partial-messages",
             "--verbose",
             "--permission-mode",
-            "acceptEdits",
+            permission_mode,
         ])
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -890,6 +897,8 @@ mod tests {
             AgentExecutionConfig {
                 model: Some("kimi-k3"),
                 mode: Some("high"),
+                file_access: Some("allow_edits"),
+                command_execution: Some("allow"),
             },
             None,
         );
@@ -900,6 +909,9 @@ mod tests {
 
         assert!(args.windows(2).any(|args| args == ["--model", "kimi-k3"]));
         assert!(args.windows(2).any(|args| args == ["--effort", "high"]));
+        assert!(args
+            .windows(2)
+            .any(|args| args == ["--permission-mode", "bypassPermissions"]));
         assert!(!args.iter().any(|arg| arg == "--no-session-persistence"));
     }
 
@@ -1068,6 +1080,7 @@ mod tests {
             AgentExecutionConfig {
                 model: Some("kimi-k3"),
                 mode: None,
+                ..AgentExecutionConfig::default()
             },
             None,
         );
@@ -1088,6 +1101,7 @@ mod tests {
             AgentExecutionConfig {
                 model: Some("kimi-k3"),
                 mode: Some("enabled"),
+                ..AgentExecutionConfig::default()
             },
             None,
         );

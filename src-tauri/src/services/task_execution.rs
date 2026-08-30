@@ -187,6 +187,8 @@ impl TaskExecutionService {
             let execution_directory = self.app_data_directory.join(&agent.execution_relative_path);
             let model_snapshot = agent.model_snapshot.clone();
             let mode_snapshot = agent.mode_snapshot.clone();
+            let file_access = detail.permissions.file_access.clone();
+            let command_execution = detail.permissions.command_execution.clone();
             let codex_cache = codex_cache.clone();
             let claude_cache = claude_cache.clone();
             let cancellation = self.active_executions.register(&agent.id);
@@ -199,6 +201,8 @@ impl TaskExecutionService {
                     AgentExecutionConfig {
                         model: model_snapshot.as_deref(),
                         mode: mode_snapshot.as_deref(),
+                        file_access: Some(&file_access),
+                        command_execution: Some(&command_execution),
                     },
                     AgentRuntimeCaches {
                         codex: codex_cache,
@@ -313,6 +317,8 @@ impl TaskExecutionService {
             let model_snapshot = agent.model_snapshot.clone();
             let mode_snapshot = agent.mode_snapshot.clone();
             let session_id = agent.session_id.clone();
+            let file_access = detail.permissions.file_access.clone();
+            let command_execution = detail.permissions.command_execution.clone();
             let prompt = prompt.clone();
             let codex_cache = codex_cache.clone();
             let claude_cache = claude_cache.clone();
@@ -326,6 +332,8 @@ impl TaskExecutionService {
                     AgentExecutionConfig {
                         model: model_snapshot.as_deref(),
                         mode: mode_snapshot.as_deref(),
+                        file_access: Some(&file_access),
+                        command_execution: Some(&command_execution),
                     },
                     AgentRuntimeCaches {
                         codex: codex_cache,

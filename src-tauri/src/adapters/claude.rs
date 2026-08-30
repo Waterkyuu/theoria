@@ -479,6 +479,13 @@ fn build_claude_task_command(
     session_id: Option<&str>,
 ) -> Command {
     let mut command = Command::new(executable);
+    let permission_mode = match (config.file_access, config.command_execution) {
+        (Some("read_only"), _) => "plan",
+        (Some("allow_edits"), Some("allow")) => "bypassPermissions",
+        (Some("allow_edits"), Some("ask")) => "default",
+        (Some("allow_edits"), Some("deny")) => "acceptEdits",
+        _ => "plan",
+    };
     if let Some(model) = config.model {
         command.args(["--model", model]);
     }
@@ -497,7 +504,7 @@ fn build_claude_task_command(
             "--include-partial-messages",
             "--verbose",
             "--permission-mode",
-            "plan",
+            permission_mode,
         ])
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -744,6 +751,8 @@ mod tests {
             AgentExecutionConfig {
                 model: Some("claude-opus-4-1"),
                 mode: Some("high"),
+                file_access: Some("allow_edits"),
+                command_execution: Some("allow"),
             },
             None,
         );
@@ -756,6 +765,9 @@ mod tests {
             .windows(2)
             .any(|args| args == ["--model", "claude-opus-4-1"]));
         assert!(args.windows(2).any(|args| args == ["--effort", "high"]));
+        assert!(args
+            .windows(2)
+            .any(|args| args == ["--permission-mode", "bypassPermissions"]));
         assert!(!args.iter().any(|arg| arg == "--no-session-persistence"));
     }
 

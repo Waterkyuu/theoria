@@ -551,9 +551,18 @@ fn build_codex_thread_request(
     session_id: Option<&str>,
     ephemeral: bool,
 ) -> serde_json::Value {
+    let sandbox = match config.file_access {
+        Some("read_only") => "read-only",
+        _ => "workspace-write",
+    };
+    let approval_policy = match config.command_execution {
+        Some("deny") => "untrusted",
+        Some("ask") => "on-request",
+        _ => "never",
+    };
     let mut params = serde_json::json!({
-        "approvalPolicy": "never",
-        "sandbox": "workspace-write",
+        "approvalPolicy": approval_policy,
+        "sandbox": sandbox,
         "serviceName": "agent_gauge"
     });
     if let Some(model) = config.model {
@@ -835,6 +844,8 @@ mod tests {
             AgentExecutionConfig {
                 model: Some("gpt-5.6-sol"),
                 mode: Some("high"),
+                file_access: Some("read_only"),
+                command_execution: Some("ask"),
             },
             None,
             false,
@@ -842,6 +853,8 @@ mod tests {
 
         assert_eq!(request["params"]["model"], "gpt-5.6-sol");
         assert_eq!(request["params"]["effort"], "high");
+        assert_eq!(request["params"]["sandbox"], "read-only");
+        assert_eq!(request["params"]["approvalPolicy"], "on-request");
         assert_eq!(request["params"]["ephemeral"], false);
     }
 

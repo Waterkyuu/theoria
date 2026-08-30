@@ -11,6 +11,10 @@ pub(crate) struct AgentExecutionConfig<'a> {
     pub(crate) model: Option<&'a str>,
     /// Exact reasoning effort, thinking mode, or provider variant.
     pub(crate) mode: Option<&'a str>,
+    /// Frozen file mutation policy for the isolated Execution workspace.
+    pub(crate) file_access: Option<&'a str>,
+    /// Frozen command approval policy for the isolated Agent session.
+    pub(crate) command_execution: Option<&'a str>,
 }
 
 /// One Agent turn plus the opaque session identifier required for a later turn.
