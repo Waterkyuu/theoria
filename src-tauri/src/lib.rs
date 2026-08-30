@@ -97,7 +97,7 @@ use crate::repositories::skill::SkillRepository;
 use crate::repositories::task::TaskRepository;
 use crate::repositories::workspace::WorkspaceRepository;
 use crate::services::activity::SystemAgentActivityMonitor;
-use crate::services::cleanup::TaskCleanupService;
+use crate::services::cleanup::{TaskCleanupService, WorkspaceCleanupService};
 use crate::services::comparison::ComparisonService;
 use crate::services::process::AgentProcessMonitor;
 use crate::services::result::ResultCollector;
@@ -160,10 +160,17 @@ pub fn run() {
                 app_data_directory.clone(),
             );
             app.manage(task_execution_service.clone());
-            app.manage(TaskCleanupService::new(
+            let task_cleanup_service = TaskCleanupService::new(
                 TaskRepository::new(comparison_database.clone()),
                 SnapshotService::new(app_data_directory.clone()),
                 task_execution_service,
+            );
+            app.manage(task_cleanup_service.clone());
+            app.manage(WorkspaceCleanupService::new(
+                WorkspaceRepository::new(comparison_database.clone()),
+                TaskRepository::new(comparison_database.clone()),
+                task_cleanup_service,
+                app_data_directory.clone(),
             ));
             app.manage(ComparisonService::new(ComparisonRepository::new(
                 comparison_database,
@@ -339,6 +346,7 @@ pub fn run() {
             commands::workbuddy::run_workbuddy_task,
             commands::workspace::create_managed_workspace,
             commands::workspace::list_workspaces,
+            commands::workspace::remove_workspace,
             commands::workspace::register_external_workspace
         ])
         .run(tauri::generate_context!())

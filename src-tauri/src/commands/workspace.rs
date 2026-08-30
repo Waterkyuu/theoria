@@ -1,5 +1,6 @@
 use crate::domain::workspace::Workspace;
 use crate::error::IpcError;
+use crate::services::cleanup::WorkspaceCleanupService;
 use crate::services::workspace::WorkspaceService;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -21,6 +22,16 @@ pub(crate) struct RegisterExternalWorkspaceRequest {
 pub(crate) struct CreateManagedWorkspaceRequest {
     /// User-visible Workspace name.
     name: String,
+}
+
+/// Request for removing one complete Workspace collection.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct RemoveWorkspaceRequest {
+    /// Stable Workspace identifier.
+    workspace_id: String,
+    /// Required acknowledgement before managed template files are deleted.
+    managed_files_confirmed: bool,
 }
 
 /// Workspace metadata safe for the desktop frontend.
@@ -92,5 +103,17 @@ pub(crate) async fn list_workspaces(
         .list()
         .await
         .map(|items| items.into_iter().map(Into::into).collect())
+        .map_err(Into::into)
+}
+
+/// Removes Workspace Tasks and mounts while protecting external source files.
+#[tauri::command]
+pub(crate) async fn remove_workspace(
+    request: RemoveWorkspaceRequest,
+    service: State<'_, WorkspaceCleanupService>,
+) -> Result<(), IpcError> {
+    service
+        .remove_workspace(&request.workspace_id, request.managed_files_confirmed)
+        .await
         .map_err(Into::into)
 }

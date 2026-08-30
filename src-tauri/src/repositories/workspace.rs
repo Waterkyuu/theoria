@@ -81,6 +81,18 @@ impl WorkspaceRepository {
             })
             .collect()
     }
+
+    /// Deletes one Workspace only after its Tasks and managed files have been cleaned.
+    pub(crate) async fn delete(&self, workspace_id: &str) -> Result<(), DbErr> {
+        self.database
+            .execute_raw(Statement::from_sql_and_values(
+                DatabaseBackend::Sqlite,
+                "DELETE FROM workspaces WHERE id = ?",
+                [workspace_id.into()],
+            ))
+            .await?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
