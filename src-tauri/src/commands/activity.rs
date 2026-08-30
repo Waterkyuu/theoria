@@ -1,4 +1,4 @@
-use crate::domain::agent_activity::{AgentActivity, AgentActivityKind, AgentActivityStatus};
+use crate::domain::agent_activity::{AgentActivity, AgentActivityStatus};
 use crate::services::activity::SystemAgentActivityMonitor;
 use serde::Serialize;
 use tauri::State;
@@ -35,12 +35,7 @@ impl From<Vec<AgentActivity>> for AgentActivitiesResponse {
                 .map(|activity| AgentActivityResponse {
                     id: activity.id,
                     title: activity.title,
-                    agent: match activity.agent {
-                        AgentActivityKind::Claude => "claude",
-                        AgentActivityKind::Codex => "codex",
-                        AgentActivityKind::OpenCode => "opencode",
-                        AgentActivityKind::WorkBuddy => "workbuddy",
-                    },
+                    agent: activity.agent.as_str(),
                     status: match activity.status {
                         AgentActivityStatus::Running => "running",
                         AgentActivityStatus::Waiting => "waiting",
@@ -65,14 +60,15 @@ pub(crate) fn check_agent_activities(
 #[cfg(test)]
 mod tests {
     use super::AgentActivitiesResponse;
-    use crate::domain::agent_activity::{AgentActivity, AgentActivityKind, AgentActivityStatus};
+    use crate::domain::agent_activity::{AgentActivity, AgentActivityStatus};
+    use crate::domain::agent_kind::AgentKind;
 
     #[test]
     fn serializes_the_privacy_safe_activity_contract_in_camel_case() {
         let response = AgentActivitiesResponse::from(vec![AgentActivity {
             id: "codex-1234".to_string(),
             title: Some("Inspect activity titles".to_string()),
-            agent: AgentActivityKind::Codex,
+            agent: AgentKind::Codex,
             status: AgentActivityStatus::Waiting,
             updated_at_ms: 42,
         }]);
