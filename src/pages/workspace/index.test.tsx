@@ -247,7 +247,7 @@ describe("WorkspacePage", () => {
 		await user.click(screen.getByRole("option", { name: "基准测试模式" }));
 
 		expect(
-			screen.getByText("每个 Agent 从相同内容开始，运行期间彼此隔离。"),
+			screen.getByText("每个 Agent 从相同内容开始，运行期间彼此隔离"),
 		).toBeInTheDocument();
 	});
 

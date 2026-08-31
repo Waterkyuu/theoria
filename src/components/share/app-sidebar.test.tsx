@@ -127,6 +127,20 @@ describe("AppSidebar", () => {
 		).toBeInTheDocument();
 	});
 
+	it("opens the Agent access page from the primary navigation", async () => {
+		const user = userEvent.setup();
+		const onNavigate = vi.fn();
+		render(
+			<AppSidebar currentPath="/" onNavigate={onNavigate}>
+				<main>content</main>
+			</AppSidebar>,
+		);
+
+		await user.click(screen.getByRole("button", { name: "Agent 接入" }));
+
+		expect(onNavigate).toHaveBeenCalledWith("/agents");
+	});
+
 	it("renders workspace actions and tree item icons", () => {
 		render(
 			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
@@ -349,7 +363,7 @@ describe("AppSidebar", () => {
 			managedFilesConfirmed: true,
 			workspaceId: "workspace-managed",
 		});
-		expect(toastSuccess).toHaveBeenCalledWith("已移除工作区“docs-lab”。");
+		expect(toastSuccess).toHaveBeenCalledWith("已移除工作区“docs-lab”");
 		expect(onNavigate).toHaveBeenCalledWith("/task");
 	});
 
