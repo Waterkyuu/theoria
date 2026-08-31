@@ -19,6 +19,7 @@ const TASK_DETAIL = {
 		prompt: "Inspect repository",
 		status: "preparing",
 		configurationLockedAtMs: 1,
+		pinnedAtMs: null,
 		createdAtMs: 1,
 		updatedAtMs: 1,
 	},

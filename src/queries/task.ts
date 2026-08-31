@@ -5,7 +5,9 @@ import {
 	deleteTask,
 	getTask,
 	listTasks,
+	renameTask,
 	runTaskExecutions,
+	setTaskPin,
 	stopTaskAgent,
 } from "@/api/task";
 import type {
@@ -13,6 +15,20 @@ import type {
 	CreateTaskRequest,
 	TaskDetail,
 } from "@/types/task";
+
+type RenameTaskInput = {
+	/** Stable Task identifier whose title changes. */
+	taskId: string;
+	/** Trimmed user-visible title persisted by the backend. */
+	title: string;
+};
+
+type SetTaskPinInput = {
+	/** Whether the global Recent Task should be pinned. */
+	isPinned: boolean;
+	/** Stable global Recent Task identifier. */
+	taskId: string;
+};
 
 const TASK_POLL_INTERVAL_MS = 750;
 
@@ -138,12 +154,48 @@ const useDeleteTask = () => {
 	});
 };
 
+/** Renames a Task and refreshes its detail and owning list caches. */
+const useRenameTask = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({ taskId, title }: RenameTaskInput) =>
+			renameTask(taskId, title),
+		onSuccess: (task) => {
+			queryClient.setQueryData<TaskDetail>(
+				taskKeys.detail(task.id),
+				(detail) => (detail ? { ...detail, task } : detail),
+			);
+			queryClient.invalidateQueries({
+				queryKey: taskKeys.list(task.workspaceId),
+			});
+		},
+	});
+};
+
+/** Persists Recent pin state and refreshes its ordered list. */
+const useSetTaskPin = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({ isPinned, taskId }: SetTaskPinInput) =>
+			setTaskPin(taskId, isPinned),
+		onSuccess: (task) => {
+			queryClient.setQueryData<TaskDetail>(
+				taskKeys.detail(task.id),
+				(detail) => (detail ? { ...detail, task } : detail),
+			);
+			queryClient.invalidateQueries({ queryKey: taskKeys.list(null) });
+		},
+	});
+};
+
 export {
 	taskKeys,
 	useContinueTask,
 	useCreateTask,
 	useDeleteTask,
+	useRenameTask,
 	useRunTask,
+	useSetTaskPin,
 	useStopTaskAgent,
 	useTask,
 	useTasks,

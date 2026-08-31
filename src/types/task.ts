@@ -24,6 +24,8 @@ const TaskSchema = z.object({
 	status: TaskStatusSchema,
 	/** Time after which execution configuration is immutable. */
 	configurationLockedAtMs: z.int().nonnegative().nullable(),
+	/** Optional pin time used to order global Recent Tasks. */
+	pinnedAtMs: z.int().positive().nullable(),
 	/** Creation time in Unix milliseconds. */
 	createdAtMs: z.int().nonnegative(),
 	/** Latest lifecycle update time in Unix milliseconds. */
@@ -134,6 +136,7 @@ const ContinueTaskRequestSchema = z.object({
 });
 
 const CompiledTaskDetailSchema = z.compile(TaskDetailSchema);
+const CompiledTaskSchema = z.compile(TaskSchema);
 const CompiledTasksSchema = z.compile(z.array(TaskSchema));
 
 type TaskStatus = z.infer<typeof TaskStatusSchema>;
@@ -157,6 +160,7 @@ export type {
 };
 export {
 	CompiledTaskDetailSchema,
+	CompiledTaskSchema,
 	CompiledTasksSchema,
 	ContinueTaskRequestSchema,
 	CreateTaskRequestSchema,

@@ -26,6 +26,7 @@ const RESTORED_TASK = {
 		prompt: "Inspect repository",
 		status: "completed",
 		configurationLockedAtMs: 1,
+		pinnedAtMs: null,
 		createdAtMs: 1,
 		updatedAtMs: 2,
 	},

@@ -1,7 +1,11 @@
 import { z } from "zod";
 import { invokeWithResponseSchema } from "@/api/ipc";
 import type { ContinueTaskRequest, CreateTaskRequest } from "@/types/task";
-import { CompiledTaskDetailSchema, CompiledTasksSchema } from "@/types/task";
+import {
+	CompiledTaskDetailSchema,
+	CompiledTaskSchema,
+	CompiledTasksSchema,
+} from "@/types/task";
 
 const EmptyResponseSchema = z.compile(z.void());
 
@@ -47,12 +51,26 @@ const deleteTask = (taskId: string) =>
 		request: { taskId },
 	});
 
+/** Changes one persisted Task title after backend validation. */
+const renameTask = (taskId: string, title: string) =>
+	invokeWithResponseSchema("rename_task", CompiledTaskSchema, {
+		request: { taskId, title },
+	});
+
+/** Changes whether one global Recent Task is pinned above ordinary Tasks. */
+const setTaskPin = (taskId: string, isPinned: boolean) =>
+	invokeWithResponseSchema("set_task_pin", CompiledTaskSchema, {
+		request: { taskId, isPinned },
+	});
+
 export {
 	continueTask,
 	createTask,
 	deleteTask,
 	getTask,
 	listTasks,
+	renameTask,
 	runTaskExecutions,
+	setTaskPin,
 	stopTaskAgent,
 };
