@@ -1,18 +1,23 @@
 import { useState } from "react";
 import { Puzzle } from "@gravity-ui/icons";
-import { Input } from "@heroui/react";
+import { Button, Input, Label, TextField } from "@heroui/react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router";
 import { PageHeader } from "@/components/share/page-header";
+import { DropdownMenu } from "@/components/ui/dropdown-menu";
+import { ModalProvider } from "@/components/ui/modal-provider";
 import { handleError } from "@/utils/error";
 import {
+	useImportGitSkill,
 	useImportSkill,
 	useSkillMountCounts,
 	useSkills,
+	useUpdateGitSkill,
 } from "@/queries/skill";
 import type { Skill } from "@/types/skill";
-import { WorkspaceMountModal } from "./workspace-mount-modal";
+import { WorkspaceMountModal } from "./components/workspace-mount-modal";
 
 const SKILL_FILTERS = ["all", "mounted", "local", "github"] as const;
 type SkillFilter = (typeof SKILL_FILTERS)[number];
@@ -38,15 +43,24 @@ const toLibrarySkill = (skill: Skill, mountedCount: number): LibrarySkill => ({
 
 const SkillsPage = () => {
 	const { t } = useTranslation();
+	const navigate = useNavigate();
 	const [activeFilter, setActiveFilter] = useState<SkillFilter>("all");
 	const [searchValue, setSearchValue] = useState("");
 	const [managedSkill, setManagedSkill] = useState<Skill | null>(null);
+	const [isGitImportOpen, setIsGitImportOpen] = useState(false);
+	const [gitUrl, setGitUrl] = useState("");
 	const skillsQuery = useSkills();
 	const mountCountsQuery = useSkillMountCounts();
 	const importSkillMutation = useImportSkill();
+	const importGitSkillMutation = useImportGitSkill();
+	const updateGitSkillMutation = useUpdateGitSkill();
 	const isLoading = skillsQuery.isLoading || mountCountsQuery.isLoading;
 	const loadError = skillsQuery.error ?? mountCountsQuery.error;
-	const pageError = loadError ?? importSkillMutation.error;
+	const pageError =
+		loadError ??
+		importSkillMutation.error ??
+		importGitSkillMutation.error ??
+		updateGitSkillMutation.error;
 	const searchTerm = searchValue.trim().toLocaleLowerCase();
 	const localizedSkills = (skillsQuery.data ?? [])
 		.map((skill) =>
@@ -91,6 +105,29 @@ const SkillsPage = () => {
 		}
 	};
 
+	/** Imports one repository URL after the user confirms the Git dialog. */
+	const importSkillFromGit = async () => {
+		const trimmedGitUrl = gitUrl.trim();
+		if (!trimmedGitUrl || importGitSkillMutation.isPending) return;
+		try {
+			await importGitSkillMutation.mutateAsync(trimmedGitUrl);
+			setGitUrl("");
+			setIsGitImportOpen(false);
+		} catch (error) {
+			handleError(error, "Git Skill import failed");
+		}
+	};
+
+	/** Refreshes a Git Skill from the remote URL retained by native storage. */
+	const updateGitSkill = async (skillId: string) => {
+		if (updateGitSkillMutation.isPending) return;
+		try {
+			await updateGitSkillMutation.mutateAsync(skillId);
+		} catch (error) {
+			handleError(error, "Git Skill update failed");
+		}
+	};
+
 	return (
 		<main className="flex h-[100dvh] min-w-0 flex-1 flex-col overflow-hidden bg-canvas max-md:h-[calc(100dvh-4rem)]">
 			<PageHeader>
@@ -112,14 +149,38 @@ const SkillsPage = () => {
 							{t("skills.description")}
 						</p>
 					</div>
-					<button
-						className="h-9 w-full shrink-0 rounded-md bg-surface-dark px-lg text-body-sm font-medium text-on-dark outline-none hover:bg-ink-deep focus-visible:ring-2 focus-visible:ring-focus-ring sm:w-auto sm:min-w-34"
-						disabled={importSkillMutation.isPending}
-						onClick={() => importSkillFolder()}
-						type="button"
-					>
-						{t("skills.addSkill")}
-					</button>
+					<DropdownMenu
+						headerKey="skills.addMenu.title"
+						items={[
+							{
+								id: "platform",
+								labelKey: "skills.addMenu.platform",
+								onAction: () => navigate("/skills/create-skill"),
+							},
+							{
+								id: "folder",
+								labelKey: "skills.addMenu.folder",
+								onAction: () => importSkillFolder(),
+							},
+							{
+								id: "git",
+								labelKey: "skills.addMenu.git",
+								onAction: () => setIsGitImportOpen(true),
+							},
+						]}
+						placement="bottom end"
+						trigger={
+							<Button
+								className="h-9 w-full shrink-0 rounded-md bg-surface-dark px-lg text-body-sm font-medium text-on-dark outline-none hover:bg-ink-deep focus-visible:ring-2 focus-visible:ring-focus-ring sm:w-auto sm:min-w-34"
+								isDisabled={
+									importSkillMutation.isPending ||
+									importGitSkillMutation.isPending
+								}
+							>
+								{t("skills.addSkill")}
+							</Button>
+						}
+					/>
 				</div>
 
 				<Input
@@ -157,7 +218,7 @@ const SkillsPage = () => {
 						<colgroup>
 							<col className="w-[48%]" />
 							<col className="w-[16%]" />
-							<col className="w-[13%]" />
+							<col className="w-[18%]" />
 							<col className="w-[10%]" />
 							<col className="w-[13%]" />
 						</colgroup>
@@ -219,17 +280,32 @@ const SkillsPage = () => {
 										{skill.accessLabel}
 									</td>
 									<td className="px-sm text-right">
-										<button
-											className="h-9 w-[94px] rounded-md border border-hairline bg-surface-card text-body-sm font-medium text-ink outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
-											onClick={() => setManagedSkill(skill)}
-											type="button"
-										>
-											{t(
-												skill.mountedCount > 0
-													? "skills.manage"
-													: "skills.mount",
-											)}
-										</button>
+										<div className="flex justify-end gap-sm">
+											{skill.sourceType === "git" ? (
+												<button
+													aria-label={t("skills.updateNamed", {
+														name: skill.name,
+													})}
+													className="h-9 rounded-md border border-hairline bg-surface-card px-md text-body-sm font-medium text-ink outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+													disabled={updateGitSkillMutation.isPending}
+													onClick={() => updateGitSkill(skill.id)}
+													type="button"
+												>
+													{t("skills.update")}
+												</button>
+											) : null}
+											<button
+												className="h-9 w-[94px] rounded-md border border-hairline bg-surface-card text-body-sm font-medium text-ink outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+												onClick={() => setManagedSkill(skill)}
+												type="button"
+											>
+												{t(
+													skill.mountedCount > 0
+														? "skills.manage"
+														: "skills.mount",
+												)}
+											</button>
+										</div>
 									</td>
 								</tr>
 							))}
@@ -273,6 +349,47 @@ const SkillsPage = () => {
 					skill={managedSkill}
 				/>
 			) : null}
+			<ModalProvider
+				description={t("skills.gitDialog.description")}
+				footer={
+					<>
+						<Button
+							onPress={() => setIsGitImportOpen(false)}
+							variant="tertiary"
+						>
+							{t("common.cancel")}
+						</Button>
+						<Button
+							isDisabled={!gitUrl.trim() || importGitSkillMutation.isPending}
+							onPress={() => importSkillFromGit()}
+							variant="primary"
+						>
+							{t("skills.gitDialog.import")}
+						</Button>
+					</>
+				}
+				isOpen={isGitImportOpen}
+				onOpenChange={(isOpen) => {
+					setIsGitImportOpen(isOpen);
+					if (!isOpen) setGitUrl("");
+				}}
+				title={t("skills.gitDialog.title")}
+			>
+				<TextField className="flex flex-col gap-xs text-body-sm font-medium text-ink">
+					<Label>{t("skills.gitDialog.urlLabel")}</Label>
+					<Input
+						className="rounded-md border border-hairline bg-canvas px-md py-sm font-normal outline-none focus:border-hairline-strong focus:ring-2 focus:ring-focus-ring"
+						onChange={(event) => setGitUrl(event.target.value)}
+						placeholder="https://github.com/owner/skill.git"
+						value={gitUrl}
+					/>
+				</TextField>
+				{importGitSkillMutation.error ? (
+					<p className="text-body-sm text-terminal-red" role="alert">
+						{t("skills.gitDialog.failed")}
+					</p>
+				) : null}
+			</ModalProvider>
 		</main>
 	);
 };

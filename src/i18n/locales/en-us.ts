@@ -237,6 +237,12 @@ const enUS = {
 			description:
 				"A reusable library of capabilities. Mount a skill into one or more Workspaces when needed",
 			addSkill: "Add skill",
+			addMenu: {
+				title: "Choose a creation method",
+				platform: "Create in Theoria",
+				folder: "Import local folder",
+				git: "Import from Git URL",
+			},
 			chooseFolderTitle: "Choose a Skill folder",
 			importFailed:
 				"Skill import failed. Confirm that the folder contains a valid SKILL.md",
@@ -263,6 +269,28 @@ const enUS = {
 			notMounted: "Not mounted",
 			manage: "Manage",
 			mount: "Mount",
+			update: "Update",
+			updateNamed: "Update {{name}}",
+			gitDialog: {
+				title: "Import from Git URL",
+				description:
+					"The repository root must contain a valid SKILL.md. Git imports can be updated from the remote.",
+				urlLabel: "Git repository URL",
+				import: "Import",
+				failed:
+					"Git Skill import failed. Check the URL and repository contents.",
+			},
+			create: {
+				title: "Create skill",
+				description:
+					"Enter the minimum required content and Theoria will generate and manage SKILL.md.",
+				back: "Back to Skill Library",
+				nameLabel: "Skill name",
+				descriptionLabel: "Description",
+				contentLabel: "Main content",
+				submit: "Create skill",
+				failed: "Skill creation failed. Check the entered content.",
+			},
 			mountDialog: {
 				title: "Manage Workspace mounts",
 				description:
