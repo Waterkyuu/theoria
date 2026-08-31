@@ -13,6 +13,7 @@ mod commands {
     pub(crate) mod claude;
     pub(crate) mod codex;
     pub(crate) mod comparison;
+    pub(crate) mod i18n;
     pub(crate) mod opencode;
     pub(crate) mod skill;
     pub(crate) mod task;
@@ -38,6 +39,7 @@ mod domain {
     pub(crate) mod workspace;
 }
 mod error;
+mod i18n;
 mod platform {
     pub(crate) mod claude_config;
     pub(crate) mod codex_config;
@@ -326,6 +328,7 @@ pub fn run() {
             commands::comparison::get_comparison_history,
             commands::comparison::list_comparison_history,
             commands::comparison::save_comparison_history,
+            commands::i18n::set_backend_locale,
             commands::skill::import_local_skill,
             commands::skill::list_skills,
             commands::skill::list_workspace_skills,
