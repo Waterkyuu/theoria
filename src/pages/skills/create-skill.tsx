@@ -14,8 +14,12 @@ const CreateSkillPage = () => {
 	const [displayName, setDisplayName] = useState("");
 	const [description, setDescription] = useState("");
 	const [content, setContent] = useState("");
+	const trimmedDisplayName = displayName.trim();
+	const isDisplayNameValid = /^(?=.*[A-Za-z])[A-Za-z0-9 _-]+$/.test(
+		trimmedDisplayName,
+	);
 	const canCreate = Boolean(
-		displayName.trim() && description.trim() && content.trim(),
+		isDisplayNameValid && description.trim() && content.trim(),
 	);
 
 	const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -23,7 +27,7 @@ const CreateSkillPage = () => {
 		if (!canCreate || createSkillMutation.isPending) return;
 		try {
 			await createSkillMutation.mutateAsync({
-				displayName: displayName.trim(),
+				displayName: trimmedDisplayName,
 				description: description.trim(),
 				content: content.trim(),
 			});
@@ -71,6 +75,11 @@ const CreateSkillPage = () => {
 								onChange={(event) => setDisplayName(event.target.value)}
 								value={displayName}
 							/>
+							{trimmedDisplayName && !isDisplayNameValid ? (
+								<p className="text-caption-sm font-normal text-terminal-red">
+									{t("skills.create.nameInvalid")}
+								</p>
+							) : null}
 						</TextField>
 						<TextField className="flex flex-col gap-xs text-body-sm font-medium text-ink">
 							<Label>{t("skills.create.descriptionLabel")}</Label>

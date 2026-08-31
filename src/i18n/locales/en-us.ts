@@ -286,6 +286,8 @@ const enUS = {
 					"Enter the minimum required content and Theoria will generate and manage SKILL.md.",
 				back: "Back to Skill Library",
 				nameLabel: "Skill name",
+				nameInvalid:
+					"Skill names can only use English letters, numbers, spaces, - and _",
 				descriptionLabel: "Description",
 				contentLabel: "Main content",
 				submit: "Create skill",

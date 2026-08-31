@@ -71,6 +71,9 @@ impl SkillLibraryService {
         let display_name = display_name.trim();
         let description = description.trim();
         let content = content.trim();
+        if !is_valid_display_name(display_name) {
+            return Err(AppError::InvalidSkill);
+        }
         let folder_name =
             folder_name_from_display_name(display_name).ok_or(AppError::InvalidSkill)?;
         if display_name.len() > 120 || description.is_empty() || content.is_empty() {
@@ -351,6 +354,20 @@ fn is_valid_folder_name(name: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
 }
 
+/// Accepts English Skill names that remain portable when converted to a folder name.
+fn is_valid_display_name(name: &str) -> bool {
+    !name.is_empty()
+        && name
+            .chars()
+            .any(|character| character.is_ascii_alphabetic())
+        && name.chars().all(|character| {
+            character.is_ascii_alphanumeric()
+                || character == ' '
+                || character == '-'
+                || character == '_'
+        })
+}
+
 /// Produces a portable project directory from a user-visible name.
 fn folder_name_from_display_name(name: &str) -> Option<String> {
     let folder_name = name
@@ -477,6 +494,18 @@ mod tests {
             assert_eq!(skill.source_type.as_str(), "platform");
             assert!(manifest.contains("name: \"Release Notes\""));
             assert!(manifest.contains("Summarize the changes for users."));
+
+            let localized_result = service
+                .create_platform_skill(
+                    "发布-Notes".to_string(),
+                    "为用户生成发布说明。".to_string(),
+                    "总结变更并突出用户可见的改进。".to_string(),
+                )
+                .await;
+            assert!(
+                localized_result.is_err(),
+                "Skill names must use English characters"
+            );
 
             database.close().await.expect("database should close");
             std::fs::remove_dir_all(root).expect("fixture should be removable");

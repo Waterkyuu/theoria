@@ -275,6 +275,7 @@ const zhCN = {
 				description: "填写最小必要内容，Theoria 会生成并托管 SKILL.md",
 				back: "返回技能库",
 				nameLabel: "技能名称",
+				nameInvalid: "技能名称只能使用英文字母、数字、空格、- 和 _",
 				descriptionLabel: "描述",
 				contentLabel: "主内容",
 				submit: "创建技能",

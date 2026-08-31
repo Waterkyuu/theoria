@@ -228,7 +228,7 @@ describe("SkillsPage", () => {
 
 		await user.type(
 			screen.getByRole("textbox", { name: "技能名称" }),
-			"发布说明",
+			"Release Notes",
 		);
 		await user.type(
 			screen.getByRole("textbox", { name: "描述" }),
@@ -241,11 +241,28 @@ describe("SkillsPage", () => {
 		await user.click(screen.getByRole("button", { name: "创建技能" }));
 
 		expect(queryMocks.createPlatformSkill).toHaveBeenCalledWith({
-			displayName: "发布说明",
+			displayName: "Release Notes",
 			description: "为用户生成发布说明",
 			content: "总结变更并突出用户可见的改进。",
 		});
 		expect(navigateMock).toHaveBeenCalledWith("/skills");
+	});
+
+	it("requires an English Skill name", async () => {
+		const user = userEvent.setup();
+		render(<CreateSkillPage />);
+
+		await user.type(
+			screen.getByRole("textbox", { name: "技能名称" }),
+			"发布-Notes",
+		);
+		await user.type(screen.getByRole("textbox", { name: "描述" }), "描述");
+		await user.type(screen.getByRole("textbox", { name: "主内容" }), "主内容");
+
+		expect(
+			screen.getByText("技能名称只能使用英文字母、数字、空格、- 和 _"),
+		).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "创建技能" })).toBeDisabled();
 	});
 
 	it("renders managed Skill Library records from native storage", () => {
