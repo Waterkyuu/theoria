@@ -5,7 +5,7 @@ import {
 	Pin,
 	TrashBin,
 } from "@gravity-ui/icons";
-import { Button } from "@heroui/react";
+import { Button, Input, Label, TextField } from "@heroui/react";
 import { useTranslation } from "react-i18next";
 import { AlertDialog } from "@/components/ui/alert-dialog";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
@@ -132,18 +132,18 @@ const WorkspaceActionDropdown = ({
 				title={t("workspaceSidebar.workspaceRemove.title")}
 			>
 				{requiresManagedConfirmation ? (
-					<label className="flex flex-col gap-xs text-body-sm text-charcoal">
-						<span>
+					<TextField className="flex flex-col gap-xs text-body-sm text-charcoal">
+						<Label>
 							{t("workspaceSidebar.workspaceRemove.confirmationLabel", {
 								workspace: workspace.name,
 							})}
-						</span>
-						<input
+						</Label>
+						<Input
 							className="h-10 rounded-md border border-hairline bg-surface-card px-md text-ink outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
 							onChange={(event) => setManagedConfirmation(event.target.value)}
 							value={managedConfirmation}
 						/>
-					</label>
+					</TextField>
 				) : null}
 				{removeWorkspaceMutation.error ? (
 					<p className="text-body-sm text-danger" role="alert">

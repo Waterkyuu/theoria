@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { FolderPlus } from "@gravity-ui/icons";
-import { Button, Tabs } from "@heroui/react";
+import { Button, Input, Label, Tabs, TextField } from "@heroui/react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useTranslation } from "react-i18next";
 import { ModalProvider } from "@/components/ui/modal-provider";
@@ -99,10 +99,10 @@ const NewWorkspaceModal = ({
 		}
 	};
 	const renderWorkspaceNameField = () => (
-		<label className="flex flex-col gap-xs text-body-sm font-medium text-ink">
-			{t("workspaceSidebar.workspaceNameLabel")}
-			<input
-				className="rounded-md border border-hairline bg-canvas px-md py-sm font-normal outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary"
+		<TextField className="flex flex-col gap-xs text-body-sm font-medium text-ink">
+			<Label>{t("workspaceSidebar.workspaceNameLabel")}</Label>
+			<Input
+				className="rounded-md border border-hairline bg-canvas px-md py-sm font-normal outline-none transition-colors focus:border-hairline-strong focus:ring-2 focus:ring-focus-ring"
 				onChange={(event) => setWorkspaceName(event.target.value)}
 				onKeyDown={(event) => {
 					if (event.key === "Enter") {
@@ -112,7 +112,7 @@ const NewWorkspaceModal = ({
 				}}
 				value={workspaceName}
 			/>
-		</label>
+		</TextField>
 	);
 
 	return (

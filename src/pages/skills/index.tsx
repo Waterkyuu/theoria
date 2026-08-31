@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Puzzle } from "@gravity-ui/icons";
+import { Input } from "@heroui/react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
@@ -120,7 +121,7 @@ const SkillsPage = () => {
 					</button>
 				</div>
 
-				<input
+				<Input
 					aria-label={t("skills.searchPlaceholder")}
 					className="mt-[18px] h-10 w-full max-w-130 rounded-md border border-hairline bg-surface-card px-[14px] text-body-sm text-ink outline-none placeholder:text-mute focus:border-hairline-strong focus-visible:ring-2 focus-visible:ring-focus-ring"
 					onChange={(event) => setSearchValue(event.target.value)}

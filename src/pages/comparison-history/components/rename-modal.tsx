@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button } from "@heroui/react";
+import { Button, Input, Label, TextField } from "@heroui/react";
 import { useTranslation } from "react-i18next";
 import { ModalProvider } from "@/components/ui/modal-provider";
 
@@ -64,14 +64,14 @@ const RenameModal = ({ isOpen, onOpenChange, query }: RenameModalProps) => {
 			onOpenChange={handleOpenChange}
 			title={t("comparisonHistory.renameTitle")}
 		>
-			<label className="flex flex-col gap-xs text-body-sm font-medium text-ink">
-				{t("comparisonHistory.renameLabel")}
-				<input
+			<TextField className="flex flex-col gap-xs text-body-sm font-medium text-ink">
+				<Label>{t("comparisonHistory.renameLabel")}</Label>
+				<Input
 					className="rounded-md border border-hairline bg-canvas px-md py-sm font-normal outline-none transition-colors placeholder:text-mute focus:border-hairline-strong focus:ring-2 focus:ring-focus-ring"
 					onChange={(event) => setName(event.target.value)}
 					value={name}
 				/>
-			</label>
+			</TextField>
 		</ModalProvider>
 	);
 };
