@@ -14,6 +14,33 @@ const importLocalSkill = (sourcePath: string) =>
 		request: { sourcePath },
 	});
 
+type CreatePlatformSkillInput = {
+	/** Main instructions written below SKILL.md frontmatter. */
+	content: string;
+	/** Short capability summary. */
+	description: string;
+	/** User-visible Skill name. */
+	displayName: string;
+};
+
+/** Creates a minimal Skill directly in Theoria-managed storage. */
+const createPlatformSkill = (request: CreatePlatformSkillInput) =>
+	invokeWithResponseSchema("create_platform_skill", CompiledSkillSchema, {
+		request,
+	});
+
+/** Clones a Git repository into Theoria-managed Skill storage. */
+const importGitSkill = (gitUrl: string) =>
+	invokeWithResponseSchema("import_git_skill", CompiledSkillSchema, {
+		request: { gitUrl },
+	});
+
+/** Refreshes a Git-backed Skill from its persisted remote URL. */
+const updateGitSkill = (skillId: string) =>
+	invokeWithResponseSchema("update_git_skill", CompiledSkillSchema, {
+		request: { skillId },
+	});
+
 /** Lists managed Skills mounted for future Tasks in one Workspace. */
 const listWorkspaceSkills = (workspaceId: string) =>
 	invokeWithResponseSchema("list_workspace_skills", CompiledSkillsSchema, {
@@ -32,10 +59,14 @@ const unmountWorkspaceSkill = (workspaceId: string, skillId: string) =>
 		request: { workspaceId, skillId },
 	});
 
+export type { CreatePlatformSkillInput };
 export {
+	createPlatformSkill,
+	importGitSkill,
 	importLocalSkill,
 	listSkills,
 	listWorkspaceSkills,
 	mountWorkspaceSkill,
 	unmountWorkspaceSkill,
+	updateGitSkill,
 };

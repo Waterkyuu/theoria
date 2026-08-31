@@ -1,10 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { CreatePlatformSkillInput } from "@/api/skill";
 import {
+	createPlatformSkill,
+	importGitSkill,
 	importLocalSkill,
 	listSkills,
 	listWorkspaceSkills,
 	mountWorkspaceSkill,
 	unmountWorkspaceSkill,
+	updateGitSkill,
 } from "@/api/skill";
 import { listWorkspaces } from "@/api/workspace";
 
@@ -64,6 +68,39 @@ const useImportSkill = () => {
 	});
 };
 
+/** Creates a platform-authored Skill and refreshes every library consumer. */
+const useCreatePlatformSkill = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (input: CreatePlatformSkillInput) => createPlatformSkill(input),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: skillKeys.all });
+		},
+	});
+};
+
+/** Imports a Git-backed Skill and refreshes every library consumer. */
+const useImportGitSkill = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (gitUrl: string) => importGitSkill(gitUrl),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: skillKeys.all });
+		},
+	});
+};
+
+/** Pulls the latest remote content for one Git-backed Skill. */
+const useUpdateGitSkill = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (skillId: string) => updateGitSkill(skillId),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: skillKeys.all });
+		},
+	});
+};
+
 type WorkspaceSkillMutationInput = {
 	/** Managed Skill whose future-Task mount relationship changes. */
 	skillId: string;
@@ -97,10 +134,13 @@ const useUnmountWorkspaceSkill = () => {
 
 export {
 	skillKeys,
+	useCreatePlatformSkill,
+	useImportGitSkill,
 	useImportSkill,
 	useMountWorkspaceSkill,
 	useSkillMountCounts,
 	useSkills,
 	useUnmountWorkspaceSkill,
+	useUpdateGitSkill,
 	useWorkspaceSkills,
 };
