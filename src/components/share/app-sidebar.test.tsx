@@ -369,22 +369,40 @@ describe("AppSidebar", () => {
 
 		await user.click(screen.getByRole("button", { name: "添加工作区" }));
 		const dialog = await screen.findByRole("dialog", { name: "新建工作区" });
-		await user.click(within(dialog).getByRole("tab", { name: "导入本地" }));
-		await user.type(
-			within(dialog).getByRole("textbox", { name: "工作区名称" }),
-			"local-kit",
+		const sourceTabs = within(dialog).getByRole("tablist", {
+			name: "工作区来源",
+		});
+		const workspaceName = within(dialog).getByRole("textbox", {
+			name: "工作区名称",
+		});
+		const externalTab = within(dialog).getByRole("tab", { name: "导入本地" });
+		expect(sourceTabs).toHaveAttribute("data-slot", "tabs-list");
+		expect(within(dialog).getAllByRole("textbox")).toHaveLength(1);
+		expect(externalTab).toHaveClass(
+			"rounded-md",
+			"data-[selected=true]:bg-surface-dark",
+			"data-[selected=true]:text-on-dark",
 		);
-		await user.click(
-			within(dialog).getByRole("button", { name: "选择本地文件夹" }),
-		);
+		expect(
+			sourceTabs.compareDocumentPosition(workspaceName) &
+				Node.DOCUMENT_POSITION_FOLLOWING,
+		).not.toBe(0);
+		await user.click(externalTab);
+		await user.type(workspaceName, "local-kit");
+		expect(within(dialog).getByText("源文件夹")).toBeInTheDocument();
+		expect(
+			within(dialog).queryByRole("textbox", { name: "源文件夹" }),
+		).not.toBeInTheDocument();
+		const sourceFolder = within(dialog).getByRole("button", {
+			name: "选择本地文件夹",
+		});
+		await user.click(sourceFolder);
 		expect(dialogMocks.open).toHaveBeenCalledWith({
 			directory: true,
 			multiple: false,
 			title: "选择 Workspace 文件夹",
 		});
-		expect(
-			within(dialog).getByRole("textbox", { name: "本地文件夹路径" }),
-		).toHaveValue("/Users/me/projects/local-kit");
+		expect(sourceFolder).toHaveTextContent("/Users/me/projects/local-kit");
 		await user.click(within(dialog).getByRole("button", { name: "创建" }));
 
 		expect(queryMocks.createWorkspace).toHaveBeenCalledWith({
