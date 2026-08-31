@@ -205,11 +205,11 @@ describe("WorkspacePage", () => {
 		expect(screen.queryByText("agent-gauge · main")).not.toBeInTheDocument();
 	});
 
-	it("shows workspace context after a workspace is selected", () => {
+	it("hides redundant workspace context on a new Task", () => {
 		render(<WorkspacePage workspaceId="workspace-docs" />);
 
-		expect(screen.getByText("docs-lab / 新任务")).toBeInTheDocument();
-		expect(screen.getByText("/Users/me/docs-lab")).toBeInTheDocument();
+		expect(screen.queryByText("docs-lab / 新任务")).not.toBeInTheDocument();
+		expect(screen.queryByText("/Users/me/docs-lab")).not.toBeInTheDocument();
 	});
 
 	it("builds agent autocomplete from backend process and runtime data", async () => {
