@@ -116,6 +116,19 @@ impl WorkspaceService {
             .await
             .map_err(|_| AppError::WorkspaceDatabaseFailed)
     }
+
+    /// Validates and persists a user-visible Workspace name.
+    pub(crate) async fn rename(
+        &self,
+        workspace_id: &str,
+        name: String,
+    ) -> Result<Workspace, AppError> {
+        let name = validate_workspace_name(name)?;
+        self.repository
+            .rename(workspace_id, &name, current_time_ms()?)
+            .await
+            .map_err(|_| AppError::WorkspaceDatabaseFailed)
+    }
 }
 
 /// Trims a Workspace name while enforcing the persisted length contract.

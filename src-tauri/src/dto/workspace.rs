@@ -20,6 +20,16 @@ pub(crate) struct CreateManagedWorkspaceRequest {
     pub(crate) name: String,
 }
 
+/// Request for changing one Workspace's user-visible name.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct RenameWorkspaceRequest {
+    /// Stable Workspace identifier.
+    pub(crate) workspace_id: String,
+    /// New user-visible name validated by the service.
+    pub(crate) name: String,
+}
+
 /// Request for changing one Workspace's sidebar pin state.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]

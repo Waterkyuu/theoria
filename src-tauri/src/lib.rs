@@ -359,6 +359,7 @@ pub fn run() {
             commands::workbuddy::run_workbuddy_task,
             commands::workspace::create_managed_workspace,
             commands::workspace::list_workspaces,
+            commands::workspace::rename_workspace,
             commands::workspace::remove_workspace,
             commands::workspace::register_external_workspace,
             commands::workspace::set_workspace_pin

@@ -1,6 +1,6 @@
 use crate::dto::workspace::{
     CreateManagedWorkspaceRequest, RegisterExternalWorkspaceRequest, RemoveWorkspaceRequest,
-    SetWorkspacePinRequest, WorkspaceResponse,
+    RenameWorkspaceRequest, SetWorkspacePinRequest, WorkspaceResponse,
 };
 use crate::error::IpcError;
 use crate::services::cleanup::WorkspaceCleanupService;
@@ -42,6 +42,19 @@ pub(crate) async fn list_workspaces(
         .list()
         .await
         .map(|items| items.into_iter().map(Into::into).collect())
+        .map_err(Into::into)
+}
+
+/// Changes one Workspace name after applying the creation-time validation rules.
+#[tauri::command]
+pub(crate) async fn rename_workspace(
+    request: RenameWorkspaceRequest,
+    service: State<'_, WorkspaceService>,
+) -> Result<WorkspaceResponse, IpcError> {
+    service
+        .rename(&request.workspace_id, request.name)
+        .await
+        .map(Into::into)
         .map_err(Into::into)
 }
 

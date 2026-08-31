@@ -70,6 +70,24 @@ impl WorkspaceRepository {
         workspace_from_model(workspace.update(&self.database).await?)
     }
 
+    /// Persists a validated name and recency timestamp for one Workspace.
+    pub(crate) async fn rename(
+        &self,
+        workspace_id: &str,
+        name: &str,
+        updated_at_ms: i64,
+    ) -> Result<Workspace, DbErr> {
+        let workspace = workspace::Entity::find_by_id(workspace_id)
+            .one(&self.database)
+            .await?
+            .ok_or_else(|| DbErr::RecordNotFound("Workspace was not found".to_string()))?;
+        let mut workspace: workspace::ActiveModel = workspace.into();
+        workspace.name = Set(name.to_string());
+        workspace.updated_at_ms = Set(updated_at_ms);
+
+        workspace_from_model(workspace.update(&self.database).await?)
+    }
+
     /// Deletes one Workspace only after its Tasks and managed files have been cleaned.
     pub(crate) async fn delete(&self, workspace_id: &str) -> Result<(), DbErr> {
         workspace::Entity::delete_by_id(workspace_id)
@@ -139,10 +157,16 @@ mod tests {
                 .await
                 .expect("workspace should save");
             let listed = repository.list().await.expect("workspaces should list");
+            let renamed = repository
+                .rename("workspace-1", "Research", 200)
+                .await
+                .expect("workspace should rename");
 
             assert_eq!(saved.id, "workspace-1");
             assert_eq!(saved.source_path, source_path);
             assert_eq!(listed, vec![saved]);
+            assert_eq!(renamed.name, "Research");
+            assert_eq!(renamed.updated_at_ms, 200);
 
             database.close().await.expect("database should close");
             std::fs::remove_file(database_path).expect("temporary database should be removable");
