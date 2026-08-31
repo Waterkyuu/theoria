@@ -54,6 +54,22 @@ impl WorkspaceRepository {
             .collect()
     }
 
+    /// Persists the optional pin time and returns the updated Workspace.
+    pub(crate) async fn set_pin(
+        &self,
+        workspace_id: &str,
+        pinned_at_ms: Option<i64>,
+    ) -> Result<Workspace, DbErr> {
+        let workspace = workspace::Entity::find_by_id(workspace_id)
+            .one(&self.database)
+            .await?
+            .ok_or_else(|| DbErr::RecordNotFound("Workspace was not found".to_string()))?;
+        let mut workspace: workspace::ActiveModel = workspace.into();
+        workspace.pinned_at_ms = Set(pinned_at_ms);
+
+        workspace_from_model(workspace.update(&self.database).await?)
+    }
+
     /// Deletes one Workspace only after its Tasks and managed files have been cleaned.
     pub(crate) async fn delete(&self, workspace_id: &str) -> Result<(), DbErr> {
         workspace::Entity::delete_by_id(workspace_id)
@@ -127,6 +143,55 @@ mod tests {
             assert_eq!(saved.id, "workspace-1");
             assert_eq!(saved.source_path, source_path);
             assert_eq!(listed, vec![saved]);
+
+            database.close().await.expect("database should close");
+            std::fs::remove_file(database_path).expect("temporary database should be removable");
+        });
+    }
+
+    #[test]
+    fn pins_and_unpins_workspace_in_sidebar_order() {
+        tauri::async_runtime::block_on(async {
+            let (repository, database, database_path) = migrated_repository().await;
+            let source_root = std::env::temp_dir().join("theoria-pin-order-fixture");
+            let first = repository
+                .create(NewWorkspace {
+                    id: "workspace-1".to_string(),
+                    name: "First".to_string(),
+                    source_kind: WorkspaceSourceKind::External,
+                    source_path: source_root.join("first"),
+                    created_at_ms: 100,
+                })
+                .await
+                .expect("first workspace should save");
+            let second = repository
+                .create(NewWorkspace {
+                    id: "workspace-2".to_string(),
+                    name: "Second".to_string(),
+                    source_kind: WorkspaceSourceKind::External,
+                    source_path: source_root.join("second"),
+                    created_at_ms: 200,
+                })
+                .await
+                .expect("second workspace should save");
+
+            let pinned = repository
+                .set_pin(&first.id, Some(300))
+                .await
+                .expect("workspace should pin");
+
+            assert_eq!(pinned.pinned_at_ms, Some(300));
+            assert_eq!(
+                repository.list().await.unwrap(),
+                vec![pinned.clone(), second]
+            );
+
+            let unpinned = repository
+                .set_pin(&first.id, None)
+                .await
+                .expect("workspace should unpin");
+
+            assert_eq!(unpinned.pinned_at_ms, None);
 
             database.close().await.expect("database should close");
             std::fs::remove_file(database_path).expect("temporary database should be removable");

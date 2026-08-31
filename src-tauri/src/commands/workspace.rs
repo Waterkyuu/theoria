@@ -1,6 +1,6 @@
 use crate::dto::workspace::{
     CreateManagedWorkspaceRequest, RegisterExternalWorkspaceRequest, RemoveWorkspaceRequest,
-    WorkspaceResponse,
+    SetWorkspacePinRequest, WorkspaceResponse,
 };
 use crate::error::IpcError;
 use crate::services::cleanup::WorkspaceCleanupService;
@@ -42,6 +42,19 @@ pub(crate) async fn list_workspaces(
         .list()
         .await
         .map(|items| items.into_iter().map(Into::into).collect())
+        .map_err(Into::into)
+}
+
+/// Changes whether one Workspace is pinned to the top of the sidebar.
+#[tauri::command]
+pub(crate) async fn set_workspace_pin(
+    request: SetWorkspacePinRequest,
+    service: State<'_, WorkspaceService>,
+) -> Result<WorkspaceResponse, IpcError> {
+    service
+        .set_pin(&request.workspace_id, request.is_pinned)
+        .await
+        .map(Into::into)
         .map_err(Into::into)
 }
 

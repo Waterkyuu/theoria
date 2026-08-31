@@ -99,6 +99,23 @@ impl WorkspaceService {
             .await
             .map_err(|_| AppError::WorkspaceDatabaseFailed)
     }
+
+    /// Sets the Workspace pin timestamp used for persisted sidebar ordering.
+    pub(crate) async fn set_pin(
+        &self,
+        workspace_id: &str,
+        is_pinned: bool,
+    ) -> Result<Workspace, AppError> {
+        let pinned_at_ms = if is_pinned {
+            Some(current_time_ms()?)
+        } else {
+            None
+        };
+        self.repository
+            .set_pin(workspace_id, pinned_at_ms)
+            .await
+            .map_err(|_| AppError::WorkspaceDatabaseFailed)
+    }
 }
 
 /// Trims a Workspace name while enforcing the persisted length contract.

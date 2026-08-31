@@ -20,6 +20,16 @@ pub(crate) struct CreateManagedWorkspaceRequest {
     pub(crate) name: String,
 }
 
+/// Request for changing one Workspace's sidebar pin state.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SetWorkspacePinRequest {
+    /// Stable Workspace identifier.
+    pub(crate) workspace_id: String,
+    /// Whether the Workspace should be pinned to the top of the sidebar.
+    pub(crate) is_pinned: bool,
+}
+
 /// Request for removing one complete Workspace collection.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -358,7 +358,8 @@ pub fn run() {
             commands::workspace::create_managed_workspace,
             commands::workspace::list_workspaces,
             commands::workspace::remove_workspace,
-            commands::workspace::register_external_workspace
+            commands::workspace::register_external_workspace,
+            commands::workspace::set_workspace_pin
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
