@@ -376,7 +376,7 @@ describe("AppSidebar", () => {
 		const workspaceName = within(dialog).getByRole("textbox", {
 			name: "工作区名称",
 		});
-		await user.type(workspaceName, "local-kit");
+		expect(workspaceName).toHaveValue("");
 		expect(within(dialog).getByText("源文件夹")).toBeInTheDocument();
 		expect(
 			within(dialog).queryByRole("textbox", { name: "源文件夹" }),
@@ -391,7 +391,9 @@ describe("AppSidebar", () => {
 			title: "选择 Workspace 文件夹",
 		});
 		expect(sourceFolder).toHaveTextContent("/Users/me/projects/local-kit");
-		await user.click(within(dialog).getByRole("button", { name: "创建" }));
+		const createButton = within(dialog).getByRole("button", { name: "创建" });
+		expect(createButton).toBeEnabled();
+		await user.click(createButton);
 
 		expect(queryMocks.createWorkspace).toHaveBeenCalledWith({
 			name: "local-kit",

@@ -37,9 +37,13 @@ const NewWorkspaceModal = ({
 	const createWorkspaceMutation = useCreateWorkspace();
 	const trimmedWorkspaceName = workspaceName.trim();
 	const trimmedSourcePath = sourcePath.trim();
+	const sourceFolderName =
+		trimmedSourcePath.split(/[\\/]/).filter(Boolean).pop() ?? "";
+	const resolvedWorkspaceName = trimmedWorkspaceName || sourceFolderName;
 	const canCreate =
-		Boolean(trimmedWorkspaceName) &&
-		(sourceKind === "managed" || Boolean(trimmedSourcePath));
+		sourceKind === "managed"
+			? Boolean(trimmedWorkspaceName)
+			: Boolean(trimmedSourcePath && resolvedWorkspaceName);
 
 	/** Opens the native directory picker and retains an absolute external source path. */
 	const selectSourceDirectory = async () => {
@@ -83,7 +87,7 @@ const NewWorkspaceModal = ({
 				sourceKind === "managed"
 					? { name: trimmedWorkspaceName, sourceKind }
 					: {
-							name: trimmedWorkspaceName,
+							name: resolvedWorkspaceName,
 							sourceKind,
 							sourcePath: trimmedSourcePath,
 						},
