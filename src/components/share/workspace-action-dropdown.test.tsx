@@ -1,3 +1,4 @@
+import { toast } from "@heroui/react";
 import "@testing-library/jest-dom/vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -50,5 +51,31 @@ describe("WorkspaceActionDropdown", () => {
 			isPinned: false,
 			workspaceId: "workspace-1",
 		});
+	});
+
+	it("shows a danger toast when the pin update fails", async () => {
+		const user = userEvent.setup();
+		const pinError = new Error("置顶失败，请重试。");
+		const toastDanger = vi.spyOn(toast, "danger");
+		vi.spyOn(console, "error").mockImplementation(() => {});
+		queryMocks.setWorkspacePin.mockRejectedValueOnce(pinError);
+		render(
+			<WorkspaceActionDropdown
+				workspace={{
+					id: "workspace-1",
+					name: "Docs",
+					sourceKind: "external",
+					sourcePath: "/tmp/docs",
+					pinnedAtMs: null,
+					createdAtMs: 1,
+					updatedAtMs: 1,
+				}}
+			/>,
+		);
+
+		await user.click(screen.getByRole("button", { name: "Docs 的更多操作" }));
+		await user.click(await screen.findByRole("menuitem", { name: "置顶" }));
+
+		expect(toastDanger).toHaveBeenCalledWith("置顶失败，请重试。");
 	});
 });
