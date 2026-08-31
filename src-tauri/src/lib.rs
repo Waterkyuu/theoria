@@ -27,6 +27,7 @@ mod db {
 mod dto {
     pub(crate) mod agent;
     pub(crate) mod comparison;
+    pub(crate) mod workspace;
 }
 mod domain {
     pub(crate) mod agent_activity;
