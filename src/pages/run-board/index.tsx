@@ -12,6 +12,7 @@ import { Button, Card, Chip, Tooltip } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { AgentIcon } from "@/components/share/agent-icon";
+import { PageHeader } from "@/components/share/page-header";
 import { SearchBox } from "@/components/ui/search-box";
 import { debounce } from "@/utils/common";
 import { checkAgentActivities, onAgentActivitiesChanged } from "@/api/agent";
@@ -119,11 +120,11 @@ const RunBoardPage = () => {
 
 	return (
 		<main className="flex h-[100dvh] min-w-0 flex-1 flex-col overflow-hidden bg-canvas max-md:h-[calc(100dvh-4rem)]">
-			<header className="flex h-[34px] shrink-0 items-center border-b border-hairline px-4 sm:px-xl">
+			<PageHeader>
 				<p className="text-body-sm font-medium text-charcoal">
 					{t("runBoard.title")}
 				</p>
-			</header>
+			</PageHeader>
 
 			<div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-6 sm:px-6 sm:pb-10 sm:pt-7 lg:px-8">
 				<div className="mx-auto max-w-330">

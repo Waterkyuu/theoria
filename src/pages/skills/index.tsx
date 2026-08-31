@@ -4,6 +4,7 @@ import { Input } from "@heroui/react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
+import { PageHeader } from "@/components/share/page-header";
 import { handleError } from "@/utils/error";
 import {
 	useImportSkill,
@@ -92,14 +93,14 @@ const SkillsPage = () => {
 
 	return (
 		<main className="flex h-[100dvh] min-w-0 flex-1 flex-col overflow-hidden bg-canvas max-md:h-[calc(100dvh-4rem)]">
-			<header className="flex h-[34px] shrink-0 items-center justify-between border-b border-hairline px-4 sm:px-xl">
+			<PageHeader>
 				<p className="text-body-sm font-medium text-charcoal">
 					{t("skills.title")}
 				</p>
 				<p className="hidden font-mono text-caption-sm text-mute sm:block">
 					{t("skills.path")}
 				</p>
-			</header>
+			</PageHeader>
 
 			<div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-6 sm:px-10 sm:pb-10 sm:pt-7">
 				<div className="flex flex-col items-start justify-between gap-lg sm:flex-row sm:gap-xl">

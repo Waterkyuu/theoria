@@ -3,6 +3,7 @@ import { LayoutColumns3 } from "@gravity-ui/icons";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { AgentEnvironmentDropdown } from "@/components/share/agent-environment-dropdown";
+import { PageHeader } from "@/components/share/page-header";
 import { handleError } from "@/utils/error";
 import { promisePool } from "@/utils/promise-pool";
 import { checkAgentProcesses, onAgentProcessStatesChanged } from "@/api/agent";
@@ -197,7 +198,7 @@ const WorkspacePage = ({ workspaceId, taskId }: WorkspacePageProps) => {
 	return (
 		<main className="relative flex h-dvh min-w-0 flex-1 flex-col overflow-hidden bg-canvas max-md:h-[calc(100dvh-4rem)]">
 			{workspaceId || task ? (
-				<header className="flex h-[34px] shrink-0 items-center justify-between border-b border-hairline px-4 sm:px-xl">
+				<PageHeader>
 					<p className="truncate text-body-sm font-medium text-charcoal">
 						{task
 							? task.task.title
@@ -216,7 +217,7 @@ const WorkspacePage = ({ workspaceId, taskId }: WorkspacePageProps) => {
 							</button>
 						) : null}
 					</div>
-				</header>
+				</PageHeader>
 			) : null}
 
 			<div className="flex min-h-0 flex-1">
