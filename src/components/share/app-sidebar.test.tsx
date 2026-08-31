@@ -1,3 +1,4 @@
+import { Toast } from "@heroui/react";
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -297,6 +298,7 @@ describe("AppSidebar", () => {
 	it("requires the Workspace name before removing platform-managed files", async () => {
 		const user = userEvent.setup();
 		const onNavigate = vi.fn();
+		const toastSuccess = vi.spyOn(Toast.toast, "success");
 		queryMocks.useWorkspaces.mockReturnValueOnce({
 			data: [
 				{
@@ -341,6 +343,7 @@ describe("AppSidebar", () => {
 			managedFilesConfirmed: true,
 			workspaceId: "workspace-managed",
 		});
+		expect(toastSuccess).toHaveBeenCalledWith("已移除工作区“docs-lab”。");
 		expect(onNavigate).toHaveBeenCalledWith("/task");
 	});
 

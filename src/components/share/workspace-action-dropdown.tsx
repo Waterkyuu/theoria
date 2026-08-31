@@ -5,7 +5,7 @@ import {
 	Pin,
 	TrashBin,
 } from "@gravity-ui/icons";
-import { Button, Input, Label, TextField } from "@heroui/react";
+import { Button, Input, Label, TextField, Toast } from "@heroui/react";
 import { useTranslation } from "react-i18next";
 import { AlertDialog } from "@/components/ui/alert-dialog";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
@@ -48,6 +48,11 @@ const WorkspaceActionDropdown = ({
 			});
 			setIsRemoveOpen(false);
 			setManagedConfirmation("");
+			Toast.toast.success(
+				t("workspaceSidebar.workspaceRemove.success", {
+					workspace: workspace.name,
+				}),
+			);
 			onRemoved?.();
 		} catch (error) {
 			handleError(error, "Workspace removal failed");

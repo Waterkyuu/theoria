@@ -70,6 +70,7 @@ const enUS = {
 					'Tasks, Skill mounts, and the platform-managed template directory for "{{workspace}}" will be permanently deleted. Enter the Workspace name to confirm.',
 				confirmationLabel: "Enter {{workspace}} to confirm",
 				confirm: "Remove Workspace",
+				success: 'Workspace "{{workspace}}" was removed.',
 				failed: "The Workspace could not be removed. Please try again.",
 			},
 			conversationsLabel: "Tasks",

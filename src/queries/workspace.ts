@@ -5,6 +5,7 @@ import {
 	registerExternalWorkspace,
 	removeWorkspace,
 } from "@/api/workspace";
+import type { Workspace } from "@/types/workspace";
 
 type CreateWorkspaceInput =
 	| {
@@ -61,10 +62,17 @@ const useRemoveWorkspace = () => {
 			workspaceId,
 		}: RemoveWorkspaceInput) =>
 			removeWorkspace(workspaceId, managedFilesConfirmed),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: workspaceKeys.all });
-			queryClient.invalidateQueries({ queryKey: ["tasks"] });
-			queryClient.invalidateQueries({ queryKey: ["skills"] });
+		onSuccess: async (_response, input) => {
+			queryClient.setQueryData<Workspace[]>(
+				workspaceKeys.list(),
+				(workspaces) =>
+					workspaces?.filter((workspace) => workspace.id !== input.workspaceId),
+			);
+			await Promise.all([
+				queryClient.invalidateQueries({ queryKey: workspaceKeys.all }),
+				queryClient.invalidateQueries({ queryKey: ["tasks"] }),
+				queryClient.invalidateQueries({ queryKey: ["skills"] }),
+			]);
 		},
 	});
 };

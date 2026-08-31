@@ -69,6 +69,7 @@ const zhCN = {
 					"“{{workspace}}”的任务、技能挂载和平台托管模板目录都会被永久删除。请输入工作区名称确认。",
 				confirmationLabel: "输入 {{workspace}} 以确认",
 				confirm: "移除工作区",
+				success: "已移除工作区“{{workspace}}”。",
 				failed: "工作区移除失败，请重试。",
 			},
 			conversationsLabel: "任务",
