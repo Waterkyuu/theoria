@@ -12,7 +12,7 @@ type PageHeaderProps = {
  * <PageHeader><p>Tasks</p><button type="button">Summary</button></PageHeader>
  */
 const PageHeader = ({ children }: PageHeaderProps) => (
-	<header className="flex min-h-16 shrink-0 items-center justify-between gap-lg border-b border-hairline px-4 sm:px-xl">
+	<header className="flex h-11 shrink-0 items-center justify-between gap-lg border-b border-hairline px-4 sm:px-xl">
 		{children}
 	</header>
 );

@@ -65,7 +65,7 @@ const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 				inert={!isSidebarVisible}
 			>
 				<header className="flex shrink-0 flex-col gap-[9px] max-md:hidden">
-					<div className="flex h-5 items-center justify-end">
+					<div className="flex h-[30px] items-center justify-end">
 						<button
 							aria-label={t("collapseSidebar")}
 							className="cursor-pointer rounded-sm outline-none hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring"
@@ -301,7 +301,7 @@ const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 				{isSidebarVisible ? null : (
 					<button
 						aria-label={t("expandSidebar")}
-						className="fixed left-[96px] top-[9px] z-50 cursor-pointer rounded-sm bg-canvas outline-none hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring max-md:hidden"
+						className="fixed left-[96px] top-[14px] z-50 cursor-pointer rounded-sm bg-canvas outline-none hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring max-md:hidden"
 						onClick={() => setIsSidebarVisible(true)}
 						type="button"
 					>
