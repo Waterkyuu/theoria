@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { FolderOpen } from "@gravity-ui/icons";
-import { Button } from "@heroui/react";
+import { FolderPlus } from "@gravity-ui/icons";
+import { Button, Tabs } from "@heroui/react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useTranslation } from "react-i18next";
 import { ModalProvider } from "@/components/ui/modal-provider";
@@ -94,6 +94,22 @@ const NewWorkspaceModal = ({
 			handleError(error, "Workspace creation failed");
 		}
 	};
+	const renderWorkspaceNameField = () => (
+		<label className="flex flex-col gap-xs text-body-sm font-medium text-ink">
+			{t("workspaceSidebar.workspaceNameLabel")}
+			<input
+				className="rounded-md border border-hairline bg-canvas px-md py-sm font-normal outline-none transition-colors focus:border-hairline-strong focus:ring-2 focus:ring-focus-ring"
+				onChange={(event) => setWorkspaceName(event.target.value)}
+				onKeyDown={(event) => {
+					if (event.key === "Enter") {
+						event.preventDefault();
+						handleCreateWorkspace();
+					}
+				}}
+				value={workspaceName}
+			/>
+		</label>
+	);
 
 	return (
 		<ModalProvider
@@ -118,63 +134,56 @@ const NewWorkspaceModal = ({
 		>
 			<div className="flex flex-col gap-xs text-body-sm font-medium text-ink">
 				<span>{t("workspaceSidebar.workspaceSourceLabel")}</span>
-				<div
-					aria-label={t("workspaceSidebar.workspaceSourceLabel")}
-					className="grid grid-cols-2 gap-xs"
-					role="tablist"
+				<Tabs
+					onSelectionChange={(key) =>
+						setSourceKind(key === "external" ? "external" : "managed")
+					}
+					selectedKey={sourceKind}
 				>
-					{(["external", "managed"] as const).map((kind) => (
-						<button
-							aria-selected={sourceKind === kind}
-							className={`rounded-md border px-md py-sm text-body-sm outline-none focus-visible:ring-2 focus-visible:ring-focus-ring ${
-								sourceKind === kind
-									? "border-ink bg-surface-dark text-on-dark"
-									: "border-hairline bg-canvas text-charcoal"
-							}`}
-							key={kind}
-							onClick={() => setSourceKind(kind)}
-							role="tab"
-							type="button"
+					<Tabs.ListContainer className="rounded-lg">
+						<Tabs.List
+							aria-label={t("workspaceSidebar.workspaceSourceLabel")}
+							className="w-full"
 						>
-							{t(`workspaceSidebar.workspaceSource.${kind}`)}
-						</button>
-					))}
-				</div>
+							<Tabs.Tab
+								className="rounded-md data-[selected=true]:bg-canvas data-[selected=true]:text-ink data-[selected=true]:shadow-sm"
+								id="external"
+							>
+								{t("workspaceSidebar.workspaceSource.external")}
+							</Tabs.Tab>
+							<Tabs.Tab
+								className="rounded-md data-[selected=true]:bg-canvas data-[selected=true]:text-ink data-[selected=true]:shadow-sm"
+								id="managed"
+							>
+								<Tabs.Separator />
+								{t("workspaceSidebar.workspaceSource.managed")}
+							</Tabs.Tab>
+						</Tabs.List>
+					</Tabs.ListContainer>
+					<Tabs.Panel className="mt-2 flex flex-col gap-3 p-0" id="external">
+						{renderWorkspaceNameField()}
+						<div className="flex flex-col gap-xs">
+							<span>{t("workspaceSidebar.workspacePathLabel")}</span>
+							<button
+								className="flex min-h-24 flex-col items-center justify-center gap-sm rounded-md border border-hairline bg-canvas px-lg py-md text-center text-body-sm font-normal text-charcoal outline-none transition-colors hover:border-hairline-strong hover:bg-surface-soft hover:text-ink focus-visible:ring-2 focus-visible:ring-focus-ring"
+								onClick={() => selectSourceDirectory()}
+								type="button"
+							>
+								<FolderPlus
+									aria-hidden="true"
+									className="size-5 shrink-0 text-mute"
+								/>
+								<span className={sourcePath ? "break-all text-ink" : undefined}>
+									{sourcePath || t("workspaceSidebar.chooseFolder")}
+								</span>
+							</button>
+						</div>
+					</Tabs.Panel>
+					<Tabs.Panel className="mt-2 p-0" id="managed">
+						{renderWorkspaceNameField()}
+					</Tabs.Panel>
+				</Tabs>
 			</div>
-			<label className="flex flex-col gap-xs text-body-sm font-medium text-ink">
-				{t("workspaceSidebar.workspaceNameLabel")}
-				<input
-					className="rounded-md border border-hairline bg-canvas px-md py-sm font-normal outline-none transition-colors focus:border-hairline-strong focus:ring-2 focus:ring-focus-ring"
-					onChange={(event) => setWorkspaceName(event.target.value)}
-					onKeyDown={(event) => {
-						if (event.key === "Enter") {
-							event.preventDefault();
-							handleCreateWorkspace();
-						}
-					}}
-					value={workspaceName}
-				/>
-			</label>
-			{sourceKind === "external" ? (
-				<label className="flex flex-col gap-xs text-body-sm font-medium text-ink">
-					{t("workspaceSidebar.workspacePathLabel")}
-					<input
-						aria-label={t("workspaceSidebar.workspacePathLabel")}
-						className="rounded-md border border-hairline bg-canvas px-md py-sm font-normal outline-none transition-colors focus:border-hairline-strong focus:ring-2 focus:ring-focus-ring"
-						onChange={(event) => setSourcePath(event.target.value)}
-						placeholder={t("workspaceSidebar.workspacePathPlaceholder")}
-						value={sourcePath}
-					/>
-					<button
-						className="flex min-h-14 items-center justify-center gap-sm rounded-md border border-dashed border-hairline-strong bg-surface-soft px-md py-sm text-body-sm font-normal text-charcoal outline-none hover:border-ink hover:text-ink focus-visible:ring-2 focus-visible:ring-focus-ring"
-						onClick={() => selectSourceDirectory()}
-						type="button"
-					>
-						<FolderOpen aria-hidden="true" className="size-4 shrink-0" />
-						{t("workspaceSidebar.chooseFolder")}
-					</button>
-				</label>
-			) : null}
 			{createWorkspaceMutation.error ? (
 				<p className="text-body-sm text-terminal-red" role="alert">
 					{t("workspaceSidebar.createWorkspaceFailed")}

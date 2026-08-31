@@ -357,7 +357,7 @@ describe("AppSidebar", () => {
 		const sourceTabs = within(dialog).getByRole("tablist", {
 			name: "工作区来源",
 		});
-		const workspaceName = within(dialog).getByRole("textbox", {
+		const managedWorkspaceName = within(dialog).getByRole("textbox", {
 			name: "工作区名称",
 		});
 		const externalTab = within(dialog).getByRole("tab", { name: "导入本地" });
@@ -365,14 +365,17 @@ describe("AppSidebar", () => {
 		expect(within(dialog).getAllByRole("textbox")).toHaveLength(1);
 		expect(externalTab).toHaveClass(
 			"rounded-md",
-			"data-[selected=true]:bg-surface-dark",
-			"data-[selected=true]:text-on-dark",
+			"data-[selected=true]:bg-canvas",
+			"data-[selected=true]:text-ink",
 		);
 		expect(
-			sourceTabs.compareDocumentPosition(workspaceName) &
+			sourceTabs.compareDocumentPosition(managedWorkspaceName) &
 				Node.DOCUMENT_POSITION_FOLLOWING,
 		).not.toBe(0);
 		await user.click(externalTab);
+		const workspaceName = within(dialog).getByRole("textbox", {
+			name: "工作区名称",
+		});
 		await user.type(workspaceName, "local-kit");
 		expect(within(dialog).getByText("源文件夹")).toBeInTheDocument();
 		expect(
