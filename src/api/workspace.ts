@@ -5,7 +5,7 @@ import {
 	CompiledWorkspacesSchema,
 } from "@/types/workspace";
 
-const EmptyResponseSchema = z.compile(z.void());
+const EmptyResponseSchema = z.compile(z.null());
 
 /** Lists every reusable Workspace for navigation and Task composition. */
 const listWorkspaces = () =>

@@ -1,6 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { listWorkspaces, setWorkspacePin } from "@/api/workspace";
+import {
+	listWorkspaces,
+	removeWorkspace,
+	setWorkspacePin,
+} from "@/api/workspace";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
@@ -40,6 +44,15 @@ describe("Workspace IPC", () => {
 		});
 		expect(invoke).toHaveBeenCalledWith("set_workspace_pin", {
 			request: { isPinned: true, workspaceId: "workspace-1" },
+		});
+	});
+
+	it("accepts the null response returned after Workspace removal", async () => {
+		vi.mocked(invoke).mockResolvedValue(null);
+
+		await expect(removeWorkspace("workspace-1", true)).resolves.toBeNull();
+		expect(invoke).toHaveBeenCalledWith("remove_workspace", {
+			request: { managedFilesConfirmed: true, workspaceId: "workspace-1" },
 		});
 	});
 });
