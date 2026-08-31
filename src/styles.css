@@ -164,7 +164,7 @@
 	[data-theme="default"] {
 		--accent: var(--color-primary);
 		--accent-foreground: var(--color-on-primary);
-		--focus: var(--color-focus-ring);
+		--focus: var(--color-primary);
 	}
 
 	html {
