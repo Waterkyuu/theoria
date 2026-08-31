@@ -51,6 +51,7 @@ mod platform {
 }
 mod models {
     pub(crate) mod comparison;
+    pub(crate) mod workspace;
 }
 mod repositories {
     pub(crate) mod comparison;

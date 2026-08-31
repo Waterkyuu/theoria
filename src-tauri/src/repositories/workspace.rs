@@ -1,5 +1,9 @@
 use crate::domain::workspace::{NewWorkspace, Workspace, WorkspaceSourceKind};
-use sea_orm::{ConnectionTrait, DatabaseBackend, DatabaseConnection, DbErr, Statement};
+use crate::models::workspace;
+use sea_orm::sea_query::{Expr, ExprTrait};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue::Set, DatabaseConnection, DbErr, EntityTrait, QueryOrder,
+};
 use std::path::PathBuf;
 
 /// SQLite persistence boundary for reusable Workspace inputs.
@@ -21,78 +25,57 @@ impl WorkspaceRepository {
             .source_path
             .to_str()
             .ok_or_else(|| DbErr::Custom("Workspace path is not valid UTF-8".to_string()))?;
-        self.database
-            .execute_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                r#"
-                INSERT INTO workspaces
-                    (id, name, source_kind, source_path, created_at_ms, updated_at_ms)
-                VALUES (?, ?, ?, ?, ?, ?)
-                "#,
-                [
-                    workspace.id.clone().into(),
-                    workspace.name.clone().into(),
-                    workspace.source_kind.as_str().into(),
-                    source_path.into(),
-                    workspace.created_at_ms.into(),
-                    workspace.created_at_ms.into(),
-                ],
-            ))
-            .await?;
+        let model = workspace::ActiveModel {
+            id: Set(workspace.id),
+            name: Set(workspace.name),
+            source_kind: Set(workspace.source_kind.as_str().to_string()),
+            source_path: Set(source_path.to_string()),
+            pinned_at_ms: Set(None),
+            created_at_ms: Set(workspace.created_at_ms),
+            updated_at_ms: Set(workspace.created_at_ms),
+        }
+        .insert(&self.database)
+        .await?;
 
-        Ok(Workspace {
-            id: workspace.id,
-            name: workspace.name,
-            source_kind: workspace.source_kind,
-            source_path: workspace.source_path,
-            pinned_at_ms: None,
-            created_at_ms: workspace.created_at_ms,
-            updated_at_ms: workspace.created_at_ms,
-        })
+        workspace_from_model(model)
     }
 
     /// Lists Workspaces with pinned and recently updated inputs first.
     pub(crate) async fn list(&self) -> Result<Vec<Workspace>, DbErr> {
-        self.database
-            .query_all_raw(Statement::from_string(
-                DatabaseBackend::Sqlite,
-                r#"
-                SELECT id, name, source_kind, source_path, pinned_at_ms, created_at_ms, updated_at_ms
-                FROM workspaces
-                ORDER BY pinned_at_ms IS NULL, pinned_at_ms DESC, updated_at_ms DESC, id
-                "#
-                .to_string(),
-            ))
+        workspace::Entity::find()
+            .order_by_asc(Expr::col(workspace::Column::PinnedAtMs).is_null())
+            .order_by_desc(workspace::Column::PinnedAtMs)
+            .order_by_desc(workspace::Column::UpdatedAtMs)
+            .order_by_asc(workspace::Column::Id)
+            .all(&self.database)
             .await?
             .into_iter()
-            .map(|row| {
-                let source_kind = row.try_get::<String>("", "source_kind")?;
-                Ok(Workspace {
-                    id: row.try_get("", "id")?,
-                    name: row.try_get("", "name")?,
-                    source_kind: WorkspaceSourceKind::parse(&source_kind).ok_or_else(|| {
-                        DbErr::Custom("Workspace contains an invalid source kind".to_string())
-                    })?,
-                    source_path: PathBuf::from(row.try_get::<String>("", "source_path")?),
-                    pinned_at_ms: row.try_get("", "pinned_at_ms")?,
-                    created_at_ms: row.try_get("", "created_at_ms")?,
-                    updated_at_ms: row.try_get("", "updated_at_ms")?,
-                })
-            })
+            .map(workspace_from_model)
             .collect()
     }
 
     /// Deletes one Workspace only after its Tasks and managed files have been cleaned.
     pub(crate) async fn delete(&self, workspace_id: &str) -> Result<(), DbErr> {
-        self.database
-            .execute_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                "DELETE FROM workspaces WHERE id = ?",
-                [workspace_id.into()],
-            ))
+        workspace::Entity::delete_by_id(workspace_id)
+            .exec(&self.database)
             .await?;
         Ok(())
     }
+}
+
+/// Converts a persisted row into the domain representation used by services.
+fn workspace_from_model(model: workspace::Model) -> Result<Workspace, DbErr> {
+    let source_kind = WorkspaceSourceKind::parse(&model.source_kind)
+        .ok_or_else(|| DbErr::Custom("Workspace contains an invalid source kind".to_string()))?;
+    Ok(Workspace {
+        id: model.id,
+        name: model.name,
+        source_kind,
+        source_path: PathBuf::from(model.source_path),
+        pinned_at_ms: model.pinned_at_ms,
+        created_at_ms: model.created_at_ms,
+        updated_at_ms: model.updated_at_ms,
+    })
 }
 
 #[cfg(test)]
