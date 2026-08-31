@@ -33,6 +33,12 @@ const setWorkspacePin = (workspaceId: string, isPinned: boolean) =>
 		request: { workspaceId, isPinned },
 	});
 
+/** Changes one persisted Workspace name after backend validation. */
+const renameWorkspace = (workspaceId: string, name: string) =>
+	invokeWithResponseSchema("rename_workspace", CompiledWorkspaceSchema, {
+		request: { workspaceId, name },
+	});
+
 /** Removes a Workspace collection while requiring confirmation for managed files. */
 const removeWorkspace = (workspaceId: string, managedFilesConfirmed: boolean) =>
 	invokeWithResponseSchema("remove_workspace", EmptyResponseSchema, {
@@ -44,5 +50,6 @@ export {
 	listWorkspaces,
 	registerExternalWorkspace,
 	removeWorkspace,
+	renameWorkspace,
 	setWorkspacePin,
 };

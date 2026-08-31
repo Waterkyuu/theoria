@@ -4,6 +4,7 @@ import {
 	listWorkspaces,
 	registerExternalWorkspace,
 	removeWorkspace,
+	renameWorkspace,
 	setWorkspacePin,
 } from "@/api/workspace";
 import type { Workspace } from "@/types/workspace";
@@ -61,6 +62,24 @@ type SetWorkspacePinInput = {
 	workspaceId: string;
 };
 
+type RenameWorkspaceInput = {
+	/** New user-visible Workspace name. */
+	name: string;
+	/** Workspace whose persisted name changes. */
+	workspaceId: string;
+};
+
+/** Persists a Workspace name and refreshes sidebar consumers. */
+const useRenameWorkspace = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({ name, workspaceId }: RenameWorkspaceInput) =>
+			renameWorkspace(workspaceId, name),
+		onSuccess: () =>
+			queryClient.invalidateQueries({ queryKey: workspaceKeys.list() }),
+	});
+};
+
 /** Persists a Workspace pin change and refreshes the ordered sidebar list. */
 const useSetWorkspacePin = () => {
 	const queryClient = useQueryClient();
@@ -99,11 +118,13 @@ const useRemoveWorkspace = () => {
 export type {
 	CreateWorkspaceInput,
 	RemoveWorkspaceInput,
+	RenameWorkspaceInput,
 	SetWorkspacePinInput,
 };
 export {
 	useCreateWorkspace,
 	useRemoveWorkspace,
+	useRenameWorkspace,
 	useSetWorkspacePin,
 	useWorkspaces,
 	workspaceKeys,
