@@ -32,32 +32,28 @@ i18n.on("languageChanged", (language) => {
 });
 
 /**
- * Sends one frontend locale update to the native error translation boundary.
+ * Synchronizes one i18next language change with the native error translation boundary.
  *
  * @example
- * await setBackendLocale("zh-CN");
+ * backendLanguageChanged("zh-CN");
  */
-const setBackendLocale = (language: string) =>
-	invoke("set_backend_locale", { locale: language });
+const backendLanguageChanged = (language: string) => {
+	invoke("set_backend_locale", { locale: language }).catch((error) => {
+		console.error("Failed to synchronize the backend locale", error);
+	});
+};
 
 /**
- * Keeps native IPC error messages aligned with the active i18next language for
- * the lifetime of the application.
+ * Initializes native IPC error messages with the active i18next language.
  *
  * @example
  * initializeBackendI18n();
  */
 const initializeBackendI18n = () => {
-	// Language changes are asynchronous, so synchronization failures stay observable without blocking i18next.
-	const languageChanged = (language: string) => {
-		setBackendLocale(language).catch((error) => {
-			console.error("Failed to synchronize the backend locale", error);
-		});
-	};
-
-	languageChanged(i18n.resolvedLanguage ?? i18n.language);
-	i18n.on("languageChanged", languageChanged);
+	backendLanguageChanged(i18n.resolvedLanguage ?? i18n.language);
 };
+
+i18n.on("languageChanged", backendLanguageChanged);
 
 export { initializeBackendI18n };
 export default i18n;
