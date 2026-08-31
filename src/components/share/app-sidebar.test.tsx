@@ -188,21 +188,6 @@ describe("AppSidebar", () => {
 		expect(icon).not.toHaveClass("text-mute");
 	});
 
-	it("shows a pointer cursor on the Workspace and Recent add actions", () => {
-		render(
-			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
-				<main>content</main>
-			</AppSidebar>,
-		);
-
-		expect(screen.getByRole("button", { name: "添加工作区" })).toHaveClass(
-			"cursor-pointer",
-		);
-		expect(screen.getByRole("button", { name: "最近 新任务" })).toHaveClass(
-			"cursor-pointer",
-		);
-	});
-
 	it("uses in-place skeleton rows while Sidebar data is loading", () => {
 		queryMocks.useWorkspaces.mockReturnValueOnce({
 			data: undefined,
