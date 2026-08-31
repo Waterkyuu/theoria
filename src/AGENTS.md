@@ -40,6 +40,7 @@ src/
   queries/                      # API integration with React Query
   types/                        # Type definitions
   utils/                        # Pure utility functions
+  tests/                        # e2e and integration
 ```
 
 ## Coding Rules
