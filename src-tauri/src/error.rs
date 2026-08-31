@@ -269,7 +269,7 @@ mod tests {
         let error = IpcError::from_app_error(AppError::TaskNotFound, "en-US");
 
         assert_eq!(error.code, "TASK_NOT_FOUND");
-        assert_eq!(error.message, "The requested task was not found.");
+        assert_eq!(error.message, "The requested task was not found");
     }
 
     #[test]
@@ -277,6 +277,6 @@ mod tests {
         let error = IpcError::from_app_error(AppError::TaskNotFound, "zh-CN");
 
         assert_eq!(error.code, "TASK_NOT_FOUND");
-        assert_eq!(error.message, "未找到对应的任务记录。");
+        assert_eq!(error.message, "未找到对应的任务记录");
     }
 }

@@ -16,7 +16,7 @@ mod tests {
         set_backend_locale("zh-CN".to_string());
 
         let error = IpcError::from(AppError::TaskNotFound);
-        assert_eq!(error.message, "未找到对应的任务记录。");
+        assert_eq!(error.message, "未找到对应的任务记录");
 
         set_backend_locale("en-US".to_string());
     }
