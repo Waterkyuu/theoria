@@ -205,10 +205,10 @@ describe("WorkspacePage", () => {
 		expect(screen.queryByText("agent-gauge · main")).not.toBeInTheDocument();
 	});
 
-	it("hides redundant workspace context on a new Task", () => {
+	it("shows the workspace breadcrumb without its absolute path", () => {
 		render(<WorkspacePage workspaceId="workspace-docs" />);
 
-		expect(screen.queryByText("docs-lab / 新任务")).not.toBeInTheDocument();
+		expect(screen.getByText("docs-lab / 新任务")).toBeInTheDocument();
 		expect(screen.queryByText("/Users/me/docs-lab")).not.toBeInTheDocument();
 	});
 
