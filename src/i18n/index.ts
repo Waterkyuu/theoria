@@ -54,7 +54,7 @@ const initializeBackendI18n = (
 ): (() => void) => {
 	// Language changes are asynchronous, so synchronization failures stay observable without blocking i18next.
 	const languageChanged = (language: string) => {
-		void setLocale(language).catch((error) => {
+		setLocale(language).catch((error) => {
 			console.error("Failed to synchronize the backend locale", error);
 		});
 	};
