@@ -1,6 +1,7 @@
 use crate::dto::task::{
-    ContinueTaskRequest, CreateTaskRequest, GetTaskRequest, ListTasksRequest,
-    RunTaskExecutionsRequest, StopTaskAgentRequest, TaskDetailResponse, TaskResponse,
+    ContinueTaskRequest, CreateTaskRequest, GetTaskRequest, ListTasksRequest, RenameTaskRequest,
+    RunTaskExecutionsRequest, SetTaskPinRequest, StopTaskAgentRequest, TaskDetailResponse,
+    TaskResponse,
 };
 use crate::error::{AppError, IpcError};
 use crate::services::cleanup::TaskCleanupService;
@@ -29,6 +30,32 @@ pub(crate) async fn get_task(
 ) -> Result<TaskDetailResponse, IpcError> {
     service
         .get(&request.task_id)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
+/// Changes one Task title after applying the same persisted title bounds as creation.
+#[tauri::command]
+pub(crate) async fn rename_task(
+    request: RenameTaskRequest,
+    service: State<'_, TaskService>,
+) -> Result<TaskResponse, IpcError> {
+    service
+        .rename(&request.task_id, request.title)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
+/// Changes pin state for one global Recent Task.
+#[tauri::command]
+pub(crate) async fn set_task_pin(
+    request: SetTaskPinRequest,
+    service: State<'_, TaskService>,
+) -> Result<TaskResponse, IpcError> {
+    service
+        .set_pin(&request.task_id, request.is_pinned)
         .await
         .map(Into::into)
         .map_err(Into::into)

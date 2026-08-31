@@ -17,6 +17,26 @@ pub(crate) struct GetTaskRequest {
     pub(crate) task_id: String,
 }
 
+/// Request for changing one Task's user-visible title.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct RenameTaskRequest {
+    /// Stable Task identifier from an internal route.
+    pub(crate) task_id: String,
+    /// New user-visible title validated by the service.
+    pub(crate) title: String,
+}
+
+/// Request for changing one global Recent Task's pin state.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SetTaskPinRequest {
+    /// Stable Task identifier from an internal route.
+    pub(crate) task_id: String,
+    /// Whether the Task should be pinned above ordinary Recent Tasks.
+    pub(crate) is_pinned: bool,
+}
+
 /// One ordered Agent choice submitted from the Composer.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -93,6 +113,8 @@ pub(crate) struct TaskResponse {
     status: &'static str,
     /// Time after which configuration cannot change.
     configuration_locked_at_ms: Option<i64>,
+    /// Optional pin time used to order global Recent Tasks.
+    pinned_at_ms: Option<i64>,
     /// Creation time in Unix milliseconds.
     created_at_ms: i64,
     /// Latest status update time in Unix milliseconds.
@@ -108,6 +130,7 @@ impl From<Task> for TaskResponse {
             prompt: task.prompt,
             status: task.status.as_str(),
             configuration_locked_at_ms: task.configuration_locked_at_ms,
+            pinned_at_ms: task.pinned_at_ms,
             created_at_ms: task.created_at_ms,
             updated_at_ms: task.updated_at_ms,
         }

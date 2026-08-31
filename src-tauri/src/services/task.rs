@@ -156,6 +156,7 @@ impl TaskService {
                 baseline_relative_path: prepared.baseline_relative_path,
                 status: TaskStatus::Preparing,
                 configuration_locked_at_ms: Some(created_at_ms),
+                pinned_at_ms: None,
                 created_at_ms,
                 updated_at_ms: created_at_ms,
             },
@@ -189,6 +190,30 @@ impl TaskService {
     pub(crate) async fn get(&self, task_id: &str) -> Result<TaskDetail, AppError> {
         self.repository
             .get(task_id)
+            .await
+            .map_err(|_| AppError::TaskDatabaseFailed)?
+            .ok_or(AppError::TaskNotFound)
+    }
+
+    /// Validates and persists a user-visible Task title.
+    pub(crate) async fn rename(&self, task_id: &str, title: String) -> Result<Task, AppError> {
+        let title = validate_text(title, 120)?;
+        self.repository
+            .rename(task_id, &title, current_time_ms()?)
+            .await
+            .map_err(|_| AppError::TaskDatabaseFailed)?
+            .ok_or(AppError::TaskNotFound)
+    }
+
+    /// Pins or unpins a global Recent Task using a persisted ordering timestamp.
+    pub(crate) async fn set_pin(&self, task_id: &str, is_pinned: bool) -> Result<Task, AppError> {
+        let pinned_at_ms = if is_pinned {
+            Some(current_time_ms()?)
+        } else {
+            None
+        };
+        self.repository
+            .set_pin(task_id, pinned_at_ms)
             .await
             .map_err(|_| AppError::TaskDatabaseFailed)?
             .ok_or(AppError::TaskNotFound)
