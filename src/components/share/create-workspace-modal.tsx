@@ -98,7 +98,7 @@ const NewWorkspaceModal = ({
 		<label className="flex flex-col gap-xs text-body-sm font-medium text-ink">
 			{t("workspaceSidebar.workspaceNameLabel")}
 			<input
-				className="rounded-md border border-hairline bg-canvas px-md py-sm font-normal outline-none transition-colors focus:border-hairline-strong focus:ring-2 focus:ring-focus-ring"
+				className="rounded-md border border-hairline bg-canvas px-md py-sm font-normal outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary"
 				onChange={(event) => setWorkspaceName(event.target.value)}
 				onKeyDown={(event) => {
 					if (event.key === "Enter") {
