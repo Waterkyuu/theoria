@@ -1,5 +1,6 @@
 use crate::dto::skill::{
-    ImportLocalSkillRequest, ListWorkspaceSkillsRequest, SkillResponse, WorkspaceSkillRequest,
+    CreatePlatformSkillRequest, ImportGitSkillRequest, ImportLocalSkillRequest,
+    ListWorkspaceSkillsRequest, SkillRequest, SkillResponse, WorkspaceSkillRequest,
 };
 use crate::error::IpcError;
 use crate::services::skill::SkillLibraryService;
@@ -13,6 +14,45 @@ pub(crate) async fn import_local_skill(
 ) -> Result<SkillResponse, IpcError> {
     service
         .import_local_folder(request.source_path)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
+/// Creates a minimal Skill directly in Theoria-managed storage.
+#[tauri::command]
+pub(crate) async fn create_platform_skill(
+    request: CreatePlatformSkillRequest,
+    service: State<'_, SkillLibraryService>,
+) -> Result<SkillResponse, IpcError> {
+    service
+        .create_platform_skill(request.display_name, request.description, request.content)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
+/// Clones and imports a Skill from a Git repository.
+#[tauri::command]
+pub(crate) async fn import_git_skill(
+    request: ImportGitSkillRequest,
+    service: State<'_, SkillLibraryService>,
+) -> Result<SkillResponse, IpcError> {
+    service
+        .import_git_repository(request.git_url)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
+/// Pulls a fresh managed copy from a Git-backed Skill's saved remote URL.
+#[tauri::command]
+pub(crate) async fn update_git_skill(
+    request: SkillRequest,
+    service: State<'_, SkillLibraryService>,
+) -> Result<SkillResponse, IpcError> {
+    service
+        .update_git_skill(&request.skill_id)
         .await
         .map(Into::into)
         .map_err(Into::into)

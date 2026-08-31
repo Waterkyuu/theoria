@@ -10,6 +10,34 @@ pub(crate) struct ImportLocalSkillRequest {
     pub(crate) source_path: PathBuf,
 }
 
+/// Request for creating a minimal Skill directly in Theoria.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CreatePlatformSkillRequest {
+    /// User-visible Skill name used to derive its managed folder name.
+    pub(crate) display_name: String,
+    /// Short capability description stored in frontmatter.
+    pub(crate) description: String,
+    /// Main Skill instructions written below frontmatter.
+    pub(crate) content: String,
+}
+
+/// Request for cloning a Skill from a Git repository URL.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ImportGitSkillRequest {
+    /// Clone URL whose repository root contains SKILL.md.
+    pub(crate) git_url: String,
+}
+
+/// Request identifying one managed Skill.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SkillRequest {
+    /// Stable Library identifier.
+    pub(crate) skill_id: String,
+}
+
 /// Request identifying one Workspace Skill mount.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]

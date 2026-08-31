@@ -66,6 +66,27 @@ impl SkillRepository {
             .collect()
     }
 
+    /// Updates metadata after a Git-backed Skill refresh succeeds.
+    pub(crate) async fn update_from_git(
+        &self,
+        id: &str,
+        folder_name: String,
+        display_name: String,
+        description: String,
+        updated_at_ms: i64,
+    ) -> Result<Skill, DbErr> {
+        let model = skill::Entity::find_by_id(id)
+            .one(&self.database)
+            .await?
+            .ok_or_else(|| DbErr::RecordNotFound(id.to_string()))?;
+        let mut active: skill::ActiveModel = model.into();
+        active.folder_name = Set(folder_name);
+        active.display_name = Set(display_name);
+        active.description = Set(description);
+        active.updated_at_ms = Set(updated_at_ms);
+        skill_from_model(active.update(&self.database).await?, None)
+    }
+
     /// Mounts a managed Skill to affect future Tasks from one Workspace.
     pub(crate) async fn mount(
         &self,
