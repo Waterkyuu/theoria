@@ -35,6 +35,9 @@ vi.mock("@/pages/comparison-history", () => ({
 vi.mock("@/pages/skills", () => ({
 	default: () => <main>skills route</main>,
 }));
+vi.mock("@/pages/agents", () => ({
+	default: () => <main>agents route</main>,
+}));
 
 describe("AppRouter", () => {
 	beforeEach(() => {
@@ -89,5 +92,12 @@ describe("AppRouter", () => {
 		render(<AppRouter />);
 
 		expect(await screen.findByText("skills route")).toBeInTheDocument();
+	});
+
+	it("opens the Agent access page from its dedicated route", async () => {
+		window.history.pushState({}, "", "/agents");
+		render(<AppRouter />);
+
+		expect(await screen.findByText("agents route")).toBeInTheDocument();
 	});
 });
