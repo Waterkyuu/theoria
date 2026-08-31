@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
 	Archive,
 	Ellipsis,
@@ -58,7 +59,7 @@ const WorkspaceActionDropdown = ({
 			);
 			onRemoved?.();
 		} catch (error) {
-			handleError(error, "Workspace removal failed");
+			handleError(error, "Workspace removal failed", true);
 		}
 	};
 
@@ -71,7 +72,7 @@ const WorkspaceActionDropdown = ({
 				workspaceId: workspace.id,
 			});
 		} catch (error) {
-			handleError(error, "Workspace pin update failed");
+			handleError(error, "Workspace pin update failed", true);
 		}
 	};
 
@@ -186,5 +187,3 @@ const WorkspaceActionDropdown = ({
 };
 
 export { WorkspaceActionDropdown };
-
-import { useState } from "react";

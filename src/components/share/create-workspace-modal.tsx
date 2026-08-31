@@ -55,7 +55,7 @@ const NewWorkspaceModal = ({
 			});
 			if (selectedPath) setSourcePath(selectedPath);
 		} catch (error) {
-			handleError(error, "Workspace directory selection failed");
+			handleError(error, "Workspace directory selection failed", true);
 		}
 	};
 
@@ -95,7 +95,7 @@ const NewWorkspaceModal = ({
 			handleOpenChange(false);
 			onCreated(workspace);
 		} catch (error) {
-			handleError(error, "Workspace creation failed");
+			handleError(error, "Workspace creation failed", true);
 		}
 	};
 	const renderWorkspaceNameField = () => (

@@ -46,7 +46,7 @@ const WorkspaceMountRow = ({ skillId, workspace }: WorkspaceMountRowProps) => {
 			if (shouldMount) await mountMutation.mutateAsync(input);
 			else await unmountMutation.mutateAsync(input);
 		} catch (error) {
-			handleError(error, "Workspace Skill mount update failed");
+			handleError(error, "Workspace Skill mount update failed", true);
 		}
 	};
 

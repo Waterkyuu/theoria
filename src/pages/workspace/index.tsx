@@ -173,7 +173,7 @@ const WorkspacePage = ({ workspaceId, taskId }: WorkspacePageProps) => {
 			openCreatedTask(detail);
 			runTaskMutation.mutate(detail.task.id);
 		} catch (error) {
-			handleError(error, "Task creation failed");
+			handleError(error, "Task creation failed", true);
 		}
 	};
 
