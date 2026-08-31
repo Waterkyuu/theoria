@@ -1,6 +1,4 @@
-#[path = "locales/en_us.rs"]
 mod en_us;
-#[path = "locales/zh_cn.rs"]
 mod zh_cn;
 
 use std::sync::atomic::{AtomicU8, Ordering};

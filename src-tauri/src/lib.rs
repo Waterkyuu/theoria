@@ -39,7 +39,6 @@ mod domain {
     pub(crate) mod workspace;
 }
 mod error;
-#[path = "i18n/i18n.rs"]
 mod i18n;
 mod platform {
     pub(crate) mod claude_config;
