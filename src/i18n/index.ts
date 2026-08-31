@@ -31,15 +31,13 @@ i18n.on("languageChanged", (language) => {
 	localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
 });
 
-type BackendLocaleSetter = (language: string) => Promise<unknown>;
-
 /**
  * Sends one frontend locale update to the native error translation boundary.
  *
  * @example
  * await setBackendLocale("zh-CN");
  */
-const setBackendLocale: BackendLocaleSetter = (language) =>
+const setBackendLocale = (language: string) =>
 	invoke("set_backend_locale", { locale: language });
 
 /**
@@ -47,24 +45,18 @@ const setBackendLocale: BackendLocaleSetter = (language) =>
  * the lifetime of the application.
  *
  * @example
- * const stopSynchronization = initializeBackendI18n();
+ * initializeBackendI18n();
  */
-const initializeBackendI18n = (
-	setLocale: BackendLocaleSetter = setBackendLocale,
-): (() => void) => {
+const initializeBackendI18n = () => {
 	// Language changes are asynchronous, so synchronization failures stay observable without blocking i18next.
 	const languageChanged = (language: string) => {
-		setLocale(language).catch((error) => {
+		setBackendLocale(language).catch((error) => {
 			console.error("Failed to synchronize the backend locale", error);
 		});
 	};
 
 	languageChanged(i18n.resolvedLanguage ?? i18n.language);
 	i18n.on("languageChanged", languageChanged);
-
-	return () => {
-		i18n.off("languageChanged", languageChanged);
-	};
 };
 
 export { initializeBackendI18n };
