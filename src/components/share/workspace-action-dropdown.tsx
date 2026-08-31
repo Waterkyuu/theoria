@@ -9,10 +9,15 @@ import {
 } from "@gravity-ui/icons";
 import { Button, Input, Label, TextField, Toast } from "@heroui/react";
 import { useTranslation } from "react-i18next";
+import { RenameModal } from "@/components/share/rename-modal";
 import { AlertDialog } from "@/components/ui/alert-dialog";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { handleError } from "@/utils/error";
-import { useRemoveWorkspace, useSetWorkspacePin } from "@/queries/workspace";
+import {
+	useRemoveWorkspace,
+	useRenameWorkspace,
+	useSetWorkspacePin,
+} from "@/queries/workspace";
 import type { Workspace } from "@/types/workspace";
 
 type WorkspaceActionDropdownProps = {
@@ -34,8 +39,10 @@ const WorkspaceActionDropdown = ({
 }: WorkspaceActionDropdownProps) => {
 	const { t } = useTranslation();
 	const [isRemoveOpen, setIsRemoveOpen] = useState(false);
+	const [isRenameOpen, setIsRenameOpen] = useState(false);
 	const [managedConfirmation, setManagedConfirmation] = useState("");
 	const removeWorkspaceMutation = useRemoveWorkspace();
+	const renameWorkspaceMutation = useRenameWorkspace();
 	const setWorkspacePinMutation = useSetWorkspacePin();
 	const isPinned = workspace.pinnedAtMs !== null;
 	const requiresManagedConfirmation = workspace.sourceKind === "managed";
@@ -76,6 +83,23 @@ const WorkspaceActionDropdown = ({
 		}
 	};
 
+	/** Persists the shared modal value and keeps it open when validation fails. */
+	const renameWorkspace = async (name: string) => {
+		try {
+			await renameWorkspaceMutation.mutateAsync({
+				name,
+				workspaceId: workspace.id,
+			});
+			Toast.toast.success(
+				t("workspaceSidebar.workspaceRename.success", { name }),
+			);
+			return true;
+		} catch (error) {
+			handleError(error, "Workspace rename failed", true);
+			return false;
+		}
+	};
+
 	return (
 		<>
 			<DropdownMenu
@@ -105,6 +129,7 @@ const WorkspaceActionDropdown = ({
 						),
 						id: "rename",
 						labelKey: "workspaceSidebar.renameWorkspace",
+						onAction: () => setIsRenameOpen(true),
 					},
 					{
 						icon: (
@@ -144,6 +169,20 @@ const WorkspaceActionDropdown = ({
 						<Ellipsis aria-hidden="true" className="size-4" />
 					</Button>
 				}
+			/>
+			<RenameModal
+				cancelText={t("common.cancel")}
+				description={t("workspaceSidebar.workspaceRename.description", {
+					workspace: workspace.name,
+				})}
+				initialName={workspace.name}
+				isOpen={isRenameOpen}
+				isPending={renameWorkspaceMutation.isPending}
+				label={t("workspaceSidebar.workspaceRename.label")}
+				onOpenChange={setIsRenameOpen}
+				onRename={renameWorkspace}
+				saveText={t("workspaceSidebar.workspaceRename.save")}
+				title={t("workspaceSidebar.workspaceRename.title")}
 			/>
 			<AlertDialog
 				confirmText={t("workspaceSidebar.workspaceRemove.confirm")}

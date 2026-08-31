@@ -10,6 +10,7 @@ const queryMocks = vi.hoisted(() => ({
 	deleteTask: vi.fn(),
 	renameTask: vi.fn(),
 	removeWorkspace: vi.fn(),
+	renameWorkspace: vi.fn(),
 	setTaskPin: vi.fn(),
 	setWorkspacePin: vi.fn(),
 	useTasks: vi.fn(),
@@ -46,6 +47,10 @@ vi.mock("@/queries/workspace", () => ({
 		mutateAsync: queryMocks.removeWorkspace,
 		isPending: false,
 		error: null,
+	}),
+	useRenameWorkspace: () => ({
+		mutateAsync: queryMocks.renameWorkspace,
+		isPending: false,
 	}),
 	useSetWorkspacePin: () => ({
 		mutateAsync: queryMocks.setWorkspacePin,
@@ -91,6 +96,7 @@ describe("AppSidebar", () => {
 		});
 		queryMocks.deleteTask.mockResolvedValue(undefined);
 		queryMocks.removeWorkspace.mockResolvedValue(undefined);
+		queryMocks.renameWorkspace.mockResolvedValue(undefined);
 		queryMocks.renameTask.mockResolvedValue(undefined);
 		queryMocks.setTaskPin.mockResolvedValue(undefined);
 		queryMocks.setWorkspacePin.mockResolvedValue(undefined);

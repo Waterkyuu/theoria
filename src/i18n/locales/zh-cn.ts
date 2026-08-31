@@ -61,6 +61,13 @@ const zhCN = {
 			pinWorkspace: "置顶",
 			unpinWorkspace: "取消置顶",
 			renameWorkspace: "重命名",
+			workspaceRename: {
+				title: "重命名工作区",
+				description: "为“{{workspace}}”设置新的工作区名称",
+				label: "工作区名称",
+				save: "保存",
+				success: "已重命名工作区为“{{name}}”",
+			},
 			archiveWorkspace: "归档",
 			removeWorkspace: "移除",
 			workspaceRemove: {

@@ -62,6 +62,13 @@ const enUS = {
 			pinWorkspace: "Pin",
 			unpinWorkspace: "Unpin",
 			renameWorkspace: "Rename",
+			workspaceRename: {
+				title: "Rename Workspace",
+				description: 'Set a new name for "{{workspace}}".',
+				label: "Workspace name",
+				save: "Save",
+				success: 'Workspace renamed to "{{name}}"',
+			},
 			archiveWorkspace: "Archive",
 			removeWorkspace: "Remove",
 			workspaceRemove: {

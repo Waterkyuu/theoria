@@ -1,16 +1,21 @@
-import { toast } from "@heroui/react";
+import { Toast, toast } from "@heroui/react";
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { WorkspaceActionDropdown } from "./workspace-action-dropdown";
 
 const queryMocks = vi.hoisted(() => ({
+	renameWorkspace: vi.fn(),
 	removeWorkspace: vi.fn(),
 	setWorkspacePin: vi.fn(),
 }));
 
 vi.mock("@/queries/workspace", () => ({
+	useRenameWorkspace: () => ({
+		isPending: false,
+		mutateAsync: queryMocks.renameWorkspace,
+	}),
 	useRemoveWorkspace: () => ({
 		error: null,
 		isPending: false,
@@ -25,6 +30,7 @@ vi.mock("@/queries/workspace", () => ({
 describe("WorkspaceActionDropdown", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		queryMocks.renameWorkspace.mockResolvedValue(undefined);
 		queryMocks.setWorkspacePin.mockResolvedValue(undefined);
 	});
 
@@ -77,5 +83,39 @@ describe("WorkspaceActionDropdown", () => {
 		await user.click(await screen.findByRole("menuitem", { name: "置顶" }));
 
 		expect(toastDanger).toHaveBeenCalledWith("置顶失败，请重试。");
+	});
+
+	it("renames a Workspace through the shared rename modal", async () => {
+		const user = userEvent.setup();
+		const toastSuccess = vi.spyOn(Toast.toast, "success");
+		render(
+			<WorkspaceActionDropdown
+				workspace={{
+					id: "workspace-1",
+					name: "Docs",
+					sourceKind: "external",
+					sourcePath: "/tmp/docs",
+					pinnedAtMs: null,
+					createdAtMs: 1,
+					updatedAtMs: 1,
+				}}
+			/>,
+		);
+
+		await user.click(screen.getByRole("button", { name: "Docs 的更多操作" }));
+		await user.click(await screen.findByRole("menuitem", { name: "重命名" }));
+		const dialog = await screen.findByRole("dialog", { name: "重命名工作区" });
+		const nameInput = within(dialog).getByRole("textbox", {
+			name: "工作区名称",
+		});
+		await user.clear(nameInput);
+		await user.type(nameInput, "  Research  ");
+		await user.click(within(dialog).getByRole("button", { name: "保存" }));
+
+		expect(queryMocks.renameWorkspace).toHaveBeenCalledWith({
+			name: "Research",
+			workspaceId: "workspace-1",
+		});
+		expect(toastSuccess).toHaveBeenCalledWith("已重命名工作区为“Research”");
 	});
 });
