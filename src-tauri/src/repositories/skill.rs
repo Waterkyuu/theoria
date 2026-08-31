@@ -1,5 +1,10 @@
 use crate::domain::skill::{NewSkill, Skill, SkillSourceType};
-use sea_orm::{ConnectionTrait, DatabaseBackend, DatabaseConnection, DbErr, Statement};
+use crate::models::skill::{self as skill, workspace_skill_mount};
+use sea_orm::sea_query::{Expr, OnConflict};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, DbErr, EntityTrait,
+    QueryFilter, QueryOrder,
+};
 use std::path::PathBuf;
 
 /// SQLite persistence boundary for managed Skills and Workspace mounts.
@@ -30,78 +35,34 @@ impl SkillRepository {
                 })
             })
             .transpose()?;
-        self.database
-            .execute_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                r#"
-                INSERT INTO skills
-                    (id, folder_name, display_name, description, source_type,
-                     storage_relative_path, source_path, created_at_ms, updated_at_ms)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                "#,
-                [
-                    skill.id.clone().into(),
-                    skill.folder_name.clone().into(),
-                    skill.display_name.clone().into(),
-                    skill.description.clone().into(),
-                    skill.source_type.as_str().into(),
-                    storage_path.into(),
-                    source_path.into(),
-                    skill.created_at_ms.into(),
-                    skill.created_at_ms.into(),
-                ],
-            ))
-            .await?;
+        let model = skill::ActiveModel {
+            id: Set(skill.id),
+            folder_name: Set(skill.folder_name),
+            display_name: Set(skill.display_name),
+            description: Set(skill.description),
+            source_type: Set(skill.source_type.as_str().to_string()),
+            storage_relative_path: Set(storage_path.to_string()),
+            source_path: Set(source_path),
+            deleted_at_ms: Set(None),
+            created_at_ms: Set(skill.created_at_ms),
+            updated_at_ms: Set(skill.created_at_ms),
+        }
+        .insert(&self.database)
+        .await?;
 
-        Ok(Skill {
-            id: skill.id,
-            folder_name: skill.folder_name,
-            display_name: skill.display_name,
-            description: skill.description,
-            source_type: skill.source_type,
-            storage_relative_path: skill.storage_relative_path,
-            source_path: skill.source_path,
-            created_at_ms: skill.created_at_ms,
-            updated_at_ms: skill.created_at_ms,
-        })
+        skill_from_model(model, None)
     }
 
     /// Lists active managed Skills by user-visible name.
     pub(crate) async fn list(&self) -> Result<Vec<Skill>, DbErr> {
-        self.database
-            .query_all_raw(Statement::from_string(
-                DatabaseBackend::Sqlite,
-                r#"
-                SELECT id, folder_name, display_name, description, source_type,
-                       storage_relative_path, source_path, created_at_ms, updated_at_ms
-                FROM skills
-                WHERE deleted_at_ms IS NULL
-                ORDER BY display_name COLLATE NOCASE, id
-                "#
-                .to_string(),
-            ))
+        skill::Entity::find()
+            .filter(skill::Column::DeletedAtMs.is_null())
+            .order_by_asc(Expr::cust("display_name COLLATE NOCASE"))
+            .order_by_asc(skill::Column::Id)
+            .all(&self.database)
             .await?
             .into_iter()
-            .map(|row| {
-                let source_type = row.try_get::<String>("", "source_type")?;
-                Ok(Skill {
-                    id: row.try_get("", "id")?,
-                    folder_name: row.try_get("", "folder_name")?,
-                    display_name: row.try_get("", "display_name")?,
-                    description: row.try_get("", "description")?,
-                    source_type: SkillSourceType::parse(&source_type).ok_or_else(|| {
-                        DbErr::Custom("Skill contains an invalid source type".to_string())
-                    })?,
-                    storage_relative_path: PathBuf::from(
-                        row.try_get::<String>("", "storage_relative_path")?,
-                    ),
-                    source_path: row
-                        .try_get::<Option<String>>("", "source_path")?
-                        .map(PathBuf::from),
-                    created_at_ms: row.try_get("", "created_at_ms")?,
-                    updated_at_ms: row.try_get("", "updated_at_ms")?,
-                })
-            })
+            .map(|model| skill_from_model(model, None))
             .collect()
     }
 
@@ -112,78 +73,66 @@ impl SkillRepository {
         skill: &Skill,
         created_at_ms: i64,
     ) -> Result<(), DbErr> {
-        self.database
-            .execute_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                r#"
-                INSERT INTO workspace_skill_mounts
-                    (workspace_id, skill_id, folder_name_snapshot, created_at_ms)
-                VALUES (?, ?, ?, ?)
-                ON CONFLICT(workspace_id, skill_id) DO NOTHING
-                "#,
-                [
-                    workspace_id.into(),
-                    skill.id.clone().into(),
-                    skill.folder_name.clone().into(),
-                    created_at_ms.into(),
-                ],
-            ))
-            .await?;
+        workspace_skill_mount::Entity::insert(workspace_skill_mount::ActiveModel {
+            workspace_id: Set(workspace_id.to_string()),
+            skill_id: Set(skill.id.clone()),
+            folder_name_snapshot: Set(skill.folder_name.clone()),
+            created_at_ms: Set(created_at_ms),
+        })
+        .on_conflict(
+            OnConflict::columns([
+                workspace_skill_mount::Column::WorkspaceId,
+                workspace_skill_mount::Column::SkillId,
+            ])
+            .do_nothing()
+            .to_owned(),
+        )
+        .exec_without_returning(&self.database)
+        .await?;
         Ok(())
     }
 
     /// Removes one future-Task Skill mount without changing either source directory.
     pub(crate) async fn unmount(&self, workspace_id: &str, skill_id: &str) -> Result<(), DbErr> {
-        self.database
-            .execute_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                "DELETE FROM workspace_skill_mounts WHERE workspace_id = ? AND skill_id = ?",
-                [workspace_id.into(), skill_id.into()],
-            ))
+        workspace_skill_mount::Entity::delete_many()
+            .filter(workspace_skill_mount::Column::WorkspaceId.eq(workspace_id))
+            .filter(workspace_skill_mount::Column::SkillId.eq(skill_id))
+            .exec(&self.database)
             .await?;
         Ok(())
     }
 
     /// Lists active Skills mounted for future Tasks from one Workspace.
     pub(crate) async fn list_for_workspace(&self, workspace_id: &str) -> Result<Vec<Skill>, DbErr> {
-        self.database
-            .query_all_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                r#"
-                SELECT s.id, m.folder_name_snapshot AS folder_name, s.display_name,
-                       s.description, s.source_type, s.storage_relative_path,
-                       s.source_path, s.created_at_ms, s.updated_at_ms
-                FROM workspace_skill_mounts m
-                JOIN skills s ON s.id = m.skill_id
-                WHERE m.workspace_id = ? AND s.deleted_at_ms IS NULL
-                ORDER BY s.display_name COLLATE NOCASE, s.id
-                "#,
-                [workspace_id.into()],
-            ))
+        workspace_skill_mount::Entity::find()
+            .find_both_related(skill::Entity)
+            .filter(workspace_skill_mount::Column::WorkspaceId.eq(workspace_id))
+            .filter(skill::Column::DeletedAtMs.is_null())
+            .order_by_asc(Expr::cust("skills.display_name COLLATE NOCASE"))
+            .order_by_asc(skill::Column::Id)
+            .all(&self.database)
             .await?
             .into_iter()
-            .map(|row| {
-                let source_type = row.try_get::<String>("", "source_type")?;
-                Ok(Skill {
-                    id: row.try_get("", "id")?,
-                    folder_name: row.try_get("", "folder_name")?,
-                    display_name: row.try_get("", "display_name")?,
-                    description: row.try_get("", "description")?,
-                    source_type: SkillSourceType::parse(&source_type).ok_or_else(|| {
-                        DbErr::Custom("Skill contains an invalid source type".to_string())
-                    })?,
-                    storage_relative_path: PathBuf::from(
-                        row.try_get::<String>("", "storage_relative_path")?,
-                    ),
-                    source_path: row
-                        .try_get::<Option<String>>("", "source_path")?
-                        .map(PathBuf::from),
-                    created_at_ms: row.try_get("", "created_at_ms")?,
-                    updated_at_ms: row.try_get("", "updated_at_ms")?,
-                })
-            })
+            .map(|(mount, model)| skill_from_model(model, Some(mount.folder_name_snapshot)))
             .collect()
     }
+}
+
+/// Converts a persisted Skill row into the domain representation used by services.
+fn skill_from_model(model: skill::Model, folder_name: Option<String>) -> Result<Skill, DbErr> {
+    let source_type = SkillSourceType::parse(&model.source_type)
+        .ok_or_else(|| DbErr::Custom("Skill contains an invalid source type".to_string()))?;
+    Ok(Skill {
+        id: model.id,
+        folder_name: folder_name.unwrap_or(model.folder_name),
+        display_name: model.display_name,
+        description: model.description,
+        source_type,
+        storage_relative_path: PathBuf::from(model.storage_relative_path),
+        source_path: model.source_path.map(PathBuf::from),
+        created_at_ms: model.created_at_ms,
+        updated_at_ms: model.updated_at_ms,
+    })
 }
 
 #[cfg(test)]
