@@ -3,6 +3,7 @@ import {
 	Ellipsis,
 	PencilToSquare,
 	Pin,
+	PinSlash,
 	TrashBin,
 } from "@gravity-ui/icons";
 import { Button, Input, Label, TextField, Toast } from "@heroui/react";
@@ -10,7 +11,7 @@ import { useTranslation } from "react-i18next";
 import { AlertDialog } from "@/components/ui/alert-dialog";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { handleError } from "@/utils/error";
-import { useRemoveWorkspace } from "@/queries/workspace";
+import { useRemoveWorkspace, useSetWorkspacePin } from "@/queries/workspace";
 import type { Workspace } from "@/types/workspace";
 
 type WorkspaceActionDropdownProps = {
@@ -34,6 +35,8 @@ const WorkspaceActionDropdown = ({
 	const [isRemoveOpen, setIsRemoveOpen] = useState(false);
 	const [managedConfirmation, setManagedConfirmation] = useState("");
 	const removeWorkspaceMutation = useRemoveWorkspace();
+	const setWorkspacePinMutation = useSetWorkspacePin();
+	const isPinned = workspace.pinnedAtMs !== null;
 	const requiresManagedConfirmation = workspace.sourceKind === "managed";
 	const isConfirmed =
 		!requiresManagedConfirmation || managedConfirmation === workspace.name;
@@ -59,16 +62,38 @@ const WorkspaceActionDropdown = ({
 		}
 	};
 
+	/** Toggles persisted pin state so the refreshed sidebar receives database ordering. */
+	const setPinState = async () => {
+		if (setWorkspacePinMutation.isPending) return;
+		try {
+			await setWorkspacePinMutation.mutateAsync({
+				isPinned: !isPinned,
+				workspaceId: workspace.id,
+			});
+		} catch (error) {
+			handleError(error, "Workspace pin update failed");
+		}
+	};
+
 	return (
 		<>
 			<DropdownMenu
 				items={[
 					{
-						icon: (
+						icon: isPinned ? (
+							<PinSlash
+								aria-hidden="true"
+								className="size-4 shrink-0 text-ink"
+							/>
+						) : (
 							<Pin aria-hidden="true" className="size-4 shrink-0 text-ink" />
 						),
 						id: "pin",
-						labelKey: "workspaceSidebar.pinWorkspace",
+						isDisabled: setWorkspacePinMutation.isPending,
+						labelKey: isPinned
+							? "workspaceSidebar.unpinWorkspace"
+							: "workspaceSidebar.pinWorkspace",
+						onAction: setPinState,
 					},
 					{
 						icon: (

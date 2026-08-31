@@ -58,6 +58,7 @@ const zhCN = {
 			expandWorkspace: "展开 {{workspace}}",
 			workspaceActions: "{{workspace}} 的更多操作",
 			pinWorkspace: "置顶",
+			unpinWorkspace: "取消置顶",
 			renameWorkspace: "重命名",
 			archiveWorkspace: "归档",
 			removeWorkspace: "移除",
