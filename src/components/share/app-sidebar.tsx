@@ -149,7 +149,7 @@ const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 						</button>
 						<button
 							aria-label={t("workspaceSidebar.addWorkspace")}
-							className="size-3 rounded-sm text-mute outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-focus-ring"
+							className="size-3 cursor-pointer rounded-sm text-mute outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-focus-ring"
 							onClick={() => setIsNewWorkspaceOpen(true)}
 							type="button"
 						>
@@ -213,11 +213,11 @@ const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 							</div>
 							<button
 								aria-label={`${t("workspaceSidebar.recent")} ${t("navigation.newTask")}`}
-								className="size-3 rounded-sm text-mute outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-focus-ring"
+								className="size-3 cursor-pointer rounded-sm text-mute outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-focus-ring"
 								onClick={() => onNavigate("/task")}
 								type="button"
 							>
-								<Plus aria-hidden="true" className="size-3 text-mute" />
+								<Plus aria-hidden="true" className="size-3" />
 							</button>
 						</div>
 						{recentTasksQuery.isLoading ? (

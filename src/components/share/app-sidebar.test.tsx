@@ -174,6 +174,35 @@ describe("AppSidebar", () => {
 		expect(within(recent).queryByText("History")).not.toBeInTheDocument();
 	});
 
+	it("lets the Recent add icon inherit the button hover color", () => {
+		render(
+			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
+				<main>content</main>
+			</AppSidebar>,
+		);
+
+		const addRecentTask = screen.getByRole("button", { name: "最近 新任务" });
+		const icon = addRecentTask.querySelector("svg");
+
+		expect(addRecentTask).toHaveClass("hover:text-ink");
+		expect(icon).not.toHaveClass("text-mute");
+	});
+
+	it("shows a pointer cursor on the Workspace and Recent add actions", () => {
+		render(
+			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
+				<main>content</main>
+			</AppSidebar>,
+		);
+
+		expect(screen.getByRole("button", { name: "添加工作区" })).toHaveClass(
+			"cursor-pointer",
+		);
+		expect(screen.getByRole("button", { name: "最近 新任务" })).toHaveClass(
+			"cursor-pointer",
+		);
+	});
+
 	it("uses in-place skeleton rows while Sidebar data is loading", () => {
 		queryMocks.useWorkspaces.mockReturnValueOnce({
 			data: undefined,
