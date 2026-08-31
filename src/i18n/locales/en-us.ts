@@ -26,6 +26,7 @@ const enUS = {
 			unauthorized: "Please sign in again",
 		},
 		navigation: {
+			agentAccess: "Agent access",
 			benchmark: "Benchmark",
 			newTask: "New Task",
 			workspaces: "Workspaces",

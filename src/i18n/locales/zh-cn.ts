@@ -26,6 +26,7 @@ const zhCN = {
 			unauthorized: "登录状态已失效，请重新登录",
 		},
 		navigation: {
+			agentAccess: "Agent 接入",
 			benchmark: "基准测试",
 			newTask: "新任务",
 			workspaces: "工作区",

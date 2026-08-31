@@ -10,6 +10,7 @@ import {
 	Plus,
 	Puzzle,
 	TargetDart,
+	TerminalLine,
 } from "@gravity-ui/icons";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
@@ -29,6 +30,7 @@ type AppSidebarProps = {
 
 const NAVIGATION_ITEMS = [
 	{ path: "/task", labelKey: "navigation.newTask", icon: TargetDart },
+	{ path: "/agents", labelKey: "navigation.agentAccess", icon: TerminalLine },
 	{ path: "/skills", labelKey: "navigation.skills", icon: Puzzle },
 	{ path: "/runs", labelKey: "navigation.runs", icon: LayoutColumns3 },
 	{ path: "/benchmark", labelKey: "navigation.benchmark", icon: ChartColumn },
@@ -90,7 +92,7 @@ const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 
 				<nav
 					aria-label={t("mainNavigation")}
-					className="flex h-[156px] shrink-0 flex-col gap-xs max-md:h-16 max-md:flex-row max-md:gap-1 max-md:px-2 max-md:py-1"
+					className="flex h-[196px] shrink-0 flex-col gap-xs max-md:h-16 max-md:flex-row max-md:gap-1 max-md:px-2 max-md:py-1"
 				>
 					{NAVIGATION_ITEMS.map((item) => {
 						const ItemIcon = item.icon;
