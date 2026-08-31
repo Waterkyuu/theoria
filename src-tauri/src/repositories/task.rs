@@ -3,9 +3,13 @@ use crate::domain::task::{
     Task, TaskAgent, TaskAgentResult, TaskAgentTurn, TaskDetail, TaskPermissions, TaskSkill,
     TaskStatus,
 };
+use crate::models::task::{self as task, agent, permissions, result, skill, turn};
+use sea_orm::sea_query::{Expr, OnConflict};
 use sea_orm::{
-    ConnectionTrait, DatabaseBackend, DatabaseConnection, DbErr, QueryResult, Statement,
-    TransactionTrait,
+    ActiveModelTrait,
+    ActiveValue::{NotSet, Set},
+    ColumnTrait, DatabaseConnection, DatabaseTransaction, DbErr, EntityTrait, QueryFilter,
+    QueryOrder, QuerySelect, SqliteTransactionMode, TransactionOptions, TransactionTrait,
 };
 
 /// SQLite persistence boundary for Tasks and execution snapshots.
@@ -32,89 +36,55 @@ impl TaskRepository {
             ));
         }
         let transaction = self.database.begin().await?;
-        transaction
-            .execute_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                r#"
-                INSERT INTO tasks
-                    (id, workspace_id, title, prompt, baseline_relative_path, status,
-                     configuration_locked_at_ms, created_at_ms, updated_at_ms)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                "#,
-                [
-                    detail.task.id.clone().into(),
-                    detail.task.workspace_id.clone().into(),
-                    detail.task.title.clone().into(),
-                    detail.task.prompt.clone().into(),
-                    detail.task.baseline_relative_path.clone().into(),
-                    detail.task.status.as_str().into(),
-                    detail.task.configuration_locked_at_ms.into(),
-                    detail.task.created_at_ms.into(),
-                    detail.task.updated_at_ms.into(),
-                ],
-            ))
-            .await?;
-        for agent in &detail.agents {
-            transaction
-                .execute_raw(Statement::from_sql_and_values(
-                    DatabaseBackend::Sqlite,
-                    r#"
-                    INSERT INTO task_agents
-                        (id, task_id, slot_index, agent_kind, model_snapshot, mode_snapshot,
-                         session_id, execution_relative_path, status, created_at_ms, updated_at_ms)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    "#,
-                    [
-                        agent.id.clone().into(),
-                        agent.task_id.clone().into(),
-                        agent.slot_index.into(),
-                        agent.agent_kind.as_str().into(),
-                        agent.model_snapshot.clone().into(),
-                        agent.mode_snapshot.clone().into(),
-                        agent.session_id.clone().into(),
-                        agent.execution_relative_path.clone().into(),
-                        agent.status.as_str().into(),
-                        agent.created_at_ms.into(),
-                        agent.updated_at_ms.into(),
-                    ],
-                ))
-                .await?;
+        task::ActiveModel {
+            id: Set(detail.task.id.clone()),
+            workspace_id: Set(detail.task.workspace_id.clone()),
+            title: Set(detail.task.title.clone()),
+            prompt: Set(detail.task.prompt.clone()),
+            baseline_relative_path: Set(detail.task.baseline_relative_path.clone()),
+            status: Set(detail.task.status.as_str().to_string()),
+            configuration_locked_at_ms: Set(detail.task.configuration_locked_at_ms),
+            created_at_ms: Set(detail.task.created_at_ms),
+            updated_at_ms: Set(detail.task.updated_at_ms),
         }
-        transaction
-            .execute_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                r#"
-                INSERT INTO task_permissions
-                    (task_id, file_access, command_execution, created_at_ms)
-                VALUES (?, ?, ?, ?)
-                "#,
-                [
-                    detail.task.id.clone().into(),
-                    detail.permissions.file_access.clone().into(),
-                    detail.permissions.command_execution.clone().into(),
-                    detail.task.created_at_ms.into(),
-                ],
-            ))
+        .insert(&transaction)
+        .await?;
+        for agent in &detail.agents {
+            agent::ActiveModel {
+                id: Set(agent.id.clone()),
+                task_id: Set(agent.task_id.clone()),
+                slot_index: Set(agent.slot_index),
+                agent_kind: Set(agent.agent_kind.as_str().to_string()),
+                model_snapshot: Set(agent.model_snapshot.clone()),
+                mode_snapshot: Set(agent.mode_snapshot.clone()),
+                session_id: Set(agent.session_id.clone()),
+                execution_relative_path: Set(agent.execution_relative_path.clone()),
+                status: Set(agent.status.as_str().to_string()),
+                created_at_ms: Set(agent.created_at_ms),
+                updated_at_ms: Set(agent.updated_at_ms),
+            }
+            .insert(&transaction)
             .await?;
+        }
+        permissions::ActiveModel {
+            task_id: Set(detail.task.id.clone()),
+            file_access: Set(detail.permissions.file_access.clone()),
+            command_execution: Set(detail.permissions.command_execution.clone()),
+            created_at_ms: Set(detail.task.created_at_ms),
+        }
+        .insert(&transaction)
+        .await?;
         for skill in &detail.skills {
-            transaction
-                .execute_raw(Statement::from_sql_and_values(
-                    DatabaseBackend::Sqlite,
-                    r#"
-                    INSERT INTO task_skills
-                        (task_id, folder_name, origin, library_skill_id, relative_path, created_at_ms)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    "#,
-                    [
-                        detail.task.id.clone().into(),
-                        skill.folder_name.clone().into(),
-                        skill.origin.clone().into(),
-                        skill.library_skill_id.clone().into(),
-                        skill.relative_path.clone().into(),
-                        detail.task.created_at_ms.into(),
-                    ],
-                ))
-                .await?;
+            skill::ActiveModel {
+                task_id: Set(detail.task.id.clone()),
+                folder_name: Set(skill.folder_name.clone()),
+                origin: Set(skill.origin.clone()),
+                library_skill_id: Set(skill.library_skill_id.clone()),
+                relative_path: Set(skill.relative_path.clone()),
+                created_at_ms: Set(detail.task.created_at_ms),
+            }
+            .insert(&transaction)
+            .await?;
         }
         transaction.commit().await?;
         Ok(detail)
@@ -127,19 +97,19 @@ impl TaskRepository {
         updated_at_ms: i64,
     ) -> Result<(), DbErr> {
         let transaction = self.database.begin().await?;
-        transaction
-            .execute_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                "UPDATE tasks SET status = 'running', updated_at_ms = ? WHERE id = ? AND status = 'preparing'",
-                [updated_at_ms.into(), task_id.into()],
-            ))
+        task::Entity::update_many()
+            .col_expr(task::Column::Status, Expr::value("running"))
+            .col_expr(task::Column::UpdatedAtMs, Expr::value(updated_at_ms))
+            .filter(task::Column::Id.eq(task_id))
+            .filter(task::Column::Status.eq("preparing"))
+            .exec(&transaction)
             .await?;
-        transaction
-            .execute_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                "UPDATE task_agents SET status = 'running', updated_at_ms = ? WHERE task_id = ? AND status = 'preparing'",
-                [updated_at_ms.into(), task_id.into()],
-            ))
+        agent::Entity::update_many()
+            .col_expr(agent::Column::Status, Expr::value("running"))
+            .col_expr(agent::Column::UpdatedAtMs, Expr::value(updated_at_ms))
+            .filter(agent::Column::TaskId.eq(task_id))
+            .filter(agent::Column::Status.eq("preparing"))
+            .exec(&transaction)
             .await?;
         transaction.commit().await
     }
@@ -155,39 +125,28 @@ impl TaskRepository {
             return Ok(false);
         }
         let transaction = self.database.begin().await?;
-        let task_update = transaction
-            .execute_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                r#"
-                UPDATE tasks
-                SET status = 'running', updated_at_ms = ?
-                WHERE id = ? AND status IN ('waiting', 'completed', 'failed')
-                "#,
-                [updated_at_ms.into(), task_id.into()],
-            ))
+        let task_update = task::Entity::update_many()
+            .col_expr(task::Column::Status, Expr::value("running"))
+            .col_expr(task::Column::UpdatedAtMs, Expr::value(updated_at_ms))
+            .filter(task::Column::Id.eq(task_id))
+            .filter(task::Column::Status.is_in(["waiting", "completed", "failed"]))
+            .exec(&transaction)
             .await?;
-        if task_update.rows_affected() != 1 {
+        if task_update.rows_affected != 1 {
             transaction.rollback().await?;
             return Ok(false);
         }
         for task_agent_id in task_agent_ids {
-            let agent_update = transaction
-                .execute_raw(Statement::from_sql_and_values(
-                    DatabaseBackend::Sqlite,
-                    r#"
-                    UPDATE task_agents
-                    SET status = 'running', updated_at_ms = ?
-                    WHERE id = ? AND task_id = ? AND session_id IS NOT NULL
-                      AND status IN ('waiting', 'completed')
-                    "#,
-                    [
-                        updated_at_ms.into(),
-                        task_agent_id.as_str().into(),
-                        task_id.into(),
-                    ],
-                ))
+            let agent_update = agent::Entity::update_many()
+                .col_expr(agent::Column::Status, Expr::value("running"))
+                .col_expr(agent::Column::UpdatedAtMs, Expr::value(updated_at_ms))
+                .filter(agent::Column::Id.eq(task_agent_id))
+                .filter(agent::Column::TaskId.eq(task_id))
+                .filter(agent::Column::SessionId.is_not_null())
+                .filter(agent::Column::Status.is_in(["waiting", "completed"]))
+                .exec(&transaction)
                 .await?;
-            if agent_update.rows_affected() != 1 {
+            if agent_update.rows_affected != 1 {
                 transaction.rollback().await?;
                 return Ok(false);
             }
@@ -211,41 +170,37 @@ impl TaskRepository {
                 "Waiting Agent turn requires a session id".to_string(),
             ));
         }
-        let transaction = self.database.begin().await?;
-        let update = transaction
-            .execute_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                "UPDATE task_agents SET status = 'waiting', session_id = ?, updated_at_ms = ? WHERE id = ? AND status = 'running'",
-                [session_id.into(), updated_at_ms.into(), task_agent_id.into()],
-            ))
+        let transaction = self
+            .database
+            .begin_with_options(TransactionOptions {
+                sqlite_transaction_mode: Some(SqliteTransactionMode::Immediate),
+                ..TransactionOptions::default()
+            })
             .await?;
-        if update.rows_affected() != 1 {
+        let update = agent::Entity::update_many()
+            .col_expr(agent::Column::Status, Expr::value("waiting"))
+            .col_expr(agent::Column::SessionId, Expr::value(session_id))
+            .col_expr(agent::Column::UpdatedAtMs, Expr::value(updated_at_ms))
+            .filter(agent::Column::Id.eq(task_agent_id))
+            .filter(agent::Column::Status.eq("running"))
+            .exec(&transaction)
+            .await?;
+        if update.rows_affected != 1 {
             transaction.rollback().await?;
             return Err(DbErr::Custom(
                 "Waiting Agent turn is not running".to_string(),
             ));
         }
-        transaction
-            .execute_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                r#"
-                INSERT INTO task_agent_turns
-                    (task_agent_id, sequence, prompt, final_status, response_text,
-                     metrics_json, created_at_ms)
-                SELECT ?, COALESCE(MAX(sequence) + 1, 0), ?, 'waiting', ?, ?, ?
-                FROM task_agent_turns
-                WHERE task_agent_id = ?
-                "#,
-                [
-                    task_agent_id.into(),
-                    prompt.into(),
-                    response_text.into(),
-                    metrics_json.into(),
-                    updated_at_ms.into(),
-                    task_agent_id.into(),
-                ],
-            ))
-            .await?;
+        insert_task_agent_turn(
+            &transaction,
+            task_agent_id,
+            prompt,
+            TaskStatus::Waiting,
+            response_text,
+            metrics_json,
+            updated_at_ms,
+        )
+        .await?;
         transaction.commit().await
     }
 
@@ -264,43 +219,16 @@ impl TaskRepository {
             ));
         }
         let transaction = self.database.begin().await?;
-        transaction
-            .execute_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                "UPDATE task_agents SET status = ?, updated_at_ms = ? WHERE id = ?",
-                [
-                    result.final_status.as_str().into(),
-                    updated_at_ms.into(),
-                    result.task_agent_id.clone().into(),
-                ],
-            ))
+        agent::Entity::update_many()
+            .col_expr(
+                agent::Column::Status,
+                Expr::value(result.final_status.as_str()),
+            )
+            .col_expr(agent::Column::UpdatedAtMs, Expr::value(updated_at_ms))
+            .filter(agent::Column::Id.eq(&result.task_agent_id))
+            .exec(&transaction)
             .await?;
-        transaction
-            .execute_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                r#"
-                INSERT INTO task_agent_results
-                    (task_agent_id, final_status, response_text, changes_relative_path,
-                     metrics_json, created_at_ms, updated_at_ms)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(task_agent_id) DO UPDATE SET
-                    final_status = excluded.final_status,
-                    response_text = excluded.response_text,
-                    changes_relative_path = excluded.changes_relative_path,
-                    metrics_json = excluded.metrics_json,
-                    updated_at_ms = excluded.updated_at_ms
-                "#,
-                [
-                    result.task_agent_id.into(),
-                    result.final_status.as_str().into(),
-                    result.response_text.into(),
-                    result.changes_relative_path.into(),
-                    result.metrics_json.into(),
-                    updated_at_ms.into(),
-                    updated_at_ms.into(),
-                ],
-            ))
-            .await?;
+        upsert_agent_result(&transaction, &result, updated_at_ms).await?;
         transaction.commit().await
     }
 
@@ -320,67 +248,37 @@ impl TaskRepository {
                 "Agent turn status is not terminal".to_string(),
             ));
         }
-        let transaction = self.database.begin().await?;
-        transaction
-            .execute_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                "UPDATE task_agents SET status = ?, session_id = COALESCE(?, session_id), updated_at_ms = ? WHERE id = ?",
-                [
-                    result.final_status.as_str().into(),
-                    session_id.into(),
-                    updated_at_ms.into(),
-                    result.task_agent_id.clone().into(),
-                ],
-            ))
+        let transaction = self
+            .database
+            .begin_with_options(TransactionOptions {
+                sqlite_transaction_mode: Some(SqliteTransactionMode::Immediate),
+                ..TransactionOptions::default()
+            })
             .await?;
-        transaction
-            .execute_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                r#"
-                INSERT INTO task_agent_results
-                    (task_agent_id, final_status, response_text, changes_relative_path,
-                     metrics_json, created_at_ms, updated_at_ms)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(task_agent_id) DO UPDATE SET
-                    final_status = excluded.final_status,
-                    response_text = excluded.response_text,
-                    changes_relative_path = excluded.changes_relative_path,
-                    metrics_json = excluded.metrics_json,
-                    updated_at_ms = excluded.updated_at_ms
-                "#,
-                [
-                    result.task_agent_id.clone().into(),
-                    result.final_status.as_str().into(),
-                    result.response_text.clone().into(),
-                    result.changes_relative_path.into(),
-                    result.metrics_json.clone().into(),
-                    updated_at_ms.into(),
-                    updated_at_ms.into(),
-                ],
-            ))
+        let mut update = agent::Entity::update_many()
+            .col_expr(
+                agent::Column::Status,
+                Expr::value(result.final_status.as_str()),
+            )
+            .col_expr(agent::Column::UpdatedAtMs, Expr::value(updated_at_ms));
+        if let Some(session_id) = session_id {
+            update = update.col_expr(agent::Column::SessionId, Expr::value(session_id));
+        }
+        update
+            .filter(agent::Column::Id.eq(&result.task_agent_id))
+            .exec(&transaction)
             .await?;
-        transaction
-            .execute_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                r#"
-                INSERT INTO task_agent_turns
-                    (task_agent_id, sequence, prompt, final_status, response_text,
-                     metrics_json, created_at_ms)
-                SELECT ?, COALESCE(MAX(sequence) + 1, 0), ?, ?, ?, ?, ?
-                FROM task_agent_turns
-                WHERE task_agent_id = ?
-                "#,
-                [
-                    result.task_agent_id.clone().into(),
-                    prompt.into(),
-                    result.final_status.as_str().into(),
-                    result.response_text.into(),
-                    result.metrics_json.into(),
-                    updated_at_ms.into(),
-                    result.task_agent_id.into(),
-                ],
-            ))
-            .await?;
+        upsert_agent_result(&transaction, &result, updated_at_ms).await?;
+        insert_task_agent_turn(
+            &transaction,
+            &result.task_agent_id,
+            prompt,
+            result.final_status,
+            result.response_text.as_deref(),
+            &result.metrics_json,
+            updated_at_ms,
+        )
+        .await?;
         transaction.commit().await
     }
 
@@ -396,12 +294,11 @@ impl TaskRepository {
                 "Task completion status is not final".to_string(),
             ));
         }
-        self.database
-            .execute_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                "UPDATE tasks SET status = ?, updated_at_ms = ? WHERE id = ?",
-                [status.as_str().into(), updated_at_ms.into(), task_id.into()],
-            ))
+        task::Entity::update_many()
+            .col_expr(task::Column::Status, Expr::value(status.as_str()))
+            .col_expr(task::Column::UpdatedAtMs, Expr::value(updated_at_ms))
+            .filter(task::Column::Id.eq(task_id))
+            .exec(&self.database)
             .await?;
         Ok(())
     }
@@ -411,15 +308,12 @@ impl TaskRepository {
         &self,
         task_agent_id: &str,
     ) -> Result<Option<String>, DbErr> {
-        self.database
-            .query_one_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                "SELECT task_id FROM task_agents WHERE id = ?",
-                [task_agent_id.into()],
-            ))
-            .await?
-            .map(|row| row.try_get("", "task_id"))
-            .transpose()
+        agent::Entity::find_by_id(task_agent_id)
+            .select_only()
+            .column(agent::Column::TaskId)
+            .into_tuple::<String>()
+            .one(&self.database)
+            .await
     }
 
     /// Recomputes the aggregate lifecycle after an independent Agent Stop.
@@ -428,17 +322,15 @@ impl TaskRepository {
         task_id: &str,
         updated_at_ms: i64,
     ) -> Result<TaskStatus, DbErr> {
-        let statuses = self
-            .database
-            .query_all_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                "SELECT status FROM task_agents WHERE task_id = ?",
-                [task_id.into()],
-            ))
+        let statuses = agent::Entity::find()
+            .select_only()
+            .column(agent::Column::Status)
+            .filter(agent::Column::TaskId.eq(task_id))
+            .into_tuple::<String>()
+            .all(&self.database)
             .await?
             .into_iter()
-            .map(|row| {
-                let status = row.try_get::<String>("", "status")?;
+            .map(|status| {
                 TaskStatus::parse(&status)
                     .ok_or_else(|| DbErr::Custom("Task Agent status is invalid".to_string()))
             })
@@ -459,189 +351,97 @@ impl TaskRepository {
         } else {
             TaskStatus::Completed
         };
-        self.database
-            .execute_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                "UPDATE tasks SET status = ?, updated_at_ms = ? WHERE id = ?",
-                [status.as_str().into(), updated_at_ms.into(), task_id.into()],
-            ))
+        task::Entity::update_many()
+            .col_expr(task::Column::Status, Expr::value(status.as_str()))
+            .col_expr(task::Column::UpdatedAtMs, Expr::value(updated_at_ms))
+            .filter(task::Column::Id.eq(task_id))
+            .exec(&self.database)
             .await?;
         Ok(status)
     }
 
     /// Deletes one Task after its entire filesystem tree has been removed.
     pub(crate) async fn delete(&self, task_id: &str) -> Result<(), DbErr> {
-        self.database
-            .execute_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                "DELETE FROM tasks WHERE id = ?",
-                [task_id.into()],
-            ))
+        task::Entity::delete_by_id(task_id)
+            .exec(&self.database)
             .await?;
         Ok(())
     }
 
     /// Lists global Recent or one Workspace's Tasks without mixing scopes.
     pub(crate) async fn list(&self, workspace_id: Option<&str>) -> Result<Vec<Task>, DbErr> {
-        let (condition, values) = match workspace_id {
-            Some(workspace_id) => ("workspace_id = ?", vec![workspace_id.into()]),
-            None => ("workspace_id IS NULL", Vec::new()),
+        let query = task::Entity::find();
+        let query = match workspace_id {
+            Some(workspace_id) => query.filter(task::Column::WorkspaceId.eq(workspace_id)),
+            None => query.filter(task::Column::WorkspaceId.is_null()),
         };
-        self.database
-            .query_all_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                format!(
-                    r#"
-                    SELECT id, workspace_id, title, prompt, baseline_relative_path, status,
-                           configuration_locked_at_ms, created_at_ms, updated_at_ms
-                    FROM tasks
-                    WHERE {condition}
-                    ORDER BY created_at_ms DESC, id DESC
-                    "#
-                ),
-                values,
-            ))
+        query
+            .order_by_desc(task::Column::CreatedAtMs)
+            .order_by_desc(task::Column::Id)
+            .all(&self.database)
             .await?
             .into_iter()
-            .map(task_from_row)
+            .map(task_from_model)
             .collect()
     }
 
     /// Restores immutable configuration, Executions, Skills, and results for one Task.
     pub(crate) async fn get(&self, task_id: &str) -> Result<Option<TaskDetail>, DbErr> {
-        let task = self
-            .database
-            .query_one_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                r#"
-                SELECT id, workspace_id, title, prompt, baseline_relative_path, status,
-                       configuration_locked_at_ms, created_at_ms, updated_at_ms
-                FROM tasks
-                WHERE id = ?
-                "#,
-                [task_id.into()],
-            ))
+        let task = task::Entity::find_by_id(task_id)
+            .one(&self.database)
             .await?
-            .map(task_from_row)
+            .map(task_from_model)
             .transpose()?;
         let Some(task) = task else {
             return Ok(None);
         };
-        let agents = self
-            .database
-            .query_all_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                r#"
-                SELECT id, task_id, slot_index, agent_kind, model_snapshot, mode_snapshot,
-                       session_id, execution_relative_path, status, created_at_ms, updated_at_ms
-                FROM task_agents
-                WHERE task_id = ?
-                ORDER BY slot_index
-                "#,
-                [task_id.into()],
-            ))
+        let agents = agent::Entity::find()
+            .filter(agent::Column::TaskId.eq(task_id))
+            .order_by_asc(agent::Column::SlotIndex)
+            .all(&self.database)
             .await?
             .into_iter()
-            .map(task_agent_from_row)
+            .map(task_agent_from_model)
             .collect::<Result<Vec<_>, _>>()?;
-        let permissions = self
-            .database
-            .query_one_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                "SELECT file_access, command_execution FROM task_permissions WHERE task_id = ?",
-                [task_id.into()],
-            ))
+        let permissions = permissions::Entity::find_by_id(task_id)
+            .one(&self.database)
             .await?
-            .map(|row| -> Result<TaskPermissions, DbErr> {
-                Ok(TaskPermissions {
-                    file_access: row.try_get("", "file_access")?,
-                    command_execution: row.try_get("", "command_execution")?,
-                })
+            .map(|model| TaskPermissions {
+                file_access: model.file_access,
+                command_execution: model.command_execution,
             })
-            .transpose()?
             .ok_or_else(|| DbErr::Custom("Task permissions are missing".to_string()))?;
-        let skills = self
-            .database
-            .query_all_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                r#"
-                SELECT folder_name, origin, library_skill_id, relative_path
-                FROM task_skills
-                WHERE task_id = ?
-                ORDER BY folder_name COLLATE NOCASE
-                "#,
-                [task_id.into()],
-            ))
+        let skills = skill::Entity::find()
+            .filter(skill::Column::TaskId.eq(task_id))
+            .order_by_asc(skill::Column::FolderName)
+            .all(&self.database)
             .await?
             .into_iter()
-            .map(|row| -> Result<TaskSkill, DbErr> {
-                Ok(TaskSkill {
-                    folder_name: row.try_get("", "folder_name")?,
-                    origin: row.try_get("", "origin")?,
-                    library_skill_id: row.try_get("", "library_skill_id")?,
-                    relative_path: row.try_get("", "relative_path")?,
-                })
+            .map(|model| TaskSkill {
+                folder_name: model.folder_name,
+                origin: model.origin,
+                library_skill_id: model.library_skill_id,
+                relative_path: model.relative_path,
             })
+            .collect();
+        let results = result::Entity::find()
+            .find_both_related(agent::Entity)
+            .filter(agent::Column::TaskId.eq(task_id))
+            .order_by_asc(agent::Column::SlotIndex)
+            .all(&self.database)
+            .await?
+            .into_iter()
+            .map(|(model, _)| task_agent_result_from_model(model))
             .collect::<Result<Vec<_>, _>>()?;
-        let results = self
-            .database
-            .query_all_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                r#"
-                SELECT r.task_agent_id, r.final_status, r.response_text,
-                       r.changes_relative_path, r.metrics_json
-                FROM task_agent_results r
-                JOIN task_agents a ON a.id = r.task_agent_id
-                WHERE a.task_id = ?
-                ORDER BY a.slot_index
-                "#,
-                [task_id.into()],
-            ))
+        let turns = turn::Entity::find()
+            .find_both_related(agent::Entity)
+            .filter(agent::Column::TaskId.eq(task_id))
+            .order_by_asc(agent::Column::SlotIndex)
+            .order_by_asc(turn::Column::Sequence)
+            .all(&self.database)
             .await?
             .into_iter()
-            .map(|row| -> Result<TaskAgentResult, DbErr> {
-                let status = row.try_get::<String>("", "final_status")?;
-                Ok(TaskAgentResult {
-                    task_agent_id: row.try_get("", "task_agent_id")?,
-                    final_status: TaskStatus::parse(&status).ok_or_else(|| {
-                        DbErr::Custom("Task result contains an invalid status".to_string())
-                    })?,
-                    response_text: row.try_get("", "response_text")?,
-                    changes_relative_path: row.try_get("", "changes_relative_path")?,
-                    metrics_json: row.try_get("", "metrics_json")?,
-                })
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        let turns = self
-            .database
-            .query_all_raw(Statement::from_sql_and_values(
-                DatabaseBackend::Sqlite,
-                r#"
-                SELECT t.task_agent_id, t.sequence, t.prompt, t.final_status,
-                       t.response_text, t.metrics_json, t.created_at_ms
-                FROM task_agent_turns t
-                JOIN task_agents a ON a.id = t.task_agent_id
-                WHERE a.task_id = ?
-                ORDER BY a.slot_index, t.sequence
-                "#,
-                [task_id.into()],
-            ))
-            .await?
-            .into_iter()
-            .map(|row| -> Result<TaskAgentTurn, DbErr> {
-                let status = row.try_get::<String>("", "final_status")?;
-                Ok(TaskAgentTurn {
-                    task_agent_id: row.try_get("", "task_agent_id")?,
-                    sequence: row.try_get("", "sequence")?,
-                    prompt: row.try_get("", "prompt")?,
-                    final_status: TaskStatus::parse(&status).ok_or_else(|| {
-                        DbErr::Custom("Task turn contains an invalid status".to_string())
-                    })?,
-                    response_text: row.try_get("", "response_text")?,
-                    metrics_json: row.try_get("", "metrics_json")?,
-                    created_at_ms: row.try_get("", "created_at_ms")?,
-                })
-            })
+            .map(|(model, _)| task_agent_turn_from_model(model))
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(Some(TaskDetail {
@@ -655,42 +455,130 @@ impl TaskRepository {
     }
 }
 
-/// Maps one Task row while rejecting corrupted lifecycle values.
-fn task_from_row(row: QueryResult) -> Result<Task, DbErr> {
-    let status = row.try_get::<String>("", "status")?;
+/// Maps one Task model while rejecting corrupted lifecycle values.
+fn task_from_model(model: task::Model) -> Result<Task, DbErr> {
     Ok(Task {
-        id: row.try_get("", "id")?,
-        workspace_id: row.try_get("", "workspace_id")?,
-        title: row.try_get("", "title")?,
-        prompt: row.try_get("", "prompt")?,
-        baseline_relative_path: row.try_get("", "baseline_relative_path")?,
-        status: TaskStatus::parse(&status)
+        id: model.id,
+        workspace_id: model.workspace_id,
+        title: model.title,
+        prompt: model.prompt,
+        baseline_relative_path: model.baseline_relative_path,
+        status: TaskStatus::parse(&model.status)
             .ok_or_else(|| DbErr::Custom("Task contains an invalid status".to_string()))?,
-        configuration_locked_at_ms: row.try_get("", "configuration_locked_at_ms")?,
-        created_at_ms: row.try_get("", "created_at_ms")?,
-        updated_at_ms: row.try_get("", "updated_at_ms")?,
+        configuration_locked_at_ms: model.configuration_locked_at_ms,
+        created_at_ms: model.created_at_ms,
+        updated_at_ms: model.updated_at_ms,
     })
 }
 
-/// Maps one isolated Agent Execution row and validates its Agent and status identifiers.
-fn task_agent_from_row(row: QueryResult) -> Result<TaskAgent, DbErr> {
-    let agent_kind = row.try_get::<String>("", "agent_kind")?;
-    let status = row.try_get::<String>("", "status")?;
+/// Maps one Agent model and validates its Agent and status identifiers.
+fn task_agent_from_model(model: agent::Model) -> Result<TaskAgent, DbErr> {
     Ok(TaskAgent {
-        id: row.try_get("", "id")?,
-        task_id: row.try_get("", "task_id")?,
-        slot_index: row.try_get("", "slot_index")?,
-        agent_kind: AgentKind::parse(&agent_kind)
+        id: model.id,
+        task_id: model.task_id,
+        slot_index: model.slot_index,
+        agent_kind: AgentKind::parse(&model.agent_kind)
             .ok_or_else(|| DbErr::Custom("Task Agent contains an invalid kind".to_string()))?,
-        model_snapshot: row.try_get("", "model_snapshot")?,
-        mode_snapshot: row.try_get("", "mode_snapshot")?,
-        session_id: row.try_get("", "session_id")?,
-        execution_relative_path: row.try_get("", "execution_relative_path")?,
-        status: TaskStatus::parse(&status)
+        model_snapshot: model.model_snapshot,
+        mode_snapshot: model.mode_snapshot,
+        session_id: model.session_id,
+        execution_relative_path: model.execution_relative_path,
+        status: TaskStatus::parse(&model.status)
             .ok_or_else(|| DbErr::Custom("Task Agent contains an invalid status".to_string()))?,
-        created_at_ms: row.try_get("", "created_at_ms")?,
-        updated_at_ms: row.try_get("", "updated_at_ms")?,
+        created_at_ms: model.created_at_ms,
+        updated_at_ms: model.updated_at_ms,
     })
+}
+
+/// Maps one terminal result model while rejecting corrupted lifecycle values.
+fn task_agent_result_from_model(model: result::Model) -> Result<TaskAgentResult, DbErr> {
+    Ok(TaskAgentResult {
+        task_agent_id: model.task_agent_id,
+        final_status: TaskStatus::parse(&model.final_status)
+            .ok_or_else(|| DbErr::Custom("Task result contains an invalid status".to_string()))?,
+        response_text: model.response_text,
+        changes_relative_path: model.changes_relative_path,
+        metrics_json: model.metrics_json,
+    })
+}
+
+/// Maps one preserved turn model while rejecting corrupted lifecycle values.
+fn task_agent_turn_from_model(model: turn::Model) -> Result<TaskAgentTurn, DbErr> {
+    Ok(TaskAgentTurn {
+        task_agent_id: model.task_agent_id,
+        sequence: model.sequence,
+        prompt: model.prompt,
+        final_status: TaskStatus::parse(&model.final_status)
+            .ok_or_else(|| DbErr::Custom("Task turn contains an invalid status".to_string()))?,
+        response_text: model.response_text,
+        metrics_json: model.metrics_json,
+        created_at_ms: model.created_at_ms,
+    })
+}
+
+/// Inserts or replaces the latest result without changing its original creation time.
+async fn upsert_agent_result(
+    transaction: &DatabaseTransaction,
+    task_result: &TaskAgentResult,
+    updated_at_ms: i64,
+) -> Result<(), DbErr> {
+    result::Entity::insert(result::ActiveModel {
+        task_agent_id: Set(task_result.task_agent_id.clone()),
+        final_status: Set(task_result.final_status.as_str().to_string()),
+        response_text: Set(task_result.response_text.clone()),
+        changes_relative_path: Set(task_result.changes_relative_path.clone()),
+        metrics_json: Set(task_result.metrics_json.clone()),
+        created_at_ms: Set(updated_at_ms),
+        updated_at_ms: Set(updated_at_ms),
+    })
+    .on_conflict(
+        OnConflict::column(result::Column::TaskAgentId)
+            .update_columns([
+                result::Column::FinalStatus,
+                result::Column::ResponseText,
+                result::Column::ChangesRelativePath,
+                result::Column::MetricsJson,
+                result::Column::UpdatedAtMs,
+            ])
+            .to_owned(),
+    )
+    .exec_without_returning(transaction)
+    .await?;
+    Ok(())
+}
+
+/// Appends one Agent turn while holding an immediate SQLite write transaction.
+async fn insert_task_agent_turn(
+    transaction: &DatabaseTransaction,
+    task_agent_id: &str,
+    prompt: &str,
+    final_status: TaskStatus,
+    response_text: Option<&str>,
+    metrics_json: &str,
+    created_at_ms: i64,
+) -> Result<(), DbErr> {
+    let sequence = turn::Entity::find()
+        .select_only()
+        .column_as(turn::Column::Sequence.max(), "max_sequence")
+        .filter(turn::Column::TaskAgentId.eq(task_agent_id))
+        .into_tuple::<Option<i64>>()
+        .one(transaction)
+        .await?
+        .flatten()
+        .map_or(0, |sequence| sequence + 1);
+    turn::ActiveModel {
+        id: NotSet,
+        task_agent_id: Set(task_agent_id.to_string()),
+        sequence: Set(sequence),
+        prompt: Set(prompt.to_string()),
+        final_status: Set(final_status.as_str().to_string()),
+        response_text: Set(response_text.map(str::to_string)),
+        metrics_json: Set(metrics_json.to_string()),
+        created_at_ms: Set(created_at_ms),
+    }
+    .insert(transaction)
+    .await?;
+    Ok(())
 }
 
 #[cfg(test)]
