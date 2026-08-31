@@ -8,7 +8,9 @@ import { AppSidebar } from "./app-sidebar";
 const queryMocks = vi.hoisted(() => ({
 	createWorkspace: vi.fn(),
 	deleteTask: vi.fn(),
+	renameTask: vi.fn(),
 	removeWorkspace: vi.fn(),
+	setTaskPin: vi.fn(),
 	setWorkspacePin: vi.fn(),
 	useTasks: vi.fn(),
 	useWorkspaces: vi.fn(),
@@ -23,6 +25,14 @@ vi.mock("@/queries/task", () => ({
 		mutateAsync: queryMocks.deleteTask,
 		isPending: false,
 		error: null,
+	}),
+	useRenameTask: () => ({
+		mutateAsync: queryMocks.renameTask,
+		isPending: false,
+	}),
+	useSetTaskPin: () => ({
+		mutateAsync: queryMocks.setTaskPin,
+		isPending: false,
 	}),
 	useTasks: queryMocks.useTasks,
 }));
@@ -54,6 +64,7 @@ const WORKSPACE_TASK = {
 	prompt: "Inspect the workspace",
 	status: "running",
 	configurationLockedAtMs: 1,
+	pinnedAtMs: null,
 	createdAtMs: 1,
 	updatedAtMs: 2,
 };
@@ -80,6 +91,8 @@ describe("AppSidebar", () => {
 		});
 		queryMocks.deleteTask.mockResolvedValue(undefined);
 		queryMocks.removeWorkspace.mockResolvedValue(undefined);
+		queryMocks.renameTask.mockResolvedValue(undefined);
+		queryMocks.setTaskPin.mockResolvedValue(undefined);
 		queryMocks.setWorkspacePin.mockResolvedValue(undefined);
 		queryMocks.useWorkspaces.mockReturnValue({
 			data: [
@@ -470,6 +483,67 @@ describe("AppSidebar", () => {
 		expect(dialog).toHaveTextContent("隔离运行目录和结果文件");
 		await user.click(within(dialog).getByRole("button", { name: "删除任务" }));
 		expect(queryMocks.deleteTask).toHaveBeenCalledWith("workspace-task-1");
+	});
+
+	it("renames a Recent Task from the shared rename modal", async () => {
+		const user = userEvent.setup();
+		const toastSuccess = vi.spyOn(Toast.toast, "success");
+		render(
+			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
+				<main>content</main>
+			</AppSidebar>,
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: "普通任务的更多操作" }),
+		);
+		await user.click(await screen.findByRole("menuitem", { name: "重命名" }));
+		const dialog = await screen.findByRole("dialog", { name: "重命名任务" });
+		const nameInput = within(dialog).getByRole("textbox", { name: "任务名称" });
+		await user.clear(nameInput);
+		await user.type(nameInput, "新的任务名称");
+		await user.click(within(dialog).getByRole("button", { name: "保存" }));
+
+		expect(queryMocks.renameTask).toHaveBeenCalledWith({
+			taskId: "recent-task-1",
+			title: "新的任务名称",
+		});
+		expect(toastSuccess).toHaveBeenCalledWith("已重命名任务为“新的任务名称”");
+	});
+
+	it("pins an unpinned Recent Task from its action menu", async () => {
+		const user = userEvent.setup();
+		render(
+			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
+				<main>content</main>
+			</AppSidebar>,
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: "普通任务的更多操作" }),
+		);
+		await user.click(await screen.findByRole("menuitem", { name: "置顶" }));
+
+		expect(queryMocks.setTaskPin).toHaveBeenCalledWith({
+			isPinned: true,
+			taskId: "recent-task-1",
+		});
+	});
+
+	it("pins a Recent Task directly from its hover action", async () => {
+		const user = userEvent.setup();
+		render(
+			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
+				<main>content</main>
+			</AppSidebar>,
+		);
+
+		await user.click(screen.getByRole("button", { name: "置顶" }));
+
+		expect(queryMocks.setTaskPin).toHaveBeenCalledWith({
+			isPinned: true,
+			taskId: "recent-task-1",
+		});
 	});
 
 	it("collapses the active workspace tree", () => {

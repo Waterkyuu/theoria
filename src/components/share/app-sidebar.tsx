@@ -6,7 +6,6 @@ import {
 	Gear,
 	LayoutColumns3,
 	LayoutSideContentLeft,
-	Pin,
 	Plus,
 	Puzzle,
 	TargetDart,
@@ -249,11 +248,13 @@ const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 									>
 										{task.title}
 									</button>
-									<div className="flex shrink-0 items-center gap-sm text-mute opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:transition-none">
-										<Pin
-											aria-hidden="true"
-											className="size-4 shrink-0 transition-colors hover:text-ink"
-										/>
+									<div
+										className={cn(
+											"flex shrink-0 items-center gap-sm text-mute transition-opacity motion-reduce:transition-none",
+											!task.pinnedAtMs &&
+												"opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
+										)}
+									>
 										<TaskActionDropdown
 											onDeleted={() => {
 												if (currentPath === `/task/${task.id}`) {
@@ -262,6 +263,7 @@ const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 											}}
 											taskId={task.id}
 											taskName={task.title}
+											pinnedAtMs={task.pinnedAtMs}
 										/>
 									</div>
 								</div>
