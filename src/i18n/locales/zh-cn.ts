@@ -76,6 +76,15 @@ const zhCN = {
 			},
 			conversationsLabel: "任务",
 			deleteConversation: "删除",
+			pinTask: "置顶",
+			unpinTask: "取消置顶",
+			taskRename: {
+				title: "重命名任务",
+				description: "为“{{task}}”设置新的任务名称",
+				label: "任务名称",
+				save: "保存",
+				success: "已重命名任务为“{{title}}”",
+			},
 			taskDelete: {
 				title: "删除任务？",
 				description:

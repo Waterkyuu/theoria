@@ -77,6 +77,15 @@ const enUS = {
 			},
 			conversationsLabel: "Tasks",
 			deleteConversation: "Delete",
+			pinTask: "Pin",
+			unpinTask: "Unpin",
+			taskRename: {
+				title: "Rename Task",
+				description: 'Set a new name for "{{task}}".',
+				label: "Task name",
+				save: "Save",
+				success: 'Task renamed to "{{title}}"',
+			},
 			taskDelete: {
 				title: "Delete Task?",
 				description:
