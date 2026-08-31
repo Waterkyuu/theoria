@@ -833,6 +833,7 @@ mod tests {
                 baseline_relative_path: "task-runs/task-1/baseline".to_string(),
                 status: TaskStatus::Failed,
                 configuration_locked_at_ms: Some(1),
+                pinned_at_ms: None,
                 created_at_ms: 1,
                 updated_at_ms: 2,
             },

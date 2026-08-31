@@ -19,6 +19,8 @@ pub(crate) struct Model {
     pub(crate) status: String,
     /// Time after which configuration cannot change.
     pub(crate) configuration_locked_at_ms: Option<i64>,
+    /// Optional pin time used to order global Recent Tasks.
+    pub(crate) pinned_at_ms: Option<i64>,
     /// Creation time in Unix milliseconds.
     pub(crate) created_at_ms: i64,
     /// Latest metadata update time in Unix milliseconds.

@@ -15,7 +15,52 @@ impl MigratorTrait for Migrator {
             Box::new(CreateWorkspaceTaskSystem),
             Box::new(AddTaskAgentTurns),
             Box::new(AllowWaitingTaskAgentTurns),
+            Box::new(AddTaskPin),
         ]
+    }
+}
+
+/// Adds optional pin ordering without changing existing Task recency.
+struct AddTaskPin;
+
+impl MigrationName for AddTaskPin {
+    fn name(&self) -> &str {
+        "m20260901_000007_add_task_pin"
+    }
+}
+
+#[sea_orm_migration::async_trait::async_trait]
+impl MigrationTrait for AddTaskPin {
+    fn use_transaction(&self) -> Option<bool> {
+        Some(true)
+    }
+
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(
+                r#"
+                ALTER TABLE tasks ADD COLUMN pinned_at_ms INTEGER
+                    CHECK (pinned_at_ms IS NULL OR pinned_at_ms > 0);
+                CREATE INDEX idx_tasks_scope_pin_history
+                    ON tasks(workspace_id, pinned_at_ms DESC, created_at_ms DESC);
+                "#,
+            )
+            .await?;
+        Ok(())
+    }
+
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(
+                r#"
+                DROP INDEX idx_tasks_scope_pin_history;
+                ALTER TABLE tasks DROP COLUMN pinned_at_ms;
+                "#,
+            )
+            .await?;
+        Ok(())
     }
 }
 

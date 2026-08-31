@@ -44,6 +44,7 @@ impl TaskRepository {
             baseline_relative_path: Set(detail.task.baseline_relative_path.clone()),
             status: Set(detail.task.status.as_str().to_string()),
             configuration_locked_at_ms: Set(detail.task.configuration_locked_at_ms),
+            pinned_at_ms: Set(detail.task.pinned_at_ms),
             created_at_ms: Set(detail.task.created_at_ms),
             updated_at_ms: Set(detail.task.updated_at_ms),
         }
@@ -368,6 +369,47 @@ impl TaskRepository {
         Ok(())
     }
 
+    /// Persists a trimmed title and returns the updated Task when it exists.
+    pub(crate) async fn rename(
+        &self,
+        task_id: &str,
+        title: &str,
+        updated_at_ms: i64,
+    ) -> Result<Option<Task>, DbErr> {
+        task::Entity::update_many()
+            .col_expr(task::Column::Title, Expr::value(title))
+            .col_expr(task::Column::UpdatedAtMs, Expr::value(updated_at_ms))
+            .filter(task::Column::Id.eq(task_id))
+            .exec(&self.database)
+            .await?;
+        task::Entity::find_by_id(task_id)
+            .one(&self.database)
+            .await?
+            .map(task_from_model)
+            .transpose()
+    }
+
+    /// Persists pin state only for global Recent Tasks and returns the updated row.
+    pub(crate) async fn set_pin(
+        &self,
+        task_id: &str,
+        pinned_at_ms: Option<i64>,
+    ) -> Result<Option<Task>, DbErr> {
+        task::Entity::update_many()
+            .col_expr(task::Column::PinnedAtMs, Expr::value(pinned_at_ms))
+            .filter(task::Column::Id.eq(task_id))
+            .filter(task::Column::WorkspaceId.is_null())
+            .exec(&self.database)
+            .await?;
+        task::Entity::find()
+            .filter(task::Column::Id.eq(task_id))
+            .filter(task::Column::WorkspaceId.is_null())
+            .one(&self.database)
+            .await?
+            .map(task_from_model)
+            .transpose()
+    }
+
     /// Lists global Recent or one Workspace's Tasks without mixing scopes.
     pub(crate) async fn list(&self, workspace_id: Option<&str>) -> Result<Vec<Task>, DbErr> {
         let query = task::Entity::find();
@@ -376,6 +418,7 @@ impl TaskRepository {
             None => query.filter(task::Column::WorkspaceId.is_null()),
         };
         query
+            .order_by_desc(task::Column::PinnedAtMs)
             .order_by_desc(task::Column::CreatedAtMs)
             .order_by_desc(task::Column::Id)
             .all(&self.database)
@@ -466,6 +509,7 @@ fn task_from_model(model: task::Model) -> Result<Task, DbErr> {
         status: TaskStatus::parse(&model.status)
             .ok_or_else(|| DbErr::Custom("Task contains an invalid status".to_string()))?,
         configuration_locked_at_ms: model.configuration_locked_at_ms,
+        pinned_at_ms: model.pinned_at_ms,
         created_at_ms: model.created_at_ms,
         updated_at_ms: model.updated_at_ms,
     })
@@ -594,7 +638,7 @@ mod tests {
     static DATABASE_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 
     #[test]
-    fn keeps_global_recent_separate_from_workspace_tasks() {
+    fn renames_and_pins_global_recent_without_changing_workspace_tasks() {
         tauri::async_runtime::block_on(async {
             let sequence = DATABASE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
             let path = std::env::temp_dir().join(format!(
@@ -619,6 +663,8 @@ mod tests {
                     VALUES
                         ('task-global', NULL, 'Global', 'Compare', 'task-runs/task-global/baseline',
                          'completed', 100, 100, 200),
+                        ('task-global-newer', NULL, 'Newer', 'Compare',
+                         'task-runs/task-global-newer/baseline', 'completed', 100, 120, 220),
                         ('task-workspace', 'workspace-1', 'Workspace', 'Compare',
                          'task-runs/task-workspace/baseline', 'running', 100, 110, 210);
                     "#,
@@ -627,14 +673,29 @@ mod tests {
                 .expect("fixtures should insert");
             let repository = TaskRepository::new(database.clone());
 
+            let renamed = repository
+                .rename("task-global", "Pinned global", 300)
+                .await
+                .expect("Recent Task should rename")
+                .expect("Recent Task should exist");
+            let pinned = repository
+                .set_pin("task-global", Some(310))
+                .await
+                .expect("Recent Task should pin")
+                .expect("Recent Task should exist");
+
             let global = repository.list(None).await.expect("Recent should list");
             let workspace = repository
                 .list(Some("workspace-1"))
                 .await
                 .expect("Workspace Tasks should list");
 
-            assert_eq!(global.len(), 1);
+            assert_eq!(renamed.title, "Pinned global");
+            assert_eq!(pinned.pinned_at_ms, Some(310));
+            assert_eq!(global.len(), 2);
             assert_eq!(global[0].id, "task-global");
+            assert_eq!(global[0].title, "Pinned global");
+            assert_eq!(global[0].pinned_at_ms, Some(310));
             assert_eq!(workspace.len(), 1);
             assert_eq!(workspace[0].id, "task-workspace");
 

@@ -165,6 +165,7 @@ mod tests {
                 baseline_relative_path: format!("task-runs/{id}/baseline"),
                 status: TaskStatus::Preparing,
                 configuration_locked_at_ms: Some(created_at_ms),
+                pinned_at_ms: None,
                 created_at_ms,
                 updated_at_ms: created_at_ms,
             },
