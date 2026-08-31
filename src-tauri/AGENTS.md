@@ -51,6 +51,7 @@ src-tauri/src/
 ├── domain/                 # Core entities, value objects, and domain rules
 ├── services/               # Application use cases and orchestration
 ├── adapters/               # Codex, Claude Code, WorkBuddy, and future agent adapters
+├── models/                 # database table definition
 ├── repositories/           # Persistence interfaces and implementations
 ├── platform/               # Operating-system-specific implementations
 │   ├── macos/
