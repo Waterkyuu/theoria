@@ -4,6 +4,7 @@ import {
 	listWorkspaces,
 	registerExternalWorkspace,
 	removeWorkspace,
+	setWorkspacePin,
 } from "@/api/workspace";
 import type { Workspace } from "@/types/workspace";
 
@@ -53,6 +54,24 @@ type RemoveWorkspaceInput = {
 	workspaceId: string;
 };
 
+type SetWorkspacePinInput = {
+	/** Whether the Workspace should appear in the pinned section of the ordering. */
+	isPinned: boolean;
+	/** Workspace whose persisted pin state changes. */
+	workspaceId: string;
+};
+
+/** Persists a Workspace pin change and refreshes the ordered sidebar list. */
+const useSetWorkspacePin = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({ isPinned, workspaceId }: SetWorkspacePinInput) =>
+			setWorkspacePin(workspaceId, isPinned),
+		onSuccess: () =>
+			queryClient.invalidateQueries({ queryKey: workspaceKeys.list() }),
+	});
+};
+
 /** Removes a Workspace collection and refreshes all affected navigation data. */
 const useRemoveWorkspace = () => {
 	const queryClient = useQueryClient();
@@ -77,5 +96,15 @@ const useRemoveWorkspace = () => {
 	});
 };
 
-export type { CreateWorkspaceInput, RemoveWorkspaceInput };
-export { useCreateWorkspace, useRemoveWorkspace, useWorkspaces, workspaceKeys };
+export type {
+	CreateWorkspaceInput,
+	RemoveWorkspaceInput,
+	SetWorkspacePinInput,
+};
+export {
+	useCreateWorkspace,
+	useRemoveWorkspace,
+	useSetWorkspacePin,
+	useWorkspaces,
+	workspaceKeys,
+};

@@ -27,6 +27,12 @@ const createManagedWorkspace = (name: string) =>
 		{ request: { name } },
 	);
 
+/** Changes whether a Workspace is pinned and returns its persisted state. */
+const setWorkspacePin = (workspaceId: string, isPinned: boolean) =>
+	invokeWithResponseSchema("set_workspace_pin", CompiledWorkspaceSchema, {
+		request: { workspaceId, isPinned },
+	});
+
 /** Removes a Workspace collection while requiring confirmation for managed files. */
 const removeWorkspace = (workspaceId: string, managedFilesConfirmed: boolean) =>
 	invokeWithResponseSchema("remove_workspace", EmptyResponseSchema, {
@@ -38,4 +44,5 @@ export {
 	listWorkspaces,
 	registerExternalWorkspace,
 	removeWorkspace,
+	setWorkspacePin,
 };
