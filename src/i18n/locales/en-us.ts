@@ -250,11 +250,18 @@ const enUS = {
 			loadFailed: "The Skill Library could not be loaded",
 			searchPlaceholder: "Search by name, source, or capability",
 			libraryLabel: "Skill library",
+			filterMenu: {
+				title: "Filter skills",
+				trigger: "Filter skills, current: {{filter}}",
+			},
 			filters: {
 				all: "All",
 				mounted: "Mounted",
 				local: "Local",
 				github: "GitHub",
+				local_folder: "File import",
+				platform: "Platform created",
+				git: "Git",
 			},
 			columns: {
 				skill: "Skill",
@@ -263,7 +270,13 @@ const enUS = {
 				access: "Access",
 				actions: "Actions",
 			},
-			source: { local: "Local", github: "GitHub" },
+			source: {
+				local: "Local",
+				github: "GitHub",
+				local_folder: "File import",
+				platform: "Platform created",
+				git: "Git",
+			},
 			access: { read: "Read", execute: "Execute" },
 			mountedCount: "{{count}} mounted",
 			notMounted: "Not mounted",

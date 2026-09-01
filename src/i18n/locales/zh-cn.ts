@@ -242,11 +242,18 @@ const zhCN = {
 			loadFailed: "无法读取技能库",
 			searchPlaceholder: "按名称、来源或能力搜索",
 			libraryLabel: "技能库",
+			filterMenu: {
+				title: "筛选技能",
+				trigger: "筛选技能，当前：{{filter}}",
+			},
 			filters: {
 				all: "全部",
 				mounted: "已挂载",
 				local: "本地",
 				github: "GitHub",
+				local_folder: "文件导入",
+				platform: "平台创建",
+				git: "Git",
 			},
 			columns: {
 				skill: "技能",
@@ -255,7 +262,13 @@ const zhCN = {
 				access: "权限",
 				actions: "操作",
 			},
-			source: { local: "本地", github: "GitHub" },
+			source: {
+				local: "本地",
+				github: "GitHub",
+				local_folder: "文件导入",
+				platform: "平台创建",
+				git: "Git",
+			},
 			access: { read: "读取", execute: "执行" },
 			mountedCount: "已挂载 {{count}} 个",
 			notMounted: "未挂载",
