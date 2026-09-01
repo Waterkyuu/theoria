@@ -16,8 +16,7 @@
   <p>
     <a href="#产品预览">产品预览</a> ·
     <a href="#功能亮点">功能亮点</a> ·
-    <a href="#开发指南">开发指南</a> ·
-    <a href="#构建与发布">构建与发布</a>
+    <a href="#开发指南">开发指南</a>
   </p>
 </div>
 
@@ -98,19 +97,3 @@ pnpm test
 pnpm build
 cargo check --manifest-path src-tauri/Cargo.toml
 ```
-
-## 构建与发布
-
-生成当前平台的桌面安装包：
-
-```bash
-pnpm tauri build
-```
-
-构建产物默认位于：
-
-```text
-src-tauri/target/release/bundle/
-```
-
-发布前请确认目标平台的签名、证书和安装包配置已经就绪；不同平台的安装包应在对应系统或 CI Runner 上分别构建。
