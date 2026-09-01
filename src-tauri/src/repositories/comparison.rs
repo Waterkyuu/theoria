@@ -1,5 +1,6 @@
+use crate::domain::agent_kind::AgentKind;
 use crate::domain::comparison::{
-    AgentKind, ComparisonAgentSummary, ComparisonCursor, ComparisonDetail, ComparisonPage,
+    ComparisonAgentSummary, ComparisonCursor, ComparisonDetail, ComparisonPage,
     ComparisonResultDetail, ComparisonResultStatus, ComparisonStatus, ComparisonSummary,
     NewComparisonOutcome, NewComparisonRun, NewTokenUsage, NewToolCall,
 };
@@ -337,8 +338,9 @@ mod tests {
     use super::ComparisonRepository;
     use crate::db::connection::connect_sqlite;
     use crate::db::migration::Migrator;
+    use crate::domain::agent_kind::AgentKind;
     use crate::domain::comparison::{
-        AgentKind, ComparisonCursor, NewComparisonOutcome, NewComparisonResult, NewComparisonRun,
+        ComparisonCursor, NewComparisonOutcome, NewComparisonResult, NewComparisonRun,
         NewTokenUsage, NewToolCall,
     };
     use sea_orm::{ConnectionTrait, DatabaseBackend, Statement};

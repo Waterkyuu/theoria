@@ -7,11 +7,18 @@ import type { AgentProcessStates, AgentRuntimeConfig } from "@/types/agent";
 
 const apiMocks = vi.hoisted(() => ({
 	checkAgentProcesses: vi.fn(),
+	checkClaudeInitStatus: vi.fn(),
 	checkClaudeLogin: vi.fn(),
+	getClaudeRuntimeConfig: vi.fn(),
+	checkCodexInitStatus: vi.fn(),
 	checkCodexLogin: vi.fn(),
+	getCodexRuntimeConfig: vi.fn(),
+	checkOpenCodeInitStatus: vi.fn(),
 	checkOpenCodeLogin: vi.fn(),
-	checkWorkBuddyConfig: vi.fn(),
+	getOpenCodeRuntimeConfig: vi.fn(),
+	checkWorkBuddyInitStatus: vi.fn(),
 	checkWorkBuddyLogin: vi.fn(),
+	getWorkBuddyRuntimeConfig: vi.fn(),
 	onClaudeConfigChanged: vi.fn(),
 	onCodexConfigChanged: vi.fn(),
 	onOpenCodeConfigChanged: vi.fn(),
@@ -30,26 +37,33 @@ vi.mock("@/api/agent", () => ({
 }));
 
 vi.mock("@/api/claude", () => ({
+	checkClaudeInitStatus: apiMocks.checkClaudeInitStatus,
 	checkClaudeLogin: apiMocks.checkClaudeLogin,
+	getClaudeRuntimeConfig: apiMocks.getClaudeRuntimeConfig,
 	onClaudeConfigChanged: apiMocks.onClaudeConfigChanged,
 	runClaudeTask: apiMocks.runClaudeTask,
 }));
 
 vi.mock("@/api/codex", () => ({
+	checkCodexInitStatus: apiMocks.checkCodexInitStatus,
 	checkCodexLogin: apiMocks.checkCodexLogin,
+	getCodexRuntimeConfig: apiMocks.getCodexRuntimeConfig,
 	onCodexConfigChanged: apiMocks.onCodexConfigChanged,
 	runCodexTask: apiMocks.runCodexTask,
 }));
 
 vi.mock("@/api/opencode", () => ({
+	checkOpenCodeInitStatus: apiMocks.checkOpenCodeInitStatus,
 	checkOpenCodeLogin: apiMocks.checkOpenCodeLogin,
+	getOpenCodeRuntimeConfig: apiMocks.getOpenCodeRuntimeConfig,
 	onOpenCodeConfigChanged: apiMocks.onOpenCodeConfigChanged,
 	runOpenCodeTask: apiMocks.runOpenCodeTask,
 }));
 
 vi.mock("@/api/workbuddy", () => ({
-	checkWorkBuddyConfig: apiMocks.checkWorkBuddyConfig,
+	checkWorkBuddyInitStatus: apiMocks.checkWorkBuddyInitStatus,
 	checkWorkBuddyLogin: apiMocks.checkWorkBuddyLogin,
+	getWorkBuddyRuntimeConfig: apiMocks.getWorkBuddyRuntimeConfig,
 	onWorkBuddyConfigChanged: apiMocks.onWorkBuddyConfigChanged,
 	runWorkBuddyTask: apiMocks.runWorkBuddyTask,
 }));
@@ -66,6 +80,12 @@ const RUNTIME_STATUS = {
 	authenticationMethod: "test",
 	model: "test-model",
 	reasoningEffort: "medium",
+};
+
+const LOGIN_STATUS = {
+	installed: true,
+	loggedIn: true,
+	authenticationMethod: "test",
 };
 
 let processStateListener: ((states: AgentProcessStates) => void) | null = null;
@@ -175,14 +195,34 @@ describe("ComparisonPage native status updates", () => {
 			opencode: false,
 			workbuddy: false,
 		});
-		apiMocks.checkClaudeLogin.mockResolvedValue(RUNTIME_STATUS);
-		apiMocks.checkCodexLogin.mockResolvedValue(RUNTIME_STATUS);
-		apiMocks.checkOpenCodeLogin.mockResolvedValue(RUNTIME_STATUS);
-		apiMocks.checkWorkBuddyConfig.mockResolvedValue({
+		apiMocks.checkClaudeInitStatus.mockResolvedValue(RUNTIME_STATUS);
+		apiMocks.checkCodexInitStatus.mockResolvedValue(RUNTIME_STATUS);
+		apiMocks.checkOpenCodeInitStatus.mockResolvedValue(RUNTIME_STATUS);
+		apiMocks.checkWorkBuddyInitStatus.mockResolvedValue({
+			model: "initial-workbuddy-model",
+			reasoningEffort: "medium",
+			...LOGIN_STATUS,
+		});
+		apiMocks.checkClaudeLogin.mockResolvedValue(LOGIN_STATUS);
+		apiMocks.checkCodexLogin.mockResolvedValue(LOGIN_STATUS);
+		apiMocks.checkOpenCodeLogin.mockResolvedValue(LOGIN_STATUS);
+		apiMocks.checkWorkBuddyLogin.mockResolvedValue(LOGIN_STATUS);
+		apiMocks.getClaudeRuntimeConfig.mockResolvedValue({
+			model: "test-model",
+			reasoningEffort: "medium",
+		});
+		apiMocks.getCodexRuntimeConfig.mockResolvedValue({
+			model: "test-model",
+			reasoningEffort: "medium",
+		});
+		apiMocks.getOpenCodeRuntimeConfig.mockResolvedValue({
+			model: "test-model",
+			reasoningEffort: "medium",
+		});
+		apiMocks.getWorkBuddyRuntimeConfig.mockResolvedValue({
 			model: "initial-workbuddy-model",
 			reasoningEffort: "medium",
 		});
-		apiMocks.checkWorkBuddyLogin.mockResolvedValue(RUNTIME_STATUS);
 		apiMocks.onClaudeConfigChanged.mockResolvedValue(vi.fn());
 		apiMocks.onCodexConfigChanged.mockResolvedValue(vi.fn());
 		apiMocks.onOpenCodeConfigChanged.mockResolvedValue(vi.fn());
@@ -220,9 +260,9 @@ describe("ComparisonPage native status updates", () => {
 		expect(apiMocks.checkAgentProcesses).toHaveBeenCalledTimes(1);
 	});
 
-	it("refreshes OpenCode status after a native config change", async () => {
-		let configListener: (() => void) | undefined;
-		apiMocks.onOpenCodeConfigChanged.mockImplementation((listener) => {
+	it("applies a Codex config event without repeating its login probe", async () => {
+		let configListener: ((config: AgentRuntimeConfig) => void) | undefined;
+		apiMocks.onCodexConfigChanged.mockImplementation((listener) => {
 			configListener = listener;
 			return Promise.resolve(vi.fn());
 		});
@@ -232,15 +272,24 @@ describe("ComparisonPage native status updates", () => {
 			await Promise.resolve();
 			await Promise.resolve();
 		});
-		expect(apiMocks.checkOpenCodeLogin).toHaveBeenCalledTimes(1);
+		expect(apiMocks.checkCodexInitStatus).toHaveBeenCalledTimes(1);
+		expect(apiMocks.checkCodexLogin).not.toHaveBeenCalled();
 
-		act(() => configListener?.());
+		act(() =>
+			configListener?.({
+				model: "event-codex-model",
+				reasoningEffort: "high",
+			}),
+		);
 		await act(async () => {
 			await Promise.resolve();
 			await Promise.resolve();
 		});
 
-		expect(apiMocks.checkOpenCodeLogin).toHaveBeenCalledTimes(2);
+		expect(apiMocks.checkCodexLogin).not.toHaveBeenCalled();
+		const card = within(screen.getByRole("button", { name: "Codex" }));
+		expect(card.getByText("event-codex-model")).toBeInTheDocument();
+		expect(card.getByText("高 (high)")).toBeInTheDocument();
 	});
 
 	it("applies native process state changes to the Agent card", async () => {
@@ -282,47 +331,52 @@ describe("ComparisonPage native status updates", () => {
 		expect(stopProcessStateListener).toHaveBeenCalledTimes(1);
 	});
 
-	it("reads WorkBuddy config once while login checks continue every five seconds", async () => {
+	it("uses complete initialization once while polling only login every five seconds", async () => {
 		render(<ComparisonPage />);
 
 		await act(async () => {
 			await Promise.resolve();
 			await Promise.resolve();
 		});
-		expect(apiMocks.checkWorkBuddyConfig).toHaveBeenCalledTimes(1);
-		expect(apiMocks.checkWorkBuddyLogin).toHaveBeenCalledTimes(1);
+		expect(apiMocks.checkCodexInitStatus).toHaveBeenCalledTimes(1);
+		expect(apiMocks.checkCodexLogin).not.toHaveBeenCalled();
+		expect(apiMocks.getCodexRuntimeConfig).not.toHaveBeenCalled();
 
 		await act(async () => {
 			await vi.advanceTimersByTimeAsync(5_100);
 		});
 
-		expect(apiMocks.checkWorkBuddyConfig).toHaveBeenCalledTimes(1);
-		expect(apiMocks.checkWorkBuddyLogin).toHaveBeenCalledTimes(2);
+		expect(apiMocks.checkCodexInitStatus).toHaveBeenCalledTimes(1);
+		expect(apiMocks.checkCodexLogin).toHaveBeenCalledTimes(1);
+		expect(apiMocks.getCodexRuntimeConfig).not.toHaveBeenCalled();
 	});
 
 	it("starts WorkBuddy config monitoring after a later login", async () => {
+		apiMocks.checkWorkBuddyInitStatus.mockResolvedValueOnce({
+			installed: false,
+			loggedIn: false,
+			authenticationMethod: null,
+			model: null,
+			reasoningEffort: null,
+		});
 		apiMocks.checkWorkBuddyLogin
 			.mockResolvedValueOnce({
-				installed: false,
-				loggedIn: false,
-				authenticationMethod: null,
-				model: null,
-				reasoningEffort: null,
+				...LOGIN_STATUS,
 			})
-			.mockResolvedValue(RUNTIME_STATUS);
+			.mockResolvedValue(LOGIN_STATUS);
 		render(<ComparisonPage />);
 
 		await act(async () => {
 			await Promise.resolve();
 			await Promise.resolve();
 		});
-		expect(apiMocks.checkWorkBuddyConfig).not.toHaveBeenCalled();
+		expect(apiMocks.getWorkBuddyRuntimeConfig).not.toHaveBeenCalled();
 
 		await act(async () => {
 			await vi.advanceTimersByTimeAsync(5_100);
 		});
 
-		expect(apiMocks.checkWorkBuddyConfig).toHaveBeenCalledTimes(1);
+		expect(apiMocks.getWorkBuddyRuntimeConfig).toHaveBeenCalledTimes(1);
 	});
 
 	it("applies native WorkBuddy model changes to its card", async () => {

@@ -51,6 +51,7 @@ src-tauri/src/
 ├── domain/                 # Core entities, value objects, and domain rules
 ├── services/               # Application use cases and orchestration
 ├── adapters/               # Codex, Claude Code, WorkBuddy, and future agent adapters
+├── models/                 # database table definition
 ├── repositories/           # Persistence interfaces and implementations
 ├── platform/               # Operating-system-specific implementations
 │   ├── macos/
@@ -315,25 +316,16 @@ The service invoked above must not import `tauri::State` or other webview types.
 
 ## Testing Rules
 
-- Use red-green-refactor for new behavior and bug fixes.
-- Place unit tests beside the module in `#[cfg(test)] mod tests`.
-- Place black-box crate tests in `src-tauri/tests/` and shared fixtures in
-  `src-tauri/tests/fixtures/`.
-- Test observable behavior and contracts, not private implementation details.
-- Domain and service tests must run without starting Tauri.
-- Use trait-based fakes for process, clock, filesystem, and persistence boundaries. Do not add test
-  branches to production code.
-- Adapter parsers require versioned fixtures for valid input, malformed input, partial records,
-  duplicates, log rotation, and upstream format changes.
-- Test all state-machine transitions, including cancellation, failure, unknown termination, restart,
-  and system sleep.
-- Test IPC request and response serialization so Rust `camelCase` contracts stay aligned with
-  TypeScript.
-- Tests must not depend on the developer's installed Agents, home-directory contents, network,
-  locale, timezone, execution order, or wall-clock timing.
-- Use temporary directories for filesystem tests and clean up owned child processes.
-- Add platform-gated tests for true operating-system behavior and keep portable contract tests for
-  every platform implementation.
+- The authoritative Rust testing standard is `reference/rust/test-code-rule.md`. Read and follow it
+  before adding, changing, or deleting a test under `src-tauri/`.
+- Add tests only when they protect observable behavior, a business rule, an external contract, or a
+  realistic regression risk identified by that standard.
+- Use red-green-refactor for new behavior and bug fixes. For behavior-preserving refactors, rely on
+  relevant existing tests before and after the change; do not manufacture a test only to create a
+  failing red step.
+- Do not add low-value tests for constants, enum variants, derives, trivial mappings, code movement,
+  private implementation details, compiler guarantees, or behavior already covered at a more useful
+  boundary.
 
 ## Definition of Done
 

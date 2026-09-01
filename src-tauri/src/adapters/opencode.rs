@@ -1,11 +1,17 @@
-use crate::adapters::agent::AgentAdapter;
+use crate::adapters::agent::{
+    validate_execution_directory, AgentAdapter, AgentExecutionConfig, AgentSessionRunOutput,
+    AgentStatusAdapter, AgentTurnOutcome,
+};
 use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput, TokenUsage};
+use crate::domain::agent_status::{AgentLoginStatus, AgentRuntimeConfig};
 use crate::error::AppError;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 use std::io::{self, BufRead, BufReader, Read};
+use std::path::Path;
 use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, SyncSender};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -14,68 +20,88 @@ const OPENCODE_RUN_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 const MAX_EVENT_BYTES: usize = 1024 * 1024;
 const EVENT_QUEUE_CAPACITY: usize = 64;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct OpenCodeAuthentication {
-    /// Indicates whether a usable OpenCode executable was found locally.
-    pub(crate) installed: bool,
-    /// Indicates whether OpenCode reports a stored or environment-backed provider credential.
-    pub(crate) logged_in: bool,
-    /// Safe credential category derived from the official authentication listing.
-    pub(crate) authentication_method: Option<String>,
-    /// Effective model selected by the official resolved configuration.
-    pub(crate) model: Option<String>,
-    /// Effective model variant selected for the default primary agent.
-    pub(crate) reasoning_effort: Option<String>,
-}
-
-pub(crate) trait OpenCodeAdapter {
-    fn check_authentication(&self) -> Result<OpenCodeAuthentication, AppError>;
-}
-
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct SystemOpenCodeAdapter;
 
-impl OpenCodeAdapter for SystemOpenCodeAdapter {
-    /// Uses only documented OpenCode CLI commands so credential and config formats remain owned by OpenCode.
-    fn check_authentication(&self) -> Result<OpenCodeAuthentication, AppError> {
+impl AgentStatusAdapter for SystemOpenCodeAdapter {
+    fn check_login(&self) -> Result<AgentLoginStatus, AppError> {
         let executable = match find_usable_opencode_executable() {
             Ok(executable) => executable,
-            Err(AppError::OpenCodeNotInstalled) => return Ok(not_installed_authentication()),
+            Err(AppError::OpenCodeNotInstalled) => return Ok(AgentLoginStatus::default()),
             Err(error) => return Err(error),
         };
-        let auth_output = Command::new(&executable)
+        let output = Command::new(executable)
             .args(["auth", "list"])
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .output()
             .map_err(|_| AppError::OpenCodeProbeFailed)?;
-        if !auth_output.status.success() {
+        if !output.status.success() {
             return Err(AppError::OpenCodeProbeFailed);
         }
-        let auth_stdout =
-            String::from_utf8(auth_output.stdout).map_err(|_| AppError::OpenCodeProbeFailed)?;
-        let config_output = Command::new(executable)
+        let stdout = String::from_utf8(output.stdout).map_err(|_| AppError::OpenCodeProbeFailed)?;
+
+        Ok(login_from_auth_output(&stdout))
+    }
+
+    fn load_runtime_config(&self) -> Result<AgentRuntimeConfig, AppError> {
+        let executable = find_usable_opencode_executable()?;
+        let output = Command::new(executable)
             .args(["debug", "config"])
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .output()
             .map_err(|_| AppError::OpenCodeProbeFailed)?;
-        let config_stdout = if config_output.status.success() {
-            String::from_utf8(config_output.stdout).map_err(|_| AppError::OpenCodeProbeFailed)?
-        } else {
-            "{}".to_string()
-        };
+        if !output.status.success() {
+            return Err(AppError::OpenCodeProbeFailed);
+        }
+        let stdout = String::from_utf8(output.stdout).map_err(|_| AppError::OpenCodeProbeFailed)?;
 
-        authentication_from_outputs(&auth_stdout, &config_stdout)
+        runtime_config_from_json(&stdout)
     }
 }
 
 impl AgentAdapter for SystemOpenCodeAdapter {
-    fn run_task(&self, query: &str) -> Result<AgentRunOutput, AppError> {
+    fn run_task_with_config_cancellable(
+        &self,
+        query: &str,
+        execution_directory: &Path,
+        config: AgentExecutionConfig<'_>,
+        cancelled: &AtomicBool,
+    ) -> Result<AgentRunOutput, AppError> {
+        self.run_session_turn_with_config_cancellable(
+            query,
+            execution_directory,
+            config,
+            None,
+            cancelled,
+        )
+        .and_then(|run| match run.outcome {
+            AgentTurnOutcome::Completed => Ok(run.output),
+            AgentTurnOutcome::Waiting => Err(AppError::OpenCodeNeedsInput),
+        })
+    }
+
+    fn run_session_turn_with_config_cancellable(
+        &self,
+        query: &str,
+        execution_directory: &Path,
+        config: AgentExecutionConfig<'_>,
+        session_id: Option<&str>,
+        cancelled: &AtomicBool,
+    ) -> Result<AgentSessionRunOutput, AppError> {
+        validate_execution_directory(execution_directory)?;
         let executable = find_usable_opencode_executable()?;
-        run_opencode_task(&executable, query)
+        run_opencode_task(
+            &executable,
+            query,
+            execution_directory,
+            config,
+            session_id,
+            cancelled,
+        )
     }
 }
 
@@ -107,6 +133,9 @@ struct OpenCodeRunEvent {
     timestamp: Option<u64>,
     /// Completed message part carried by text, reasoning, tool, and step events.
     part: Option<OpenCodePart>,
+    /// Opaque session identifier shared by every event in one OpenCode run.
+    #[serde(rename = "sessionID")]
+    session_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -185,21 +214,7 @@ impl From<OpenCodeTokens> for TokenUsage {
     }
 }
 
-fn not_installed_authentication() -> OpenCodeAuthentication {
-    OpenCodeAuthentication {
-        installed: false,
-        logged_in: false,
-        authentication_method: None,
-        model: None,
-        reasoning_effort: None,
-    }
-}
-
-/// Parses the human credential summary and JSON resolved config emitted by official CLI commands.
-fn authentication_from_outputs(
-    authentication_output: &str,
-    configuration_output: &str,
-) -> Result<OpenCodeAuthentication, AppError> {
+fn login_from_auth_output(authentication_output: &str) -> AgentLoginStatus {
     let plain_output = strip_ansi_escape_sequences(authentication_output);
     let stored_count = summary_count(&plain_output, "credentials");
     let environment_count = summary_count(&plain_output, "environment variable");
@@ -209,15 +224,20 @@ fn authentication_from_outputs(
         (false, true) => Some("environment credential".to_string()),
         (false, false) => None,
     };
+    AgentLoginStatus {
+        installed: true,
+        logged_in,
+        authentication_method,
+    }
+}
+
+fn runtime_config_from_json(configuration_output: &str) -> Result<AgentRuntimeConfig, AppError> {
     let config: OpenCodeConfig =
         serde_json::from_str(configuration_output).map_err(|_| AppError::OpenCodeProbeFailed)?;
     let default_agent = config.default_agent.as_deref().unwrap_or("build");
     let agent = config.agent.get(default_agent);
 
-    Ok(OpenCodeAuthentication {
-        installed: true,
-        logged_in,
-        authentication_method,
+    Ok(AgentRuntimeConfig {
         model: non_empty_value(agent.and_then(|item| item.model.clone()).or(config.model)),
         reasoning_effort: non_empty_value(agent.and_then(|item| item.variant.clone())),
     })
@@ -281,14 +301,18 @@ fn find_usable_opencode_executable() -> Result<OsString, AppError> {
 }
 
 /// Runs the documented non-interactive JSON mode and keeps all protocol parsing off the UI thread.
-fn run_opencode_task(executable: &OsStr, query: &str) -> Result<AgentRunOutput, AppError> {
+fn run_opencode_task(
+    executable: &OsStr,
+    query: &str,
+    execution_directory: &Path,
+    config: AgentExecutionConfig<'_>,
+    session_id: Option<&str>,
+    cancelled: &AtomicBool,
+) -> Result<AgentSessionRunOutput, AppError> {
     let started_at = Instant::now();
-    let mut child = Command::new(executable)
-        .args(["run", "--format", "json", "--thinking", "--"])
-        .arg(query)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
+    let mut command = build_opencode_task_command(executable, query, config, session_id);
+    command.current_dir(execution_directory);
+    let mut child = command
         .spawn()
         .map_err(|_| AppError::OpenCodeProtocolFailed)?;
     let stdout = match child.stdout.take() {
@@ -300,9 +324,18 @@ fn run_opencode_task(executable: &OsStr, query: &str) -> Result<AgentRunOutput, 
     };
     let (event_sender, event_receiver) = mpsc::sync_channel(EVENT_QUEUE_CAPACITY);
     let reader_handle = thread::spawn(move || read_stream_events(stdout, event_sender));
-    let result = collect_opencode_events(&event_receiver, started_at, OPENCODE_RUN_TIMEOUT);
+    let result = collect_opencode_events_cancellable(
+        &event_receiver,
+        started_at,
+        OPENCODE_RUN_TIMEOUT,
+        cancelled,
+    );
 
-    let status_result = if result.is_err() {
+    let should_terminate = match &result {
+        Ok(run) => run.outcome == AgentTurnOutcome::Waiting,
+        Err(_) => true,
+    };
+    let status_result = if should_terminate {
         terminate_child(&mut child)
     } else {
         let status = child.wait().map_err(|_| AppError::OpenCodeProtocolFailed)?;
@@ -320,28 +353,133 @@ fn run_opencode_task(executable: &OsStr, query: &str) -> Result<AgentRunOutput, 
     result
 }
 
+/// Builds OpenCode's JSON command from the immutable Task model and variant.
+fn build_opencode_task_command(
+    executable: &OsStr,
+    query: &str,
+    config: AgentExecutionConfig<'_>,
+    session_id: Option<&str>,
+) -> Command {
+    let mut command = Command::new(executable);
+    command.args(["run", "--format", "json", "--thinking"]);
+    if let Some(model) = config.model {
+        command.args(["--model", model]);
+    }
+    if let Some(mode) = config.mode {
+        command.args(["--variant", mode]);
+    }
+    if let Some(session_id) = session_id {
+        command.args(["--session", session_id]);
+    }
+    if let Some(inline_config) = opencode_permission_config(
+        config,
+        std::env::var("OPENCODE_CONFIG_CONTENT").ok().as_deref(),
+    ) {
+        command.env("OPENCODE_CONFIG_CONTENT", inline_config);
+    }
+    command
+        .arg("--")
+        .arg(query)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+    command
+}
+
+/// Merges frozen Task permissions into OpenCode's highest-precedence inline config.
+fn opencode_permission_config(
+    config: AgentExecutionConfig<'_>,
+    existing: Option<&str>,
+) -> Option<String> {
+    if config.file_access.is_none() && config.command_execution.is_none() {
+        return None;
+    }
+    let mut root = existing
+        .and_then(|content| serde_json::from_str::<serde_json::Value>(content).ok())
+        .filter(serde_json::Value::is_object)
+        .unwrap_or_else(|| serde_json::json!({}));
+    let mut permission = match root.get("permission") {
+        Some(serde_json::Value::Object(permission)) => permission.clone(),
+        _ => serde_json::Map::new(),
+    };
+    if let Some(file_access) = config.file_access {
+        permission.insert(
+            "edit".to_string(),
+            serde_json::Value::String(
+                if file_access == "read_only" {
+                    "deny"
+                } else {
+                    "allow"
+                }
+                .to_string(),
+            ),
+        );
+        permission.insert(
+            "external_directory".to_string(),
+            serde_json::Value::String("deny".to_string()),
+        );
+    }
+    if let Some(command_execution) = config.command_execution {
+        permission.insert(
+            "bash".to_string(),
+            serde_json::Value::String(command_execution.to_string()),
+        );
+    }
+    root.as_object_mut()?.insert(
+        "permission".to_string(),
+        serde_json::Value::Object(permission),
+    );
+    Some(root.to_string())
+}
+
 /// Consumes newline-delimited CLI events until the official stream closes after step completion.
+#[cfg(test)]
 fn collect_opencode_events(
     event_receiver: &Receiver<Result<String, AppError>>,
     started_at: Instant,
     timeout: Duration,
 ) -> Result<AgentRunOutput, AppError> {
+    collect_opencode_events_cancellable(
+        event_receiver,
+        started_at,
+        timeout,
+        &AtomicBool::new(false),
+    )
+    .and_then(|run| match run.outcome {
+        AgentTurnOutcome::Completed => Ok(run.output),
+        AgentTurnOutcome::Waiting => Err(AppError::OpenCodeNeedsInput),
+    })
+}
+
+fn collect_opencode_events_cancellable(
+    event_receiver: &Receiver<Result<String, AppError>>,
+    started_at: Instant,
+    timeout: Duration,
+    cancelled: &AtomicBool,
+) -> Result<AgentSessionRunOutput, AppError> {
     let mut collector = AgentRunMetricsCollector::default();
     let mut response = String::new();
     let mut protocol_started_at_ms = None;
     let mut completed = false;
+    let mut session_id = None;
 
     loop {
         let remaining = timeout
             .checked_sub(started_at.elapsed())
             .ok_or(AppError::OpenCodeTimedOut)?;
-        let line = match event_receiver.recv_timeout(remaining) {
+        if cancelled.load(Ordering::Acquire) {
+            return Err(AppError::OpenCodeTaskFailed);
+        }
+        let line = match event_receiver.recv_timeout(remaining.min(Duration::from_millis(100))) {
             Ok(result) => result?,
-            Err(RecvTimeoutError::Timeout) => return Err(AppError::OpenCodeTimedOut),
+            Err(RecvTimeoutError::Timeout) => continue,
             Err(RecvTimeoutError::Disconnected) => break,
         };
         let event: OpenCodeRunEvent =
             serde_json::from_str(&line).map_err(|_| AppError::OpenCodeProtocolFailed)?;
+        if event.session_id.is_some() {
+            session_id = event.session_id.clone();
+        }
         if event.event_type == "error" {
             return Err(AppError::OpenCodeTaskFailed);
         }
@@ -376,6 +514,17 @@ fn collect_opencode_events(
             }
             "tool" => {
                 if let (Some(tool), Some(state)) = (part.tool, part.state) {
+                    if tool == "question" && matches!(state.status.as_str(), "pending" | "running")
+                    {
+                        return Ok(AgentSessionRunOutput {
+                            output: AgentRunOutput {
+                                response,
+                                metrics: collector.finish(started_at.elapsed()),
+                            },
+                            session_id,
+                            outcome: AgentTurnOutcome::Waiting,
+                        });
+                    }
                     if matches!(state.status.as_str(), "completed" | "error") {
                         if let Some(time) = state.time.and_then(completed_interval) {
                             collector.record_tool_started(
@@ -405,9 +554,13 @@ fn collect_opencode_events(
         return Err(AppError::OpenCodeProtocolFailed);
     }
     let total_duration = started_at.elapsed();
-    Ok(AgentRunOutput {
-        response,
-        metrics: collector.finish(total_duration),
+    Ok(AgentSessionRunOutput {
+        output: AgentRunOutput {
+            response,
+            metrics: collector.finish(total_duration),
+        },
+        session_id,
+        outcome: AgentTurnOutcome::Completed,
     })
 }
 
@@ -484,14 +637,78 @@ fn opencode_executable_candidates() -> Vec<OsString> {
 
 #[cfg(test)]
 mod tests {
-    use super::{authentication_from_outputs, collect_opencode_events};
+    use super::{
+        build_opencode_task_command, collect_opencode_events, collect_opencode_events_cancellable,
+        login_from_auth_output, opencode_permission_config, runtime_config_from_json,
+    };
+    use crate::adapters::agent::{AgentExecutionConfig, AgentTurnOutcome};
+    use std::sync::atomic::AtomicBool;
     use std::sync::mpsc;
     use std::time::{Duration, Instant};
 
     #[test]
+    fn task_command_uses_the_frozen_model_and_variant() {
+        let command = build_opencode_task_command(
+            "opencode".as_ref(),
+            "test prompt",
+            AgentExecutionConfig {
+                model: Some("anthropic/claude-sonnet-4-6"),
+                mode: Some("high"),
+                file_access: Some("read_only"),
+                command_execution: Some("deny"),
+            },
+            None,
+        );
+        let args = command
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        assert!(args
+            .windows(2)
+            .any(|args| args == ["--model", "anthropic/claude-sonnet-4-6"]));
+        assert!(args.windows(2).any(|args| args == ["--variant", "high"]));
+        let permissions = opencode_permission_config(
+            AgentExecutionConfig {
+                file_access: Some("read_only"),
+                command_execution: Some("deny"),
+                ..AgentExecutionConfig::default()
+            },
+            Some(r#"{"provider":{"example":{"name":"Example"}}}"#),
+        )
+        .expect("Task permissions should create inline config");
+        let permissions: serde_json::Value =
+            serde_json::from_str(&permissions).expect("inline config should be JSON");
+        assert_eq!(permissions["permission"]["edit"], "deny");
+        assert_eq!(permissions["permission"]["bash"], "deny");
+        assert_eq!(permissions["permission"]["external_directory"], "deny");
+        assert_eq!(permissions["provider"]["example"]["name"], "Example");
+    }
+
+    #[test]
+    fn resumes_the_exact_opencode_session() {
+        let command = build_opencode_task_command(
+            "opencode".as_ref(),
+            "follow up",
+            AgentExecutionConfig::default(),
+            Some("session-42"),
+        );
+        let args = command
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        assert!(args
+            .windows(2)
+            .any(|args| args == ["--session", "session-42"]));
+    }
+
+    #[test]
     fn reads_credentials_and_effective_runtime_configuration() {
-        let authentication = authentication_from_outputs(
+        let authentication = login_from_auth_output(
             "Credentials ~/.local/share/opencode/auth.json\nAnthropic oauth\n1 credentials\n",
+        );
+        let config = runtime_config_from_json(
             r#"{
                 "model": "anthropic/claude-sonnet-4-6",
                 "default_agent": "build",
@@ -506,20 +723,15 @@ mod tests {
             authentication.authentication_method.as_deref(),
             Some("configured provider")
         );
-        assert_eq!(
-            authentication.model.as_deref(),
-            Some("anthropic/claude-sonnet-4-6")
-        );
-        assert_eq!(authentication.reasoning_effort.as_deref(), Some("high"));
+        assert_eq!(config.model.as_deref(), Some("anthropic/claude-sonnet-4-6"));
+        assert_eq!(config.reasoning_effort.as_deref(), Some("high"));
     }
 
     #[test]
     fn recognizes_environment_credentials_without_stored_credentials() {
-        let authentication = authentication_from_outputs(
+        let authentication = login_from_auth_output(
             "Credentials ~/.local/share/opencode/auth.json\n0 credentials\nEnvironment\nOpenAI OPENAI_API_KEY\n1 environment variable\n",
-            "{}",
-        )
-        .expect("environment credentials should count as a usable login");
+        );
 
         assert!(authentication.logged_in);
         assert_eq!(
@@ -586,5 +798,28 @@ mod tests {
             collect_opencode_events(&receiver, Instant::now(), Duration::from_secs(1),),
             Err(crate::error::AppError::OpenCodeTaskFailed)
         );
+    }
+
+    #[test]
+    fn preserves_the_opencode_session_when_a_question_is_pending() {
+        let (sender, receiver) = mpsc::sync_channel(1);
+        sender
+            .send(Ok(
+                r#"{"type":"tool","timestamp":1000,"sessionID":"ses-42","part":{"type":"tool","id":"tool-1","tool":"question","state":{"status":"pending"}}}"#
+                    .to_string(),
+            ))
+            .expect("fixture should queue");
+        drop(sender);
+
+        let result = collect_opencode_events_cancellable(
+            &receiver,
+            Instant::now(),
+            Duration::from_secs(1),
+            &AtomicBool::new(false),
+        )
+        .expect("question should be a resumable result");
+
+        assert_eq!(result.outcome, AgentTurnOutcome::Waiting);
+        assert_eq!(result.session_id.as_deref(), Some("ses-42"));
     }
 }

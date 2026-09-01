@@ -1,5 +1,75 @@
 use crate::domain::agent_run::{AgentRunMetrics, AgentRunOutput, TokenUsage};
+use crate::domain::agent_status::{AgentInitStatus, AgentLoginStatus, AgentRuntimeConfig};
 use serde::Serialize;
+
+/// Authentication-only response used by periodic login polling.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AgentLoginStatusResponse {
+    /// Indicates whether a usable local agent executable was found.
+    installed: bool,
+    /// Indicates whether the local agent reports active credentials.
+    logged_in: bool,
+    /// Safe authentication category suitable for display.
+    authentication_method: Option<String>,
+}
+
+/// Runtime configuration returned by explicit reads and native change events.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AgentRuntimeConfigResponse {
+    /// Effective model selected for new tasks.
+    model: Option<String>,
+    /// Effective reasoning effort selected for new tasks.
+    reasoning_effort: Option<String>,
+}
+
+/// Complete first-load response assembled from independent login and configuration probes.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AgentInitStatusResponse {
+    /// Indicates whether a usable local agent executable was found.
+    installed: bool,
+    /// Indicates whether the local agent reports active credentials.
+    logged_in: bool,
+    /// Safe authentication category suitable for display.
+    authentication_method: Option<String>,
+    /// Effective model selected for new tasks.
+    model: Option<String>,
+    /// Effective reasoning effort selected for new tasks.
+    reasoning_effort: Option<String>,
+}
+
+impl From<AgentLoginStatus> for AgentLoginStatusResponse {
+    fn from(status: AgentLoginStatus) -> Self {
+        Self {
+            installed: status.installed,
+            logged_in: status.logged_in,
+            authentication_method: status.authentication_method,
+        }
+    }
+}
+
+impl From<AgentRuntimeConfig> for AgentRuntimeConfigResponse {
+    fn from(config: AgentRuntimeConfig) -> Self {
+        Self {
+            model: config.model,
+            reasoning_effort: config.reasoning_effort,
+        }
+    }
+}
+
+impl From<AgentInitStatus> for AgentInitStatusResponse {
+    fn from(status: AgentInitStatus) -> Self {
+        Self {
+            installed: status.login.installed,
+            logged_in: status.login.logged_in,
+            authentication_method: status.login.authentication_method,
+            model: status.config.model,
+            reasoning_effort: status.config.reasoning_effort,
+        }
+    }
+}
 
 /// Token consumption reported for one completed Agent task.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -105,8 +175,9 @@ fn duration_millis(duration: std::time::Duration) -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use super::AgentRunResponse;
+    use super::{AgentInitStatusResponse, AgentLoginStatusResponse, AgentRunResponse};
     use crate::domain::agent_run::{AgentRunMetrics, AgentRunOutput, ToolCallMetric};
+    use crate::domain::agent_status::{AgentInitStatus, AgentLoginStatus, AgentRuntimeConfig};
     use std::time::Duration;
 
     #[test]
@@ -132,5 +203,29 @@ mod tests {
         assert_eq!(response.tool_calls[0].sequence, 1);
         assert_eq!(response.tool_calls[0].name, "Read");
         assert_eq!(response.tool_calls[0].duration_ms, 250);
+    }
+
+    #[test]
+    fn serializes_split_login_and_initial_status_contracts() {
+        let login = AgentLoginStatus {
+            installed: true,
+            logged_in: true,
+            authentication_method: Some("account".to_string()),
+        };
+        let login_json = serde_json::to_value(AgentLoginStatusResponse::from(login.clone()))
+            .expect("login status should serialize");
+        let init_json = serde_json::to_value(AgentInitStatusResponse::from(AgentInitStatus {
+            login,
+            config: AgentRuntimeConfig {
+                model: Some("runtime-model".to_string()),
+                reasoning_effort: Some("high".to_string()),
+            },
+        }))
+        .expect("initial status should serialize");
+
+        assert_eq!(login_json["loggedIn"], true);
+        assert!(login_json.get("model").is_none());
+        assert_eq!(init_json["model"], "runtime-model");
+        assert_eq!(init_json["reasoningEffort"], "high");
     }
 }

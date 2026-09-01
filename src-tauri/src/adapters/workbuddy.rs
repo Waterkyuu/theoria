@@ -1,5 +1,9 @@
-use crate::adapters::agent::AgentAdapter;
+use crate::adapters::agent::{
+    validate_execution_directory, AgentAdapter, AgentExecutionConfig, AgentSessionRunOutput,
+    AgentStatusAdapter, AgentTurnOutcome,
+};
 use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput, TokenUsage};
+use crate::domain::agent_status::{AgentLoginStatus, AgentRuntimeConfig};
 use crate::error::AppError;
 use leveldb_forensic::{decode_local_storage, LocalStorageRecord};
 use serde::Deserialize;
@@ -8,6 +12,7 @@ use std::fs;
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, SyncSender};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -138,11 +143,6 @@ fn is_bounded_workbuddy_local_storage(path: &Path) -> bool {
     true
 }
 
-fn read_workbuddy_global_selection() -> Option<WorkBuddyGlobalSelection> {
-    let path = workbuddy_local_storage_path()?;
-    read_workbuddy_global_selection_from_path(&path).ok()?
-}
-
 fn read_workbuddy_global_selection_from_path(
     path: &Path,
 ) -> Result<Option<WorkBuddyGlobalSelection>, AppError> {
@@ -173,48 +173,82 @@ pub(crate) fn read_workbuddy_config() -> Result<WorkBuddyConfigSnapshot, AppErro
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct WorkBuddyAuthentication {
+struct WorkBuddyAuthentication {
     /// Indicates whether a usable WorkBuddy application or CLI was found locally.
-    pub(crate) installed: bool,
+    installed: bool,
     /// Indicates whether WorkBuddy accepted an authenticated ACP session.
-    pub(crate) logged_in: bool,
+    logged_in: bool,
     /// Safe authentication mode derived from the ACP user response.
-    pub(crate) authentication_method: Option<String>,
-}
-
-pub(crate) trait WorkBuddyAdapter {
-    fn check_authentication(&self) -> Result<WorkBuddyAuthentication, AppError>;
+    authentication_method: Option<String>,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
 pub(crate) struct SystemWorkBuddyAdapter;
 
-impl WorkBuddyAdapter for SystemWorkBuddyAdapter {
-    /// Detects WorkBuddy and opens a temporary ACP session to verify account access.
-    ///
-    /// WorkBuddy does not expose a separate authentication-status command; successful session
-    /// creation is therefore the authoritative local login signal.
-    fn check_authentication(&self) -> Result<WorkBuddyAuthentication, AppError> {
+impl AgentStatusAdapter for SystemWorkBuddyAdapter {
+    fn check_login(&self) -> Result<AgentLoginStatus, AppError> {
         let executable = match find_workbuddy_executable() {
             Ok(executable) => executable,
             Err(AppError::WorkBuddyNotInstalled) => {
-                return Ok(WorkBuddyAuthentication {
-                    installed: false,
-                    logged_in: false,
-                    authentication_method: None,
-                });
+                return Ok(AgentLoginStatus::default());
             }
             Err(error) => return Err(error),
         };
 
-        probe_workbuddy_runtime(&executable)
+        probe_workbuddy_runtime(&executable).map(|authentication| AgentLoginStatus {
+            installed: authentication.installed,
+            logged_in: authentication.logged_in,
+            authentication_method: authentication.authentication_method,
+        })
+    }
+
+    fn load_runtime_config(&self) -> Result<AgentRuntimeConfig, AppError> {
+        read_workbuddy_config().map(|config| AgentRuntimeConfig {
+            model: config.model,
+            reasoning_effort: config.reasoning_effort,
+        })
     }
 }
 
 impl AgentAdapter for SystemWorkBuddyAdapter {
-    fn run_task(&self, query: &str) -> Result<AgentRunOutput, AppError> {
+    fn run_task_with_config_cancellable(
+        &self,
+        query: &str,
+        execution_directory: &Path,
+        config: AgentExecutionConfig<'_>,
+        cancelled: &AtomicBool,
+    ) -> Result<AgentRunOutput, AppError> {
+        self.run_session_turn_with_config_cancellable(
+            query,
+            execution_directory,
+            config,
+            None,
+            cancelled,
+        )
+        .and_then(|run| match run.outcome {
+            AgentTurnOutcome::Completed => Ok(run.output),
+            AgentTurnOutcome::Waiting => Err(AppError::WorkBuddyNeedsInput),
+        })
+    }
+
+    fn run_session_turn_with_config_cancellable(
+        &self,
+        query: &str,
+        execution_directory: &Path,
+        config: AgentExecutionConfig<'_>,
+        session_id: Option<&str>,
+        cancelled: &AtomicBool,
+    ) -> Result<AgentSessionRunOutput, AppError> {
+        validate_execution_directory(execution_directory)?;
         let executable = find_workbuddy_executable()?;
-        run_workbuddy_task(&executable, query)
+        run_workbuddy_task(
+            &executable,
+            query,
+            execution_directory,
+            config,
+            session_id,
+            cancelled,
+        )
     }
 }
 
@@ -235,6 +269,8 @@ struct StreamMessage {
     is_error: Option<bool>,
     /// Full conversation message carried by an assistant message event.
     message: Option<StreamConversationMessage>,
+    /// Opaque WorkBuddy session identifier emitted by the stream protocol.
+    session_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -368,10 +404,18 @@ fn find_workbuddy_executable() -> Result<OsString, AppError> {
     Err(AppError::WorkBuddyNotInstalled)
 }
 
-fn run_workbuddy_task(executable: &OsStr, query: &str) -> Result<AgentRunOutput, AppError> {
+fn run_workbuddy_task(
+    executable: &OsStr,
+    query: &str,
+    execution_directory: &Path,
+    config: AgentExecutionConfig<'_>,
+    session_id: Option<&str>,
+    cancelled: &AtomicBool,
+) -> Result<AgentSessionRunOutput, AppError> {
     let started_at = Instant::now();
-    let global_selection = read_workbuddy_global_selection();
-    let mut child = build_workbuddy_task_command(executable, query, global_selection.as_ref())
+    let mut command = build_workbuddy_task_command(executable, query, config, session_id);
+    command.current_dir(execution_directory);
+    let mut child = command
         .spawn()
         .map_err(|_| AppError::WorkBuddyProtocolFailed)?;
     let stdout = match child.stdout.take() {
@@ -383,9 +427,13 @@ fn run_workbuddy_task(executable: &OsStr, query: &str) -> Result<AgentRunOutput,
     };
     let (event_sender, event_receiver) = mpsc::sync_channel(EVENT_QUEUE_CAPACITY);
     let reader_handle = thread::spawn(move || read_stream_events(stdout, event_sender));
-    let result = collect_workbuddy_events(&event_receiver, started_at);
+    let result = collect_workbuddy_events_cancellable(&event_receiver, started_at, cancelled);
 
-    if result.is_err() {
+    let should_terminate = match &result {
+        Ok(run) => run.outcome == AgentTurnOutcome::Waiting,
+        Err(_) => true,
+    };
+    if should_terminate {
         terminate_child(&mut child)?;
     } else {
         let status = child
@@ -405,21 +453,30 @@ fn run_workbuddy_task(executable: &OsStr, query: &str) -> Result<AgentRunOutput,
 fn build_workbuddy_task_command(
     executable: &OsStr,
     query: &str,
-    global_selection: Option<&WorkBuddyGlobalSelection>,
+    config: AgentExecutionConfig<'_>,
+    session_id: Option<&str>,
 ) -> Command {
     let mut command = Command::new(executable);
-    if let Some(selection) = global_selection {
-        command.args(["--model", selection.id.as_str()]);
-        if selection.is_thinking {
-            if let Some(effort) = selection.reasoning_effort.as_deref().filter(|effort| {
-                matches!(
-                    *effort,
-                    "minimal" | "low" | "medium" | "high" | "xhigh" | "max"
-                )
-            }) {
-                command.args(["--effort", effort]);
-            }
-        }
+    let permission_mode = match (config.file_access, config.command_execution) {
+        (Some("read_only"), _) => "plan",
+        (Some("allow_edits"), Some("allow")) => "bypassPermissions",
+        (Some("allow_edits"), Some("ask")) => "default",
+        (Some("allow_edits"), Some("deny")) => "acceptEdits",
+        _ => "acceptEdits",
+    };
+    if let Some(model) = config.model {
+        command.args(["--model", model]);
+    }
+    if let Some(effort) = config.mode.filter(|effort| {
+        matches!(
+            *effort,
+            "minimal" | "low" | "medium" | "high" | "xhigh" | "max"
+        )
+    }) {
+        command.args(["--effort", effort]);
+    }
+    if let Some(session_id) = session_id {
+        command.args(["--resume", session_id]);
     }
     command
         .args([
@@ -430,8 +487,7 @@ fn build_workbuddy_task_command(
             "--include-partial-messages",
             "--verbose",
             "--permission-mode",
-            "acceptEdits",
-            "--no-session-persistence",
+            permission_mode,
         ])
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -439,21 +495,38 @@ fn build_workbuddy_task_command(
     command
 }
 
+#[cfg(test)]
 fn collect_workbuddy_events(
     event_receiver: &Receiver<Result<String, AppError>>,
     started_at: Instant,
 ) -> Result<AgentRunOutput, AppError> {
+    collect_workbuddy_events_cancellable(event_receiver, started_at, &AtomicBool::new(false))
+        .and_then(|run| match run.outcome {
+            AgentTurnOutcome::Completed => Ok(run.output),
+            AgentTurnOutcome::Waiting => Err(AppError::WorkBuddyNeedsInput),
+        })
+}
+
+fn collect_workbuddy_events_cancellable(
+    event_receiver: &Receiver<Result<String, AppError>>,
+    started_at: Instant,
+    cancelled: &AtomicBool,
+) -> Result<AgentSessionRunOutput, AppError> {
     let mut collector = AgentRunMetricsCollector::default();
     collector.track_context_compactions();
     let mut response = String::new();
+    let mut session_id = None;
 
     loop {
         let remaining = WORKBUDDY_RUN_TIMEOUT
             .checked_sub(started_at.elapsed())
             .ok_or(AppError::WorkBuddyTimedOut)?;
-        let line = receive_line(event_receiver, remaining)?;
+        let line = receive_cancellable_line(event_receiver, remaining, cancelled)?;
         let message: StreamMessage =
             serde_json::from_str(&line).map_err(|_| AppError::WorkBuddyProtocolFailed)?;
+        if message.session_id.is_some() {
+            session_id = message.session_id.clone();
+        }
 
         if message.message_type == "system"
             && message.subtype.as_deref() == Some("compact_boundary")
@@ -471,7 +544,7 @@ fn collect_workbuddy_events(
             {
                 if content.content_type == "tool_use" {
                     if content.name.as_deref() == Some("AskUserQuestion") {
-                        return Err(AppError::WorkBuddyNeedsInput);
+                        return Ok(waiting_output(response, collector, session_id, started_at));
                     }
                     if let (Some(id), Some(name)) = (content.id, content.name) {
                         collector.record_tool_started(&id, &name, started_at.elapsed());
@@ -522,7 +595,7 @@ fn collect_workbuddy_events(
                         && block.name.as_deref() == Some("AskUserQuestion")
                 })
             {
-                return Err(AppError::WorkBuddyNeedsInput);
+                return Ok(waiting_output(response, collector, session_id, started_at));
             }
             if let Some(delta) = message
                 .event
@@ -549,10 +622,53 @@ fn collect_workbuddy_events(
             if response.is_empty() {
                 response = message.result.unwrap_or_default();
             }
-            return Ok(AgentRunOutput {
-                response,
-                metrics: collector.finish(started_at.elapsed()),
+            return Ok(AgentSessionRunOutput {
+                output: AgentRunOutput {
+                    response,
+                    metrics: collector.finish(started_at.elapsed()),
+                },
+                session_id,
+                outcome: AgentTurnOutcome::Completed,
             });
+        }
+    }
+}
+
+/// Preserves the partial response, metrics, and session when WorkBuddy awaits user input.
+fn waiting_output(
+    response: String,
+    collector: AgentRunMetricsCollector,
+    session_id: Option<String>,
+    started_at: Instant,
+) -> AgentSessionRunOutput {
+    AgentSessionRunOutput {
+        output: AgentRunOutput {
+            response,
+            metrics: collector.finish(started_at.elapsed()),
+        },
+        session_id,
+        outcome: AgentTurnOutcome::Waiting,
+    }
+}
+
+/// Polls in short intervals so Stop can terminate a silent WorkBuddy process promptly.
+fn receive_cancellable_line(
+    event_receiver: &Receiver<Result<String, AppError>>,
+    timeout: Duration,
+    cancelled: &AtomicBool,
+) -> Result<String, AppError> {
+    let started_at = Instant::now();
+    loop {
+        if cancelled.load(Ordering::Acquire) {
+            return Err(AppError::WorkBuddyTaskFailed);
+        }
+        let remaining = timeout
+            .checked_sub(started_at.elapsed())
+            .ok_or(AppError::WorkBuddyTimedOut)?;
+        match event_receiver.recv_timeout(remaining.min(Duration::from_millis(100))) {
+            Ok(result) => return result,
+            Err(RecvTimeoutError::Timeout) => continue,
+            Err(RecvTimeoutError::Disconnected) => return Err(AppError::WorkBuddyProtocolFailed),
         }
     }
 }
@@ -793,12 +909,59 @@ mod tests {
     use super::{
         authentication_from_acp_response, authentication_from_user_info_response,
         build_workbuddy_task_command, collect_workbuddy_events,
-        global_selection_from_local_storage, AcpMessage, StreamUsage,
+        collect_workbuddy_events_cancellable, global_selection_from_local_storage, AcpMessage,
+        StreamUsage,
     };
+    use crate::adapters::agent::{AgentExecutionConfig, AgentTurnOutcome};
     use crate::domain::agent_run::TokenUsage;
     use leveldb_forensic::{Encoding, LocalStorageRecord, StorageValue};
+    use std::sync::atomic::AtomicBool;
     use std::sync::mpsc;
     use std::time::Instant;
+
+    #[test]
+    fn task_command_uses_the_frozen_model_and_effort() {
+        let command = build_workbuddy_task_command(
+            "codebuddy".as_ref(),
+            "test prompt",
+            AgentExecutionConfig {
+                model: Some("kimi-k3"),
+                mode: Some("high"),
+                file_access: Some("allow_edits"),
+                command_execution: Some("allow"),
+            },
+            None,
+        );
+        let args = command
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        assert!(args.windows(2).any(|args| args == ["--model", "kimi-k3"]));
+        assert!(args.windows(2).any(|args| args == ["--effort", "high"]));
+        assert!(args
+            .windows(2)
+            .any(|args| args == ["--permission-mode", "bypassPermissions"]));
+        assert!(!args.iter().any(|arg| arg == "--no-session-persistence"));
+    }
+
+    #[test]
+    fn resumes_the_exact_workbuddy_session() {
+        let command = build_workbuddy_task_command(
+            "codebuddy".as_ref(),
+            "follow up",
+            AgentExecutionConfig::default(),
+            Some("session-42"),
+        );
+        let args = command
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        assert!(args
+            .windows(2)
+            .any(|args| args == ["--resume", "session-42"]));
+    }
 
     #[test]
     fn normalizes_final_workbuddy_usage_without_double_counting_cache_tokens() {
@@ -940,15 +1103,17 @@ mod tests {
     }
 
     #[test]
-    fn task_command_uses_global_model_and_keeps_default_reasoning() {
-        let selection = super::WorkBuddyGlobalSelection {
-            id: "kimi-k3".to_string(),
-            is_thinking: true,
-            reasoning_effort: None,
-        };
-
-        let command =
-            build_workbuddy_task_command("codebuddy".as_ref(), "test prompt", Some(&selection));
+    fn task_command_keeps_default_reasoning_without_a_frozen_mode() {
+        let command = build_workbuddy_task_command(
+            "codebuddy".as_ref(),
+            "test prompt",
+            AgentExecutionConfig {
+                model: Some("kimi-k3"),
+                mode: None,
+                ..AgentExecutionConfig::default()
+            },
+            None,
+        );
         let args = command
             .get_args()
             .map(|arg| arg.to_string_lossy().into_owned())
@@ -959,21 +1124,23 @@ mod tests {
     }
 
     #[test]
-    fn task_command_uses_explicit_global_reasoning() {
-        let selection = super::WorkBuddyGlobalSelection {
-            id: "kimi-k3".to_string(),
-            is_thinking: true,
-            reasoning_effort: Some("high".to_string()),
-        };
-
-        let command =
-            build_workbuddy_task_command("codebuddy".as_ref(), "test prompt", Some(&selection));
+    fn task_command_rejects_unknown_frozen_reasoning_flags() {
+        let command = build_workbuddy_task_command(
+            "codebuddy".as_ref(),
+            "test prompt",
+            AgentExecutionConfig {
+                model: Some("kimi-k3"),
+                mode: Some("enabled"),
+                ..AgentExecutionConfig::default()
+            },
+            None,
+        );
         let args = command
             .get_args()
             .map(|arg| arg.to_string_lossy().into_owned())
             .collect::<Vec<_>>();
 
-        assert!(args.windows(2).any(|args| args == ["--effort", "high"]));
+        assert!(!args.iter().any(|arg| arg == "--effort"));
     }
 
     #[test]
@@ -1038,15 +1205,26 @@ mod tests {
     }
 
     #[test]
-    fn reports_when_workbuddy_asks_the_user_a_question() {
-        let (sender, receiver) = mpsc::sync_channel(1);
-        sender
-            .send(Ok(r#"{"type":"stream_event","event":{"type":"content_block_start","content_block":{"type":"tool_use","name":"AskUserQuestion"}}}"#.to_string()))
-            .expect("fixture should be queued");
+    fn preserves_the_workbuddy_session_when_user_input_is_required() {
+        let (sender, receiver) = mpsc::sync_channel(2);
+        for fixture in [
+            r#"{"type":"system","session_id":"session-42"}"#,
+            r#"{"type":"stream_event","event":{"type":"content_block_start","content_block":{"type":"tool_use","name":"AskUserQuestion"}}}"#,
+        ] {
+            sender
+                .send(Ok(fixture.to_string()))
+                .expect("fixture should be queued");
+        }
         drop(sender);
 
-        let result = collect_workbuddy_events(&receiver, Instant::now());
+        let result = collect_workbuddy_events_cancellable(
+            &receiver,
+            Instant::now(),
+            &AtomicBool::new(false),
+        )
+        .expect("question should be a resumable result");
 
-        assert_eq!(result, Err(crate::error::AppError::WorkBuddyNeedsInput));
+        assert_eq!(result.outcome, AgentTurnOutcome::Waiting);
+        assert_eq!(result.session_id.as_deref(), Some("session-42"));
     }
 }

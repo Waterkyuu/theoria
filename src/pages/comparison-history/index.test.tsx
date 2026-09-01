@@ -226,7 +226,7 @@ describe("ComparisonHistoryPage", () => {
 
 		expect(await screen.findByText("还没有历史对比")).toBeInTheDocument();
 		expect(
-			screen.getByText("完成一次性能对比后，结果会自动保存在这里。"),
+			screen.getByText("完成一次性能对比后，结果会自动保存在这里"),
 		).toBeInTheDocument();
 	});
 

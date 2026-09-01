@@ -40,6 +40,7 @@ src/
   queries/                      # API integration with React Query
   types/                        # Type definitions
   utils/                        # Pure utility functions
+  tests/                        # e2e and integration
 ```
 
 ## Coding Rules
@@ -73,7 +74,7 @@ typeof xxx === 'string' || typeof xxx === 'function'
 
 1. Do not use `any` to bypass type checking. If absolutely necessary, use `unknown` and add a comment marking the risk.
 2. Types used only by the current file should be declared at module scope, after imports and before the implementation. Types reused across files should be placed in the relevant `src/types` module.
-3. Every field in a type declaration must have a comment explaining its purpose.
+3. Every field in a type declaration / Zod schema must have a comment explaining its purpose.
 4. Use utility types such as `Partial`, `Pick`, and `Omit` appropriately to reduce duplicated type definitions.
 
 ### Exports

@@ -1,5 +1,9 @@
-use crate::adapters::agent::AgentAdapter;
+use crate::adapters::agent::{
+    validate_execution_directory, AgentAdapter, AgentExecutionConfig, AgentSessionRunOutput,
+    AgentStatusAdapter, AgentTurnOutcome,
+};
 use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput, TokenUsage};
+use crate::domain::agent_status::{AgentLoginStatus, AgentRuntimeConfig};
 use crate::error::AppError;
 use crate::platform::claude_config::claude_settings_path;
 use serde::Deserialize;
@@ -23,21 +27,13 @@ const EVENT_QUEUE_CAPACITY: usize = 64;
 const MAX_RUNTIME_SETTINGS_RESOLUTION_ATTEMPTS: usize = 2;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct ClaudeAuthentication {
+struct ClaudeAuthentication {
     /// Indicates whether a usable Claude Code executable was found locally.
-    pub(crate) installed: bool,
+    installed: bool,
     /// Indicates whether Claude Code reports active credentials.
-    pub(crate) logged_in: bool,
+    logged_in: bool,
     /// Safe authentication mode parsed from Claude Code's status response.
-    pub(crate) authentication_method: Option<String>,
-    /// Effective model read from the local Claude settings.
-    pub(crate) model: Option<String>,
-    /// Effective reasoning effort read from the local Claude settings.
-    pub(crate) reasoning_effort: Option<String>,
-}
-
-pub(crate) trait ClaudeAdapter {
-    fn check_authentication(&self) -> Result<ClaudeAuthentication, AppError>;
+    authentication_method: Option<String>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -54,18 +50,11 @@ impl SystemClaudeAdapter {
     }
 }
 
-impl ClaudeAdapter for SystemClaudeAdapter {
-    /// Detects Claude Code and parses its structured authentication status response.
-    ///
-    /// Claude may return useful logged-out JSON with a non-zero exit status, so parsing is tried
-    /// before falling back to the normalized logged-out state.
-    fn check_authentication(&self) -> Result<ClaudeAuthentication, AppError> {
+impl AgentStatusAdapter for SystemClaudeAdapter {
+    fn check_login(&self) -> Result<AgentLoginStatus, AppError> {
         let executable = match resolve_claude_executable() {
             Ok(executable) => executable,
-            Err(AppError::ClaudeNotInstalled) => {
-                self.runtime_settings_cache.invalidate();
-                return Ok(not_installed_authentication());
-            }
+            Err(AppError::ClaudeNotInstalled) => return Ok(AgentLoginStatus::default()),
             Err(error) => return Err(error),
         };
         let output = Command::new(executable)
@@ -76,31 +65,68 @@ impl ClaudeAdapter for SystemClaudeAdapter {
             .output()
             .map_err(|_| AppError::ClaudeProbeFailed)?;
         let stdout = String::from_utf8(output.stdout).map_err(|_| AppError::ClaudeProbeFailed)?;
-
-        let mut authentication = if output.status.success() {
+        let authentication = if output.status.success() {
             authentication_from_status(&stdout)?
         } else {
             authentication_from_status(&stdout).unwrap_or_else(|_| logged_out_authentication())
         };
 
-        if authentication.logged_in {
-            let runtime_settings = self
-                .runtime_settings_cache
-                .resolve(|| Ok(read_claude_runtime_settings()))?;
-            authentication.model = runtime_settings.model;
-            authentication.reasoning_effort = runtime_settings.reasoning_effort;
-        } else {
-            self.runtime_settings_cache.invalidate();
-        }
+        Ok(AgentLoginStatus {
+            installed: authentication.installed,
+            logged_in: authentication.logged_in,
+            authentication_method: authentication.authentication_method,
+        })
+    }
 
-        Ok(authentication)
+    fn load_runtime_config(&self) -> Result<AgentRuntimeConfig, AppError> {
+        self.runtime_settings_cache
+            .resolve(|| Ok(read_claude_runtime_settings()))
+            .map(|settings| AgentRuntimeConfig {
+                model: settings.model,
+                reasoning_effort: settings.reasoning_effort,
+            })
     }
 }
 
 impl AgentAdapter for SystemClaudeAdapter {
-    fn run_task(&self, query: &str) -> Result<AgentRunOutput, AppError> {
+    fn run_task_with_config_cancellable(
+        &self,
+        query: &str,
+        execution_directory: &Path,
+        config: AgentExecutionConfig<'_>,
+        cancelled: &AtomicBool,
+    ) -> Result<AgentRunOutput, AppError> {
+        self.run_session_turn_with_config_cancellable(
+            query,
+            execution_directory,
+            config,
+            None,
+            cancelled,
+        )
+        .and_then(|run| match run.outcome {
+            AgentTurnOutcome::Completed => Ok(run.output),
+            AgentTurnOutcome::Waiting => Err(AppError::ClaudeNeedsInput),
+        })
+    }
+
+    fn run_session_turn_with_config_cancellable(
+        &self,
+        query: &str,
+        execution_directory: &Path,
+        config: AgentExecutionConfig<'_>,
+        session_id: Option<&str>,
+        cancelled: &AtomicBool,
+    ) -> Result<AgentSessionRunOutput, AppError> {
+        validate_execution_directory(execution_directory)?;
         let executable = resolve_claude_executable()?;
-        run_claude_task(&executable, query)
+        run_claude_task(
+            &executable,
+            query,
+            execution_directory,
+            config,
+            session_id,
+            cancelled,
+        )
     }
 }
 
@@ -227,6 +253,8 @@ struct StreamMessage {
     is_error: Option<bool>,
     /// Full conversation message carried by an assistant message event.
     message: Option<StreamConversationMessage>,
+    /// Opaque Claude session identifier emitted on initialization and completion.
+    session_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -312,23 +340,11 @@ impl From<StreamUsage> for TokenUsage {
     }
 }
 
-fn not_installed_authentication() -> ClaudeAuthentication {
-    ClaudeAuthentication {
-        installed: false,
-        logged_in: false,
-        authentication_method: None,
-        model: None,
-        reasoning_effort: None,
-    }
-}
-
 fn logged_out_authentication() -> ClaudeAuthentication {
     ClaudeAuthentication {
         installed: true,
         logged_in: false,
         authentication_method: None,
-        model: None,
-        reasoning_effort: None,
     }
 }
 
@@ -352,8 +368,6 @@ fn authentication_from_status(status: &str) -> Result<ClaudeAuthentication, AppE
         installed: true,
         logged_in: status.logged_in,
         authentication_method,
-        model: None,
-        reasoning_effort: None,
     })
 }
 
@@ -420,23 +434,18 @@ fn resolve_claude_executable() -> Result<OsString, AppError> {
     Err(AppError::ClaudeNotInstalled)
 }
 
-fn run_claude_task(executable: &OsStr, query: &str) -> Result<AgentRunOutput, AppError> {
+fn run_claude_task(
+    executable: &OsStr,
+    query: &str,
+    execution_directory: &Path,
+    config: AgentExecutionConfig<'_>,
+    session_id: Option<&str>,
+    cancelled: &AtomicBool,
+) -> Result<AgentSessionRunOutput, AppError> {
     let started_at = Instant::now();
-    let mut child = Command::new(executable)
-        .args([
-            "--print",
-            query,
-            "--output-format",
-            "stream-json",
-            "--include-partial-messages",
-            "--verbose",
-            "--permission-mode",
-            "plan",
-            "--no-session-persistence",
-        ])
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
+    let mut command = build_claude_task_command(executable, query, config, session_id);
+    command.current_dir(execution_directory);
+    let mut child = command
         .spawn()
         .map_err(|_| AppError::ClaudeProtocolFailed)?;
     let stdout = match child.stdout.take() {
@@ -448,9 +457,13 @@ fn run_claude_task(executable: &OsStr, query: &str) -> Result<AgentRunOutput, Ap
     };
     let (event_sender, event_receiver) = mpsc::sync_channel(EVENT_QUEUE_CAPACITY);
     let reader_handle = thread::spawn(move || read_stream_events(stdout, event_sender));
-    let result = collect_claude_events(&event_receiver, started_at);
+    let result = collect_claude_events_cancellable(&event_receiver, started_at, cancelled);
 
-    if result.is_err() {
+    let should_terminate = match &result {
+        Ok(run) => run.outcome == AgentTurnOutcome::Waiting,
+        Err(_) => true,
+    };
+    if should_terminate {
         terminate_child(&mut child)?;
     } else {
         let status = child.wait().map_err(|_| AppError::ClaudeProtocolFailed)?;
@@ -465,21 +478,80 @@ fn run_claude_task(executable: &OsStr, query: &str) -> Result<AgentRunOutput, Ap
     result
 }
 
+/// Builds Claude's non-interactive command from the immutable Task snapshot.
+fn build_claude_task_command(
+    executable: &OsStr,
+    query: &str,
+    config: AgentExecutionConfig<'_>,
+    session_id: Option<&str>,
+) -> Command {
+    let mut command = Command::new(executable);
+    let permission_mode = match (config.file_access, config.command_execution) {
+        (Some("read_only"), _) => "plan",
+        (Some("allow_edits"), Some("allow")) => "bypassPermissions",
+        (Some("allow_edits"), Some("ask")) => "default",
+        (Some("allow_edits"), Some("deny")) => "acceptEdits",
+        _ => "plan",
+    };
+    if let Some(model) = config.model {
+        command.args(["--model", model]);
+    }
+    if let Some(mode) = config.mode {
+        command.args(["--effort", mode]);
+    }
+    if let Some(session_id) = session_id {
+        command.args(["--resume", session_id]);
+    }
+    command
+        .args([
+            "--print",
+            query,
+            "--output-format",
+            "stream-json",
+            "--include-partial-messages",
+            "--verbose",
+            "--permission-mode",
+            permission_mode,
+        ])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+    command
+}
+
+#[cfg(test)]
 fn collect_claude_events(
     event_receiver: &Receiver<Result<String, AppError>>,
     started_at: Instant,
 ) -> Result<AgentRunOutput, AppError> {
+    collect_claude_events_cancellable(event_receiver, started_at, &AtomicBool::new(false)).and_then(
+        |run| match run.outcome {
+            AgentTurnOutcome::Completed => Ok(run.output),
+            AgentTurnOutcome::Waiting => Err(AppError::ClaudeNeedsInput),
+        },
+    )
+}
+
+fn collect_claude_events_cancellable(
+    event_receiver: &Receiver<Result<String, AppError>>,
+    started_at: Instant,
+    cancelled: &AtomicBool,
+) -> Result<AgentSessionRunOutput, AppError> {
     let mut collector = AgentRunMetricsCollector::default();
     collector.track_context_compactions();
     let mut response = String::new();
+    let mut session_id = None;
 
     loop {
         let remaining = CLAUDE_RUN_TIMEOUT
             .checked_sub(started_at.elapsed())
             .ok_or(AppError::ClaudeTimedOut)?;
-        let line = receive_line(event_receiver, remaining)?;
+        let line = receive_cancellable_line(event_receiver, remaining, cancelled)?;
         let message: StreamMessage =
             serde_json::from_str(&line).map_err(|_| AppError::ClaudeProtocolFailed)?;
+        if message.session_id.is_some() {
+            session_id = message.session_id.clone();
+        }
 
         if message.message_type == "system"
             && message.subtype.as_deref() == Some("compact_boundary")
@@ -498,7 +570,7 @@ fn collect_claude_events(
             {
                 if content.content_type == "tool_use" {
                     if content.name.as_deref() == Some("AskUserQuestion") {
-                        return Err(AppError::ClaudeNeedsInput);
+                        return Ok(waiting_output(response, collector, session_id, started_at));
                     }
                     if let (Some(id), Some(name)) = (content.id, content.name) {
                         collector.record_tool_started(&id, &name, started_at.elapsed());
@@ -549,7 +621,7 @@ fn collect_claude_events(
                         && block.name.as_deref() == Some("AskUserQuestion")
                 })
             {
-                return Err(AppError::ClaudeNeedsInput);
+                return Ok(waiting_output(response, collector, session_id, started_at));
             }
             if let Some(delta) = message
                 .event
@@ -576,22 +648,54 @@ fn collect_claude_events(
             if response.is_empty() {
                 response = message.result.unwrap_or_default();
             }
-            return Ok(AgentRunOutput {
-                response,
-                metrics: collector.finish(started_at.elapsed()),
+            return Ok(AgentSessionRunOutput {
+                output: AgentRunOutput {
+                    response,
+                    metrics: collector.finish(started_at.elapsed()),
+                },
+                session_id,
+                outcome: AgentTurnOutcome::Completed,
             });
         }
     }
 }
 
-fn receive_line(
+/// Preserves the partial response, metrics, and session when Claude pauses for user input.
+fn waiting_output(
+    response: String,
+    collector: AgentRunMetricsCollector,
+    session_id: Option<String>,
+    started_at: Instant,
+) -> AgentSessionRunOutput {
+    AgentSessionRunOutput {
+        output: AgentRunOutput {
+            response,
+            metrics: collector.finish(started_at.elapsed()),
+        },
+        session_id,
+        outcome: AgentTurnOutcome::Waiting,
+    }
+}
+
+/// Polls in short intervals so Stop can terminate a silent Claude process promptly.
+fn receive_cancellable_line(
     event_receiver: &Receiver<Result<String, AppError>>,
     timeout: Duration,
+    cancelled: &AtomicBool,
 ) -> Result<String, AppError> {
-    match event_receiver.recv_timeout(timeout) {
-        Ok(result) => result,
-        Err(RecvTimeoutError::Timeout) => Err(AppError::ClaudeTimedOut),
-        Err(RecvTimeoutError::Disconnected) => Err(AppError::ClaudeProtocolFailed),
+    let started_at = Instant::now();
+    loop {
+        if cancelled.load(Ordering::Acquire) {
+            return Err(AppError::ClaudeTaskFailed);
+        }
+        let remaining = timeout
+            .checked_sub(started_at.elapsed())
+            .ok_or(AppError::ClaudeTimedOut)?;
+        match event_receiver.recv_timeout(remaining.min(Duration::from_millis(100))) {
+            Ok(result) => return result,
+            Err(RecvTimeoutError::Timeout) => continue,
+            Err(RecvTimeoutError::Disconnected) => return Err(AppError::ClaudeProtocolFailed),
+        }
     }
 }
 
@@ -660,12 +764,61 @@ fn claude_executable_candidates() -> Vec<OsString> {
 #[cfg(test)]
 mod tests {
     use super::{
-        authentication_from_status, collect_claude_events, runtime_settings_from_json,
-        ClaudeRuntimeSettingsCache, StreamUsage,
+        authentication_from_status, build_claude_task_command, collect_claude_events,
+        collect_claude_events_cancellable, runtime_settings_from_json, ClaudeRuntimeSettingsCache,
+        StreamUsage,
     };
+    use crate::adapters::agent::{AgentExecutionConfig, AgentTurnOutcome};
     use crate::domain::agent_run::TokenUsage;
+    use std::sync::atomic::AtomicBool;
     use std::sync::mpsc;
     use std::time::Instant;
+
+    #[test]
+    fn task_command_uses_the_frozen_model_and_effort() {
+        let command = build_claude_task_command(
+            "claude".as_ref(),
+            "test prompt",
+            AgentExecutionConfig {
+                model: Some("claude-opus-4-1"),
+                mode: Some("high"),
+                file_access: Some("allow_edits"),
+                command_execution: Some("allow"),
+            },
+            None,
+        );
+        let args = command
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        assert!(args
+            .windows(2)
+            .any(|args| args == ["--model", "claude-opus-4-1"]));
+        assert!(args.windows(2).any(|args| args == ["--effort", "high"]));
+        assert!(args
+            .windows(2)
+            .any(|args| args == ["--permission-mode", "bypassPermissions"]));
+        assert!(!args.iter().any(|arg| arg == "--no-session-persistence"));
+    }
+
+    #[test]
+    fn resumes_the_exact_claude_session() {
+        let command = build_claude_task_command(
+            "claude".as_ref(),
+            "follow up",
+            AgentExecutionConfig::default(),
+            Some("session-42"),
+        );
+        let args = command
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        assert!(args
+            .windows(2)
+            .any(|args| args == ["--resume", "session-42"]));
+    }
 
     #[test]
     fn reads_authenticated_claude_account_status() {
@@ -809,15 +962,23 @@ mod tests {
     }
 
     #[test]
-    fn reports_when_claude_asks_the_user_a_question() {
-        let (sender, receiver) = mpsc::sync_channel(1);
-        sender
-            .send(Ok(r#"{"type":"stream_event","event":{"type":"content_block_start","content_block":{"type":"tool_use","name":"AskUserQuestion"}}}"#.to_string()))
-            .expect("fixture should be queued");
+    fn preserves_the_claude_session_when_user_input_is_required() {
+        let (sender, receiver) = mpsc::sync_channel(2);
+        for fixture in [
+            r#"{"type":"system","session_id":"session-42"}"#,
+            r#"{"type":"stream_event","event":{"type":"content_block_start","content_block":{"type":"tool_use","name":"AskUserQuestion"}}}"#,
+        ] {
+            sender
+                .send(Ok(fixture.to_string()))
+                .expect("fixture should be queued");
+        }
         drop(sender);
 
-        let result = collect_claude_events(&receiver, Instant::now());
+        let result =
+            collect_claude_events_cancellable(&receiver, Instant::now(), &AtomicBool::new(false))
+                .expect("question should be a resumable result");
 
-        assert_eq!(result, Err(crate::error::AppError::ClaudeNeedsInput));
+        assert_eq!(result.outcome, AgentTurnOutcome::Waiting);
+        assert_eq!(result.session_id.as_deref(), Some("session-42"));
     }
 }
