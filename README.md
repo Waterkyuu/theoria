@@ -7,6 +7,7 @@
 
   <p><strong>Put every AI agent on the same starting line</strong></p>
   <p>A local-first desktop workspace for parallel AI coding agents and reproducible evaluations</p>
+  <p><strong>Privacy first. All data stays local, with application records stored in SQLite.</strong></p>
 
   <p>
     <img src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white" alt="Tauri 2" />
@@ -74,5 +75,5 @@ It supports everyday multi-agent development workflows and provides consistent e
 | Result comparison | Collect final responses and file changes, then persist run history for later review |
 | Skill management | Manage skills from local or Git sources and mount them into one or more workspaces |
 | Benchmark workflows | Organize reproducible comparisons around fixed snapshots, test cases, and selected agents |
-| Local-first data | Keep workspaces, task history, and evaluation data on the local machine through Tauri |
+| Local-first data | Keep workspaces on the local file system and persist application records in SQLite |
 | Internationalization | Use the built-in Simplified Chinese and English interfaces with localized frontend and backend errors |

@@ -7,6 +7,7 @@
 
   <p><strong>让多个 AI Agent 在同一起跑线上解决问题</strong></p>
   <p>本地优先的 AI 编程 Agent 并行运行与可复现评测工作台</p>
+  <p><strong>隐私至上，所有数据均保存在本地，应用记录使用 SQLite 存储。</strong></p>
 
   <p>
     <img src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white" alt="Tauri 2" />
@@ -74,5 +75,5 @@ Theoria 是一款面向 AI 编程 Agent 的桌面工作台。它会为每个候�
 | 结果对比 | 汇总最终回复与文件变更，持久化运行记录，便于回看不同 Agent 的表现 |
 | Skills 管理 | 管理本地或 Git 来源的 Skills，并按需挂载到一个或多个 Workspace |
 | Benchmark 工作流 | 围绕固定快照、测试用例与候选 Agent 组织可复现的对比任务 |
-| 本地优先 | 基于 Tauri 运行，Workspace、任务记录和评测数据保存在本机 |
+| 本地优先 | Workspace 保存在本地文件系统，应用记录使用 SQLite 持久化 |
 | 国际化 | 内置简体中文和英文界面，前后端错误信息均支持本地化 |
