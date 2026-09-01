@@ -1,6 +1,5 @@
-use crate::domain::comparison::{
-    AgentKind, ComparisonDetail, ComparisonPage, ComparisonResultStatus,
-};
+use crate::domain::agent_kind::AgentKind;
+use crate::domain::comparison::{ComparisonDetail, ComparisonPage, ComparisonResultStatus};
 use serde::{Deserialize, Serialize};
 
 /// Stable Agent identifier accepted and returned over IPC.

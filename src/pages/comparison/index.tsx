@@ -9,30 +9,38 @@ import { useTranslation } from "react-i18next";
 import { getErrorMessage } from "@/utils/error";
 import { checkAgentProcesses, onAgentProcessStatesChanged } from "@/api/agent";
 import {
+	checkClaudeInitStatus,
 	checkClaudeLogin,
+	getClaudeRuntimeConfig,
 	onClaudeConfigChanged,
 	runClaudeTask,
 } from "@/api/claude";
 import {
+	checkCodexInitStatus,
 	checkCodexLogin,
+	getCodexRuntimeConfig,
 	onCodexConfigChanged,
 	runCodexTask,
 } from "@/api/codex";
 import { saveComparisonHistory } from "@/api/comparison";
 import {
+	checkOpenCodeInitStatus,
 	checkOpenCodeLogin,
+	getOpenCodeRuntimeConfig,
 	onOpenCodeConfigChanged,
 	runOpenCodeTask,
 } from "@/api/opencode";
 import {
-	checkWorkBuddyConfig,
+	checkWorkBuddyInitStatus,
 	checkWorkBuddyLogin,
+	getWorkBuddyRuntimeConfig,
 	onWorkBuddyConfigChanged,
 	runWorkBuddyTask,
 } from "@/api/workbuddy";
 import { AGENT_KINDS } from "@/constants/agent";
 import type {
 	AgentKind,
+	AgentLoginStatus,
 	AgentProcessStates,
 	AgentRunResult,
 	AgentRuntimeConfig,
@@ -44,7 +52,7 @@ import { AgentSelectionCard } from "./components/agent-selection-card";
 
 type LoginState =
 	| { status: "checking" }
-	| { status: "resolved"; value: AgentRuntimeStatus }
+	| { status: "resolved"; value: AgentLoginStatus }
 	| { status: "failed" };
 
 type LoginStates = Record<AgentKind, LoginState>;
@@ -92,13 +100,30 @@ const AGENT_STATUS_DISPLAYS = {
 
 type AgentStatusKey = keyof typeof AGENT_STATUS_DISPLAYS;
 
-const AGENT_LOGIN_CHECKS: Record<AgentKind, () => Promise<AgentRuntimeStatus>> =
+const AGENT_INIT_CHECKS: Record<AgentKind, () => Promise<AgentRuntimeStatus>> =
 	{
-		claude: checkClaudeLogin,
-		codex: checkCodexLogin,
-		opencode: checkOpenCodeLogin,
-		workbuddy: checkWorkBuddyLogin,
+		claude: checkClaudeInitStatus,
+		codex: checkCodexInitStatus,
+		opencode: checkOpenCodeInitStatus,
+		workbuddy: checkWorkBuddyInitStatus,
 	};
+
+const AGENT_LOGIN_CHECKS: Record<AgentKind, () => Promise<AgentLoginStatus>> = {
+	claude: checkClaudeLogin,
+	codex: checkCodexLogin,
+	opencode: checkOpenCodeLogin,
+	workbuddy: checkWorkBuddyLogin,
+};
+
+const AGENT_CONFIG_CHECKS: Record<
+	AgentKind,
+	() => Promise<AgentRuntimeConfig>
+> = {
+	claude: getClaudeRuntimeConfig,
+	codex: getCodexRuntimeConfig,
+	opencode: getOpenCodeRuntimeConfig,
+	workbuddy: getWorkBuddyRuntimeConfig,
+};
 
 const AGENT_TASK_RUNNERS: Record<
 	AgentKind,
@@ -111,20 +136,18 @@ const AGENT_TASK_RUNNERS: Record<
 };
 
 /**
- * Compares the user-visible authentication and runtime configuration fields.
+ * Compares authentication fields so config changes remain outside login polling.
  *
  * @example
- * areRuntimeStatusesEqual(previousStatus, nextStatus);
+ * areLoginStatusesEqual(previousStatus, nextStatus);
  */
-const areRuntimeStatusesEqual = (
-	left: AgentRuntimeStatus,
-	right: AgentRuntimeStatus,
+const areLoginStatusesEqual = (
+	left: AgentLoginStatus,
+	right: AgentLoginStatus,
 ) =>
 	left.installed === right.installed &&
 	left.loggedIn === right.loggedIn &&
-	left.authenticationMethod === right.authenticationMethod &&
-	left.model === right.model &&
-	left.reasoningEffort === right.reasoningEffort;
+	left.authenticationMethod === right.authenticationMethod;
 
 /**
  * Uses an ordered rule table so login failures keep priority over process state
@@ -175,9 +198,13 @@ const ComparisonPage = () => {
 	const [processState, setProcessState] = useState<ProcessState>({
 		status: "checking",
 	});
-	const [workBuddyConfig, setWorkBuddyConfig] = useState<AgentRuntimeConfig>({
-		model: null,
-		reasoningEffort: null,
+	const [runtimeConfigs, setRuntimeConfigs] = useState<
+		Record<AgentKind, AgentRuntimeConfig>
+	>({
+		claude: { model: null, reasoningEffort: null },
+		codex: { model: null, reasoningEffort: null },
+		opencode: { model: null, reasoningEffort: null },
+		workbuddy: { model: null, reasoningEffort: null },
 	});
 	const [runStates, setRunStates] = useState<Record<AgentKind, AgentRunState>>({
 		claude: { status: "idle" },
@@ -189,9 +216,80 @@ const ComparisonPage = () => {
 	const isRunning = Object.values(runStates).some(
 		(state) => state.status === "running",
 	);
-	const isWorkBuddyLoggedIn =
-		loginStates.workbuddy.status === "resolved" &&
-		loginStates.workbuddy.value.loggedIn;
+
+	useEffect(() => {
+		let isActive = true;
+		const agentsChangedDuringInit = new Set<AgentKind>();
+
+		/**
+		 * Applies configuration payloads directly so file events never trigger login commands.
+		 *
+		 * @example
+		 * applyRuntimeConfig("codex", { model: "gpt-5", reasoningEffort: "high" });
+		 */
+		const applyRuntimeConfig = (
+			agent: AgentKind,
+			config: AgentRuntimeConfig,
+		) => {
+			if (!isActive) {
+				return;
+			}
+			agentsChangedDuringInit.add(agent);
+			setRuntimeConfigs((current) => ({ ...current, [agent]: config }));
+		};
+
+		const stopConfigListeners = Promise.all([
+			onClaudeConfigChanged((config) => applyRuntimeConfig("claude", config)),
+			onCodexConfigChanged((config) => applyRuntimeConfig("codex", config)),
+			onOpenCodeConfigChanged((config) =>
+				applyRuntimeConfig("opencode", config),
+			),
+			onWorkBuddyConfigChanged((config) =>
+				applyRuntimeConfig("workbuddy", config),
+			),
+		]);
+
+		for (const agent of AGENT_KINDS) {
+			AGENT_INIT_CHECKS[agent]()
+				.then(({ model, reasoningEffort, ...login }) => {
+					if (!isActive) {
+						return;
+					}
+					const next: LoginStates = {
+						...loginStatesRef.current,
+						[agent]: { status: "resolved", value: login },
+					};
+					loginStatesRef.current = next;
+					setLoginStates(next);
+					if (!agentsChangedDuringInit.has(agent)) {
+						setRuntimeConfigs((current) => ({
+							...current,
+							[agent]: { model, reasoningEffort },
+						}));
+					}
+				})
+				.catch(() => {
+					if (!isActive) {
+						return;
+					}
+					const next: LoginStates = {
+						...loginStatesRef.current,
+						[agent]: { status: "failed" },
+					};
+					loginStatesRef.current = next;
+					setLoginStates(next);
+				});
+		}
+
+		return () => {
+			isActive = false;
+			stopConfigListeners.then((stopListeners) => {
+				for (const stopListening of stopListeners) {
+					stopListening();
+				}
+			});
+		};
+	}, []);
 
 	useEffect(() => {
 		if (isRunning) {
@@ -202,29 +300,63 @@ const ComparisonPage = () => {
 		const pendingAgents = new Set<AgentKind>();
 		const queuedAgents = new Set<AgentKind>();
 
-		/** Refreshes one login state without overlapping another probe for that Agent. */
+		/**
+		 * Refreshes authentication only and loads config once after a new login.
+		 *
+		 * @example
+		 * refreshLoginState("codex");
+		 */
 		const refreshLoginState = (agent: AgentKind) => {
 			if (pendingAgents.has(agent)) {
+				queuedAgents.add(agent);
 				return;
 			}
 
 			pendingAgents.add(agent);
 			AGENT_LOGIN_CHECKS[agent]()
 				.then((value) => {
-					if (isActive) {
-						const previous = loginStatesRef.current[agent];
-						if (
-							previous.status === "resolved" &&
-							areRuntimeStatusesEqual(previous.value, value)
-						) {
-							return;
-						}
+					if (!isActive) {
+						return;
+					}
+					const previous = loginStatesRef.current[agent];
+					const becameLoggedIn =
+						previous.status === "resolved" &&
+						!previous.value.loggedIn &&
+						value.loggedIn;
+					const loggedOut =
+						previous.status === "resolved" &&
+						previous.value.loggedIn &&
+						!value.loggedIn;
+					if (
+						previous.status !== "resolved" ||
+						!areLoginStatusesEqual(previous.value, value)
+					) {
 						const next: LoginStates = {
 							...loginStatesRef.current,
 							[agent]: { status: "resolved", value },
 						};
 						loginStatesRef.current = next;
 						setLoginStates(next);
+					}
+					if (loggedOut) {
+						setRuntimeConfigs((current) => ({
+							...current,
+							[agent]: { model: null, reasoningEffort: null },
+						}));
+					}
+					if (becameLoggedIn) {
+						AGENT_CONFIG_CHECKS[agent]()
+							.then((config) => {
+								if (isActive) {
+									setRuntimeConfigs((current) => ({
+										...current,
+										[agent]: config,
+									}));
+								}
+							})
+							.catch(() => {
+								// Keep the last valid configuration until a later event or login.
+							});
 					}
 				})
 				.catch(() => {
@@ -245,96 +377,22 @@ const ComparisonPage = () => {
 				});
 		};
 
-		/** Preserves a native change notification that arrives during an active probe. */
-		const refreshLoginStateAfterChange = (agent: AgentKind) => {
-			if (pendingAgents.has(agent)) {
-				queuedAgents.add(agent);
-				return;
-			}
-			refreshLoginState(agent);
-		};
-
-		/** Refreshes every login state independently. */
+		/** Polls every agent's authentication without touching runtime configuration. */
 		const refreshLoginStates = () => {
 			for (const agent of AGENT_KINDS) {
 				refreshLoginState(agent);
 			}
 		};
 
-		refreshLoginStates();
 		const intervalId = window.setInterval(refreshLoginStates, 5000);
 		window.addEventListener("focus", refreshLoginStates);
-		const stopConfigListeners = Promise.all([
-			onCodexConfigChanged(() => {
-				refreshLoginStateAfterChange("codex");
-			}),
-			onClaudeConfigChanged(() => {
-				refreshLoginStateAfterChange("claude");
-			}),
-			onOpenCodeConfigChanged(() => {
-				refreshLoginStateAfterChange("opencode");
-			}),
-		]);
 
 		return () => {
 			isActive = false;
 			window.clearInterval(intervalId);
 			window.removeEventListener("focus", refreshLoginStates);
-			stopConfigListeners.then((stopListeners) => {
-				for (const stopListening of stopListeners) {
-					stopListening();
-				}
-			});
 		};
 	}, [isRunning]);
-
-	useEffect(() => {
-		let isActive = true;
-
-		/**
-		 * Applies a WorkBuddy configuration snapshot received after the listener is active.
-		 *
-		 * @example
-		 * applyWorkBuddyConfig({ model: "kimi-k3", reasoningEffort: "high" });
-		 */
-		const applyWorkBuddyConfig = (config: AgentRuntimeConfig) => {
-			if (!isActive) {
-				return;
-			}
-			setWorkBuddyConfig(config);
-		};
-
-		const stopListening = onWorkBuddyConfigChanged(applyWorkBuddyConfig);
-
-		return () => {
-			isActive = false;
-			stopListening.then(
-				(stop) => stop(),
-				() => {},
-			);
-		};
-	}, []);
-
-	useEffect(() => {
-		if (!isWorkBuddyLoggedIn) {
-			return;
-		}
-
-		let isActive = true;
-		checkWorkBuddyConfig()
-			.then((config) => {
-				if (isActive) {
-					setWorkBuddyConfig(config);
-				}
-			})
-			.catch(() => {
-				// Keep the last valid configuration when the LevelDB read fails.
-			});
-
-		return () => {
-			isActive = false;
-		};
-	}, [isWorkBuddyLoggedIn]);
 
 	useEffect(() => {
 		let isActive = true;
@@ -471,9 +529,9 @@ const ComparisonPage = () => {
 				const loginStatus =
 					loginState.status === "resolved" ? loginState.value : null;
 				const runtimeStatus =
-					agent === "workbuddy" && loginStatus?.loggedIn
-						? { ...loginStatus, ...workBuddyConfig }
-						: loginStatus;
+					loginStatus === null
+						? null
+						: { ...loginStatus, ...runtimeConfigs[agent] };
 				try {
 					const result = await AGENT_TASK_RUNNERS[agent](normalizedQuery);
 					setRunStates((current) => ({
@@ -560,9 +618,9 @@ const ComparisonPage = () => {
 							const loginStatus =
 								loginState.status === "resolved" ? loginState.value : null;
 							const runtimeStatus =
-								agent === "workbuddy" && loginStatus?.loggedIn
-									? { ...loginStatus, ...workBuddyConfig }
-									: loginStatus;
+								loginStatus === null
+									? null
+									: { ...loginStatus, ...runtimeConfigs[agent] };
 							const isSelected =
 								selectedAgents.includes(agent) && agentDisplays[agent].isReady;
 

@@ -175,7 +175,8 @@ mod tests {
     use super::{event_affects_agent_activity, AgentActivityMonitor};
     use crate::adapters::activity::AgentActivityAdapter;
     use crate::adapters::process::AgentProcessStates;
-    use crate::domain::agent_activity::{AgentActivity, AgentActivityKind, AgentActivityStatus};
+    use crate::domain::agent_activity::{AgentActivity, AgentActivityStatus};
+    use crate::domain::agent_kind::AgentKind;
     use notify::{Event, EventKind};
     use std::path::PathBuf;
     use std::sync::mpsc;
@@ -188,7 +189,7 @@ mod tests {
             vec![AgentActivity {
                 id: "codex-test".to_string(),
                 title: None,
-                agent: AgentActivityKind::Codex,
+                agent: AgentKind::Codex,
                 status: if processes.codex {
                     AgentActivityStatus::Running
                 } else {

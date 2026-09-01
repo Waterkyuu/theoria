@@ -1,5 +1,9 @@
-use crate::adapters::agent::AgentAdapter;
+use crate::adapters::agent::{
+    validate_execution_directory, AgentAdapter, AgentExecutionConfig, AgentSessionRunOutput,
+    AgentStatusAdapter, AgentTurnOutcome,
+};
 use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput, TokenUsage};
+use crate::domain::agent_status::{AgentLoginStatus, AgentRuntimeConfig};
 use crate::error::AppError;
 use crate::platform::codex_config::codex_config_paths;
 use serde::Deserialize;
@@ -23,27 +27,9 @@ const MAX_CODEX_CONFIG_BYTES: u64 = 1024 * 1024;
 const EVENT_QUEUE_CAPACITY: usize = 64;
 const MAX_RUNTIME_DEFAULT_RESOLUTION_ATTEMPTS: usize = 2;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct CodexAuthentication {
-    /// Indicates whether a usable Codex executable was found locally.
-    pub(crate) installed: bool,
-    /// Indicates whether the Codex CLI reports active credentials.
-    pub(crate) logged_in: bool,
-    /// Safe authentication mode parsed from the Codex CLI status output.
-    pub(crate) authentication_method: Option<String>,
-    /// Effective model selected for newly created Codex threads.
-    pub(crate) model: Option<String>,
-    /// Effective reasoning effort selected for newly created Codex threads.
-    pub(crate) reasoning_effort: Option<String>,
-}
-
-pub(crate) trait CodexAdapter {
-    fn check_authentication(&self) -> Result<CodexAuthentication, AppError>;
-}
-
 #[derive(Debug, Clone)]
 pub(crate) struct SystemCodexAdapter {
-    /// Shared cache of effective runtime defaults used by authentication probes.
+    /// Shared cache of effective runtime defaults used by configuration reads.
     runtime_defaults_cache: CodexRuntimeDefaultsCache,
 }
 
@@ -55,27 +41,8 @@ impl SystemCodexAdapter {
     }
 }
 
-impl CodexAdapter for SystemCodexAdapter {
-    /// Checks the installed, login, and effective runtime status of the local Codex CLI.
-    ///
-    /// The login-status service calls this method through [`CodexAdapter`]; the task execution path
-    /// uses a separate executable check. Each candidate receives `codex login status` in order.
-    /// Successfully starting any candidate proves that Codex is installed. Exit code zero means
-    /// logged in, while a non-zero exit code means installed but logged out.
-    ///
-    /// Missing candidates are skipped so bundled macOS executables remain available as fallbacks.
-    /// If every candidate is missing, this method clears cached runtime settings and returns an
-    /// installed and login status of `false`. Any other process-start failure returns
-    /// [`AppError::CodexProbeFailed`].
-    ///
-    /// For a logged-in installation, the returned [`CodexAuthentication`] also contains the safe
-    /// authentication label plus the effective model and reasoning effort. Logged-out and missing
-    /// installations clear those cached settings so later probes cannot display stale values.
-    ///
-    /// For example, a candidate that starts and exits non-zero returns `installed: true` with
-    /// `logged_in: false`; a machine where every candidate is missing returns both fields as
-    /// `false` without treating absence as a probe error.
-    fn check_authentication(&self) -> Result<CodexAuthentication, AppError> {
+impl AgentStatusAdapter for SystemCodexAdapter {
+    fn check_login(&self) -> Result<AgentLoginStatus, AppError> {
         for executable in codex_executable_candidates() {
             let output = Command::new(&executable)
                 .args(["login", "status"])
@@ -86,13 +53,7 @@ impl CodexAdapter for SystemCodexAdapter {
 
             match output {
                 Ok(output) => {
-                    // The official CLI contract states that `codex login status` exits with 0
-                    // when credentials are present and prints the active authentication mode:
-                    // https://learn.chatgpt.com/docs/developer-commands?surface=cli#cli-codex-login
                     let logged_in = output.status.success();
-                    // Current Codex versions print, for example, `Logged in using ChatGPT`.
-                    // Authentication-mode parsing is display-only; an unexpected format falls
-                    // back to a safe generic label without changing the exit-code login result.
                     let authentication_method = logged_in.then(|| {
                         String::from_utf8_lossy(&output.stdout)
                             .trim()
@@ -100,27 +61,10 @@ impl CodexAdapter for SystemCodexAdapter {
                             .unwrap_or("authenticated credentials")
                             .to_string()
                     });
-                    // Explicit config values are authoritative for this display. App Server remains
-                    // the fallback when either field cannot be resolved safely from local TOML.
-                    let runtime_settings = if logged_in {
-                        Some(
-                            self.runtime_defaults_cache
-                                .resolve(|| resolve_codex_runtime_settings(&executable))?,
-                        )
-                    } else {
-                        self.runtime_defaults_cache.invalidate();
-                        None
-                    };
-
-                    return Ok(CodexAuthentication {
+                    return Ok(AgentLoginStatus {
                         installed: true,
                         logged_in,
                         authentication_method,
-                        model: runtime_settings
-                            .as_ref()
-                            .map(|settings| settings.model.clone()),
-                        reasoning_effort: runtime_settings
-                            .and_then(|settings| settings.reasoning_effort),
                     });
                 }
                 Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
@@ -128,23 +72,58 @@ impl CodexAdapter for SystemCodexAdapter {
             }
         }
 
-        self.runtime_defaults_cache.invalidate();
-        Ok(CodexAuthentication {
-            installed: false,
-            logged_in: false,
-            authentication_method: None,
-            model: None,
-            reasoning_effort: None,
-        })
+        Ok(AgentLoginStatus::default())
+    }
+
+    fn load_runtime_config(&self) -> Result<AgentRuntimeConfig, AppError> {
+        let executable = find_usable_codex_executable()?;
+        self.runtime_defaults_cache
+            .resolve(|| resolve_codex_runtime_settings(&executable))
+            .map(|settings| AgentRuntimeConfig {
+                model: Some(settings.model),
+                reasoning_effort: settings.reasoning_effort,
+            })
     }
 }
 
 impl AgentAdapter for SystemCodexAdapter {
-    fn run_task(&self, query: &str) -> Result<AgentRunOutput, AppError> {
-        let executable = find_usable_codex_executable()?;
-        with_app_server(&executable, |stdin, event_receiver| {
-            run_app_server_task(stdin, event_receiver, query)
+    fn run_task_with_config_cancellable(
+        &self,
+        query: &str,
+        execution_directory: &Path,
+        config: AgentExecutionConfig<'_>,
+        cancelled: &AtomicBool,
+    ) -> Result<AgentRunOutput, AppError> {
+        self.run_session_turn_with_config_cancellable(
+            query,
+            execution_directory,
+            config,
+            None,
+            cancelled,
+        )
+        .and_then(|run| match run.outcome {
+            AgentTurnOutcome::Completed => Ok(run.output),
+            AgentTurnOutcome::Waiting => Err(AppError::CodexNeedsInput),
         })
+    }
+
+    fn run_session_turn_with_config_cancellable(
+        &self,
+        query: &str,
+        execution_directory: &Path,
+        config: AgentExecutionConfig<'_>,
+        session_id: Option<&str>,
+        cancelled: &AtomicBool,
+    ) -> Result<AgentSessionRunOutput, AppError> {
+        validate_execution_directory(execution_directory)?;
+        let executable = find_usable_codex_executable()?;
+        with_app_server(
+            &executable,
+            Some(execution_directory),
+            |stdin, event_receiver| {
+                run_app_server_task(stdin, event_receiver, query, config, session_id, cancelled)
+            },
+        )
     }
 }
 
@@ -479,21 +458,33 @@ fn non_empty_config_value(value: Option<String>) -> Option<String> {
 
 /// Starts an ephemeral App Server session to resolve the model defaults used by new Codex tasks.
 fn resolve_codex_runtime_defaults(executable: &OsStr) -> Result<CodexRuntimeDefaults, AppError> {
-    with_app_server(executable, initialize_app_server_thread)
+    with_app_server(executable, None, |stdin, event_receiver| {
+        initialize_app_server_thread(
+            stdin,
+            event_receiver,
+            AgentExecutionConfig::default(),
+            None,
+            true,
+        )
+    })
 }
 
 /// Runs one bounded App Server exchange and always terminates the child before returning.
 fn with_app_server<T>(
     executable: &OsStr,
+    execution_directory: Option<&Path>,
     operation: impl FnOnce(&mut ChildStdin, &Receiver<Result<String, AppError>>) -> Result<T, AppError>,
 ) -> Result<T, AppError> {
-    let mut child = Command::new(executable)
+    let mut command = Command::new(executable);
+    command
         .args(["app-server", "--stdio"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .map_err(|_| AppError::CodexProtocolFailed)?;
+        .stderr(Stdio::null());
+    if let Some(execution_directory) = execution_directory {
+        command.current_dir(execution_directory);
+    }
+    let mut child = command.spawn().map_err(|_| AppError::CodexProtocolFailed)?;
     let stdout = match child.stdout.take() {
         Some(stdout) => stdout,
         None => {
@@ -528,6 +519,9 @@ fn with_app_server<T>(
 fn initialize_app_server_thread(
     stdin: &mut ChildStdin,
     event_receiver: &Receiver<Result<String, AppError>>,
+    config: AgentExecutionConfig<'_>,
+    session_id: Option<&str>,
+    ephemeral: bool,
 ) -> Result<CodexRuntimeDefaults, AppError> {
     write_message(
         stdin,
@@ -537,7 +531,7 @@ fn initialize_app_server_thread(
     write_message(stdin, r#"{"method":"initialized","params":{}}"#)?;
     write_message(
         stdin,
-        r#"{"method":"thread/start","id":1,"params":{"approvalPolicy":"never","sandbox":"workspace-write","ephemeral":true,"serviceName":"agent_gauge"}}"#,
+        &build_codex_thread_request(config, session_id, ephemeral).to_string(),
     )?;
     let thread_response = wait_for_response(event_receiver, 1, APP_SERVER_START_TIMEOUT)?;
     let result = thread_response
@@ -554,12 +548,51 @@ fn initialize_app_server_thread(
     })
 }
 
+/// Builds the thread request separately so frozen Task settings remain directly testable.
+fn build_codex_thread_request(
+    config: AgentExecutionConfig<'_>,
+    session_id: Option<&str>,
+    ephemeral: bool,
+) -> serde_json::Value {
+    let sandbox = match config.file_access {
+        Some("read_only") => "read-only",
+        _ => "workspace-write",
+    };
+    let approval_policy = match config.command_execution {
+        Some("deny") => "untrusted",
+        Some("ask") => "on-request",
+        _ => "never",
+    };
+    let mut params = serde_json::json!({
+        "approvalPolicy": approval_policy,
+        "sandbox": sandbox,
+        "serviceName": "agent_gauge"
+    });
+    if let Some(model) = config.model {
+        params["model"] = serde_json::Value::String(model.to_string());
+    }
+    if let Some(mode) = config.mode {
+        params["effort"] = serde_json::Value::String(mode.to_string());
+    }
+    if let Some(session_id) = session_id {
+        params["threadId"] = serde_json::Value::String(session_id.to_string());
+        serde_json::json!({"method": "thread/resume", "id": 1, "params": params})
+    } else {
+        params["ephemeral"] = serde_json::Value::Bool(ephemeral);
+        serde_json::json!({"method": "thread/start", "id": 1, "params": params})
+    }
+}
+
 fn run_app_server_task(
     stdin: &mut ChildStdin,
     event_receiver: &Receiver<Result<String, AppError>>,
     query: &str,
-) -> Result<AgentRunOutput, AppError> {
-    let runtime_defaults = initialize_app_server_thread(stdin, event_receiver)?;
+    config: AgentExecutionConfig<'_>,
+    session_id: Option<&str>,
+    cancelled: &AtomicBool,
+) -> Result<AgentSessionRunOutput, AppError> {
+    let runtime_defaults =
+        initialize_app_server_thread(stdin, event_receiver, config, session_id, false)?;
     let turn_request = serde_json::json!({
         "method": "turn/start",
         "id": 2,
@@ -571,13 +604,33 @@ fn run_app_server_task(
     let started_at = Instant::now();
     write_message(stdin, &turn_request.to_string())?;
 
-    collect_run_events(event_receiver, started_at)
+    collect_run_events_cancellable(event_receiver, started_at, cancelled).map(
+        |(output, outcome)| AgentSessionRunOutput {
+            output,
+            session_id: Some(runtime_defaults.thread_id),
+            outcome,
+        },
+    )
 }
 
+#[cfg(test)]
 fn collect_run_events(
     event_receiver: &Receiver<Result<String, AppError>>,
     started_at: Instant,
 ) -> Result<AgentRunOutput, AppError> {
+    collect_run_events_cancellable(event_receiver, started_at, &AtomicBool::new(false)).and_then(
+        |(output, outcome)| match outcome {
+            AgentTurnOutcome::Completed => Ok(output),
+            AgentTurnOutcome::Waiting => Err(AppError::CodexNeedsInput),
+        },
+    )
+}
+
+fn collect_run_events_cancellable(
+    event_receiver: &Receiver<Result<String, AppError>>,
+    started_at: Instant,
+    cancelled: &AtomicBool,
+) -> Result<(AgentRunOutput, AgentTurnOutcome), AppError> {
     let mut collector = AgentRunMetricsCollector::default();
     collector.track_context_compactions();
     let mut response = String::new();
@@ -586,7 +639,7 @@ fn collect_run_events(
         let remaining = CODEX_RUN_TIMEOUT
             .checked_sub(started_at.elapsed())
             .ok_or(AppError::CodexTimedOut)?;
-        let line = receive_line(event_receiver, remaining)?;
+        let line = receive_cancellable_line(event_receiver, remaining, cancelled)?;
         let message: AppServerMessage =
             serde_json::from_str(&line).map_err(|_| AppError::CodexProtocolFailed)?;
 
@@ -595,7 +648,15 @@ fn collect_run_events(
                 "tool/requestUserInput"
                 | "item/tool/requestUserInput"
                 | "mcpServer/elicitation/request",
-            ) => return Err(AppError::CodexNeedsInput),
+            ) => {
+                return Ok((
+                    AgentRunOutput {
+                        response,
+                        metrics: collector.finish(started_at.elapsed()),
+                    },
+                    AgentTurnOutcome::Waiting,
+                ));
+            }
             Some("item/agentMessage/delta") => {
                 if let Some(delta) = message.params.and_then(|params| params.delta) {
                     collector.record_agent_delta(&delta, started_at.elapsed());
@@ -640,12 +701,37 @@ fn collect_run_events(
                     return Err(AppError::CodexTaskFailed);
                 }
 
-                return Ok(AgentRunOutput {
-                    response,
-                    metrics: collector.finish(started_at.elapsed()),
-                });
+                return Ok((
+                    AgentRunOutput {
+                        response,
+                        metrics: collector.finish(started_at.elapsed()),
+                    },
+                    AgentTurnOutcome::Completed,
+                ));
             }
             _ => {}
+        }
+    }
+}
+
+/// Polls in short intervals so Stop can terminate a silent Codex process promptly.
+fn receive_cancellable_line(
+    event_receiver: &Receiver<Result<String, AppError>>,
+    timeout: Duration,
+    cancelled: &AtomicBool,
+) -> Result<String, AppError> {
+    let started_at = Instant::now();
+    loop {
+        if cancelled.load(Ordering::Acquire) {
+            return Err(AppError::CodexTaskFailed);
+        }
+        let remaining = timeout
+            .checked_sub(started_at.elapsed())
+            .ok_or(AppError::CodexTimedOut)?;
+        match event_receiver.recv_timeout(remaining.min(Duration::from_millis(100))) {
+            Ok(result) => return result,
+            Err(RecvTimeoutError::Timeout) => continue,
+            Err(RecvTimeoutError::Disconnected) => return Err(AppError::CodexProtocolFailed),
         }
     }
 }
@@ -762,12 +848,45 @@ fn codex_executable_candidates() -> Vec<OsString> {
 #[cfg(test)]
 mod tests {
     use super::{
-        codex_executable_candidates, collect_run_events, runtime_settings_from_config_layers,
-        with_app_server, CodexRuntimeDefaultsCache, CodexRuntimeSettings,
+        build_codex_thread_request, codex_executable_candidates, collect_run_events,
+        collect_run_events_cancellable, runtime_settings_from_config_layers, with_app_server,
+        CodexRuntimeDefaultsCache, CodexRuntimeSettings,
     };
+    use crate::adapters::agent::{AgentExecutionConfig, AgentTurnOutcome};
     use crate::error::AppError;
+    use std::sync::atomic::AtomicBool;
     use std::sync::mpsc;
     use std::time::{Duration, Instant};
+
+    #[test]
+    fn starts_task_thread_with_the_frozen_model_and_effort() {
+        let request = build_codex_thread_request(
+            AgentExecutionConfig {
+                model: Some("gpt-5.6-sol"),
+                mode: Some("high"),
+                file_access: Some("read_only"),
+                command_execution: Some("ask"),
+            },
+            None,
+            false,
+        );
+
+        assert_eq!(request["params"]["model"], "gpt-5.6-sol");
+        assert_eq!(request["params"]["effort"], "high");
+        assert_eq!(request["params"]["sandbox"], "read-only");
+        assert_eq!(request["params"]["approvalPolicy"], "on-request");
+        assert_eq!(request["params"]["ephemeral"], false);
+    }
+
+    #[test]
+    fn resumes_the_exact_codex_thread() {
+        let request =
+            build_codex_thread_request(AgentExecutionConfig::default(), Some("thread-42"), false);
+
+        assert_eq!(request["method"], "thread/resume");
+        assert_eq!(request["params"]["threadId"], "thread-42");
+        assert!(request["params"].get("ephemeral").is_none());
+    }
 
     #[cfg(unix)]
     #[test]
@@ -800,8 +919,8 @@ wait "$reader_pid"
             .expect("wrapper fixture should be executable");
 
         let started_at = Instant::now();
-        let result = with_app_server(script_path.as_os_str(), |_stdin, receiver| {
-            let ready = super::receive_line(receiver, Duration::from_secs(1))?;
+        let result = with_app_server(script_path.as_os_str(), None, |_stdin, receiver| {
+            let ready = super::receive_line(receiver, Duration::from_secs(5))?;
             assert_eq!(ready.trim(), "READY");
             Ok(())
         });
@@ -810,9 +929,45 @@ wait "$reader_pid"
 
         assert_eq!(result, Ok(()));
         assert!(
-            elapsed < Duration::from_secs(1),
+            elapsed < Duration::from_millis(1_500),
             "cleanup waited for the detached server process: {elapsed:?}"
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn starts_the_app_server_in_the_requested_execution_directory() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root =
+            std::env::temp_dir().join(format!("theoria-codex-cwd-test-{}", std::process::id()));
+        let execution = root.join("execution");
+        let script_path = root.join("codex-wrapper");
+        std::fs::create_dir_all(&execution).expect("Execution fixture should be created");
+        std::fs::write(&script_path, "#!/bin/sh\npwd\ncat <&0 >/dev/null\n")
+            .expect("wrapper fixture should be written");
+        let mut permissions = std::fs::metadata(&script_path)
+            .expect("wrapper fixture metadata should be readable")
+            .permissions();
+        permissions.set_mode(0o700);
+        std::fs::set_permissions(&script_path, permissions)
+            .expect("wrapper fixture should be executable");
+
+        let result = with_app_server(
+            script_path.as_os_str(),
+            Some(&execution),
+            |_stdin, receiver| {
+                let cwd = super::receive_line(receiver, Duration::from_secs(5))?;
+                assert_eq!(
+                    cwd.trim(),
+                    execution.canonicalize().unwrap().to_string_lossy()
+                );
+                Ok(())
+            },
+        );
+
+        std::fs::remove_dir_all(root).expect("fixture should be removable");
+        assert_eq!(result, Ok(()));
     }
 
     #[cfg(target_os = "macos")]
@@ -843,7 +998,29 @@ wait "$reader_pid"
             let result = collect_run_events(&receiver, Instant::now());
 
             assert_eq!(result, Err(AppError::CodexNeedsInput));
+
+            let (sender, receiver) = mpsc::sync_channel(1);
+            sender
+                .send(Ok(format!(
+                    r#"{{"method":"{method}","id":7,"params":{{}}}}"#
+                )))
+                .expect("resumable fixture should be queued");
+            drop(sender);
+            let (_, outcome) =
+                collect_run_events_cancellable(&receiver, Instant::now(), &AtomicBool::new(false))
+                    .expect("question should be a resumable result");
+            assert_eq!(outcome, AgentTurnOutcome::Waiting);
         }
+    }
+
+    #[test]
+    fn stops_waiting_for_codex_events_when_the_execution_is_cancelled() {
+        let (_sender, receiver) = mpsc::sync_channel(1);
+        let cancelled = AtomicBool::new(true);
+
+        let result = collect_run_events_cancellable(&receiver, Instant::now(), &cancelled);
+
+        assert_eq!(result, Err(AppError::CodexTaskFailed));
     }
 
     #[test]

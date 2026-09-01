@@ -1,5 +1,6 @@
 use crate::adapters::process::AgentProcessStates;
-use crate::domain::agent_activity::{AgentActivity, AgentActivityKind, AgentActivityStatus};
+use crate::domain::agent_activity::{AgentActivity, AgentActivityStatus};
+use crate::domain::agent_kind::AgentKind;
 use leveldb_forensic::{decode_local_storage, LocalStorageRecord};
 use rusqlite::{Connection, OpenFlags, OptionalExtension};
 use serde::Deserialize;
@@ -78,13 +79,13 @@ impl AgentActivityAdapter for SystemAgentActivityAdapter {
         self.collect_transcripts(
             &mut activities,
             self.sources.codex_sessions.as_deref(),
-            AgentActivityKind::Codex,
+            AgentKind::Codex,
             processes.codex,
         );
         self.collect_transcripts(
             &mut activities,
             self.sources.claude_projects.as_deref(),
-            AgentActivityKind::Claude,
+            AgentKind::Claude,
             processes.claude,
         );
         if let Some(path) = self.sources.opencode_data.as_deref() {
@@ -96,7 +97,7 @@ impl AgentActivityAdapter for SystemAgentActivityAdapter {
         self.collect_transcripts(
             &mut activities,
             self.sources.codebuddy_projects.as_deref(),
-            AgentActivityKind::WorkBuddy,
+            AgentKind::WorkBuddy,
             processes.workbuddy,
         );
 
@@ -150,7 +151,7 @@ impl SystemAgentActivityAdapter {
         &self,
         activities: &mut Vec<AgentActivity>,
         root: Option<&Path>,
-        agent: AgentActivityKind,
+        agent: AgentKind,
         process_running: bool,
     ) {
         let Some(root) = root else {
@@ -158,7 +159,7 @@ impl SystemAgentActivityAdapter {
         };
         let paths = recent_jsonl_files(root);
         // Codex writes generated and manually renamed titles to its thread index, not rollouts.
-        let mut titles = if agent == AgentActivityKind::Codex {
+        let mut titles = if agent == AgentKind::Codex {
             self.sources
                 .codex_state_db
                 .as_deref()
@@ -529,7 +530,7 @@ fn workbuddy_status_from_protocol(status: &str) -> Option<AgentActivityStatus> {
 /// Reads one bounded transcript tail and returns a privacy-safe latest-task summary.
 fn activity_from_transcript(
     path: &Path,
-    agent: AgentActivityKind,
+    agent: AgentKind,
     process_running: bool,
     title: Option<String>,
 ) -> Option<AgentActivity> {
@@ -537,11 +538,11 @@ fn activity_from_transcript(
     // Product metadata wins; transcript text is the readable fallback for products without titles.
     let title = title.or_else(|| transcript_title_from_jsonl(&contents));
     let status = match agent {
-        AgentActivityKind::Codex => codex_status_from_jsonl(&contents, process_running),
-        AgentActivityKind::Claude | AgentActivityKind::WorkBuddy => {
+        AgentKind::Codex => codex_status_from_jsonl(&contents, process_running),
+        AgentKind::Claude | AgentKind::WorkBuddy => {
             claude_status_from_jsonl(&contents, process_running)
         }
-        AgentActivityKind::OpenCode => None,
+        AgentKind::OpenCode => None,
     }?;
     let updated_at_ms = fs::symlink_metadata(path)
         .ok()?
@@ -616,9 +617,9 @@ fn workbuddy_activities_from_snapshot(
         .into_iter()
         .filter_map(|(source_id, protocol_status)| {
             Some(AgentActivity {
-                id: opaque_activity_id(AgentActivityKind::WorkBuddy, &source_id),
+                id: opaque_activity_id(AgentKind::WorkBuddy, &source_id),
                 title: titles.get(&source_id).cloned(),
-                agent: AgentActivityKind::WorkBuddy,
+                agent: AgentKind::WorkBuddy,
                 status: workbuddy_status_from_protocol(&protocol_status)?,
                 updated_at_ms,
             })
@@ -696,9 +697,9 @@ fn opencode_activities_from_database(
             };
 
             Some(AgentActivity {
-                id: opaque_activity_id(AgentActivityKind::OpenCode, &session_id),
+                id: opaque_activity_id(AgentKind::OpenCode, &session_id),
                 title,
-                agent: AgentActivityKind::OpenCode,
+                agent: AgentKind::OpenCode,
                 status,
                 updated_at_ms,
             })
@@ -898,20 +899,10 @@ fn system_time_millis(time: SystemTime) -> Option<u64> {
 }
 
 /// Hashes a sensitive source identifier into an opaque product-scoped display identifier.
-fn opaque_activity_id(agent: AgentActivityKind, source_id: &str) -> String {
+fn opaque_activity_id(agent: AgentKind, source_id: &str) -> String {
     let mut hasher = DefaultHasher::new();
     source_id.hash(&mut hasher);
-    format!("{}-{:016x}", agent_id_prefix(agent), hasher.finish())
-}
-
-/// Returns the stable public product prefix used by opaque task identifiers.
-fn agent_id_prefix(agent: AgentActivityKind) -> &'static str {
-    match agent {
-        AgentActivityKind::Claude => "claude",
-        AgentActivityKind::Codex => "codex",
-        AgentActivityKind::OpenCode => "opencode",
-        AgentActivityKind::WorkBuddy => "workbuddy",
-    }
+    format!("{}-{:016x}", agent.as_str(), hasher.finish())
 }
 
 #[cfg(test)]
@@ -923,7 +914,8 @@ mod tests {
         SystemAgentActivityAdapter,
     };
     use crate::adapters::process::AgentProcessStates;
-    use crate::domain::agent_activity::{AgentActivityKind, AgentActivityStatus};
+    use crate::domain::agent_activity::AgentActivityStatus;
+    use crate::domain::agent_kind::AgentKind;
     use rusqlite::Connection;
     use std::collections::HashMap;
     use std::fs;
@@ -1136,7 +1128,7 @@ mod tests {
 {"type":"event_msg","payload":{"type":"task_complete"}}"#,
         );
 
-        let activity = activity_from_transcript(&path, AgentActivityKind::Codex, true, None)
+        let activity = activity_from_transcript(&path, AgentKind::Codex, true, None)
             .expect("completed transcript should produce one activity");
 
         assert_eq!(activity.status, AgentActivityStatus::Finish);
@@ -1154,7 +1146,7 @@ mod tests {
 {"type":"assistant","message":{"role":"assistant","stop_reason":"end_turn","content":"Done"}}"#,
         );
 
-        let activity = activity_from_transcript(&path, AgentActivityKind::Claude, true, None)
+        let activity = activity_from_transcript(&path, AgentKind::Claude, true, None)
             .expect("Claude transcript should produce one activity");
 
         assert_eq!(
@@ -1174,7 +1166,7 @@ mod tests {
 {"hook_event_name":"Stop"}"#,
         );
 
-        let activity = activity_from_transcript(&path, AgentActivityKind::WorkBuddy, true, None)
+        let activity = activity_from_transcript(&path, AgentKind::WorkBuddy, true, None)
             .expect("WorkBuddy transcript should produce one activity");
 
         assert_eq!(
@@ -1278,7 +1270,7 @@ mod tests {
         let activities = opencode_activities_from_database(&database_path, false);
 
         assert_eq!(activities.len(), 1);
-        assert_eq!(activities[0].agent, AgentActivityKind::OpenCode);
+        assert_eq!(activities[0].agent, AgentKind::OpenCode);
         assert_eq!(
             activities[0].title.as_deref(),
             Some("Review the release plan")
@@ -1303,7 +1295,7 @@ mod tests {
             .any(|activity| activity.title.as_deref() == Some("Plan release")));
         assert!(activities
             .iter()
-            .all(|activity| activity.agent == AgentActivityKind::WorkBuddy));
+            .all(|activity| activity.agent == AgentKind::WorkBuddy));
         assert!(activities
             .iter()
             .all(|activity| !activity.id.contains("conversation-")));

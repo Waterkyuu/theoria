@@ -1,9 +1,42 @@
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
-import type { AgentRunResult, AgentRuntimeStatus } from "@/types/agent";
+import { invokeWithResponseSchema, listenWithResponseSchema } from "@/api/ipc";
+import {
+	type AgentRuntimeConfig,
+	CompiledAgentLoginStatusSchema,
+	CompiledAgentRunResultSchema,
+	CompiledAgentRuntimeConfigSchema,
+	CompiledAgentRuntimeStatusSchema,
+} from "@/types/agent";
 
 /** Checks the local Claude Code credential state through the Tauri backend. */
-const checkClaudeLogin = () => invoke<AgentRuntimeStatus>("check_claude_login");
+const checkClaudeLogin = () =>
+	invokeWithResponseSchema(
+		"check_claude_login",
+		CompiledAgentLoginStatusSchema,
+	);
+
+/**
+ * Returns the complete Claude status needed for the first render.
+ *
+ * @example
+ * checkClaudeInitStatus();
+ */
+const checkClaudeInitStatus = () =>
+	invokeWithResponseSchema(
+		"check_claude_init_status",
+		CompiledAgentRuntimeStatusSchema,
+	);
+
+/**
+ * Reads Claude model settings without repeating its authentication command.
+ *
+ * @example
+ * getClaudeRuntimeConfig();
+ */
+const getClaudeRuntimeConfig = () =>
+	invokeWithResponseSchema(
+		"get_claude_runtime_config",
+		CompiledAgentRuntimeConfigSchema,
+	);
 
 /**
  * Subscribes to changes in the user-level Claude runtime settings.
@@ -11,8 +44,14 @@ const checkClaudeLogin = () => invoke<AgentRuntimeStatus>("check_claude_login");
  * @example
  * onClaudeConfigChanged(refreshClaudeStatus);
  */
-const onClaudeConfigChanged = (listener: () => void) =>
-	listen<void>("claude-config-changed", listener);
+const onClaudeConfigChanged = (
+	listener: (config: AgentRuntimeConfig) => void,
+) =>
+	listenWithResponseSchema(
+		"claude-config-changed",
+		CompiledAgentRuntimeConfigSchema,
+		listener,
+	);
 
 /**
  * Sends one natural-language task to the local Claude Code runtime.
@@ -21,6 +60,14 @@ const onClaudeConfigChanged = (listener: () => void) =>
  * runClaudeTask("解释这个仓库");
  */
 const runClaudeTask = (query: string) =>
-	invoke<AgentRunResult>("run_claude_task", { request: { query } });
+	invokeWithResponseSchema("run_claude_task", CompiledAgentRunResultSchema, {
+		request: { query },
+	});
 
-export { checkClaudeLogin, onClaudeConfigChanged, runClaudeTask };
+export {
+	checkClaudeInitStatus,
+	checkClaudeLogin,
+	getClaudeRuntimeConfig,
+	onClaudeConfigChanged,
+	runClaudeTask,
+};

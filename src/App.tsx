@@ -1,7 +1,7 @@
 import { Toast } from "@heroui/react";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { queryClient } from "./queries/client";
-import { AppRouter } from "./routers";
+import { queryClient } from "@/queries/client";
+import { AppRouter } from "@/routers";
 
 const App = () => (
 	<QueryClientProvider client={queryClient}>
