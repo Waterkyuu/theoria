@@ -18,8 +18,7 @@
 
   <p>
     <a href="#产品预览">产品预览</a> ·
-    <a href="#功能亮点">功能亮点</a> ·
-    <a href="#开发指南">开发指南</a>
+    <a href="#功能亮点">功能亮点</a>
   </p>
 </div>
 
@@ -76,27 +75,3 @@ Theoria 是一款面向 AI 编程 Agent 的桌面工作台。它会为每个候�
 | Benchmark 工作流 | 围绕固定快照、测试用例与候选 Agent 组织可复现的对比任务 |
 | 本地优先 | 基于 Tauri 运行，Workspace、任务记录和评测数据保存在本机 |
 | 国际化 | 内置简体中文和英文界面，前后端错误信息均支持本地化 |
-
-## 开发指南
-
-### 常用命令
-
-| 命令 | 用途 |
-| --- | --- |
-| `pnpm tauri dev` | 启动 Tauri 桌面开发环境 |
-| `pnpm dev` | 仅启动 Vite 前端开发服务器 |
-| `pnpm test` | 运行 Vitest 测试 |
-| `pnpm test:coverage` | 生成前端测试覆盖率 |
-| `pnpm typecheck` | 检查前端与 Node 配置类型 |
-| `pnpm check` | 运行 Biome 格式与代码检查 |
-| `cargo check --manifest-path src-tauri/Cargo.toml` | 检查 Rust 后端 |
-| `pnpm build` | 执行类型检查并构建前端 |
-
-提交前建议运行完整检查：
-
-```bash
-pnpm check
-pnpm test
-pnpm build
-cargo check --manifest-path src-tauri/Cargo.toml
-```
