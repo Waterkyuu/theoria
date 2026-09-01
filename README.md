@@ -60,7 +60,8 @@ Theoria is a desktop workspace for AI coding agents. It gives every selected age
 
 It supports everyday multi-agent development workflows and provides consistent environments, run history, and skill configuration for repeatable capability evaluations.
 
-> Note: This project is not yet complete and remains under active development.
+> [!WARNING]
+> This project is not yet complete and remains under active development.
 
 ## Highlights
 
