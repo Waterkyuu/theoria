@@ -1,0 +1,115 @@
+name: Translate README
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - README.md
+  schedule:
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: translate-readme
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  translate:
+    name: Update Chinese README
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Translate and commit README
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          source_commit="$(git log -1 --format=%H -- README.md)"
+          translation_commit="$(git log -1 --format=%H -- README.zh-CN.md)"
+
+          if [[ -n "${translation_commit}" ]] && git merge-base --is-ancestor "${source_commit}" "${translation_commit}"; then
+            echo "Chinese README is already current."
+            exit 0
+          fi
+
+          if [[ -z "${DEEPSEEK_API_KEY}" ]]; then
+            echo "DEEPSEEK_API_KEY repository secret is required." >&2
+            exit 1
+          fi
+
+          request_path="${RUNNER_TEMP}/readme-translation-request.json"
+          response_path="${RUNNER_TEMP}/readme-translation-response.json"
+
+          jq -n \
+            --rawfile source README.md \
+            --rawfile existing README.zh-CN.md \
+            '{
+              model: "deepseek-v4-flash",
+              thinking: { type: "disabled" },
+              messages: [
+                {
+                  role: "system",
+                  content: (
+                    "Translate the English README into natural Simplified Chinese. "
+                    + "Return only the complete translated Markdown without code fences or commentary. "
+                    + "Preserve all Markdown and HTML structure, URLs, relative paths, image sources, badges, and code exactly. "
+                    + "Keep product and technology names in their established form. "
+                    + "Translate prose, headings, table text, image alt text, and captions consistently with the existing Chinese README. "
+                    + "In the language selector, link English to ./README.md and show 简体中文 as bold plain text."
+                  )
+                },
+                {
+                  role: "user",
+                  content: (
+                    "Existing Chinese README for terminology and style reference:\n\n"
+                    + $existing
+                    + "\n\nEnglish README to translate:\n\n"
+                    + $source
+                  )
+                }
+              ]
+            }' > "${request_path}"
+
+          if ! curl --silent --show-error --fail-with-body \
+            --retry 3 --retry-all-errors \
+            https://api.deepseek.com/chat/completions \
+            -H "Authorization: Bearer ${DEEPSEEK_API_KEY}" \
+            -H "Content-Type: application/json" \
+            --data-binary "@${request_path}" \
+            --output "${response_path}"; then
+            if [[ -s "${response_path}" ]]; then
+              jq -r '.error.message // "DeepSeek API request failed."' "${response_path}" >&2
+            fi
+            exit 1
+          fi
+
+          jq -er '
+            if .choices[0].finish_reason != "stop" then
+              error("DeepSeek response did not finish normally")
+            else
+              .choices[0].message.content
+              | select(type == "string" and length > 0)
+            end
+          ' "${response_path}" > README.zh-CN.md
+
+          if git diff --quiet -- README.zh-CN.md; then
+            echo "Chinese README content did not change."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.zh-CN.md
+          git commit -m "docs(readme): update Chinese translation"
+          git push
