@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 88" role="img" aria-labelledby="title">
+  <title id="title">Theoria</title>
+  <style>
+    .wordmark {
+      fill: #000;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 72px;
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+  </style>
+  <text class="wordmark" x="150" y="68" text-anchor="middle">Theoria</text>
+</svg>
