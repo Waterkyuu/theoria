@@ -2,8 +2,11 @@
   <img src="./assets/theoria.png" alt="Theoria" width="144" />
 
   <h1>Theoria</h1>
-  <p><strong>让多个 AI Agent 在同一起跑线上解决问题</strong></p>
-  <p>本地优先的 AI 编程 Agent 并行运行与可复现评测工作台</p>
+
+  <p><strong>English</strong> | <a href="./README.zh-CN.md">简体中文</a></p>
+
+  <p><strong>Put every AI agent on the same starting line</strong></p>
+  <p>A local-first desktop workspace for parallel AI coding agents and reproducible evaluations</p>
 
   <p>
     <img src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white" alt="Tauri 2" />
@@ -14,82 +17,82 @@
   </p>
 
   <p>
-    <a href="#产品预览">产品预览</a> ·
-    <a href="#功能亮点">功能亮点</a> ·
-    <a href="#开发指南">开发指南</a>
+    <a href="#product-preview">Product Preview</a> ·
+    <a href="#highlights">Highlights</a> ·
+    <a href="#development">Development</a>
   </p>
 </div>
 
 ---
 
-## 产品预览
+## Product Preview
 
 <table>
   <tr>
     <td colspan="2" align="center">
       <a href="./assets/page1.png">
-        <img src="./assets/page1.png" alt="Theoria 多 Agent 并行运行界面" width="100%" />
+        <img src="./assets/page1.png" alt="Parallel agent runs in Theoria" width="100%" />
       </a>
       <br />
-      <sub>在同一任务中并行运行多个 Agent，实时查看状态、回复与工具调用</sub>
+      <sub>Run multiple agents on the same task and follow their status, responses, and tool calls in real time</sub>
     </td>
   </tr>
   <tr>
     <td width="50%" align="center">
       <a href="./assets/page2.png">
-        <img src="./assets/page2.png" alt="Theoria Skills 管理界面" width="100%" />
+        <img src="./assets/page2.png" alt="Skill management in Theoria" width="100%" />
       </a>
       <br />
-      <sub>集中管理并按 Workspace 挂载 Skills</sub>
+      <sub>Manage skills centrally and mount them into workspaces</sub>
     </td>
     <td width="50%" align="center">
       <a href="./assets/page3.png">
-        <img src="./assets/page3.png" alt="Theoria Benchmarks 管理界面" width="100%" />
+        <img src="./assets/page3.png" alt="Benchmark management in Theoria" width="100%" />
       </a>
       <br />
-      <sub>组织可复现的 Benchmark 对比任务</sub>
+      <sub>Organize reproducible benchmark comparisons</sub>
     </td>
   </tr>
 </table>
 
-## 关于 Theoria
+## About Theoria
 
-Theoria 是一款面向 AI 编程 Agent 的桌面工作台。它会为每个候选 Agent 创建相同的 Workspace 快照和相互隔离的执行目录，让 Codex、Claude Code、OpenCode 与 WorkBuddy 能够并行处理同一任务，并将过程、结果和文件变更放在一个界面中对比。
+Theoria is a desktop workspace for AI coding agents. It gives every selected agent the same workspace snapshot and an isolated execution directory, allowing Codex, Claude Code, OpenCode, and WorkBuddy to solve one task in parallel while their progress, results, and file changes remain easy to compare.
 
-它既适合日常开发中的多 Agent 协作，也为可重复执行的能力评测提供一致的运行环境、历史记录和 Skills 配置。
+It supports everyday multi-agent development workflows and provides consistent environments, run history, and skill configuration for repeatable capability evaluations.
 
-> 注意：目前项目尚未完成，仍在开发阶段。
+> Note: This project is not yet complete and remains under active development.
 
-## 功能亮点
+## Highlights
 
-| 能力 | 说明 |
+| Capability | Description |
 | --- | --- |
-| 多 Agent 并行 | 在同一任务中选择最多 6 个 Agent，并行运行 Codex、Claude Code、OpenCode 与 WorkBuddy |
-| 隔离执行环境 | 从不可变 Workspace 快照启动，每个 Agent 使用独立工作目录，避免相互污染 |
-| 过程可观测 | 实时查看运行状态、流式输出、工具调用、Token 用量与耗时，并可单独或批量停止 |
-| 连续协作 | 保留 Agent 会话上下文，支持针对全部或指定 Agent 继续追问 |
-| 结果对比 | 汇总最终回复与文件变更，持久化运行记录，便于回看不同 Agent 的表现 |
-| Skills 管理 | 管理本地或 Git 来源的 Skills，并按需挂载到一个或多个 Workspace |
-| Benchmark 工作流 | 围绕固定快照、测试用例与候选 Agent 组织可复现的对比任务 |
-| 本地优先 | 基于 Tauri 运行，Workspace、任务记录和评测数据保存在本机 |
-| 国际化 | 内置简体中文和英文界面，前后端错误信息均支持本地化 |
+| Parallel agents | Run up to six agents on one task, including Codex, Claude Code, OpenCode, and WorkBuddy |
+| Isolated execution | Start from an immutable workspace snapshot and give each agent its own working directory |
+| Observable progress | Follow status, streaming output, tool calls, token usage, and duration; stop one agent or all of them |
+| Continued collaboration | Preserve agent sessions and send follow-up prompts to every agent or a selected subset |
+| Result comparison | Collect final responses and file changes, then persist run history for later review |
+| Skill management | Manage skills from local or Git sources and mount them into one or more workspaces |
+| Benchmark workflows | Organize reproducible comparisons around fixed snapshots, test cases, and selected agents |
+| Local-first data | Keep workspaces, task history, and evaluation data on the local machine through Tauri |
+| Internationalization | Use the built-in Simplified Chinese and English interfaces with localized frontend and backend errors |
 
-## 开发指南
+## Development
 
-### 常用命令
+### Commands
 
-| 命令 | 用途 |
+| Command | Purpose |
 | --- | --- |
-| `pnpm tauri dev` | 启动 Tauri 桌面开发环境 |
-| `pnpm dev` | 仅启动 Vite 前端开发服务器 |
-| `pnpm test` | 运行 Vitest 测试 |
-| `pnpm test:coverage` | 生成前端测试覆盖率 |
-| `pnpm typecheck` | 检查前端与 Node 配置类型 |
-| `pnpm check` | 运行 Biome 格式与代码检查 |
-| `cargo check --manifest-path src-tauri/Cargo.toml` | 检查 Rust 后端 |
-| `pnpm build` | 执行类型检查并构建前端 |
+| `pnpm tauri dev` | Start the Tauri desktop development environment |
+| `pnpm dev` | Start only the Vite frontend development server |
+| `pnpm test` | Run the Vitest test suite |
+| `pnpm test:coverage` | Generate frontend test coverage |
+| `pnpm typecheck` | Check frontend and Node configuration types |
+| `pnpm check` | Run Biome formatting and code checks |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | Check the Rust backend |
+| `pnpm build` | Type-check and build the frontend |
 
-提交前建议运行完整检查：
+Run the complete check suite before committing:
 
 ```bash
 pnpm check
