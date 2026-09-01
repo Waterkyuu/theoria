@@ -16,7 +16,6 @@
   <p>
     <a href="#产品预览">产品预览</a> ·
     <a href="#功能亮点">功能亮点</a> ·
-    <a href="#快速开始">快速开始</a> ·
     <a href="#开发指南">开发指南</a> ·
     <a href="#项目结构">项目结构</a> ·
     <a href="#构建与发布">构建与发布</a>
@@ -77,28 +76,6 @@ Theoria 是一款面向 AI 编程 Agent 的桌面工作台。它会为每个候�
 | Benchmark 工作流 | 围绕固定快照、测试用例与候选 Agent 组织可复现的对比任务 |
 | 本地优先 | 基于 Tauri 运行，Workspace、任务记录和评测数据保存在本机 |
 | 国际化 | 内置简体中文和英文界面，前后端错误信息均支持本地化 |
-
-## 快速开始
-
-### 环境要求
-
-- Node.js 与 Corepack
-- Rust stable 工具链
-- [Tauri 2 对应平台的系统依赖](https://v2.tauri.app/start/prerequisites/)
-- pnpm 11（项目会通过 Corepack 使用 `package.json` 中声明的版本）
-- 至少安装并登录一个受支持的本地 Agent CLI
-
-### 启动开发环境
-
-```bash
-git clone <repository-url>
-cd theoria
-corepack enable
-pnpm install
-pnpm tauri dev
-```
-
-首次启动后，添加一个本地 Workspace，选择已就绪的 Agent，即可创建并运行任务。
 
 ## 开发指南
 
