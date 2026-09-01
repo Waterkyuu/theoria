@@ -17,7 +17,6 @@
     <a href="#产品预览">产品预览</a> ·
     <a href="#功能亮点">功能亮点</a> ·
     <a href="#开发指南">开发指南</a> ·
-    <a href="#项目结构">项目结构</a> ·
     <a href="#构建与发布">构建与发布</a>
   </p>
 </div>
@@ -98,28 +97,6 @@ pnpm check
 pnpm test
 pnpm build
 cargo check --manifest-path src-tauri/Cargo.toml
-```
-
-## 项目结构
-
-```text
-theoria/
-├── assets/                 # README 品牌素材与产品截图
-├── src/
-│   ├── api/                # Tauri IPC 调用与响应校验
-│   ├── components/         # 通用界面组件
-│   ├── i18n/               # 前端国际化资源
-│   ├── pages/              # Task、Runs、Skills、Benchmarks 等页面
-│   ├── queries/            # TanStack Query 数据访问层
-│   ├── routers/            # 应用路由
-│   └── types/              # 前端领域类型与 Zod Schema
-├── src-tauri/
-│   ├── src/adapters/       # 各 Agent CLI 与系统能力适配器
-│   ├── src/commands/       # 暴露给前端的 Tauri Commands
-│   ├── src/repositories/   # SQLite 持久化访问层
-│   ├── src/services/       # 任务、快照、执行与结果领域服务
-│   └── tauri.conf.json     # 桌面窗口与打包配置
-└── package.json
 ```
 
 ## 构建与发布
