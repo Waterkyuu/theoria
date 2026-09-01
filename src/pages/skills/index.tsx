@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Puzzle } from "@gravity-ui/icons";
+import { BarsDescendingAlignCenter, Check, Puzzle } from "@gravity-ui/icons";
 import { Button, Input, Label, TextField } from "@heroui/react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { cn } from "cnfast";
@@ -19,25 +19,23 @@ import {
 import type { Skill } from "@/types/skill";
 import { WorkspaceMountModal } from "./components/workspace-mount-modal";
 
-const SKILL_FILTERS = ["all", "mounted", "local", "github"] as const;
+const SKILL_SOURCE_FILTERS = ["git", "platform", "local_folder"] as const;
+const SKILL_FILTERS = ["all", "mounted", ...SKILL_SOURCE_FILTERS] as const;
 type SkillFilter = (typeof SKILL_FILTERS)[number];
 
 type LibrarySkill = Skill & {
-	/** Existing UI source grouping derived from the persisted source type. */
-	source: "local" | "github";
 	/** Number of persisted Workspace mount relationships. */
 	mountedCount: number;
 };
 
 /**
- * Adapts persisted Skill metadata to the existing Skill Library presentation.
+ * Adds persisted mount usage to the Skill record without collapsing its exact source type.
  *
  * @example
  * toLibrarySkill(skill, 2);
  */
 const toLibrarySkill = (skill: Skill, mountedCount: number): LibrarySkill => ({
 	...skill,
-	source: skill.sourceType === "git" ? "github" : "local",
 	mountedCount,
 });
 
@@ -70,13 +68,13 @@ const SkillsPage = () => {
 			...skill,
 			accessLabel: t("skills.access.read"),
 			name: skill.folderName,
-			sourceLabel: t(`skills.source.${skill.source}`),
+			sourceLabel: t(`skills.source.${skill.sourceType}`),
 		}));
 	const visibleSkills = localizedSkills.filter((skill) => {
 		const matchesFilter =
 			activeFilter === "all" ||
 			(activeFilter === "mounted" && skill.mountedCount > 0) ||
-			skill.source === activeFilter;
+			skill.sourceType === activeFilter;
 		const searchableText = [
 			skill.name,
 			skill.displayName,
@@ -183,14 +181,49 @@ const SkillsPage = () => {
 					/>
 				</div>
 
-				<Input
-					aria-label={t("skills.searchPlaceholder")}
-					className="mt-[18px] h-10 w-full max-w-130 rounded-md border border-hairline bg-surface-card px-[14px] text-body-sm text-ink outline-none placeholder:text-mute focus:border-hairline-strong focus-visible:ring-2 focus-visible:ring-focus-ring"
-					onChange={(event) => setSearchValue(event.target.value)}
-					placeholder={t("skills.searchPlaceholder")}
-					type="search"
-					value={searchValue}
-				/>
+				<div className="flex items-start gap-sm">
+					<Input
+						aria-label={t("skills.searchPlaceholder")}
+						className="mt-[18px] h-10 w-full max-w-130 rounded-md border border-hairline bg-surface-card px-[14px] text-body-sm text-ink outline-none placeholder:text-mute focus:border-hairline-strong focus-visible:ring-2 focus-visible:ring-focus-ring"
+						onChange={(event) => setSearchValue(event.target.value)}
+						placeholder={t("skills.searchPlaceholder")}
+						type="search"
+						value={searchValue}
+					/>
+					<DropdownMenu
+						headerKey="skills.filterMenu.title"
+						itemClassName="min-w-40"
+						items={SKILL_SOURCE_FILTERS.map((filter) => ({
+							icon: (
+								<Check
+									aria-hidden="true"
+									className={cn(
+										"size-4",
+										activeFilter !== filter && "invisible",
+									)}
+								/>
+							),
+							id: filter,
+							labelKey: `skills.filters.${filter}`,
+						}))}
+						onAction={setActiveFilter}
+						placement="bottom end"
+						trigger={
+							<Button
+								aria-label={t("skills.filterMenu.title")}
+								className="mt-[18px] size-10 min-w-10 shrink-0 cursor-pointer rounded-md border border-hairline bg-surface-card p-0 text-charcoal shadow-none outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
+								isIconOnly
+								size="sm"
+								variant="ghost"
+							>
+								<BarsDescendingAlignCenter
+									aria-hidden="true"
+									className="size-4"
+								/>
+							</Button>
+						}
+					/>
+				</div>
 
 				<div className="mt-[14px] flex flex-wrap gap-sm">
 					{SKILL_FILTERS.map((filter) => (

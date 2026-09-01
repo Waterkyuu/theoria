@@ -86,6 +86,16 @@ const SKILLS = [
 		createdAtMs: 2,
 		updatedAtMs: 2,
 	},
+	{
+		id: "skill-3",
+		folderName: "release-notes",
+		displayName: "Release Notes",
+		description: "根据仓库历史生成发布说明。",
+		sourceType: "platform",
+		sourcePath: null,
+		createdAtMs: 3,
+		updatedAtMs: 3,
+	},
 ] as const;
 
 describe("SkillsPage", () => {
@@ -269,21 +279,55 @@ describe("SkillsPage", () => {
 		render(<SkillsPage />);
 
 		expect(screen.getByRole("heading", { name: "技能" })).toBeInTheDocument();
-		expect(screen.getAllByRole("row")).toHaveLength(3);
+		expect(screen.getAllByRole("row")).toHaveLength(4);
 		expect(screen.getByText("repository-map")).toBeInTheDocument();
 		expect(screen.getByText("test-runner")).toBeInTheDocument();
+		expect(screen.getByText("release-notes")).toBeInTheDocument();
 		expect(screen.getByText("已挂载 2 个")).toBeInTheDocument();
 	});
 
-	it("filters persisted Skills by source and search text", async () => {
+	it("filters persisted Skills by exact source and search text", async () => {
 		const user = userEvent.setup();
 		render(<SkillsPage />);
 
-		await user.click(screen.getByRole("button", { name: "本地" }));
+		expect(
+			screen.getByRole("button", { name: "文件导入" }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "平台创建" }),
+		).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Git" })).toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "筛选技能" }));
+		const filterMenu = screen.getByRole("menu");
+		expect(within(filterMenu).getAllByRole("menuitem")).toHaveLength(3);
+		expect(
+			within(filterMenu).getByRole("menuitem", { name: "文件导入" }),
+		).toBeInTheDocument();
+		expect(
+			within(filterMenu).getByRole("menuitem", { name: "平台创建" }),
+		).toBeInTheDocument();
+		expect(
+			within(filterMenu).getByRole("menuitem", { name: "Git" }),
+		).toBeInTheDocument();
+
+		await user.click(
+			within(filterMenu).getByRole("menuitem", { name: "文件导入" }),
+		);
 		expect(screen.getByText("repository-map")).toBeInTheDocument();
 		expect(screen.queryByText("test-runner")).not.toBeInTheDocument();
+		expect(screen.queryByText("release-notes")).not.toBeInTheDocument();
 
-		await user.click(screen.getByRole("button", { name: "全部" }));
+		await user.click(screen.getByRole("button", { name: "平台创建" }));
+		expect(screen.getByText("release-notes")).toBeInTheDocument();
+		expect(screen.queryByText("repository-map")).not.toBeInTheDocument();
+		expect(screen.queryByText("test-runner")).not.toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "Git" }));
+		expect(screen.getByText("test-runner")).toBeInTheDocument();
+		expect(screen.queryByText("repository-map")).not.toBeInTheDocument();
+		expect(screen.queryByText("release-notes")).not.toBeInTheDocument();
+
 		await user.type(
 			screen.getByRole("searchbox", { name: "按名称、来源或能力搜索" }),
 			"测试命令",
