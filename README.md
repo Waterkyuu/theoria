@@ -18,8 +18,7 @@
 
   <p>
     <a href="#product-preview">Product Preview</a> ·
-    <a href="#highlights">Highlights</a> ·
-    <a href="#development">Development</a>
+    <a href="#highlights">Highlights</a>
   </p>
 </div>
 
@@ -76,27 +75,3 @@ It supports everyday multi-agent development workflows and provides consistent e
 | Benchmark workflows | Organize reproducible comparisons around fixed snapshots, test cases, and selected agents |
 | Local-first data | Keep workspaces, task history, and evaluation data on the local machine through Tauri |
 | Internationalization | Use the built-in Simplified Chinese and English interfaces with localized frontend and backend errors |
-
-## Development
-
-### Commands
-
-| Command | Purpose |
-| --- | --- |
-| `pnpm tauri dev` | Start the Tauri desktop development environment |
-| `pnpm dev` | Start only the Vite frontend development server |
-| `pnpm test` | Run the Vitest test suite |
-| `pnpm test:coverage` | Generate frontend test coverage |
-| `pnpm typecheck` | Check frontend and Node configuration types |
-| `pnpm check` | Run Biome formatting and code checks |
-| `cargo check --manifest-path src-tauri/Cargo.toml` | Check the Rust backend |
-| `pnpm build` | Type-check and build the frontend |
-
-Run the complete check suite before committing:
-
-```bash
-pnpm check
-pnpm test
-pnpm build
-cargo check --manifest-path src-tauri/Cargo.toml
-```
