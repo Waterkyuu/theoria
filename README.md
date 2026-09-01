@@ -1,7 +1,7 @@
 <div align="center">
   <img src="./assets/theoria.png" alt="Theoria" width="144" />
 
-  <h1>Theoria</h1>
+  <h1><img src="./assets/theoria-wordmark.svg" alt="Theoria" width="210" /></h1>
 
   <p><strong>English</strong> | <a href="./README.zh-CN.md">简体中文</a></p>
 
