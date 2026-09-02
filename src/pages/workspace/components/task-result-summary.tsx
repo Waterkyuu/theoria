@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { ArrowsExpand, ChevronsCollapseUpRight } from "@gravity-ui/icons";
+import {
+	ChevronsCollapseUpRight,
+	ChevronsExpandUpRight,
+} from "@gravity-ui/icons";
 import { Table } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
@@ -127,7 +130,7 @@ const TaskResultSummary = ({ onClose, task }: TaskResultSummaryProps) => {
 						{isFullscreen ? (
 							<ChevronsCollapseUpRight aria-hidden="true" className="size-4" />
 						) : (
-							<ArrowsExpand aria-hidden="true" className="size-4" />
+							<ChevronsExpandUpRight aria-hidden="true" className="size-4" />
 						)}
 					</button>
 					<button
