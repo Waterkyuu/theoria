@@ -414,6 +414,25 @@ describe("WorkspacePage", () => {
 		expect(screen.queryByText("最佳 Agent")).not.toBeInTheDocument();
 	});
 
+	it("toggles the result summary between split and full-screen layouts", async () => {
+		const user = userEvent.setup();
+		apiMocks.useTask.mockReturnValue({ data: RESTORED_TASK, isLoading: false });
+		render(<WorkspacePage taskId="task-42" />);
+
+		await user.click(screen.getByRole("button", { name: "查看结果汇总" }));
+		await user.click(screen.getByRole("button", { name: "全屏查看" }));
+
+		const summary = screen.getByRole("complementary", { name: "结果汇总" });
+		expect(summary).toHaveClass("fixed", "inset-0", "w-full");
+
+		await user.click(screen.getByRole("button", { name: "退出全屏" }));
+
+		expect(summary).not.toHaveClass("fixed");
+		expect(
+			screen.getByRole("button", { name: "全屏查看" }),
+		).toBeInTheDocument();
+	});
+
 	it("continues the restored Task for all or one existing Agent", async () => {
 		const user = userEvent.setup();
 		apiMocks.useTask.mockReturnValue({ data: RESTORED_TASK, isLoading: false });

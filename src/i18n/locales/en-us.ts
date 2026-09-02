@@ -219,6 +219,8 @@ const enUS = {
 			title: "Result summary",
 			open: "View result summary",
 			close: "Close",
+			enterFullscreen: "Enter full screen",
+			exitFullscreen: "Exit full screen",
 			readOnly: "Read-only Task comparison",
 			metric: "Metric",
 			status: "Status",
