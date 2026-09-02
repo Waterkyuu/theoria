@@ -274,10 +274,22 @@ const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 
 				<nav
 					aria-label={t("workspaceSidebar.appSettings")}
-					className="absolute inset-x-[14px] bottom-0 z-10 flex items-center gap-sm bg-surface-soft p-[10px] text-body-sm max-md:hidden"
+					className="absolute inset-x-[14px] bottom-0 z-10 bg-surface-soft p-[4px] text-body-sm max-md:hidden"
 				>
-					<Gear aria-hidden="true" className="size-4 shrink-0" />
-					<span>{t("workspaceSidebar.appSettings")}</span>
+					<button
+						aria-current={
+							currentPath.startsWith("/settings") ? "page" : undefined
+						}
+						className={cn(
+							"flex h-9 w-full items-center gap-sm rounded-md px-sm text-left text-ink outline-none transition-colors hover:bg-hairline focus-visible:ring-2 focus-visible:ring-focus-ring active:translate-y-px",
+							currentPath.startsWith("/settings") && "bg-hairline font-medium",
+						)}
+						onClick={() => onNavigate("/settings")}
+						type="button"
+					>
+						<Gear aria-hidden="true" className="size-4 shrink-0" />
+						<span>{t("workspaceSidebar.appSettings")}</span>
+					</button>
 				</nav>
 			</aside>
 
