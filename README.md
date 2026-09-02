@@ -39,6 +39,22 @@
   </tr>
   <tr>
     <td width="50%" align="center">
+      <a href="./assets/page4.png">
+        <img src="./assets/page4.png" alt="Agent run board in Theoria" width="100%" />
+      </a>
+      <br />
+      <sub>Monitor every Agent task at a glance with searchable lifecycle columns</sub>
+    </td>
+    <td width="50%" align="center">
+      <a href="./assets/page5.png">
+        <img src="./assets/page5.png" alt="Agent result summary in Theoria" width="100%" />
+      </a>
+      <br />
+      <sub>Compare completion, latency, token usage, tool calls, and file changes side by side</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
       <a href="./assets/page2.png">
         <img src="./assets/page2.png" alt="Skill management in Theoria" width="100%" />
       </a>

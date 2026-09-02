@@ -39,6 +39,22 @@
   </tr>
   <tr>
     <td width="50%" align="center">
+      <a href="./assets/page4.png">
+        <img src="./assets/page4.png" alt="Theoria Agent 运行看板" width="100%" />
+      </a>
+      <br />
+      <sub>通过可搜索的状态看板，集中掌握每个 Agent 任务的运行进度</sub>
+    </td>
+    <td width="50%" align="center">
+      <a href="./assets/page5.png">
+        <img src="./assets/page5.png" alt="Theoria Agent 结果汇总" width="100%" />
+      </a>
+      <br />
+      <sub>横向对比完成状态、耗时、Token 用量、工具调用与文件变更</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
       <a href="./assets/page2.png">
         <img src="./assets/page2.png" alt="Theoria Skills 管理界面" width="100%" />
       </a>
