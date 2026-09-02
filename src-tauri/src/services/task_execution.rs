@@ -725,7 +725,7 @@ fn aggregate_status(statuses: &[TaskStatus]) -> TaskStatus {
 
 /// Saturates duration values at the persisted JSON integer boundary.
 fn duration_millis(duration: Duration) -> u64 {
-    u64::try_from(duration.as_millis()).map_or(u64::MAX, |milliseconds| milliseconds)
+    u64::try_from(duration.as_millis()).unwrap_or(u64::MAX)
 }
 
 /// Returns a positive Unix millisecond timestamp for lifecycle persistence.

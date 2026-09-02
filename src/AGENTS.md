@@ -68,7 +68,7 @@ typeof xxx === 'string' || typeof xxx === 'function'
 
 ### Do Not Implement Error Handling Separately
 
-1. Shared error handling must be encapsulated in `src/utils/error.ts` and called consistently.
+1. Shared error handling must be encapsulated in `src/utils/error.ts` and called consistently. use `handleError()` to handle error.
 
 ### TypeScript
 

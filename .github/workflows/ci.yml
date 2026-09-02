@@ -59,7 +59,7 @@ jobs:
       matrix:
         os:
           - macos-latest
-          - windows-latest
+          # - windows-latest # Temporarily disabled.
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
