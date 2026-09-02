@@ -256,6 +256,9 @@ const enUS = {
 			firstToken: "First token",
 			tokens: "Total tokens",
 			toolCalls: "Tool calls",
+			toolCall: "Call {{sequence}}",
+			expandToolCalls: "Expand tool call details",
+			collapseToolCalls: "Collapse tool call details",
 			files: "File changes",
 			fileCounts:
 				"Added {{added}} · Modified {{modified}} · Deleted {{deleted}}",
