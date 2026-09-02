@@ -2,7 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import "@/i18n";
+import i18n from "@/i18n";
 import RunBoardPage from ".";
 
 const apiMocks = vi.hoisted(() => ({
@@ -133,6 +133,21 @@ describe("RunBoardPage", () => {
 
 		expect(within(card).queryByText("运行中")).not.toBeInTheDocument();
 		expect(within(card).getByText("正在执行")).toBeInTheDocument();
+	});
+
+	it("uses the concise English label for successful runs", async () => {
+		await i18n.changeLanguage("en-US");
+		render(<RunBoardPage />);
+
+		const cards = await screen.findAllByRole("article");
+		const finishedCard = cards.find((card) =>
+			within(card).queryByText("WorkBuddy"),
+		);
+
+		expect(finishedCard).toBeDefined();
+		expect(
+			within(finishedCard as HTMLElement).getByText("Successful"),
+		).toBeInTheDocument();
 	});
 
 	// Verifies that rapid input only applies the latest agent product name after the delay.

@@ -479,7 +479,7 @@ const enUS = {
 			statusDescription: {
 				running: "In progress",
 				waiting: "Needs an answer to continue",
-				finish: "Completed successfully",
+				finish: "Successful",
 				error: "Needs attention",
 			},
 		},
