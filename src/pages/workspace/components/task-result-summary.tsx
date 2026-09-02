@@ -103,7 +103,7 @@ const TaskResultSummary = ({ onClose, task }: TaskResultSummaryProps) => {
 			className={cn(
 				"flex shrink-0 flex-col bg-surface-card",
 				isFullscreen
-					? "fixed inset-0 z-50 w-full min-w-0"
+					? "fixed inset-x-0 bottom-0 top-11 z-50 w-full min-w-0"
 					: "h-full w-full min-w-0 border-l border-hairline max-md:absolute max-md:inset-y-[34px] max-md:right-0 max-md:z-30 max-md:h-auto max-md:w-[min(520px,calc(100%-1rem))] max-md:shadow-xl",
 			)}
 		>

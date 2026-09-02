@@ -423,7 +423,13 @@ describe("WorkspacePage", () => {
 		await user.click(screen.getByRole("button", { name: "全屏查看" }));
 
 		const summary = screen.getByRole("complementary", { name: "结果汇总" });
-		expect(summary).toHaveClass("fixed", "inset-0", "w-full");
+		expect(summary).toHaveClass(
+			"fixed",
+			"inset-x-0",
+			"bottom-0",
+			"top-11",
+			"w-full",
+		);
 
 		await user.click(screen.getByRole("button", { name: "退出全屏" }));
 
