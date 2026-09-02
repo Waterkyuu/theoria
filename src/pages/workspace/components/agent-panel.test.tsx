@@ -69,6 +69,29 @@ describe("AgentPanel", () => {
 		expect(screen.getByText("打开记录")).toBeInTheDocument();
 	});
 
+	it("renders Agent response Markdown as formatted content", () => {
+		render(
+			<AgentPanel
+				agent={{ ...RUNNING_AGENT, status: "completed" }}
+				onStop={vi.fn()}
+				prompt="核实最新的官方消息。"
+				result={{
+					...COMPLETE_RESULT,
+					responseText:
+						"截至 **2026 年 9 月 2 日**，OpenAI **尚未正式发布 GPT-6.0**。\n\n[OpenAI 官方模型目录](https://developers.openai.com/api/docs/models)",
+				}}
+				stopPending={false}
+			/>,
+		);
+
+		expect(
+			screen.getByText("尚未正式发布 GPT-6.0", { selector: "strong" }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("link", { name: "OpenAI 官方模型目录" }),
+		).toHaveAttribute("href", "https://developers.openai.com/api/docs/models");
+	});
+
 	it("keeps the existing Stop control available while an Agent is waiting", async () => {
 		const user = userEvent.setup();
 		const stopAgent = vi.fn();
