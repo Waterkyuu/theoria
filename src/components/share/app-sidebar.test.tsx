@@ -160,6 +160,20 @@ describe("AppSidebar", () => {
 		expect(onNavigate).toHaveBeenCalledWith("/agents");
 	});
 
+	it("opens App settings from the bottom navigation", async () => {
+		const user = userEvent.setup();
+		const onNavigate = vi.fn();
+		render(
+			<AppSidebar currentPath="/" onNavigate={onNavigate}>
+				<main>content</main>
+			</AppSidebar>,
+		);
+
+		await user.click(screen.getByRole("button", { name: "应用设置" }));
+
+		expect(onNavigate).toHaveBeenCalledWith("/settings");
+	});
+
 	it("renders workspace actions and tree item icons", () => {
 		render(
 			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
