@@ -216,6 +216,7 @@ const zhCN = {
 			close: "关闭",
 			enterFullscreen: "全屏查看",
 			exitFullscreen: "退出全屏",
+			resize: "调整结果汇总宽度",
 			readOnly: "只读 Task 级对比",
 			metric: "指标",
 			status: "状态",

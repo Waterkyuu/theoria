@@ -221,6 +221,7 @@ const enUS = {
 			close: "Close",
 			enterFullscreen: "Enter full screen",
 			exitFullscreen: "Exit full screen",
+			resize: "Resize result summary",
 			readOnly: "Read-only Task comparison",
 			metric: "Metric",
 			status: "Status",

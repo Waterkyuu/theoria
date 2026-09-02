@@ -433,6 +433,18 @@ describe("WorkspacePage", () => {
 		).toBeInTheDocument();
 	});
 
+	it("renders an accessible separator for resizing the result summary", async () => {
+		const user = userEvent.setup();
+		apiMocks.useTask.mockReturnValue({ data: RESTORED_TASK, isLoading: false });
+		render(<WorkspacePage taskId="task-42" />);
+
+		await user.click(screen.getByRole("button", { name: "查看结果汇总" }));
+
+		expect(
+			screen.getByRole("separator", { name: "调整结果汇总宽度" }),
+		).toBeInTheDocument();
+	});
+
 	it("continues the restored Task for all or one existing Agent", async () => {
 		const user = userEvent.setup();
 		apiMocks.useTask.mockReturnValue({ data: RESTORED_TASK, isLoading: false });

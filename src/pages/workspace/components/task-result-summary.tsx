@@ -101,7 +101,7 @@ const TaskResultSummary = ({ onClose, task }: TaskResultSummaryProps) => {
 				"flex shrink-0 flex-col bg-surface-card",
 				isFullscreen
 					? "fixed inset-0 z-50 w-full min-w-0"
-					: "w-[min(520px,48vw)] min-w-90 border-l border-hairline max-lg:absolute max-lg:inset-y-[34px] max-lg:right-0 max-lg:z-30 max-lg:w-[min(520px,calc(100%-1rem))] max-lg:shadow-xl",
+					: "h-full w-full min-w-0 border-l border-hairline max-md:absolute max-md:inset-y-[34px] max-md:right-0 max-md:z-30 max-md:h-auto max-md:w-[min(520px,calc(100%-1rem))] max-md:shadow-xl",
 			)}
 		>
 			<header className="flex h-12 shrink-0 items-center justify-between border-b border-hairline px-lg">
