@@ -1,3 +1,10 @@
+import { useState } from "react";
+import {
+	ChevronsCollapseUpRight,
+	ChevronsExpandUpRight,
+} from "@gravity-ui/icons";
+import { Table } from "@heroui/react";
+import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { AgentIcon } from "@/components/share/agent-icon";
 import type { TaskAgentResult, TaskDetail } from "@/types/task";
@@ -40,6 +47,7 @@ const formatDuration = (milliseconds: number | null, unavailable: string) => {
 /** Renders the documented read-only Task-level Comparison split. */
 const TaskResultSummary = ({ onClose, task }: TaskResultSummaryProps) => {
 	const { i18n, t } = useTranslation();
+	const [isFullscreen, setIsFullscreen] = useState(false);
 	const unavailable = t("taskSummary.unavailable");
 	const results = new Map(
 		task.results.map((result) => [result.taskAgentId, result]),
@@ -92,7 +100,12 @@ const TaskResultSummary = ({ onClose, task }: TaskResultSummaryProps) => {
 	return (
 		<aside
 			aria-label={t("taskSummary.title")}
-			className="flex w-[min(520px,48vw)] min-w-90 shrink-0 flex-col border-l border-hairline bg-surface-card max-lg:absolute max-lg:inset-y-[34px] max-lg:right-0 max-lg:z-30 max-lg:w-[min(520px,calc(100%-1rem))] max-lg:shadow-xl"
+			className={cn(
+				"flex shrink-0 flex-col bg-surface-card",
+				isFullscreen
+					? "fixed inset-x-0 bottom-0 top-11 z-50 w-full min-w-0"
+					: "h-full w-full min-w-0 border-l border-hairline max-md:absolute max-md:inset-y-[34px] max-md:right-0 max-md:z-30 max-md:h-auto max-md:w-[min(520px,calc(100%-1rem))] max-md:shadow-xl",
+			)}
 		>
 			<header className="flex h-12 shrink-0 items-center justify-between border-b border-hairline px-lg">
 				<div>
@@ -103,53 +116,80 @@ const TaskResultSummary = ({ onClose, task }: TaskResultSummaryProps) => {
 						{t("taskSummary.readOnly")}
 					</p>
 				</div>
-				<button
-					aria-label={t("taskSummary.close")}
-					className="rounded-md px-sm py-xs text-body-sm text-charcoal outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
-					onClick={onClose}
-					type="button"
-				>
-					{t("taskSummary.close")}
-				</button>
+				<div className="flex items-center gap-xs">
+					<button
+						aria-label={t(
+							isFullscreen
+								? "taskSummary.exitFullscreen"
+								: "taskSummary.enterFullscreen",
+						)}
+						className="grid size-8 place-items-center rounded-md text-charcoal outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
+						onClick={() => setIsFullscreen((fullscreen) => !fullscreen)}
+						type="button"
+					>
+						{isFullscreen ? (
+							<ChevronsCollapseUpRight aria-hidden="true" className="size-4" />
+						) : (
+							<ChevronsExpandUpRight aria-hidden="true" className="size-4" />
+						)}
+					</button>
+					<button
+						aria-label={t("taskSummary.close")}
+						className="rounded-md px-sm py-xs text-body-sm text-charcoal outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
+						onClick={onClose}
+						type="button"
+					>
+						{t("taskSummary.close")}
+					</button>
+				</div>
 			</header>
 			<div className="min-h-0 flex-1 overflow-auto p-lg">
-				<table className="w-full border-separate border-spacing-0 text-left text-body-sm">
-					<thead>
-						<tr>
-							<th className="sticky left-0 z-10 min-w-24 border-b border-hairline bg-surface-card pb-md pr-md font-medium text-mute">
-								{t("taskSummary.metric")}
-							</th>
-							{task.agents.map((agent) => (
-								<th
-									className="min-w-36 border-b border-hairline px-md pb-md font-medium text-ink"
-									key={agent.id}
+				<Table className="rounded-lg">
+					<Table.ScrollContainer>
+						<Table.Content
+							aria-label={t("taskSummary.title")}
+							className="min-w-max"
+						>
+							<Table.Header>
+								<Table.Column
+									className="sticky left-0 z-10 min-w-28 bg-surface-secondary"
+									isRowHeader
 								>
-									<span className="flex items-center gap-sm">
-										<AgentIcon height={16} name={agent.agentKind} width={16} />
-										<span>{t(`agentNames.${agent.agentKind}`)}</span>
-									</span>
-								</th>
-							))}
-						</tr>
-					</thead>
-					<tbody>
-						{rows.map((row) => (
-							<tr key={row.label}>
-								<th className="sticky left-0 z-10 border-b border-hairline bg-surface-card py-md pr-md font-medium text-charcoal">
-									{row.label}
-								</th>
+									{t("taskSummary.metric")}
+								</Table.Column>
 								{task.agents.map((agent) => (
-									<td
-										className="border-b border-hairline px-md py-md font-mono text-caption-sm tabular-nums text-ink"
-										key={agent.id}
-									>
-										{row.value(results.get(agent.id))}
-									</td>
+									<Table.Column className="min-w-36 text-ink" key={agent.id}>
+										<span className="flex items-center gap-sm">
+											<AgentIcon
+												height={16}
+												name={agent.agentKind}
+												width={16}
+											/>
+											<span>{t(`agentNames.${agent.agentKind}`)}</span>
+										</span>
+									</Table.Column>
 								))}
-							</tr>
-						))}
-					</tbody>
-				</table>
+							</Table.Header>
+							<Table.Body>
+								{rows.map((row) => (
+									<Table.Row key={row.label}>
+										<Table.Cell className="sticky left-0 z-10 bg-surface-card font-medium text-charcoal">
+											{row.label}
+										</Table.Cell>
+										{task.agents.map((agent) => (
+											<Table.Cell
+												className="font-mono text-caption-sm tabular-nums text-ink"
+												key={agent.id}
+											>
+												{row.value(results.get(agent.id))}
+											</Table.Cell>
+										))}
+									</Table.Row>
+								))}
+							</Table.Body>
+						</Table.Content>
+					</Table.ScrollContainer>
+				</Table>
 			</div>
 		</aside>
 	);

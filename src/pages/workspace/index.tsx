@@ -19,6 +19,7 @@ import {
 } from "@/pages/workspace/components/composer";
 import { FollowUpComposer } from "@/pages/workspace/components/follow-up-composer";
 import { TaskResultSummary } from "@/pages/workspace/components/task-result-summary";
+import { TaskSplitLayout } from "@/pages/workspace/components/task-split-layout";
 import { useSkills, useWorkspaceSkills } from "@/queries/skill";
 import {
 	useContinueTask,
@@ -220,7 +221,17 @@ const WorkspacePage = ({ workspaceId, taskId }: WorkspacePageProps) => {
 				</PageHeader>
 			) : null}
 
-			<div className="flex min-h-0 flex-1">
+			<TaskSplitLayout
+				resizerLabel={t("taskSummary.resize")}
+				summary={
+					task && isResultSummaryOpen ? (
+						<TaskResultSummary
+							onClose={() => setIsResultSummaryOpen(false)}
+							task={task}
+						/>
+					) : null
+				}
+			>
 				<section
 					className={cn(
 						"min-h-0 min-w-0 flex-1 overflow-y-auto px-4 pt-lg sm:px-xl sm:pt-xl",
@@ -271,13 +282,7 @@ const WorkspacePage = ({ workspaceId, taskId }: WorkspacePageProps) => {
 						</p>
 					) : null}
 				</section>
-				{task && isResultSummaryOpen ? (
-					<TaskResultSummary
-						onClose={() => setIsResultSummaryOpen(false)}
-						task={task}
-					/>
-				) : null}
-			</div>
+			</TaskSplitLayout>
 
 			{!task && !taskId ? (
 				<Composer
