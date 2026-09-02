@@ -395,7 +395,7 @@ describe("WorkspacePage", () => {
 		expect(screen.getByText("workspace.read")).toBeInTheDocument();
 	});
 
-	it("opens a read-only result summary split from the Task header", async () => {
+	it("opens a read-only HeroUI result summary table from the Task header", async () => {
 		const user = userEvent.setup();
 		apiMocks.useTask.mockReturnValue({ data: RESTORED_TASK, isLoading: false });
 		render(<WorkspacePage taskId="task-42" />);
@@ -403,6 +403,10 @@ describe("WorkspacePage", () => {
 		await user.click(screen.getByRole("button", { name: "查看结果汇总" }));
 
 		const summary = screen.getByRole("complementary", { name: "结果汇总" });
+		expect(summary.querySelector('[data-slot="table"]')).toBeInTheDocument();
+		expect(screen.getByRole("columnheader", { name: "指标" })).toHaveClass(
+			"bg-surface-secondary",
+		);
 		expect(summary).toHaveTextContent("Codex");
 		expect(summary).toHaveTextContent("1.25 s");
 		expect(summary).toHaveTextContent("1,200");

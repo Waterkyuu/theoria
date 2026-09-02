@@ -1,3 +1,4 @@
+import { Table } from "@heroui/react";
 import { useTranslation } from "react-i18next";
 import { AgentIcon } from "@/components/share/agent-icon";
 import type { TaskAgentResult, TaskDetail } from "@/types/task";
@@ -113,43 +114,52 @@ const TaskResultSummary = ({ onClose, task }: TaskResultSummaryProps) => {
 				</button>
 			</header>
 			<div className="min-h-0 flex-1 overflow-auto p-lg">
-				<table className="w-full border-separate border-spacing-0 text-left text-body-sm">
-					<thead>
-						<tr>
-							<th className="sticky left-0 z-10 min-w-24 border-b border-hairline bg-surface-card pb-md pr-md font-medium text-mute">
-								{t("taskSummary.metric")}
-							</th>
-							{task.agents.map((agent) => (
-								<th
-									className="min-w-36 border-b border-hairline px-md pb-md font-medium text-ink"
-									key={agent.id}
+				<Table className="rounded-lg">
+					<Table.ScrollContainer>
+						<Table.Content
+							aria-label={t("taskSummary.title")}
+							className="min-w-max"
+						>
+							<Table.Header>
+								<Table.Column
+									className="sticky left-0 z-10 min-w-28 bg-surface-secondary"
+									isRowHeader
 								>
-									<span className="flex items-center gap-sm">
-										<AgentIcon height={16} name={agent.agentKind} width={16} />
-										<span>{t(`agentNames.${agent.agentKind}`)}</span>
-									</span>
-								</th>
-							))}
-						</tr>
-					</thead>
-					<tbody>
-						{rows.map((row) => (
-							<tr key={row.label}>
-								<th className="sticky left-0 z-10 border-b border-hairline bg-surface-card py-md pr-md font-medium text-charcoal">
-									{row.label}
-								</th>
+									{t("taskSummary.metric")}
+								</Table.Column>
 								{task.agents.map((agent) => (
-									<td
-										className="border-b border-hairline px-md py-md font-mono text-caption-sm tabular-nums text-ink"
-										key={agent.id}
-									>
-										{row.value(results.get(agent.id))}
-									</td>
+									<Table.Column className="min-w-36 text-ink" key={agent.id}>
+										<span className="flex items-center gap-sm">
+											<AgentIcon
+												height={16}
+												name={agent.agentKind}
+												width={16}
+											/>
+											<span>{t(`agentNames.${agent.agentKind}`)}</span>
+										</span>
+									</Table.Column>
 								))}
-							</tr>
-						))}
-					</tbody>
-				</table>
+							</Table.Header>
+							<Table.Body>
+								{rows.map((row) => (
+									<Table.Row key={row.label}>
+										<Table.Cell className="sticky left-0 z-10 bg-surface-card font-medium text-charcoal">
+											{row.label}
+										</Table.Cell>
+										{task.agents.map((agent) => (
+											<Table.Cell
+												className="font-mono text-caption-sm tabular-nums text-ink"
+												key={agent.id}
+											>
+												{row.value(results.get(agent.id))}
+											</Table.Cell>
+										))}
+									</Table.Row>
+								))}
+							</Table.Body>
+						</Table.Content>
+					</Table.ScrollContainer>
+				</Table>
 			</div>
 		</aside>
 	);
