@@ -109,6 +109,31 @@ const zhCN = {
 			mountedSkills: "已挂载技能",
 			appSettings: "应用设置",
 		},
+		settings: {
+			title: "应用设置",
+			description: "管理应用的外观与语言偏好，修改会立即生效",
+			theme: {
+				title: "主题",
+				description: "选择应用使用浅色、深色或跟随系统外观",
+				menuTitle: "选择主题",
+				selectorLabel: "主题，当前：{{value}}",
+				options: {
+					system: "跟随系统",
+					light: "浅色",
+					dark: "深色",
+				},
+			},
+			language: {
+				title: "语言",
+				description: "选择应用界面使用的显示语言",
+				menuTitle: "选择语言",
+				selectorLabel: "语言，当前：{{value}}",
+				options: {
+					"zh-CN": "简体中文",
+					"en-US": "English",
+				},
+			},
+		},
 		workspace: {
 			breadcrumb: "{{workspace}} / 新任务",
 			taskLabel: "任务内容",

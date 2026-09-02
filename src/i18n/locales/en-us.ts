@@ -110,6 +110,33 @@ const enUS = {
 			mountedSkills: "Mounted skills",
 			appSettings: "App settings",
 		},
+		settings: {
+			title: "App settings",
+			description:
+				"Manage the application's appearance and language preferences. Changes apply immediately.",
+			theme: {
+				title: "Theme",
+				description:
+					"Choose a light or dark appearance, or match your system setting.",
+				menuTitle: "Choose a theme",
+				selectorLabel: "Theme, current: {{value}}",
+				options: {
+					system: "System",
+					light: "Light",
+					dark: "Dark",
+				},
+			},
+			language: {
+				title: "Language",
+				description: "Choose the language used throughout the application.",
+				menuTitle: "Choose a language",
+				selectorLabel: "Language, current: {{value}}",
+				options: {
+					"zh-CN": "简体中文",
+					"en-US": "English",
+				},
+			},
+		},
 		workspace: {
 			breadcrumb: "{{workspace}} / New task",
 			taskLabel: "Task",

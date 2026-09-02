@@ -38,6 +38,9 @@ vi.mock("@/pages/skills", () => ({
 vi.mock("@/pages/agents", () => ({
 	default: () => <main>agents route</main>,
 }));
+vi.mock("@/pages/settings", () => ({
+	default: () => <main>settings route</main>,
+}));
 
 describe("AppRouter", () => {
 	beforeEach(() => {
@@ -99,5 +102,12 @@ describe("AppRouter", () => {
 		render(<AppRouter />);
 
 		expect(await screen.findByText("agents route")).toBeInTheDocument();
+	});
+
+	it("opens App settings from its dedicated route", async () => {
+		window.history.pushState({}, "", "/settings");
+		render(<AppRouter />);
+
+		expect(await screen.findByText("settings route")).toBeInTheDocument();
 	});
 });
