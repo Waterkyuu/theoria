@@ -358,6 +358,7 @@ const enUS = {
 				loadFailed: "The mount state for {{workspace}} could not be loaded",
 				workspacesFailed: "The Workspace list could not be loaded",
 				empty: "No Workspaces yet. Create a Workspace first",
+				mountedSuccess: "Mounted {{skill}} to {{workspace}}",
 			},
 			noResults: "No matching skills",
 			mock: {

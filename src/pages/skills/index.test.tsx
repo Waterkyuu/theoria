@@ -1,3 +1,4 @@
+import { Toast } from "@heroui/react";
 import "@testing-library/jest-dom/vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -143,6 +144,7 @@ describe("SkillsPage", () => {
 
 	it("manages persisted Workspace mounts from the existing table action", async () => {
 		const user = userEvent.setup();
+		const toastSuccess = vi.spyOn(Toast.toast, "success");
 		render(<SkillsPage />);
 
 		await user.click(screen.getByRole("button", { name: "管理" }));
@@ -160,6 +162,7 @@ describe("SkillsPage", () => {
 			skillId: "skill-1",
 			workspaceId: "workspace-2",
 		});
+		expect(toastSuccess).toHaveBeenCalledWith("已挂载 repository-map 到 API");
 		await user.click(website);
 		expect(queryMocks.unmountWorkspaceSkill).toHaveBeenCalledWith({
 			skillId: "skill-1",

@@ -1,4 +1,4 @@
-import { Button } from "@heroui/react";
+import { Button, Toast } from "@heroui/react";
 import { useTranslation } from "react-i18next";
 import { CheckBox } from "@/components/ui/check-box";
 import { ModalProvider } from "@/components/ui/modal-provider";
@@ -23,28 +23,35 @@ type WorkspaceMountModalProps = {
 
 type WorkspaceMountRowProps = {
 	/** Managed Skill whose relationship is edited. */
-	skillId: string;
+	skill: Skill;
 	/** Persisted Workspace rendered as one mount option. */
 	workspace: Workspace;
 };
 
 /** Renders one independently loaded Workspace mount relationship. */
-const WorkspaceMountRow = ({ skillId, workspace }: WorkspaceMountRowProps) => {
+const WorkspaceMountRow = ({ skill, workspace }: WorkspaceMountRowProps) => {
 	const { t } = useTranslation();
 	const workspaceSkillsQuery = useWorkspaceSkills(workspace.id);
 	const mountMutation = useMountWorkspaceSkill();
 	const unmountMutation = useUnmountWorkspaceSkill();
 	const isMounted =
-		workspaceSkillsQuery.data?.some((skill) => skill.id === skillId) ?? false;
+		workspaceSkillsQuery.data?.some((item) => item.id === skill.id) ?? false;
 	const isPending = mountMutation.isPending || unmountMutation.isPending;
 
 	/** Persists the selected relationship without changing existing Task snapshots. */
 	const updateMount = async (shouldMount: boolean) => {
 		if (isPending) return;
 		try {
-			const input = { skillId, workspaceId: workspace.id };
-			if (shouldMount) await mountMutation.mutateAsync(input);
-			else await unmountMutation.mutateAsync(input);
+			const input = { skillId: skill.id, workspaceId: workspace.id };
+			if (shouldMount) {
+				await mountMutation.mutateAsync(input);
+				Toast.toast.success(
+					t("skills.mountDialog.mountedSuccess", {
+						skill: skill.folderName,
+						workspace: workspace.name,
+					}),
+				);
+			} else await unmountMutation.mutateAsync(input);
 		} catch (error) {
 			handleError(error, "Workspace Skill mount update failed", true);
 		}
@@ -124,7 +131,7 @@ const WorkspaceMountModal = ({
 					workspacesQuery.data.map((workspace) => (
 						<WorkspaceMountRow
 							key={workspace.id}
-							skillId={skill.id}
+							skill={skill}
 							workspace={workspace}
 						/>
 					))

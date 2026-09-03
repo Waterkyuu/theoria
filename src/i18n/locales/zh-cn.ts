@@ -342,6 +342,7 @@ const zhCN = {
 				loadFailed: "无法读取 {{workspace}} 的挂载状态",
 				workspacesFailed: "无法读取工作区列表",
 				empty: "还没有工作区，请先创建一个工作区",
+				mountedSuccess: "已挂载 {{skill}} 到 {{workspace}}",
 			},
 			noResults: "没有匹配的技能",
 			mock: {
