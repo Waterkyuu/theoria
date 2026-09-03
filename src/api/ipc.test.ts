@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ZodError } from "zod";
 import { checkCodexLogin, onCodexConfigChanged } from "@/api/codex";
 import { saveComparisonHistory } from "@/api/comparison";
+import { checkQoderLogin } from "@/api/qoder";
+import { checkTraeCodeLogin } from "@/api/traecode";
 
 vi.mock("@tauri-apps/api/core", () => ({
 	invoke: vi.fn(),
@@ -31,6 +33,24 @@ describe("IPC response validation", () => {
 			loggedIn: true,
 			authenticationMethod: "account",
 		});
+	});
+
+	it("checks Qoder and TraeCode CLI accounts through dedicated commands", async () => {
+		vi.mocked(invoke).mockResolvedValue({
+			installed: true,
+			loggedIn: true,
+			authenticationMethod: "account",
+		});
+
+		await checkQoderLogin();
+		await checkTraeCodeLogin();
+
+		expect(invoke).toHaveBeenNthCalledWith(1, "check_qoder_login", undefined);
+		expect(invoke).toHaveBeenNthCalledWith(
+			2,
+			"check_traecode_login",
+			undefined,
+		);
 	});
 
 	it("rejects a malformed command response", async () => {
