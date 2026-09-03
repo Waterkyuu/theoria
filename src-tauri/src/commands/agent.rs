@@ -16,6 +16,10 @@ pub struct AgentProcessStatesResponse {
     opencode: bool,
     /// Indicates whether a WorkBuddy process is currently running.
     workbuddy: bool,
+    /// Indicates whether a Qoder CLI process is currently running.
+    qoder: bool,
+    /// Indicates whether a TraeCode CLI process is currently running.
+    trae: bool,
 }
 
 impl From<AgentProcessStates> for AgentProcessStatesResponse {
@@ -25,6 +29,8 @@ impl From<AgentProcessStates> for AgentProcessStatesResponse {
             codex: states.codex,
             opencode: states.opencode,
             workbuddy: states.workbuddy,
+            qoder: states.qoder,
+            trae: states.trae,
         }
     }
 }

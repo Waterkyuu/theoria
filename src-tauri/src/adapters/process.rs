@@ -14,6 +14,10 @@ pub(crate) struct AgentProcessStates {
     pub(crate) opencode: bool,
     /// Indicates whether an exact WorkBuddy executable or application match was observed.
     pub(crate) workbuddy: bool,
+    /// Indicates whether an exact Qoder CLI executable match was observed.
+    pub(crate) qoder: bool,
+    /// Indicates whether an exact TraeCode CLI executable match was observed.
+    pub(crate) trae: bool,
 }
 
 /// Abstracts operating-system process discovery for the service and its tests.
@@ -82,6 +86,8 @@ where
             "codex" => states.codex = true,
             "opencode" => states.opencode = true,
             "cbc" | "codebuddy" | "workbuddy" | "workbuddy ai" => states.workbuddy = true,
+            "qoder" | "qodercli" | "qoderclicn" => states.qoder = true,
+            "traecli" | "trae-cli" => states.trae = true,
             _ => {}
         }
     }
@@ -100,12 +106,16 @@ mod tests {
             "/Applications/Codex.app/Contents/MacOS/Codex",
             "/home/test/.opencode/bin/opencode",
             "WorkBuddy AI.exe",
+            "/home/test/.qoder/bin/qoder",
+            "/home/test/.local/bin/traecli",
         ]);
 
         assert!(states.claude);
         assert!(states.codex);
         assert!(states.opencode);
         assert!(states.workbuddy);
+        assert!(states.qoder);
+        assert!(states.trae);
     }
 
     #[test]
@@ -121,6 +131,7 @@ mod tests {
         let states = process_states_from_names([
             "Claude Helper",
             "Codex Helper (Renderer)",
+            "/Applications/Trae.app/Contents/MacOS/Electron",
             "node",
             "agent-gauge",
         ]);
@@ -129,5 +140,7 @@ mod tests {
         assert!(!states.codex);
         assert!(!states.opencode);
         assert!(!states.workbuddy);
+        assert!(!states.qoder);
+        assert!(!states.trae);
     }
 }
