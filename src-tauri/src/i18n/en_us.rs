@@ -37,6 +37,16 @@ pub(super) fn message(key: ErrorMessageKey) -> &'static str {
         ErrorMessageKey::QoderNeedsInput => "Qoder CLI is waiting for user input",
         ErrorMessageKey::QoderTaskFailed => "Qoder CLI could not complete the task",
         ErrorMessageKey::QoderTimedOut => "Timed out while waiting for Qoder CLI",
+        ErrorMessageKey::TraeNotInstalled => "TraeCode CLI was not found on this device",
+        ErrorMessageKey::TraeProbeFailed => {
+            "The local TraeCode CLI login status could not be checked"
+        }
+        ErrorMessageKey::TraeProtocolFailed => {
+            "The local TraeCode CLI event stream could not be read"
+        }
+        ErrorMessageKey::TraeNeedsInput => "TraeCode CLI is waiting for user input",
+        ErrorMessageKey::TraeTaskFailed => "TraeCode CLI could not complete the task",
+        ErrorMessageKey::TraeTimedOut => "Timed out while waiting for TraeCode CLI",
         ErrorMessageKey::ProcessProbeFailed => "The local Agent status could not be read",
         ErrorMessageKey::WorkBuddyNotInstalled => "WorkBuddy was not found on this device",
         ErrorMessageKey::WorkBuddyConfigReadFailed => {
