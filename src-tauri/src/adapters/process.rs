@@ -17,7 +17,7 @@ pub(crate) struct AgentProcessStates {
     /// Indicates whether an exact Qoder CLI executable match was observed.
     pub(crate) qoder: bool,
     /// Indicates whether an exact TraeCode CLI executable match was observed.
-    pub(crate) trae: bool,
+    pub(crate) traecode: bool,
 }
 
 /// Abstracts operating-system process discovery for the service and its tests.
@@ -87,7 +87,7 @@ where
             "opencode" => states.opencode = true,
             "cbc" | "codebuddy" | "workbuddy" | "workbuddy ai" => states.workbuddy = true,
             "qoder" | "qodercli" | "qoderclicn" => states.qoder = true,
-            "traecli" | "trae-cli" => states.trae = true,
+            "traecli" | "trae-cli" => states.traecode = true,
             _ => {}
         }
     }
@@ -115,7 +115,7 @@ mod tests {
         assert!(states.opencode);
         assert!(states.workbuddy);
         assert!(states.qoder);
-        assert!(states.trae);
+        assert!(states.traecode);
     }
 
     #[test]
@@ -141,6 +141,6 @@ mod tests {
         assert!(!states.opencode);
         assert!(!states.workbuddy);
         assert!(!states.qoder);
-        assert!(!states.trae);
+        assert!(!states.traecode);
     }
 }

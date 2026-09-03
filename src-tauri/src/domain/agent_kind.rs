@@ -5,7 +5,7 @@ pub(crate) enum AgentKind {
     Claude,
     OpenCode,
     Qoder,
-    Trae,
+    TraeCode,
     WorkBuddy,
 }
 
@@ -17,7 +17,7 @@ impl AgentKind {
             Self::Claude => "claude",
             Self::OpenCode => "opencode",
             Self::Qoder => "qoder",
-            Self::Trae => "trae",
+            Self::TraeCode => "traecode",
             Self::WorkBuddy => "workbuddy",
         }
     }
@@ -29,7 +29,7 @@ impl AgentKind {
             "claude" => Some(Self::Claude),
             "opencode" => Some(Self::OpenCode),
             "qoder" => Some(Self::Qoder),
-            "trae" => Some(Self::Trae),
+            "traecode" => Some(Self::TraeCode),
             "workbuddy" => Some(Self::WorkBuddy),
             _ => None,
         }
@@ -41,10 +41,10 @@ mod tests {
     use super::AgentKind;
 
     #[test]
-    fn round_trips_qoder_and_trae_identifiers() {
+    fn round_trips_qoder_and_traecode_identifiers() {
         assert_eq!(AgentKind::parse("qoder"), Some(AgentKind::Qoder));
         assert_eq!(AgentKind::Qoder.as_str(), "qoder");
-        assert_eq!(AgentKind::parse("trae"), Some(AgentKind::Trae));
-        assert_eq!(AgentKind::Trae.as_str(), "trae");
+        assert_eq!(AgentKind::parse("traecode"), Some(AgentKind::TraeCode));
+        assert_eq!(AgentKind::TraeCode.as_str(), "traecode");
     }
 }

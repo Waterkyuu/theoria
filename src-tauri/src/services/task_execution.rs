@@ -491,7 +491,7 @@ fn run_one_agent(
             session_id,
             cancelled,
         ),
-        AgentKind::Trae => SystemTraeAdapter.run_session_turn_with_config_cancellable(
+        AgentKind::TraeCode => SystemTraeAdapter.run_session_turn_with_config_cancellable(
             prompt,
             execution_directory,
             config,

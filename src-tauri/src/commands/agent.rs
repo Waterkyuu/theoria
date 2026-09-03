@@ -19,7 +19,7 @@ pub struct AgentProcessStatesResponse {
     /// Indicates whether a Qoder CLI process is currently running.
     qoder: bool,
     /// Indicates whether a TraeCode CLI process is currently running.
-    trae: bool,
+    traecode: bool,
 }
 
 impl From<AgentProcessStates> for AgentProcessStatesResponse {
@@ -30,7 +30,7 @@ impl From<AgentProcessStates> for AgentProcessStatesResponse {
             opencode: states.opencode,
             workbuddy: states.workbuddy,
             qoder: states.qoder,
-            trae: states.trae,
+            traecode: states.traecode,
         }
     }
 }
