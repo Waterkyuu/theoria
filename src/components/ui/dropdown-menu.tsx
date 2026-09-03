@@ -19,8 +19,6 @@ type DropdownMenuItemProps<T extends string> = {
 	isDisabled?: boolean;
 	/** Translation key used as both the visible label and accessible text value. */
 	labelKey: string;
-	/** Business callback invoked when this item is selected. */
-	onAction?: () => void;
 	/** Whether to insert a separator before this item. */
 	separated?: boolean;
 	/** Test identifier rendered as data-testid. */
@@ -42,8 +40,8 @@ type DropdownMenuProps<T extends string> = {
 	menuClassName?: string;
 	/** Distance in pixels between the trigger and popover. Defaults to 4. */
 	offset?: DropdownPopoverProps["offset"];
-	/** Called after the selected item's own callback with its business action. */
-	onAction?: (action: T) => void;
+	/** Receives the selected business action for centralized dispatch. */
+	onAction: (action: T) => void;
 	/** Preferred popover placement. Defaults to bottom start. */
 	placement?: DropdownPopoverProps["placement"];
 	/** Pressable element that opens the menu, such as a HeroUI Button. */
@@ -112,10 +110,7 @@ const DropdownMenu = <T extends string>({
 					className={menuClassName}
 					onAction={(key) => {
 						const action = key as T;
-						const selectedItem = items.find((item) => item.id === action);
-
-						selectedItem?.onAction?.();
-						onAction?.(action);
+						onAction(action);
 					}}
 					shouldCloseOnSelect={closeOnSelect}
 				>
