@@ -22,6 +22,12 @@ pub(crate) enum AppError {
     OpenCodeNeedsInput,
     OpenCodeTaskFailed,
     OpenCodeTimedOut,
+    QoderNotInstalled,
+    QoderProbeFailed,
+    QoderProtocolFailed,
+    QoderNeedsInput,
+    QoderTaskFailed,
+    QoderTimedOut,
     ProcessProbeFailed,
     WorkBuddyNotInstalled,
     WorkBuddyConfigReadFailed,
@@ -146,6 +152,22 @@ impl IpcError {
                 ErrorMessageKey::OpenCodeTimedOut,
                 None,
             ),
+            AppError::QoderNotInstalled => (
+                "QODER_NOT_INSTALLED",
+                ErrorMessageKey::ProcessProbeFailed,
+                None,
+            ),
+            AppError::QoderProbeFailed => (
+                "QODER_PROBE_FAILED",
+                ErrorMessageKey::ProcessProbeFailed,
+                None,
+            ),
+            AppError::QoderProtocolFailed => {
+                ("QODER_PROTOCOL_FAILED", ErrorMessageKey::WorkerFailed, None)
+            }
+            AppError::QoderNeedsInput => ("QODER_NEEDS_INPUT", ErrorMessageKey::WorkerFailed, None),
+            AppError::QoderTaskFailed => ("QODER_TASK_FAILED", ErrorMessageKey::WorkerFailed, None),
+            AppError::QoderTimedOut => ("QODER_TIMED_OUT", ErrorMessageKey::WorkerFailed, None),
             AppError::ProcessProbeFailed => (
                 "PROCESS_PROBE_FAILED",
                 ErrorMessageKey::ProcessProbeFailed,

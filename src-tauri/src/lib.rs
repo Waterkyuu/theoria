@@ -5,6 +5,7 @@ mod adapters {
     pub(crate) mod codex;
     pub(crate) mod opencode;
     pub(crate) mod process;
+    pub(crate) mod qoder;
     pub(crate) mod workbuddy;
 }
 mod commands {
@@ -15,6 +16,7 @@ mod commands {
     pub(crate) mod comparison;
     pub(crate) mod i18n;
     pub(crate) mod opencode;
+    pub(crate) mod qoder;
     pub(crate) mod skill;
     pub(crate) mod task;
     pub(crate) mod workbuddy;
@@ -356,6 +358,10 @@ pub fn run() {
             commands::opencode::check_opencode_login,
             commands::opencode::get_opencode_runtime_config,
             commands::opencode::run_opencode_task,
+            commands::qoder::check_qoder_init_status,
+            commands::qoder::check_qoder_login,
+            commands::qoder::get_qoder_runtime_config,
+            commands::qoder::run_qoder_task,
             commands::workbuddy::check_workbuddy_init_status,
             commands::workbuddy::check_workbuddy_login,
             commands::workbuddy::get_workbuddy_runtime_config,
