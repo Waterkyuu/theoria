@@ -111,7 +111,13 @@ const enUS = {
 			benchmarks: "Benchmarks",
 			mountedSkills: "Mounted skills",
 			mountedSkillActions: "More actions for {{skill}}",
-			unmountSkillFromWorkspace: "Remove mount from this Workspace",
+			unmountSkillFromWorkspace: "Remove",
+			skillUnmount: {
+				title: "Remove mount?",
+				description:
+					"{{skill}} will be removed from {{workspace}} mounted skills.",
+				failed: "The mount could not be removed. Please try again",
+			},
 			appSettings: "App settings",
 		},
 		settings: {

@@ -110,7 +110,12 @@ const zhCN = {
 			benchmarks: "基准测试",
 			mountedSkills: "已挂载技能",
 			mountedSkillActions: "{{skill}}的更多操作",
-			unmountSkillFromWorkspace: "从这个工作区移除挂载",
+			unmountSkillFromWorkspace: "移除",
+			skillUnmount: {
+				title: "移除挂载？",
+				description: "{{skill}} 将从 {{workspace}} 的已挂载技能中移除。",
+				failed: "移除挂载失败，请重试",
+			},
 			appSettings: "应用设置",
 		},
 		settings: {

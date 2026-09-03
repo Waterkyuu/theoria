@@ -63,6 +63,7 @@ vi.mock("@/queries/skill", () => ({
 	useUnmountWorkspaceSkill: () => ({
 		mutateAsync: queryMocks.unmountWorkspaceSkill,
 		isPending: false,
+		error: null,
 	}),
 	useWorkspaceSkills: queryMocks.useWorkspaceSkills,
 }));
@@ -286,9 +287,15 @@ describe("AppSidebar", () => {
 		await user.click(
 			screen.getByRole("button", { name: "repository-map的更多操作" }),
 		);
-		await user.click(
-			screen.getByRole("menuitem", { name: "从这个工作区移除挂载" }),
+		await user.click(screen.getByRole("menuitem", { name: "移除" }));
+
+		expect(queryMocks.unmountWorkspaceSkill).not.toHaveBeenCalled();
+
+		const dialog = screen.getByRole("alertdialog", { name: "移除挂载？" });
+		expect(dialog).toHaveTextContent(
+			"repository-map 将从 agent-gauge 的已挂载技能中移除",
 		);
+		await user.click(within(dialog).getByRole("button", { name: "移除" }));
 
 		expect(queryMocks.unmountWorkspaceSkill).toHaveBeenCalledWith({
 			skillId: "skill-1",
