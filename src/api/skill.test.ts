@@ -4,6 +4,8 @@ import {
 	createPlatformSkill,
 	importGitSkill,
 	importLocalSkill,
+	selectSkillFolder,
+	unmountWorkspaceSkill,
 	updateGitSkill,
 } from "@/api/skill";
 
@@ -11,6 +13,18 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
 describe("Skill IPC", () => {
 	afterEach(() => vi.clearAllMocks());
+
+	it("opens the dedicated Skill folder picker", async () => {
+		vi.mocked(invoke).mockResolvedValue(
+			"/Users/me/.agents/skills/repository-map",
+		);
+
+		await selectSkillFolder("Choose a Skill folder");
+
+		expect(invoke).toHaveBeenCalledWith("select_skill_folder", {
+			title: "Choose a Skill folder",
+		});
+	});
 
 	it("imports a complete local Skill folder", async () => {
 		vi.mocked(invoke).mockResolvedValue({
@@ -78,6 +92,17 @@ describe("Skill IPC", () => {
 		});
 		expect(invoke).toHaveBeenNthCalledWith(2, "update_git_skill", {
 			request: { skillId: "skill-3" },
+		});
+	});
+
+	it("accepts the null response returned after Workspace Skill unmount", async () => {
+		vi.mocked(invoke).mockResolvedValue(null);
+
+		await expect(
+			unmountWorkspaceSkill("workspace-1", "skill-1"),
+		).resolves.toBeNull();
+		expect(invoke).toHaveBeenCalledWith("unmount_workspace_skill", {
+			request: { skillId: "skill-1", workspaceId: "workspace-1" },
 		});
 	});
 });

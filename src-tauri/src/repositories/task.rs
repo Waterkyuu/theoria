@@ -389,7 +389,7 @@ impl TaskRepository {
             .transpose()
     }
 
-    /// Persists pin state only for global Recent Tasks and returns the updated row.
+    /// Persists pin state for a Task in either sidebar scope and returns the updated row.
     pub(crate) async fn set_pin(
         &self,
         task_id: &str,
@@ -398,12 +398,10 @@ impl TaskRepository {
         task::Entity::update_many()
             .col_expr(task::Column::PinnedAtMs, Expr::value(pinned_at_ms))
             .filter(task::Column::Id.eq(task_id))
-            .filter(task::Column::WorkspaceId.is_null())
             .exec(&self.database)
             .await?;
         task::Entity::find()
             .filter(task::Column::Id.eq(task_id))
-            .filter(task::Column::WorkspaceId.is_null())
             .one(&self.database)
             .await?
             .map(task_from_model)
@@ -638,7 +636,7 @@ mod tests {
     static DATABASE_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 
     #[test]
-    fn renames_and_pins_global_recent_without_changing_workspace_tasks() {
+    fn renames_and_pins_tasks_in_each_sidebar_scope() {
         tauri::async_runtime::block_on(async {
             let sequence = DATABASE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
             let path = std::env::temp_dir().join(format!(
@@ -683,6 +681,11 @@ mod tests {
                 .await
                 .expect("Recent Task should pin")
                 .expect("Recent Task should exist");
+            let workspace_pinned = repository
+                .set_pin("task-workspace", Some(320))
+                .await
+                .expect("Workspace Task should pin")
+                .expect("Workspace Task should exist");
 
             let global = repository.list(None).await.expect("Recent should list");
             let workspace = repository
@@ -698,6 +701,8 @@ mod tests {
             assert_eq!(global[0].pinned_at_ms, Some(310));
             assert_eq!(workspace.len(), 1);
             assert_eq!(workspace[0].id, "task-workspace");
+            assert_eq!(workspace_pinned.pinned_at_ms, Some(320));
+            assert_eq!(workspace[0].pinned_at_ms, Some(320));
 
             database.close().await.expect("database should close");
             std::fs::remove_file(path).expect("database should be removable");

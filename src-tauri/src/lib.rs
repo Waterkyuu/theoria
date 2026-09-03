@@ -48,6 +48,7 @@ mod platform {
     pub(crate) mod codex_config;
     pub(crate) mod opencode_config;
     pub(crate) mod process;
+    pub(crate) mod skill_folder_picker;
     pub(crate) mod workbuddy_config;
 }
 mod models {
@@ -336,6 +337,7 @@ pub fn run() {
             commands::comparison::save_comparison_history,
             commands::i18n::set_backend_locale,
             commands::skill::import_local_skill,
+            commands::skill::select_skill_folder,
             commands::skill::create_platform_skill,
             commands::skill::import_git_skill,
             commands::skill::list_skills,

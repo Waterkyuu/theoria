@@ -27,6 +27,8 @@ type WorkspaceActionDropdownProps = {
 	workspace: Workspace;
 };
 
+type WorkspaceMenuAction = "archive" | "pin" | "remove" | "rename";
+
 /**
  * Keeps workspace-specific actions outside the shell's navigation structure.
  *
@@ -100,9 +102,25 @@ const WorkspaceActionDropdown = ({
 		}
 	};
 
+	/**
+	 * Dispatches implemented Workspace actions while preserving the inert archive item.
+	 *
+	 * @example
+	 * handleMenuAction("rename");
+	 */
+	const handleMenuAction = (action: WorkspaceMenuAction) => {
+		const actions: Partial<Record<WorkspaceMenuAction, () => void>> = {
+			pin: setPinState,
+			remove: () => setIsRemoveOpen(true),
+			rename: () => setIsRenameOpen(true),
+		};
+
+		actions[action]?.();
+	};
+
 	return (
 		<>
-			<DropdownMenu
+			<DropdownMenu<WorkspaceMenuAction>
 				items={[
 					{
 						icon: isPinned ? (
@@ -118,7 +136,6 @@ const WorkspaceActionDropdown = ({
 						labelKey: isPinned
 							? "workspaceSidebar.unpinWorkspace"
 							: "workspaceSidebar.pinWorkspace",
-						onAction: setPinState,
 					},
 					{
 						icon: (
@@ -129,7 +146,6 @@ const WorkspaceActionDropdown = ({
 						),
 						id: "rename",
 						labelKey: "workspaceSidebar.renameWorkspace",
-						onAction: () => setIsRenameOpen(true),
 					},
 					{
 						icon: (
@@ -151,10 +167,10 @@ const WorkspaceActionDropdown = ({
 						),
 						id: "remove",
 						labelKey: "workspaceSidebar.removeWorkspace",
-						onAction: () => setIsRemoveOpen(true),
 						separated: true,
 					},
 				]}
+				onAction={handleMenuAction}
 				placement="bottom end"
 				trigger={
 					<Button

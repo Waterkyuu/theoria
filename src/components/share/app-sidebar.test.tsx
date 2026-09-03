@@ -13,6 +13,7 @@ const queryMocks = vi.hoisted(() => ({
 	renameWorkspace: vi.fn(),
 	setTaskPin: vi.fn(),
 	setWorkspacePin: vi.fn(),
+	unmountWorkspaceSkill: vi.fn(),
 	useTasks: vi.fn(),
 	useWorkspaces: vi.fn(),
 	useWorkspaceSkills: vi.fn(),
@@ -59,6 +60,11 @@ vi.mock("@/queries/workspace", () => ({
 	useWorkspaces: queryMocks.useWorkspaces,
 }));
 vi.mock("@/queries/skill", () => ({
+	useUnmountWorkspaceSkill: () => ({
+		mutateAsync: queryMocks.unmountWorkspaceSkill,
+		isPending: false,
+		error: null,
+	}),
 	useWorkspaceSkills: queryMocks.useWorkspaceSkills,
 }));
 
@@ -100,6 +106,7 @@ describe("AppSidebar", () => {
 		queryMocks.renameTask.mockResolvedValue(undefined);
 		queryMocks.setTaskPin.mockResolvedValue(undefined);
 		queryMocks.setWorkspacePin.mockResolvedValue(undefined);
+		queryMocks.unmountWorkspaceSkill.mockResolvedValue(undefined);
 		queryMocks.useWorkspaces.mockReturnValue({
 			data: [
 				{
@@ -121,7 +128,28 @@ describe("AppSidebar", () => {
 			error: null,
 		}));
 		queryMocks.useWorkspaceSkills.mockReturnValue({
-			data: [{ id: "skill-1" }, { id: "skill-2" }],
+			data: [
+				{
+					id: "skill-1",
+					folderName: "repository-map",
+					displayName: "Repository Map",
+					description: "Maps repository structure.",
+					sourceType: "local_folder",
+					sourcePath: "/tmp/repository-map",
+					createdAtMs: 1,
+					updatedAtMs: 1,
+				},
+				{
+					id: "skill-2",
+					folderName: "test-runner",
+					displayName: "Test Runner",
+					description: "Runs project tests.",
+					sourceType: "platform",
+					sourcePath: null,
+					createdAtMs: 2,
+					updatedAtMs: 2,
+				},
+			],
 			isLoading: false,
 			error: null,
 		});
@@ -226,6 +254,53 @@ describe("AppSidebar", () => {
 		expect(recent.querySelectorAll("svg")).toHaveLength(4);
 		expect(within(recent).getByText("普通任务")).toBeInTheDocument();
 		expect(within(recent).queryByText("History")).not.toBeInTheDocument();
+	});
+
+	it("expands mounted Workspace Skills beneath their sidebar section", async () => {
+		const user = userEvent.setup();
+		render(
+			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
+				<main>content</main>
+			</AppSidebar>,
+		);
+
+		expect(screen.queryByText("repository-map")).not.toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "已挂载技能2" }));
+
+		expect(screen.getByText("repository-map")).toBeInTheDocument();
+		expect(screen.getByText("test-runner")).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "repository-map的更多操作" }),
+		).toBeInTheDocument();
+	});
+
+	it("removes mounted Workspace Skills from the sidebar more menu", async () => {
+		const user = userEvent.setup();
+		render(
+			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
+				<main>content</main>
+			</AppSidebar>,
+		);
+
+		await user.click(screen.getByRole("button", { name: "已挂载技能2" }));
+		await user.click(
+			screen.getByRole("button", { name: "repository-map的更多操作" }),
+		);
+		await user.click(screen.getByRole("menuitem", { name: "移除" }));
+
+		expect(queryMocks.unmountWorkspaceSkill).not.toHaveBeenCalled();
+
+		const dialog = screen.getByRole("alertdialog", { name: "移除挂载？" });
+		expect(dialog).toHaveTextContent(
+			"repository-map 将从 agent-gauge 的已挂载技能中移除",
+		);
+		await user.click(within(dialog).getByRole("button", { name: "移除" }));
+
+		expect(queryMocks.unmountWorkspaceSkill).toHaveBeenCalledWith({
+			skillId: "skill-1",
+			workspaceId: "workspace-1",
+		});
 	});
 
 	it("lets the Recent add icon inherit the button hover color", () => {
@@ -550,6 +625,25 @@ describe("AppSidebar", () => {
 		});
 	});
 
+	it("pins an unpinned Workspace Task from its action menu", async () => {
+		const user = userEvent.setup();
+		render(
+			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
+				<main>content</main>
+			</AppSidebar>,
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: "当前任务的更多操作" }),
+		);
+		await user.click(await screen.findByRole("menuitem", { name: "置顶" }));
+
+		expect(queryMocks.setTaskPin).toHaveBeenCalledWith({
+			isPinned: true,
+			taskId: "workspace-task-1",
+		});
+	});
+
 	it("pins a Recent Task directly from its hover action", async () => {
 		const user = userEvent.setup();
 		render(
@@ -558,7 +652,11 @@ describe("AppSidebar", () => {
 			</AppSidebar>,
 		);
 
-		await user.click(screen.getByRole("button", { name: "置顶" }));
+		await user.click(
+			within(screen.getByRole("region", { name: "最近" })).getByRole("button", {
+				name: "置顶",
+			}),
+		);
 
 		expect(queryMocks.setTaskPin).toHaveBeenCalledWith({
 			isPinned: true,

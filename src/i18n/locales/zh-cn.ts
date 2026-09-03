@@ -109,6 +109,13 @@ const zhCN = {
 			renameConversation: "重命名",
 			benchmarks: "基准测试",
 			mountedSkills: "已挂载技能",
+			mountedSkillActions: "{{skill}}的更多操作",
+			unmountSkillFromWorkspace: "移除",
+			skillUnmount: {
+				title: "移除挂载？",
+				description: "{{skill}} 将从 {{workspace}} 的已挂载技能中移除。",
+				failed: "移除挂载失败，请重试",
+			},
 			appSettings: "应用设置",
 		},
 		settings: {
@@ -335,6 +342,7 @@ const zhCN = {
 				loadFailed: "无法读取 {{workspace}} 的挂载状态",
 				workspacesFailed: "无法读取工作区列表",
 				empty: "还没有工作区，请先创建一个工作区",
+				mountedSuccess: "已挂载 {{skill}} 到 {{workspace}}",
 			},
 			noResults: "没有匹配的技能",
 			mock: {

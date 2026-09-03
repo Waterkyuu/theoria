@@ -2,13 +2,13 @@ import { useState } from "react";
 import {
 	Folder,
 	LayoutColumns3,
-	Pin,
 	Plus,
 	Puzzle,
 	TargetDart,
 } from "@gravity-ui/icons";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
+import { MountedSkillActionDropdown } from "@/components/share/mounted-skill-action-dropdown";
 import { TaskActionDropdown } from "@/components/share/task-action-dropdown";
 import { WorkspaceActionDropdown } from "@/components/share/workspace-action-dropdown";
 import { useWorkspaceSkills } from "@/queries/skill";
@@ -185,10 +185,6 @@ const WorkspaceSidebarItem = ({
 											{task.title}
 										</button>
 										<div className="flex shrink-0 items-center gap-sm text-mute opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:transition-none">
-											<Pin
-												aria-hidden="true"
-												className="size-4 shrink-0 transition-colors hover:text-ink"
-											/>
 											<TaskActionDropdown
 												onDeleted={() => {
 													if (
@@ -197,6 +193,7 @@ const WorkspaceSidebarItem = ({
 														onNavigate(workspacePath);
 													}
 												}}
+												pinnedAtMs={task.pinnedAtMs}
 												taskId={task.id}
 												taskName={task.title}
 											/>
@@ -253,6 +250,39 @@ const WorkspaceSidebarItem = ({
 								)}
 							</span>
 						</button>
+						{isSkillsExpanded ? (
+							skillsQuery.isLoading ? (
+								<div
+									aria-label={t("loadingPage")}
+									className="space-y-xs py-xs pl-12"
+									role="status"
+								>
+									<div className="h-8 animate-pulse rounded-md bg-hairline motion-reduce:animate-none" />
+									<div className="h-8 animate-pulse rounded-md bg-hairline motion-reduce:animate-none" />
+								</div>
+							) : (
+								(skillsQuery.data ?? []).map((skill) => (
+									<div
+										aria-label={skill.folderName}
+										aria-level={3}
+										className="group mt-xs flex h-8 items-center gap-[7px] rounded-md pl-12 pr-[6px] text-body-sm font-medium hover:bg-hairline"
+										key={skill.id}
+										role="treeitem"
+										tabIndex={-1}
+									>
+										<span className="min-w-0 flex-1 truncate text-left">
+											{skill.folderName}
+										</span>
+										<div className="flex shrink-0 items-center gap-sm text-mute opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:transition-none">
+											<MountedSkillActionDropdown
+												skill={skill}
+												workspace={workspace}
+											/>
+										</div>
+									</div>
+								))
+							)
+						) : null}
 					</div>
 				</div>
 			</div>

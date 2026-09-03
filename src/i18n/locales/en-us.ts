@@ -110,6 +110,14 @@ const enUS = {
 			renameConversation: "Rename",
 			benchmarks: "Benchmarks",
 			mountedSkills: "Mounted skills",
+			mountedSkillActions: "More actions for {{skill}}",
+			unmountSkillFromWorkspace: "Remove",
+			skillUnmount: {
+				title: "Remove mount?",
+				description:
+					"{{skill}} will be removed from {{workspace}} mounted skills.",
+				failed: "The mount could not be removed. Please try again",
+			},
 			appSettings: "App settings",
 		},
 		settings: {
@@ -350,6 +358,7 @@ const enUS = {
 				loadFailed: "The mount state for {{workspace}} could not be loaded",
 				workspacesFailed: "The Workspace list could not be loaded",
 				empty: "No Workspaces yet. Create a Workspace first",
+				mountedSuccess: "Mounted {{skill}} to {{workspace}}",
 			},
 			noResults: "No matching skills",
 			mock: {

@@ -12,6 +12,7 @@ import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { RenameModal } from "@/components/share/rename-modal";
 import { AlertDialog } from "@/components/ui/alert-dialog";
+import type { DropdownMenuItemProps } from "@/components/ui/dropdown-menu";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { handleError } from "@/utils/error";
 import { useDeleteTask, useRenameTask, useSetTaskPin } from "@/queries/task";
@@ -19,13 +20,15 @@ import { useDeleteTask, useRenameTask, useSetTaskPin } from "@/queries/task";
 type TaskActionDropdownProps = {
 	/** Called after deletion so an active route can return to its Composer. */
 	onDeleted?: () => void;
-	/** Present only for global Recent Tasks that support pinning. */
+	/** Persisted timestamp that controls pin state within the Task's sidebar scope. */
 	pinnedAtMs?: number | null;
 	/** Stable Task identifier removed with its owned run files. */
 	taskId: string;
 	/** Task name included in the menu trigger's accessible label. */
 	taskName: string;
 };
+
+type TaskMenuAction = "delete" | "pin" | "rename";
 
 /**
  * Owns task-only menu actions so the shell stays focused on navigation layout.
@@ -72,7 +75,7 @@ const TaskActionDropdown = ({
 		}
 	};
 
-	/** Toggles persisted pin state for global Recent Tasks only. */
+	/** Toggles persisted pin state for any Task rendered in a sidebar list. */
 	const setPinState = async () => {
 		if (!supportsPinning || setTaskPinMutation.isPending) return;
 		try {
@@ -81,6 +84,58 @@ const TaskActionDropdown = ({
 			handleError(error, "Task pin update failed", true);
 		}
 	};
+
+	/**
+	 * Dispatches one menu identifier without coupling callbacks to item metadata.
+	 *
+	 * @example
+	 * handleMenuAction("rename");
+	 */
+	const handleMenuAction = (action: TaskMenuAction) => {
+		const actions: Record<TaskMenuAction, () => void> = {
+			delete: () => setIsDeleteOpen(true),
+			pin: setPinState,
+			rename: () => setIsRenameOpen(true),
+		};
+
+		actions[action]();
+	};
+	const menuItems: DropdownMenuItemProps<TaskMenuAction>[] = [
+		{
+			icon: (
+				<PencilToSquare
+					aria-hidden="true"
+					className="size-4 shrink-0 text-ink"
+				/>
+			),
+			id: "rename",
+			labelKey: "workspaceSidebar.renameConversation",
+		},
+		{
+			danger: true,
+			icon: (
+				<TrashBin aria-hidden="true" className="size-4 shrink-0 text-danger" />
+			),
+			id: "delete",
+			labelKey: "workspaceSidebar.deleteConversation",
+			separated: true,
+		},
+	];
+
+	if (supportsPinning) {
+		menuItems.unshift({
+			icon: isPinned ? (
+				<PinSlash aria-hidden="true" className="size-4 shrink-0 text-ink" />
+			) : (
+				<Pin aria-hidden="true" className="size-4 shrink-0 text-ink" />
+			),
+			id: "pin",
+			isDisabled: setTaskPinMutation.isPending,
+			labelKey: isPinned
+				? "workspaceSidebar.unpinTask"
+				: "workspaceSidebar.pinTask",
+		});
+	}
 
 	return (
 		<>
@@ -106,55 +161,8 @@ const TaskActionDropdown = ({
 				</Button>
 			) : null}
 			<DropdownMenu
-				items={[
-					...(supportsPinning
-						? [
-								{
-									icon: isPinned ? (
-										<PinSlash
-											aria-hidden="true"
-											className="size-4 shrink-0 text-ink"
-										/>
-									) : (
-										<Pin
-											aria-hidden="true"
-											className="size-4 shrink-0 text-ink"
-										/>
-									),
-									id: "pin",
-									isDisabled: setTaskPinMutation.isPending,
-									labelKey: isPinned
-										? "workspaceSidebar.unpinTask"
-										: "workspaceSidebar.pinTask",
-									onAction: setPinState,
-								},
-							]
-						: []),
-					{
-						icon: (
-							<PencilToSquare
-								aria-hidden="true"
-								className="size-4 shrink-0 text-ink"
-							/>
-						),
-						id: "rename",
-						labelKey: "workspaceSidebar.renameConversation",
-						onAction: () => setIsRenameOpen(true),
-					},
-					{
-						danger: true,
-						icon: (
-							<TrashBin
-								aria-hidden="true"
-								className="size-4 shrink-0 text-danger"
-							/>
-						),
-						id: "delete",
-						labelKey: "workspaceSidebar.deleteConversation",
-						onAction: () => setIsDeleteOpen(true),
-						separated: true,
-					},
-				]}
+				items={menuItems}
+				onAction={handleMenuAction}
 				placement="bottom end"
 				trigger={
 					<Button

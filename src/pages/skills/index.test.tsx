@@ -1,3 +1,4 @@
+import { Toast } from "@heroui/react";
 import "@testing-library/jest-dom/vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -17,7 +18,7 @@ const queryMocks = vi.hoisted(() => ({
 	useWorkspaces: vi.fn(),
 	updateGitSkill: vi.fn(),
 }));
-const dialogMocks = vi.hoisted(() => ({ open: vi.fn() }));
+const skillApiMocks = vi.hoisted(() => ({ selectSkillFolder: vi.fn() }));
 const navigateMock = vi.hoisted(() => vi.fn());
 
 vi.mock("react-router", async (importOriginal) => ({
@@ -25,7 +26,9 @@ vi.mock("react-router", async (importOriginal) => ({
 	useNavigate: () => navigateMock,
 }));
 
-vi.mock("@tauri-apps/plugin-dialog", () => ({ open: dialogMocks.open }));
+vi.mock("@/api/skill", () => ({
+	selectSkillFolder: skillApiMocks.selectSkillFolder,
+}));
 
 vi.mock("@/queries/skill", () => ({
 	useCreatePlatformSkill: () => ({
@@ -101,7 +104,7 @@ const SKILLS = [
 describe("SkillsPage", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		dialogMocks.open.mockResolvedValue(
+		skillApiMocks.selectSkillFolder.mockResolvedValue(
 			"/Users/me/.agents/skills/repository-map",
 		);
 		queryMocks.importSkill.mockResolvedValue(SKILLS[0]);
@@ -141,6 +144,7 @@ describe("SkillsPage", () => {
 
 	it("manages persisted Workspace mounts from the existing table action", async () => {
 		const user = userEvent.setup();
+		const toastSuccess = vi.spyOn(Toast.toast, "success");
 		render(<SkillsPage />);
 
 		await user.click(screen.getByRole("button", { name: "管理" }));
@@ -158,6 +162,7 @@ describe("SkillsPage", () => {
 			skillId: "skill-1",
 			workspaceId: "workspace-2",
 		});
+		expect(toastSuccess).toHaveBeenCalledWith("已挂载 repository-map 到 API");
 		await user.click(website);
 		expect(queryMocks.unmountWorkspaceSkill).toHaveBeenCalledWith({
 			skillId: "skill-1",
@@ -196,11 +201,9 @@ describe("SkillsPage", () => {
 			screen.getByRole("menuitem", { name: "从本地文件夹导入" }),
 		);
 
-		expect(dialogMocks.open).toHaveBeenCalledWith({
-			directory: true,
-			multiple: false,
-			title: "选择技能文件夹",
-		});
+		expect(skillApiMocks.selectSkillFolder).toHaveBeenCalledWith(
+			"选择技能文件夹",
+		);
 		expect(queryMocks.importSkill).toHaveBeenCalledWith(
 			"/Users/me/.agents/skills/repository-map",
 		);
@@ -332,7 +335,7 @@ describe("SkillsPage", () => {
 			screen.getByRole("searchbox", { name: "按名称、来源或能力搜索" }),
 			"测试命令",
 		);
-		const table = screen.getByRole("table", { name: "技能库" });
+		const table = screen.getByRole("grid", { name: "技能库" });
 		expect(within(table).getByText("test-runner")).toBeInTheDocument();
 		expect(within(table).queryByText("repository-map")).not.toBeInTheDocument();
 	});

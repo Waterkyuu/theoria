@@ -7,7 +7,7 @@ import {
 	CompiledTasksSchema,
 } from "@/types/task";
 
-const EmptyResponseSchema = z.compile(z.void());
+const EmptyResponseSchema = z.compile(z.null());
 
 /** Lists global Recent Tasks or the Task list for one Workspace. */
 const listTasks = (workspaceId: string | null = null) =>

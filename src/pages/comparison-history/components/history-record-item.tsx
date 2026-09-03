@@ -17,6 +17,8 @@ type HistoryRecordItemProps = {
 	onSelect: (id: number) => void;
 };
 
+type HistoryRecordAction = "delete" | "rename";
+
 /**
  * Renders one compact history row with its independent action menu and dialogs.
  * @example <HistoryRecordItem item={summary} numberLocale="zh-CN" onSelect={openDetail} />
@@ -33,6 +35,21 @@ const HistoryRecordItem = ({
 		dateStyle: "medium",
 		timeStyle: "short",
 	}).format(item.createdAtMs);
+
+	/**
+	 * Dispatches row-menu identifiers to their matching confirmation dialog.
+	 *
+	 * @example
+	 * handleMenuAction("rename");
+	 */
+	const handleMenuAction = (action: HistoryRecordAction) => {
+		const actions: Record<HistoryRecordAction, () => void> = {
+			delete: () => setIsDeleteOpen(true),
+			rename: () => setIsRenameOpen(true),
+		};
+
+		actions[action]();
+	};
 
 	return (
 		<>
@@ -65,7 +82,7 @@ const HistoryRecordItem = ({
 						))}
 					</span>
 				</button>
-				<DropdownMenu
+				<DropdownMenu<HistoryRecordAction>
 					items={[
 						{
 							icon: (
@@ -76,7 +93,6 @@ const HistoryRecordItem = ({
 							),
 							id: "rename",
 							labelKey: "comparisonHistory.rename",
-							onAction: () => setIsRenameOpen(true),
 						},
 						{
 							danger: true,
@@ -88,10 +104,10 @@ const HistoryRecordItem = ({
 							),
 							id: "delete",
 							labelKey: "comparisonHistory.delete",
-							onAction: () => setIsDeleteOpen(true),
 							separated: true,
 						},
 					]}
+					onAction={handleMenuAction}
 					placement="bottom end"
 					trigger={
 						<Button
