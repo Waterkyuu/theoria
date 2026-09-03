@@ -580,6 +580,25 @@ describe("AppSidebar", () => {
 		).not.toBeInTheDocument();
 	});
 
+	it("collapses and restores the recent task history", async () => {
+		const user = userEvent.setup();
+		render(
+			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
+				<main>content</main>
+			</AppSidebar>,
+		);
+
+		await user.click(screen.getByRole("button", { name: "收起最近任务" }));
+		expect(
+			screen.queryByRole("button", { name: "普通任务" }),
+		).not.toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "展开最近任务" }));
+		expect(
+			screen.getByRole("button", { name: "普通任务" }),
+		).toBeInTheDocument();
+	});
+
 	it("opens Workspace and ordinary Tasks directly without a History route", async () => {
 		const user = userEvent.setup();
 		const onNavigate = vi.fn();

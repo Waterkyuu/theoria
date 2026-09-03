@@ -55,6 +55,8 @@ const zhCN = {
 			createWorkspaceFailed: "创建工作区失败，请检查名称和目录路径",
 			collapseWorkspaces: "收起工作区",
 			expandWorkspaces: "展开工作区",
+			collapseRecentTasks: "收起最近任务",
+			expandRecentTasks: "展开最近任务",
 			collapseWorkspace: "收起 {{workspace}}",
 			expandWorkspace: "展开 {{workspace}}",
 			workspaceActions: "{{workspace}} 的更多操作",

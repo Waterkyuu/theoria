@@ -56,6 +56,8 @@ const enUS = {
 				"Workspace creation failed. Check the name and folder path",
 			collapseWorkspaces: "Collapse Workspaces",
 			expandWorkspaces: "Expand Workspaces",
+			collapseRecentTasks: "Collapse recent tasks",
+			expandRecentTasks: "Expand recent tasks",
 			collapseWorkspace: "Collapse {{workspace}}",
 			expandWorkspace: "Expand {{workspace}}",
 			workspaceActions: "More actions for {{workspace}}",
