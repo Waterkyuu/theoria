@@ -1,11 +1,9 @@
 import { useState } from "react";
-import { BarsDescendingAlignCenter, Check, Puzzle } from "@gravity-ui/icons";
-import { Button, Input, Label, Table, TextField } from "@heroui/react";
+import { Button, Input, Label, TextField } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { PageHeader } from "@/components/share/page-header";
-import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { ModalProvider } from "@/components/ui/modal-provider";
 import { handleError } from "@/utils/error";
 import { selectSkillFolder } from "@/api/skill";
@@ -17,11 +15,14 @@ import {
 	useUpdateGitSkill,
 } from "@/queries/skill";
 import type { Skill } from "@/types/skill";
+import type { SkillAddAction, SkillFilter } from "./components/skill-dropdowns";
+import {
+	SKILL_FILTERS,
+	SkillAddDropdown,
+	SkillFilterDropdown,
+} from "./components/skill-dropdowns";
+import { SkillLibraryTable } from "./components/skill-library-table";
 import { WorkspaceMountModal } from "./components/workspace-mount-modal";
-
-const SKILL_SOURCE_FILTERS = ["git", "platform", "local_folder"] as const;
-const SKILL_FILTERS = ["all", "mounted", ...SKILL_SOURCE_FILTERS] as const;
-type SkillFilter = (typeof SKILL_FILTERS)[number];
 
 type LibrarySkill = Skill & {
 	/** Number of persisted Workspace mount relationships. */
@@ -122,6 +123,30 @@ const SkillsPage = () => {
 		}
 	};
 
+	/**
+	 * Routes the declarative add-menu selection to the page-owned side effect.
+	 *
+	 * @example
+	 * handleAddSkillAction("folder");
+	 */
+	const handleAddSkillAction = (action: SkillAddAction) => {
+		const actions: Record<SkillAddAction, () => void> = {
+			folder: importSkillFolder,
+			git: () => setIsGitImportOpen(true),
+			platform: () => navigate("/skills/create-skill"),
+		};
+
+		actions[action]();
+	};
+
+	const tableStatus = pageError
+		? importSkillMutation.error
+			? "importFailed"
+			: "loadFailed"
+		: isLoading
+			? "loading"
+			: null;
+
 	return (
 		<main className="flex h-[100dvh] min-w-0 flex-1 flex-col overflow-hidden bg-canvas max-md:h-[calc(100dvh-4rem)]">
 			<PageHeader>
@@ -143,37 +168,11 @@ const SkillsPage = () => {
 							{t("skills.description")}
 						</p>
 					</div>
-					<DropdownMenu
-						headerKey="skills.addMenu.title"
-						items={[
-							{
-								id: "platform",
-								labelKey: "skills.addMenu.platform",
-								onAction: () => navigate("/skills/create-skill"),
-							},
-							{
-								id: "folder",
-								labelKey: "skills.addMenu.folder",
-								onAction: () => importSkillFolder(),
-							},
-							{
-								id: "git",
-								labelKey: "skills.addMenu.git",
-								onAction: () => setIsGitImportOpen(true),
-							},
-						]}
-						placement="bottom end"
-						trigger={
-							<Button
-								className="h-9 w-full shrink-0 rounded-md bg-surface-dark px-lg text-body-sm font-medium text-on-dark outline-none hover:bg-ink-deep focus-visible:ring-2 focus-visible:ring-focus-ring sm:w-auto sm:min-w-34"
-								isDisabled={
-									importSkillMutation.isPending ||
-									importGitSkillMutation.isPending
-								}
-							>
-								{t("skills.addSkill")}
-							</Button>
+					<SkillAddDropdown
+						isDisabled={
+							importSkillMutation.isPending || importGitSkillMutation.isPending
 						}
+						onAction={handleAddSkillAction}
 					/>
 				</div>
 
@@ -186,38 +185,9 @@ const SkillsPage = () => {
 						type="search"
 						value={searchValue}
 					/>
-					<DropdownMenu
-						headerKey="skills.filterMenu.title"
-						itemClassName="min-w-40"
-						items={SKILL_SOURCE_FILTERS.map((filter) => ({
-							icon: (
-								<Check
-									aria-hidden="true"
-									className={cn(
-										"size-4",
-										activeFilter !== filter && "invisible",
-									)}
-								/>
-							),
-							id: filter,
-							labelKey: `skills.filters.${filter}`,
-						}))}
+					<SkillFilterDropdown
+						activeFilter={activeFilter}
 						onAction={setActiveFilter}
-						placement="bottom end"
-						trigger={
-							<Button
-								aria-label={t("skills.filterMenu.title")}
-								className="mt-[18px] size-10 min-w-10 shrink-0 cursor-pointer rounded-md border border-hairline bg-surface-card p-0 text-charcoal shadow-none outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
-								isIconOnly
-								size="sm"
-								variant="ghost"
-							>
-								<BarsDescendingAlignCenter
-									aria-hidden="true"
-									className="size-4"
-								/>
-							</Button>
-						}
 					/>
 				</div>
 
@@ -239,124 +209,13 @@ const SkillsPage = () => {
 					))}
 				</div>
 
-				<Table className="-mx-4 mt-[22px] sm:mx-0">
-					<Table.ScrollContainer>
-						<Table.Content
-							aria-label={t("skills.libraryLabel")}
-							className="min-w-195 table-fixed"
-						>
-							<Table.Header>
-								<Table.Column className="w-[48%]" isRowHeader>
-									{t("skills.columns.skill")}
-								</Table.Column>
-								<Table.Column className="w-[16%]">
-									{t("skills.columns.source")}
-								</Table.Column>
-								<Table.Column className="w-[18%]">
-									{t("skills.columns.workspaces")}
-								</Table.Column>
-								<Table.Column className="w-[10%]">
-									{t("skills.columns.access")}
-								</Table.Column>
-								<Table.Column
-									aria-label={t("skills.columns.actions")}
-									className="w-[13%]"
-								/>
-							</Table.Header>
-							<Table.Body>
-								{visibleSkills.map((skill) => (
-									<Table.Row className="h-24" id={skill.id} key={skill.id}>
-										<Table.Cell>
-											<div className="flex items-start gap-[14px]">
-												<Puzzle
-													aria-hidden="true"
-													className="mt-xs size-5 shrink-0"
-												/>
-												<div className="min-w-0">
-													<p className="truncate text-body-md font-medium leading-5 text-ink">
-														{skill.name}
-													</p>
-													<p className="mt-xs truncate text-[13px] leading-4 text-charcoal">
-														{skill.description}
-													</p>
-												</div>
-											</div>
-										</Table.Cell>
-										<Table.Cell className="text-body-sm text-charcoal">
-											{skill.sourceLabel}
-										</Table.Cell>
-										<Table.Cell className="text-body-sm text-charcoal">
-											{skill.mountedCount === 0
-												? t("skills.notMounted")
-												: t("skills.mountedCount", {
-														count: skill.mountedCount,
-													})}
-										</Table.Cell>
-										<Table.Cell className="text-body-sm text-charcoal">
-											{skill.accessLabel}
-										</Table.Cell>
-										<Table.Cell className="text-right">
-											<div className="flex justify-end gap-sm">
-												{skill.sourceType === "git" ? (
-													<button
-														aria-label={t("skills.updateNamed", {
-															name: skill.name,
-														})}
-														className="h-9 rounded-md border border-hairline bg-surface-card px-md text-body-sm font-medium text-ink outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
-														disabled={updateGitSkillMutation.isPending}
-														onClick={() => updateGitSkill(skill.id)}
-														type="button"
-													>
-														{t("skills.update")}
-													</button>
-												) : null}
-												<button
-													className="h-9 w-[94px] rounded-md border border-hairline bg-surface-card text-body-sm font-medium text-ink outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
-													onClick={() => setManagedSkill(skill)}
-													type="button"
-												>
-													{t(
-														skill.mountedCount > 0
-															? "skills.manage"
-															: "skills.mount",
-													)}
-												</button>
-											</div>
-										</Table.Cell>
-									</Table.Row>
-								))}
-								{isLoading || pageError ? (
-									<Table.Row id="status">
-										<Table.Cell
-											className="h-24 text-center text-body-sm text-mute"
-											colSpan={5}
-										>
-											<span role={pageError ? "alert" : "status"}>
-												{t(
-													pageError
-														? importSkillMutation.error
-															? "skills.importFailed"
-															: "skills.loadFailed"
-														: "skills.loading",
-												)}
-											</span>
-										</Table.Cell>
-									</Table.Row>
-								) : null}
-								{!isLoading && !pageError && visibleSkills.length === 0 ? (
-									<Table.Row id="empty">
-										<Table.Cell
-											className="h-24 text-center text-body-sm text-mute"
-											colSpan={5}
-										>
-											{t("skills.noResults")}
-										</Table.Cell>
-									</Table.Row>
-								) : null}
-							</Table.Body>
-						</Table.Content>
-					</Table.ScrollContainer>
-				</Table>
+				<SkillLibraryTable
+					isUpdatePending={updateGitSkillMutation.isPending}
+					onManageSkill={setManagedSkill}
+					onUpdateSkill={updateGitSkill}
+					skills={visibleSkills}
+					status={tableStatus}
+				/>
 			</div>
 			{managedSkill ? (
 				<WorkspaceMountModal
