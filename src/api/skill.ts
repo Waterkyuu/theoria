@@ -2,7 +2,7 @@ import { z } from "zod";
 import { invokeWithResponseSchema } from "@/api/ipc";
 import { CompiledSkillSchema, CompiledSkillsSchema } from "@/types/skill";
 
-const EmptyResponseSchema = z.compile(z.void());
+const EmptyResponseSchema = z.compile(z.null());
 const OptionalPathSchema = z.compile(z.string().nullable());
 
 /** Lists every managed Skill available to normal Tasks and Workspace mounts. */

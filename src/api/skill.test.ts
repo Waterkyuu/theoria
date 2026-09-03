@@ -5,6 +5,7 @@ import {
 	importGitSkill,
 	importLocalSkill,
 	selectSkillFolder,
+	unmountWorkspaceSkill,
 	updateGitSkill,
 } from "@/api/skill";
 
@@ -91,6 +92,17 @@ describe("Skill IPC", () => {
 		});
 		expect(invoke).toHaveBeenNthCalledWith(2, "update_git_skill", {
 			request: { skillId: "skill-3" },
+		});
+	});
+
+	it("accepts the null response returned after Workspace Skill unmount", async () => {
+		vi.mocked(invoke).mockResolvedValue(null);
+
+		await expect(
+			unmountWorkspaceSkill("workspace-1", "skill-1"),
+		).resolves.toBeNull();
+		expect(invoke).toHaveBeenCalledWith("unmount_workspace_skill", {
+			request: { skillId: "skill-1", workspaceId: "workspace-1" },
 		});
 	});
 });

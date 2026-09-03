@@ -4,6 +4,7 @@ import { ZodError } from "zod";
 import {
 	continueTask,
 	createTask,
+	deleteTask,
 	listTasks,
 	runTaskExecutions,
 } from "@/api/task";
@@ -115,5 +116,14 @@ describe("Task IPC", () => {
 			turns: [{ prompt: "Check tests" }],
 		});
 		expect(invoke).toHaveBeenCalledWith("continue_task", { request });
+	});
+
+	it("accepts the null response returned after Task deletion", async () => {
+		vi.mocked(invoke).mockResolvedValue(null);
+
+		await expect(deleteTask("task-1")).resolves.toBeNull();
+		expect(invoke).toHaveBeenCalledWith("delete_task", {
+			request: { taskId: "task-1" },
+		});
 	});
 });
