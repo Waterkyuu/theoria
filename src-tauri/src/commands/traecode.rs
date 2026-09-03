@@ -11,14 +11,14 @@ use serde::Deserialize;
 /// User input accepted by the TraeCode CLI task command.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RunTraeTaskRequest {
+pub struct RunTraeCodeTaskRequest {
     /// Natural-language task sent to TraeCode CLI's non-interactive runner.
     query: String,
 }
 
 /// Checks whether a locally installed TraeCode CLI has an active account.
 #[tauri::command]
-pub async fn check_trae_login() -> Result<AgentLoginStatusResponse, IpcError> {
+pub async fn check_traecode_login() -> Result<AgentLoginStatusResponse, IpcError> {
     tauri::async_runtime::spawn_blocking(|| check_agent_login(&SystemTraeAdapter))
         .await
         .map_err(|_| IpcError::from(AppError::WorkerFailed))?
@@ -28,7 +28,7 @@ pub async fn check_trae_login() -> Result<AgentLoginStatusResponse, IpcError> {
 
 /// Returns the complete first-load TraeCode CLI status from independent probes.
 #[tauri::command]
-pub async fn check_trae_init_status() -> Result<AgentInitStatusResponse, IpcError> {
+pub async fn check_traecode_init_status() -> Result<AgentInitStatusResponse, IpcError> {
     tauri::async_runtime::spawn_blocking(|| check_agent_init_status(&SystemTraeAdapter))
         .await
         .map_err(|_| IpcError::from(AppError::WorkerFailed))?
@@ -38,7 +38,7 @@ pub async fn check_trae_init_status() -> Result<AgentInitStatusResponse, IpcErro
 
 /// Returns no override when TraeCode CLI will choose its account default model.
 #[tauri::command]
-pub async fn get_trae_runtime_config() -> Result<AgentRuntimeConfigResponse, IpcError> {
+pub async fn get_traecode_runtime_config() -> Result<AgentRuntimeConfigResponse, IpcError> {
     tauri::async_runtime::spawn_blocking(|| load_agent_runtime_config(&SystemTraeAdapter))
         .await
         .map_err(|_| IpcError::from(AppError::WorkerFailed))?
@@ -48,7 +48,9 @@ pub async fn get_trae_runtime_config() -> Result<AgentRuntimeConfigResponse, Ipc
 
 /// Sends a bounded query through TraeCode CLI's documented JSON mode.
 #[tauri::command]
-pub async fn run_trae_task(request: RunTraeTaskRequest) -> Result<AgentRunResponse, IpcError> {
+pub async fn run_traecode_task(
+    request: RunTraeCodeTaskRequest,
+) -> Result<AgentRunResponse, IpcError> {
     tauri::async_runtime::spawn_blocking(move || run_agent_task(&SystemTraeAdapter, &request.query))
         .await
         .map_err(|_| IpcError::from(AppError::WorkerFailed))?

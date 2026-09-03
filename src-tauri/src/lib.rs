@@ -20,7 +20,7 @@ mod commands {
     pub(crate) mod qoder;
     pub(crate) mod skill;
     pub(crate) mod task;
-    pub(crate) mod trae;
+    pub(crate) mod traecode;
     pub(crate) mod workbuddy;
     pub(crate) mod workspace;
 }
@@ -364,10 +364,10 @@ pub fn run() {
             commands::qoder::check_qoder_login,
             commands::qoder::get_qoder_runtime_config,
             commands::qoder::run_qoder_task,
-            commands::trae::check_trae_init_status,
-            commands::trae::check_trae_login,
-            commands::trae::get_trae_runtime_config,
-            commands::trae::run_trae_task,
+            commands::traecode::check_traecode_init_status,
+            commands::traecode::check_traecode_login,
+            commands::traecode::get_traecode_runtime_config,
+            commands::traecode::run_traecode_task,
             commands::workbuddy::check_workbuddy_init_status,
             commands::workbuddy::check_workbuddy_login,
             commands::workbuddy::get_workbuddy_runtime_config,

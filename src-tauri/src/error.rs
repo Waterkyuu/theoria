@@ -181,21 +181,31 @@ impl IpcError {
             }
             AppError::QoderTimedOut => ("QODER_TIMED_OUT", ErrorMessageKey::QoderTimedOut, None),
             AppError::TraeNotInstalled => (
-                "TRAE_NOT_INSTALLED",
+                "TRAECODE_NOT_INSTALLED",
                 ErrorMessageKey::TraeNotInstalled,
                 None,
             ),
-            AppError::TraeProbeFailed => {
-                ("TRAE_PROBE_FAILED", ErrorMessageKey::TraeProbeFailed, None)
-            }
+            AppError::TraeProbeFailed => (
+                "TRAECODE_PROBE_FAILED",
+                ErrorMessageKey::TraeProbeFailed,
+                None,
+            ),
             AppError::TraeProtocolFailed => (
-                "TRAE_PROTOCOL_FAILED",
+                "TRAECODE_PROTOCOL_FAILED",
                 ErrorMessageKey::TraeProtocolFailed,
                 None,
             ),
-            AppError::TraeNeedsInput => ("TRAE_NEEDS_INPUT", ErrorMessageKey::TraeNeedsInput, None),
-            AppError::TraeTaskFailed => ("TRAE_TASK_FAILED", ErrorMessageKey::TraeTaskFailed, None),
-            AppError::TraeTimedOut => ("TRAE_TIMED_OUT", ErrorMessageKey::TraeTimedOut, None),
+            AppError::TraeNeedsInput => (
+                "TRAECODE_NEEDS_INPUT",
+                ErrorMessageKey::TraeNeedsInput,
+                None,
+            ),
+            AppError::TraeTaskFailed => (
+                "TRAECODE_TASK_FAILED",
+                ErrorMessageKey::TraeTaskFailed,
+                None,
+            ),
+            AppError::TraeTimedOut => ("TRAECODE_TIMED_OUT", ErrorMessageKey::TraeTimedOut, None),
             AppError::ProcessProbeFailed => (
                 "PROCESS_PROBE_FAILED",
                 ErrorMessageKey::ProcessProbeFailed,
@@ -342,7 +352,7 @@ mod tests {
     fn translates_traecode_cli_errors_without_exposing_process_details() {
         let error = IpcError::from_app_error(AppError::TraeNotInstalled, "en-US");
 
-        assert_eq!(error.code, "TRAE_NOT_INSTALLED");
+        assert_eq!(error.code, "TRAECODE_NOT_INSTALLED");
         assert_eq!(error.message, "TraeCode CLI was not found on this device");
     }
 }
