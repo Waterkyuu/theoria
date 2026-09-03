@@ -27,6 +27,16 @@ pub(super) fn message(key: ErrorMessageKey) -> &'static str {
         ErrorMessageKey::OpenCodeNeedsInput => "OpenCode is waiting for user input",
         ErrorMessageKey::OpenCodeTaskFailed => "OpenCode could not complete the task",
         ErrorMessageKey::OpenCodeTimedOut => "Timed out while waiting for OpenCode",
+        ErrorMessageKey::QoderNotInstalled => "Qoder CLI was not found on this device",
+        ErrorMessageKey::QoderProbeFailed => {
+            "The local Qoder CLI login status could not be checked"
+        }
+        ErrorMessageKey::QoderProtocolFailed => {
+            "The local Qoder CLI event stream could not be read"
+        }
+        ErrorMessageKey::QoderNeedsInput => "Qoder CLI is waiting for user input",
+        ErrorMessageKey::QoderTaskFailed => "Qoder CLI could not complete the task",
+        ErrorMessageKey::QoderTimedOut => "Timed out while waiting for Qoder CLI",
         ErrorMessageKey::ProcessProbeFailed => "The local Agent status could not be read",
         ErrorMessageKey::WorkBuddyNotInstalled => "WorkBuddy was not found on this device",
         ErrorMessageKey::WorkBuddyConfigReadFailed => {

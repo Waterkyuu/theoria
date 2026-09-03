@@ -154,20 +154,26 @@ impl IpcError {
             ),
             AppError::QoderNotInstalled => (
                 "QODER_NOT_INSTALLED",
-                ErrorMessageKey::ProcessProbeFailed,
+                ErrorMessageKey::QoderNotInstalled,
                 None,
             ),
             AppError::QoderProbeFailed => (
                 "QODER_PROBE_FAILED",
-                ErrorMessageKey::ProcessProbeFailed,
+                ErrorMessageKey::QoderProbeFailed,
                 None,
             ),
-            AppError::QoderProtocolFailed => {
-                ("QODER_PROTOCOL_FAILED", ErrorMessageKey::WorkerFailed, None)
+            AppError::QoderProtocolFailed => (
+                "QODER_PROTOCOL_FAILED",
+                ErrorMessageKey::QoderProtocolFailed,
+                None,
+            ),
+            AppError::QoderNeedsInput => {
+                ("QODER_NEEDS_INPUT", ErrorMessageKey::QoderNeedsInput, None)
             }
-            AppError::QoderNeedsInput => ("QODER_NEEDS_INPUT", ErrorMessageKey::WorkerFailed, None),
-            AppError::QoderTaskFailed => ("QODER_TASK_FAILED", ErrorMessageKey::WorkerFailed, None),
-            AppError::QoderTimedOut => ("QODER_TIMED_OUT", ErrorMessageKey::WorkerFailed, None),
+            AppError::QoderTaskFailed => {
+                ("QODER_TASK_FAILED", ErrorMessageKey::QoderTaskFailed, None)
+            }
+            AppError::QoderTimedOut => ("QODER_TIMED_OUT", ErrorMessageKey::QoderTimedOut, None),
             AppError::ProcessProbeFailed => (
                 "PROCESS_PROBE_FAILED",
                 ErrorMessageKey::ProcessProbeFailed,
@@ -300,5 +306,13 @@ mod tests {
 
         assert_eq!(error.code, "TASK_NOT_FOUND");
         assert_eq!(error.message, "未找到对应的任务记录");
+    }
+
+    #[test]
+    fn translates_qoder_cli_errors_without_exposing_process_details() {
+        let error = IpcError::from_app_error(AppError::QoderNotInstalled, "en-US");
+
+        assert_eq!(error.code, "QODER_NOT_INSTALLED");
+        assert_eq!(error.message, "Qoder CLI was not found on this device");
     }
 }
