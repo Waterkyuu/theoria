@@ -291,6 +291,12 @@ const TaskResultSummary = ({ onClose, task }: TaskResultSummaryProps) => {
 												width={16}
 											/>
 											<span>{t(`agentNames.${agent.agentKind}`)}</span>
+											<span aria-hidden="true" className="text-mute">
+												·
+											</span>
+											<span className="font-mono text-caption-sm font-normal text-mute">
+												{agent.modelSnapshot ?? unavailable}
+											</span>
 										</span>
 									</Table.Column>
 								))}

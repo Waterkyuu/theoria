@@ -49,6 +49,15 @@ const COMPLETE_TASK: TaskDetail = {
 };
 
 describe("TaskResultSummary", () => {
+	it("shows each Agent's concrete model in its column header", () => {
+		render(<TaskResultSummary onClose={vi.fn()} task={COMPLETE_TASK} />);
+
+		const summary = screen.getByRole("complementary", { name: "结果汇总" });
+		const agentHeader = within(summary).getAllByRole("columnheader")[1];
+		expect(agentHeader).toHaveTextContent("Codex");
+		expect(agentHeader).toHaveTextContent("gpt-runtime");
+	});
+
 	it("reveals individual tool durations only while the tool row is expanded", async () => {
 		const user = userEvent.setup();
 		render(<TaskResultSummary onClose={vi.fn()} task={COMPLETE_TASK} />);
