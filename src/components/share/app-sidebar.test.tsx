@@ -618,6 +618,25 @@ describe("AppSidebar", () => {
 		});
 	});
 
+	it("pins an unpinned Workspace Task from its action menu", async () => {
+		const user = userEvent.setup();
+		render(
+			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
+				<main>content</main>
+			</AppSidebar>,
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: "当前任务的更多操作" }),
+		);
+		await user.click(await screen.findByRole("menuitem", { name: "置顶" }));
+
+		expect(queryMocks.setTaskPin).toHaveBeenCalledWith({
+			isPinned: true,
+			taskId: "workspace-task-1",
+		});
+	});
+
 	it("pins a Recent Task directly from its hover action", async () => {
 		const user = userEvent.setup();
 		render(
@@ -626,7 +645,11 @@ describe("AppSidebar", () => {
 			</AppSidebar>,
 		);
 
-		await user.click(screen.getByRole("button", { name: "置顶" }));
+		await user.click(
+			within(screen.getByRole("region", { name: "最近" })).getByRole("button", {
+				name: "置顶",
+			}),
+		);
 
 		expect(queryMocks.setTaskPin).toHaveBeenCalledWith({
 			isPinned: true,

@@ -20,7 +20,7 @@ import { useDeleteTask, useRenameTask, useSetTaskPin } from "@/queries/task";
 type TaskActionDropdownProps = {
 	/** Called after deletion so an active route can return to its Composer. */
 	onDeleted?: () => void;
-	/** Present only for global Recent Tasks that support pinning. */
+	/** Persisted timestamp that controls pin state within the Task's sidebar scope. */
 	pinnedAtMs?: number | null;
 	/** Stable Task identifier removed with its owned run files. */
 	taskId: string;
@@ -75,7 +75,7 @@ const TaskActionDropdown = ({
 		}
 	};
 
-	/** Toggles persisted pin state for global Recent Tasks only. */
+	/** Toggles persisted pin state for any Task rendered in a sidebar list. */
 	const setPinState = async () => {
 		if (!supportsPinning || setTaskPinMutation.isPending) return;
 		try {

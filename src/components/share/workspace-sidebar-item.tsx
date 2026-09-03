@@ -3,7 +3,6 @@ import {
 	Ellipsis,
 	Folder,
 	LayoutColumns3,
-	Pin,
 	Plus,
 	Puzzle,
 	TargetDart,
@@ -221,10 +220,6 @@ const WorkspaceSidebarItem = ({
 											{task.title}
 										</button>
 										<div className="flex shrink-0 items-center gap-sm text-mute opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:transition-none">
-											<Pin
-												aria-hidden="true"
-												className="size-4 shrink-0 transition-colors hover:text-ink"
-											/>
 											<TaskActionDropdown
 												onDeleted={() => {
 													if (
@@ -233,6 +228,7 @@ const WorkspaceSidebarItem = ({
 														onNavigate(workspacePath);
 													}
 												}}
+												pinnedAtMs={task.pinnedAtMs}
 												taskId={task.id}
 												taskName={task.title}
 											/>

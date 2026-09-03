@@ -24,9 +24,9 @@ type RenameTaskInput = {
 };
 
 type SetTaskPinInput = {
-	/** Whether the global Recent Task should be pinned. */
+	/** Whether the Task should be pinned within its sidebar scope. */
 	isPinned: boolean;
-	/** Stable global Recent Task identifier. */
+	/** Stable Task identifier. */
 	taskId: string;
 };
 
@@ -172,7 +172,7 @@ const useRenameTask = () => {
 	});
 };
 
-/** Persists Recent pin state and refreshes its ordered list. */
+/** Persists pin state and refreshes the Task's owning sidebar list. */
 const useSetTaskPin = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
@@ -183,7 +183,9 @@ const useSetTaskPin = () => {
 				taskKeys.detail(task.id),
 				(detail) => (detail ? { ...detail, task } : detail),
 			);
-			queryClient.invalidateQueries({ queryKey: taskKeys.list(null) });
+			queryClient.invalidateQueries({
+				queryKey: taskKeys.list(task.workspaceId),
+			});
 		},
 	});
 };
