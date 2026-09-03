@@ -9,6 +9,8 @@ const apiMocks = vi.hoisted(() => ({
 	checkClaudeInitStatus: vi.fn(),
 	checkCodexInitStatus: vi.fn(),
 	checkOpenCodeInitStatus: vi.fn(),
+	checkQoderInitStatus: vi.fn(),
+	checkTraeCodeInitStatus: vi.fn(),
 	checkWorkBuddyInitStatus: vi.fn(),
 	onAgentProcessStatesChanged: vi.fn(),
 	createTask: vi.fn(),
@@ -86,6 +88,12 @@ vi.mock("@/api/codex", () => ({
 vi.mock("@/api/opencode", () => ({
 	checkOpenCodeInitStatus: apiMocks.checkOpenCodeInitStatus,
 }));
+vi.mock("@/api/qoder", () => ({
+	checkQoderInitStatus: apiMocks.checkQoderInitStatus,
+}));
+vi.mock("@/api/traecode", () => ({
+	checkTraeCodeInitStatus: apiMocks.checkTraeCodeInitStatus,
+}));
 vi.mock("@/api/workbuddy", () => ({
 	checkWorkBuddyInitStatus: apiMocks.checkWorkBuddyInitStatus,
 }));
@@ -135,6 +143,8 @@ describe("WorkspacePage", () => {
 			claude: false,
 			codex: true,
 			opencode: false,
+			qoder: false,
+			traecode: false,
 			workbuddy: true,
 		});
 		apiMocks.checkCodexInitStatus.mockResolvedValue({
@@ -152,6 +162,20 @@ describe("WorkspacePage", () => {
 			reasoningEffort: null,
 		});
 		apiMocks.checkOpenCodeInitStatus.mockResolvedValue({
+			installed: false,
+			loggedIn: false,
+			authenticationMethod: null,
+			model: null,
+			reasoningEffort: null,
+		});
+		apiMocks.checkQoderInitStatus.mockResolvedValue({
+			installed: false,
+			loggedIn: false,
+			authenticationMethod: null,
+			model: null,
+			reasoningEffort: null,
+		});
+		apiMocks.checkTraeCodeInitStatus.mockResolvedValue({
 			installed: false,
 			loggedIn: false,
 			authenticationMethod: null,
@@ -265,12 +289,14 @@ describe("WorkspacePage", () => {
 		expect(screen.getByText("gpt-runtime · xhigh")).toBeInTheDocument();
 		expect(screen.getByText("claude-runtime")).toBeInTheDocument();
 		expect(screen.getAllByText("已启动")).toHaveLength(2);
-		expect(screen.getAllByText("未启动")).toHaveLength(2);
-		expect(screen.getByText("未安装")).toBeInTheDocument();
+		expect(screen.getAllByText("未启动")).toHaveLength(4);
+		expect(screen.getAllByText("未安装")).toHaveLength(3);
 		expect(apiMocks.checkAgentProcesses).toHaveBeenCalledOnce();
 		expect(apiMocks.checkCodexInitStatus).toHaveBeenCalledOnce();
 		expect(apiMocks.checkClaudeInitStatus).toHaveBeenCalledOnce();
 		expect(apiMocks.checkOpenCodeInitStatus).toHaveBeenCalledOnce();
+		expect(apiMocks.checkQoderInitStatus).toHaveBeenCalledOnce();
+		expect(apiMocks.checkTraeCodeInitStatus).toHaveBeenCalledOnce();
 		expect(apiMocks.checkWorkBuddyInitStatus).toHaveBeenCalledOnce();
 	});
 

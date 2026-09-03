@@ -1,6 +1,13 @@
 import { z } from "zod";
 
-const AgentKindSchema = z.literal(["claude", "codex", "opencode", "workbuddy"]);
+const AgentKindSchema = z.literal([
+	"claude",
+	"codex",
+	"opencode",
+	"qoder",
+	"traecode",
+	"workbuddy",
+]);
 
 const AgentActivityStatusSchema = z.literal([
 	"running",
@@ -37,6 +44,10 @@ const AgentProcessStatesSchema = z.object({
 	codex: z.boolean(),
 	/** Whether an OpenCode process is currently running. */
 	opencode: z.boolean(),
+	/** Whether a Qoder CLI process is currently running. */
+	qoder: z.boolean(),
+	/** Whether a TraeCode CLI process is currently running. */
+	traecode: z.boolean(),
 	/** Whether a WorkBuddy process is currently running. */
 	workbuddy: z.boolean(),
 });

@@ -10,6 +10,8 @@ import { checkAgentProcesses, onAgentProcessStatesChanged } from "@/api/agent";
 import { checkClaudeInitStatus } from "@/api/claude";
 import { checkCodexInitStatus } from "@/api/codex";
 import { checkOpenCodeInitStatus } from "@/api/opencode";
+import { checkQoderInitStatus } from "@/api/qoder";
+import { checkTraeCodeInitStatus } from "@/api/traecode";
 import { checkWorkBuddyInitStatus } from "@/api/workbuddy";
 import { AGENT_KINDS } from "@/constants/agent";
 import { AgentPanel } from "@/pages/workspace/components/agent-panel";
@@ -49,6 +51,8 @@ const AGENT_INIT_CHECKS: Record<AgentKind, () => Promise<AgentRuntimeStatus>> =
 		claude: checkClaudeInitStatus,
 		codex: checkCodexInitStatus,
 		opencode: checkOpenCodeInitStatus,
+		qoder: checkQoderInitStatus,
+		traecode: checkTraeCodeInitStatus,
 		workbuddy: checkWorkBuddyInitStatus,
 	};
 

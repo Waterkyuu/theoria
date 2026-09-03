@@ -16,17 +16,27 @@ const apiMocks = vi.hoisted(() => ({
 	checkOpenCodeInitStatus: vi.fn(),
 	checkOpenCodeLogin: vi.fn(),
 	getOpenCodeRuntimeConfig: vi.fn(),
+	checkQoderInitStatus: vi.fn(),
+	checkQoderLogin: vi.fn(),
+	getQoderRuntimeConfig: vi.fn(),
+	checkTraeCodeInitStatus: vi.fn(),
+	checkTraeCodeLogin: vi.fn(),
+	getTraeCodeRuntimeConfig: vi.fn(),
 	checkWorkBuddyInitStatus: vi.fn(),
 	checkWorkBuddyLogin: vi.fn(),
 	getWorkBuddyRuntimeConfig: vi.fn(),
 	onClaudeConfigChanged: vi.fn(),
 	onCodexConfigChanged: vi.fn(),
 	onOpenCodeConfigChanged: vi.fn(),
+	onQoderConfigChanged: vi.fn(),
+	onTraeCodeConfigChanged: vi.fn(),
 	onWorkBuddyConfigChanged: vi.fn(),
 	onAgentProcessStatesChanged: vi.fn(),
 	runClaudeTask: vi.fn(),
 	runCodexTask: vi.fn(),
 	runOpenCodeTask: vi.fn(),
+	runQoderTask: vi.fn(),
+	runTraeCodeTask: vi.fn(),
 	runWorkBuddyTask: vi.fn(),
 	saveComparisonHistory: vi.fn(),
 }));
@@ -58,6 +68,22 @@ vi.mock("@/api/opencode", () => ({
 	getOpenCodeRuntimeConfig: apiMocks.getOpenCodeRuntimeConfig,
 	onOpenCodeConfigChanged: apiMocks.onOpenCodeConfigChanged,
 	runOpenCodeTask: apiMocks.runOpenCodeTask,
+}));
+
+vi.mock("@/api/qoder", () => ({
+	checkQoderInitStatus: apiMocks.checkQoderInitStatus,
+	checkQoderLogin: apiMocks.checkQoderLogin,
+	getQoderRuntimeConfig: apiMocks.getQoderRuntimeConfig,
+	onQoderConfigChanged: apiMocks.onQoderConfigChanged,
+	runQoderTask: apiMocks.runQoderTask,
+}));
+
+vi.mock("@/api/traecode", () => ({
+	checkTraeCodeInitStatus: apiMocks.checkTraeCodeInitStatus,
+	checkTraeCodeLogin: apiMocks.checkTraeCodeLogin,
+	getTraeCodeRuntimeConfig: apiMocks.getTraeCodeRuntimeConfig,
+	onTraeCodeConfigChanged: apiMocks.onTraeCodeConfigChanged,
+	runTraeCodeTask: apiMocks.runTraeCodeTask,
 }));
 
 vi.mock("@/api/workbuddy", () => ({
@@ -99,6 +125,8 @@ describe("resolveAgentStatus", () => {
 		claude: false,
 		codex: false,
 		opencode: false,
+		qoder: false,
+		traecode: false,
 		workbuddy: false,
 	};
 	const runningProcesses = { ...stoppedProcesses, codex: true };
@@ -193,11 +221,15 @@ describe("ComparisonPage native status updates", () => {
 			claude: false,
 			codex: false,
 			opencode: false,
+			qoder: false,
+			traecode: false,
 			workbuddy: false,
 		});
 		apiMocks.checkClaudeInitStatus.mockResolvedValue(RUNTIME_STATUS);
 		apiMocks.checkCodexInitStatus.mockResolvedValue(RUNTIME_STATUS);
 		apiMocks.checkOpenCodeInitStatus.mockResolvedValue(RUNTIME_STATUS);
+		apiMocks.checkQoderInitStatus.mockResolvedValue(RUNTIME_STATUS);
+		apiMocks.checkTraeCodeInitStatus.mockResolvedValue(RUNTIME_STATUS);
 		apiMocks.checkWorkBuddyInitStatus.mockResolvedValue({
 			model: "initial-workbuddy-model",
 			reasoningEffort: "medium",
@@ -206,6 +238,8 @@ describe("ComparisonPage native status updates", () => {
 		apiMocks.checkClaudeLogin.mockResolvedValue(LOGIN_STATUS);
 		apiMocks.checkCodexLogin.mockResolvedValue(LOGIN_STATUS);
 		apiMocks.checkOpenCodeLogin.mockResolvedValue(LOGIN_STATUS);
+		apiMocks.checkQoderLogin.mockResolvedValue(LOGIN_STATUS);
+		apiMocks.checkTraeCodeLogin.mockResolvedValue(LOGIN_STATUS);
 		apiMocks.checkWorkBuddyLogin.mockResolvedValue(LOGIN_STATUS);
 		apiMocks.getClaudeRuntimeConfig.mockResolvedValue({
 			model: "test-model",
@@ -219,6 +253,14 @@ describe("ComparisonPage native status updates", () => {
 			model: "test-model",
 			reasoningEffort: "medium",
 		});
+		apiMocks.getQoderRuntimeConfig.mockResolvedValue({
+			model: "test-model",
+			reasoningEffort: null,
+		});
+		apiMocks.getTraeCodeRuntimeConfig.mockResolvedValue({
+			model: "test-model",
+			reasoningEffort: null,
+		});
 		apiMocks.getWorkBuddyRuntimeConfig.mockResolvedValue({
 			model: "initial-workbuddy-model",
 			reasoningEffort: "medium",
@@ -226,6 +268,8 @@ describe("ComparisonPage native status updates", () => {
 		apiMocks.onClaudeConfigChanged.mockResolvedValue(vi.fn());
 		apiMocks.onCodexConfigChanged.mockResolvedValue(vi.fn());
 		apiMocks.onOpenCodeConfigChanged.mockResolvedValue(vi.fn());
+		apiMocks.onQoderConfigChanged.mockResolvedValue(vi.fn());
+		apiMocks.onTraeCodeConfigChanged.mockResolvedValue(vi.fn());
 		apiMocks.onWorkBuddyConfigChanged.mockImplementation((listener) => {
 			workBuddyConfigListener = listener;
 			return Promise.resolve(stopWorkBuddyConfigListener);
@@ -307,6 +351,8 @@ describe("ComparisonPage native status updates", () => {
 				claude: false,
 				codex: true,
 				opencode: false,
+				qoder: false,
+				traecode: false,
 				workbuddy: false,
 			});
 		});
@@ -416,6 +462,8 @@ describe("ComparisonPage native status updates", () => {
 		apiMocks.runClaudeTask.mockResolvedValue(runResult);
 		apiMocks.runCodexTask.mockResolvedValue(runResult);
 		apiMocks.runOpenCodeTask.mockResolvedValue(runResult);
+		apiMocks.runQoderTask.mockResolvedValue(runResult);
+		apiMocks.runTraeCodeTask.mockResolvedValue(runResult);
 		apiMocks.runWorkBuddyTask.mockResolvedValue(runResult);
 		render(<ComparisonPage />);
 
@@ -427,7 +475,7 @@ describe("ComparisonPage native status updates", () => {
 			target: { value: "检查性能" },
 		});
 		fireEvent.click(
-			screen.getByRole("button", { name: "运行 4 个 Agent 对比" }),
+			screen.getByRole("button", { name: "运行 6 个 Agent 对比" }),
 		);
 		await act(async () => {
 			await Promise.resolve();
@@ -443,6 +491,11 @@ describe("ComparisonPage native status updates", () => {
 					expect.objectContaining({ agent: "codex", status: "succeeded" }),
 					expect.objectContaining({ agent: "claude", status: "succeeded" }),
 					expect.objectContaining({ agent: "opencode", status: "succeeded" }),
+					expect.objectContaining({ agent: "qoder", status: "succeeded" }),
+					expect.objectContaining({
+						agent: "traecode",
+						status: "succeeded",
+					}),
 					expect.objectContaining({ agent: "workbuddy", status: "succeeded" }),
 				]),
 			}),

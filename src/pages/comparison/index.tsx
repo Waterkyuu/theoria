@@ -31,6 +31,20 @@ import {
 	runOpenCodeTask,
 } from "@/api/opencode";
 import {
+	checkQoderInitStatus,
+	checkQoderLogin,
+	getQoderRuntimeConfig,
+	onQoderConfigChanged,
+	runQoderTask,
+} from "@/api/qoder";
+import {
+	checkTraeCodeInitStatus,
+	checkTraeCodeLogin,
+	getTraeCodeRuntimeConfig,
+	onTraeCodeConfigChanged,
+	runTraeCodeTask,
+} from "@/api/traecode";
+import {
 	checkWorkBuddyInitStatus,
 	checkWorkBuddyLogin,
 	getWorkBuddyRuntimeConfig,
@@ -105,6 +119,8 @@ const AGENT_INIT_CHECKS: Record<AgentKind, () => Promise<AgentRuntimeStatus>> =
 		claude: checkClaudeInitStatus,
 		codex: checkCodexInitStatus,
 		opencode: checkOpenCodeInitStatus,
+		qoder: checkQoderInitStatus,
+		traecode: checkTraeCodeInitStatus,
 		workbuddy: checkWorkBuddyInitStatus,
 	};
 
@@ -112,6 +128,8 @@ const AGENT_LOGIN_CHECKS: Record<AgentKind, () => Promise<AgentLoginStatus>> = {
 	claude: checkClaudeLogin,
 	codex: checkCodexLogin,
 	opencode: checkOpenCodeLogin,
+	qoder: checkQoderLogin,
+	traecode: checkTraeCodeLogin,
 	workbuddy: checkWorkBuddyLogin,
 };
 
@@ -122,6 +140,8 @@ const AGENT_CONFIG_CHECKS: Record<
 	claude: getClaudeRuntimeConfig,
 	codex: getCodexRuntimeConfig,
 	opencode: getOpenCodeRuntimeConfig,
+	qoder: getQoderRuntimeConfig,
+	traecode: getTraeCodeRuntimeConfig,
 	workbuddy: getWorkBuddyRuntimeConfig,
 };
 
@@ -132,6 +152,8 @@ const AGENT_TASK_RUNNERS: Record<
 	claude: runClaudeTask,
 	codex: runCodexTask,
 	opencode: runOpenCodeTask,
+	qoder: runQoderTask,
+	traecode: runTraeCodeTask,
 	workbuddy: runWorkBuddyTask,
 };
 
@@ -192,6 +214,8 @@ const ComparisonPage = () => {
 		claude: { status: "checking" },
 		codex: { status: "checking" },
 		opencode: { status: "checking" },
+		qoder: { status: "checking" },
+		traecode: { status: "checking" },
 		workbuddy: { status: "checking" },
 	});
 	const [query, setQuery] = useState("");
@@ -204,12 +228,16 @@ const ComparisonPage = () => {
 		claude: { model: null, reasoningEffort: null },
 		codex: { model: null, reasoningEffort: null },
 		opencode: { model: null, reasoningEffort: null },
+		qoder: { model: null, reasoningEffort: null },
+		traecode: { model: null, reasoningEffort: null },
 		workbuddy: { model: null, reasoningEffort: null },
 	});
 	const [runStates, setRunStates] = useState<Record<AgentKind, AgentRunState>>({
 		claude: { status: "idle" },
 		codex: { status: "idle" },
 		opencode: { status: "idle" },
+		qoder: { status: "idle" },
+		traecode: { status: "idle" },
 		workbuddy: { status: "idle" },
 	});
 	const loginStatesRef = useRef(loginStates);
@@ -243,6 +271,10 @@ const ComparisonPage = () => {
 			onCodexConfigChanged((config) => applyRuntimeConfig("codex", config)),
 			onOpenCodeConfigChanged((config) =>
 				applyRuntimeConfig("opencode", config),
+			),
+			onQoderConfigChanged((config) => applyRuntimeConfig("qoder", config)),
+			onTraeCodeConfigChanged((config) =>
+				applyRuntimeConfig("traecode", config),
 			),
 			onWorkBuddyConfigChanged((config) =>
 				applyRuntimeConfig("workbuddy", config),
@@ -482,6 +514,8 @@ const ComparisonPage = () => {
 			claude: { status: "idle" },
 			codex: { status: "idle" },
 			opencode: { status: "idle" },
+			qoder: { status: "idle" },
+			traecode: { status: "idle" },
 			workbuddy: { status: "idle" },
 		});
 	};
@@ -516,6 +550,12 @@ const ComparisonPage = () => {
 				? { status: "running" }
 				: { status: "idle" },
 			opencode: activeAgents.includes("opencode")
+				? { status: "running" }
+				: { status: "idle" },
+			qoder: activeAgents.includes("qoder")
+				? { status: "running" }
+				: { status: "idle" },
+			traecode: activeAgents.includes("traecode")
 				? { status: "running" }
 				: { status: "idle" },
 			workbuddy: activeAgents.includes("workbuddy")
