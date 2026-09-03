@@ -3,8 +3,20 @@ use crate::dto::skill::{
     ListWorkspaceSkillsRequest, SkillRequest, SkillResponse, WorkspaceSkillRequest,
 };
 use crate::error::IpcError;
+use crate::platform::skill_folder_picker;
 use crate::services::skill::SkillLibraryService;
-use tauri::State;
+use tauri::{AppHandle, State};
+
+/// Opens a native folder picker that exposes hidden Skill locations such as `.agents/skills`.
+#[tauri::command]
+pub(crate) async fn select_skill_folder(
+    title: String,
+    app: AppHandle,
+) -> Result<Option<String>, IpcError> {
+    skill_folder_picker::select_skill_folder(app, title)
+        .await
+        .map_err(Into::into)
+}
 
 /// Imports an independent copy of one local Skill folder.
 #[tauri::command]
