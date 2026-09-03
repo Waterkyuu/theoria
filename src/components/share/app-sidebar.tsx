@@ -46,6 +46,7 @@ const NewWorkspaceModal = lazy(() => import("./create-workspace-modal"));
 const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 	const { t } = useTranslation();
 	const [isWorkspaceListExpanded, setIsWorkspaceListExpanded] = useState(true);
+	const [isRecentListExpanded, setIsRecentListExpanded] = useState(true);
 	const [isNewWorkspaceOpen, setIsNewWorkspaceOpen] = useState(false);
 	const [isSidebarVisible, setIsSidebarVisible] = useState(true);
 	const workspacesQuery = useWorkspaces();
@@ -57,7 +58,7 @@ const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 				aria-hidden={!isSidebarVisible}
 				aria-label={t("workspaceSidebar.label")}
 				className={cn(
-					"sticky top-0 flex h-[100dvh] w-[287px] min-w-[287px] flex-col gap-[9px] overflow-hidden border-r border-hairline bg-surface-soft px-[14px] py-[7px] opacity-100 transition-[width,min-width,padding,opacity,transform,border-color] duration-200 ease-out motion-reduce:transition-none max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:z-50 max-md:h-16 max-md:w-full max-md:min-w-0 max-md:gap-0 max-md:border-r-0 max-md:border-t max-md:px-0 max-md:py-0",
+					"sticky top-0 z-50 flex h-[100dvh] w-[287px] min-w-[287px] flex-col gap-[9px] overflow-hidden border-r border-hairline bg-surface-soft px-[14px] py-[7px] opacity-100 transition-[width,min-width,padding,opacity,transform,border-color] duration-200 ease-out motion-reduce:transition-none max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:h-16 max-md:w-full max-md:min-w-0 max-md:gap-0 max-md:border-r-0 max-md:border-t max-md:px-0 max-md:py-0",
 					!isSidebarVisible &&
 						"pointer-events-none w-0 min-w-0 -translate-x-full border-r-transparent px-0 opacity-0",
 				)}
@@ -200,18 +201,35 @@ const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 
 					<section
 						aria-label={t("workspaceSidebar.recent")}
-						className="flex shrink-0 flex-col gap-xs"
+						className="flex shrink-0 flex-col"
 					>
 						<div className="flex h-7 items-center justify-between">
-							<div className="flex items-center gap-xs">
-								<p className="text-[11px] font-semibold text-mute">
+							<button
+								aria-expanded={isRecentListExpanded}
+								aria-label={t(
+									isRecentListExpanded
+										? "workspaceSidebar.collapseRecentTasks"
+										: "workspaceSidebar.expandRecentTasks",
+								)}
+								className="flex items-center gap-xs rounded-sm text-mute outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-focus-ring"
+								onClick={() => setIsRecentListExpanded((expanded) => !expanded)}
+								type="button"
+							>
+								<span className="text-[11px] font-semibold">
 									{t("workspaceSidebar.recent")}
-								</p>
-								<ChevronDown
-									aria-hidden="true"
-									className="size-3 shrink-0 text-mute"
-								/>
-							</div>
+								</span>
+								{isRecentListExpanded ? (
+									<ChevronDown
+										aria-hidden="true"
+										className="size-3 shrink-0 text-mute"
+									/>
+								) : (
+									<ChevronRight
+										aria-hidden="true"
+										className="size-3 shrink-0 text-mute"
+									/>
+								)}
+							</button>
 							<button
 								aria-label={`${t("workspaceSidebar.recent")} ${t("navigation.newTask")}`}
 								className="size-3 rounded-sm text-mute outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-focus-ring"
@@ -221,54 +239,58 @@ const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 								<Plus aria-hidden="true" className="size-3" />
 							</button>
 						</div>
-						{recentTasksQuery.isLoading ? (
-							<div
-								aria-label={t("loadingPage")}
-								className="space-y-xs"
-								role="status"
-							>
-								<div className="h-8 animate-pulse rounded-md bg-hairline motion-reduce:animate-none" />
-								<div className="h-8 animate-pulse rounded-md bg-hairline motion-reduce:animate-none" />
-							</div>
-						) : (
-							(recentTasksQuery.data ?? []).map((task) => (
+						{isRecentListExpanded ? (
+							recentTasksQuery.isLoading ? (
 								<div
-									className={cn(
-										"group flex h-8 items-center gap-[7px] rounded-md px-sm text-body-sm font-medium hover:bg-hairline",
-										currentPath === `/task/${task.id}` && "bg-hairline",
-									)}
-									key={task.id}
+									aria-label={t("loadingPage")}
+									className="space-y-xs"
+									role="status"
 								>
-									<button
-										className="min-w-0 flex-1 truncate text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-										onClick={() =>
-											onNavigate(`/task/${encodeURIComponent(task.id)}`)
-										}
-										type="button"
-									>
-										{task.title}
-									</button>
-									<div
-										className={cn(
-											"flex shrink-0 items-center gap-sm text-mute transition-opacity motion-reduce:transition-none",
-											!task.pinnedAtMs &&
-												"opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
-										)}
-									>
-										<TaskActionDropdown
-											onDeleted={() => {
-												if (currentPath === `/task/${task.id}`) {
-													onNavigate("/task");
-												}
-											}}
-											taskId={task.id}
-											taskName={task.title}
-											pinnedAtMs={task.pinnedAtMs}
-										/>
-									</div>
+									<div className="h-8 animate-pulse rounded-md bg-hairline motion-reduce:animate-none" />
+									<div className="h-8 animate-pulse rounded-md bg-hairline motion-reduce:animate-none" />
 								</div>
-							))
-						)}
+							) : (
+								<div className="flex flex-col gap-[3px]">
+									{(recentTasksQuery.data ?? []).map((task) => (
+										<div
+											className={cn(
+												"group flex h-8 items-center gap-[7px] rounded-md px-sm text-body-sm font-medium hover:bg-hairline",
+												currentPath === `/task/${task.id}` && "bg-hairline",
+											)}
+											key={task.id}
+										>
+											<button
+												className="min-w-0 flex-1 truncate text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+												onClick={() =>
+													onNavigate(`/task/${encodeURIComponent(task.id)}`)
+												}
+												type="button"
+											>
+												{task.title}
+											</button>
+											<div
+												className={cn(
+													"flex shrink-0 items-center gap-sm text-mute transition-opacity motion-reduce:transition-none",
+													!task.pinnedAtMs &&
+														"opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
+												)}
+											>
+												<TaskActionDropdown
+													onDeleted={() => {
+														if (currentPath === `/task/${task.id}`) {
+															onNavigate("/task");
+														}
+													}}
+													pinnedAtMs={task.pinnedAtMs}
+													taskId={task.id}
+													taskName={task.title}
+												/>
+											</div>
+										</div>
+									))}
+								</div>
+							)
+						) : null}
 					</section>
 				</div>
 

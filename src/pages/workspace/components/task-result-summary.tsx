@@ -98,7 +98,7 @@ const TaskResultSummary = ({ onClose, task }: TaskResultSummaryProps) => {
 			label: t("taskSummary.toolCall", { sequence: index + 1 }),
 			value: (result) => {
 				const toolCall = metricToolCalls(result)[index];
-				if (!toolCall) return unavailable;
+				if (!toolCall) return t("taskSummary.noToolCall");
 				return (
 					<span className="flex items-center justify-between gap-lg">
 						<span className="font-sans text-charcoal">{toolCall.name}</span>
@@ -220,7 +220,7 @@ const TaskResultSummary = ({ onClose, task }: TaskResultSummaryProps) => {
 			className={cn(
 				"flex shrink-0 flex-col bg-surface-card",
 				isFullscreen
-					? "fixed inset-x-0 bottom-0 top-11 z-50 w-full min-w-0"
+					? "fixed inset-x-0 bottom-0 top-11 z-40 w-full min-w-0"
 					: "h-full w-full min-w-0 border-l border-hairline max-md:absolute max-md:inset-y-[34px] max-md:right-0 max-md:z-30 max-md:h-auto max-md:w-[min(520px,calc(100%-1rem))] max-md:shadow-xl",
 			)}
 		>
@@ -291,6 +291,12 @@ const TaskResultSummary = ({ onClose, task }: TaskResultSummaryProps) => {
 												width={16}
 											/>
 											<span>{t(`agentNames.${agent.agentKind}`)}</span>
+											<span aria-hidden="true" className="text-mute">
+												·
+											</span>
+											<span className="font-mono text-caption-sm font-normal text-mute">
+												{agent.modelSnapshot ?? t("unknownModel")}
+											</span>
 										</span>
 									</Table.Column>
 								))}

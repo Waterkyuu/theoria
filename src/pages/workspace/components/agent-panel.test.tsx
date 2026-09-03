@@ -26,6 +26,24 @@ const COMPLETE_RESULT: TaskAgentResult = {
 };
 
 describe("AgentPanel", () => {
+	it("labels a missing model snapshot as an unknown model", () => {
+		render(
+			<AgentPanel
+				agent={{
+					...RUNNING_AGENT,
+					modelSnapshot: null,
+					modeSnapshot: null,
+				}}
+				onStop={vi.fn()}
+				prompt="Review the workspace task."
+				stopPending={false}
+			/>,
+		);
+
+		expect(screen.getByText("未知模型")).toBeInTheDocument();
+		expect(screen.queryByText("不可用")).not.toBeInTheDocument();
+	});
+
 	it("renders the Figma Running state from live Task data and stops one Agent", async () => {
 		const user = userEvent.setup();
 		const stopAgent = vi.fn();
