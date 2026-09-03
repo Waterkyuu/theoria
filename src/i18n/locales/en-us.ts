@@ -110,6 +110,8 @@ const enUS = {
 			renameConversation: "Rename",
 			benchmarks: "Benchmarks",
 			mountedSkills: "Mounted skills",
+			mountedSkillActions: "More actions for {{skill}}",
+			unmountSkillFromWorkspace: "Remove mount from this Workspace",
 			appSettings: "App settings",
 		},
 		settings: {

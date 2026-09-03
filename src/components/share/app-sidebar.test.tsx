@@ -13,6 +13,7 @@ const queryMocks = vi.hoisted(() => ({
 	renameWorkspace: vi.fn(),
 	setTaskPin: vi.fn(),
 	setWorkspacePin: vi.fn(),
+	unmountWorkspaceSkill: vi.fn(),
 	useTasks: vi.fn(),
 	useWorkspaces: vi.fn(),
 	useWorkspaceSkills: vi.fn(),
@@ -59,6 +60,10 @@ vi.mock("@/queries/workspace", () => ({
 	useWorkspaces: queryMocks.useWorkspaces,
 }));
 vi.mock("@/queries/skill", () => ({
+	useUnmountWorkspaceSkill: () => ({
+		mutateAsync: queryMocks.unmountWorkspaceSkill,
+		isPending: false,
+	}),
 	useWorkspaceSkills: queryMocks.useWorkspaceSkills,
 }));
 
@@ -100,6 +105,7 @@ describe("AppSidebar", () => {
 		queryMocks.renameTask.mockResolvedValue(undefined);
 		queryMocks.setTaskPin.mockResolvedValue(undefined);
 		queryMocks.setWorkspacePin.mockResolvedValue(undefined);
+		queryMocks.unmountWorkspaceSkill.mockResolvedValue(undefined);
 		queryMocks.useWorkspaces.mockReturnValue({
 			data: [
 				{
@@ -263,6 +269,31 @@ describe("AppSidebar", () => {
 
 		expect(screen.getByText("repository-map")).toBeInTheDocument();
 		expect(screen.getByText("test-runner")).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "repository-map的更多操作" }),
+		).toBeInTheDocument();
+	});
+
+	it("removes mounted Workspace Skills from the sidebar more menu", async () => {
+		const user = userEvent.setup();
+		render(
+			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
+				<main>content</main>
+			</AppSidebar>,
+		);
+
+		await user.click(screen.getByRole("button", { name: "已挂载技能2" }));
+		await user.click(
+			screen.getByRole("button", { name: "repository-map的更多操作" }),
+		);
+		await user.click(
+			screen.getByRole("menuitem", { name: "从这个工作区移除挂载" }),
+		);
+
+		expect(queryMocks.unmountWorkspaceSkill).toHaveBeenCalledWith({
+			skillId: "skill-1",
+			workspaceId: "workspace-1",
+		});
 	});
 
 	it("lets the Recent add icon inherit the button hover color", () => {

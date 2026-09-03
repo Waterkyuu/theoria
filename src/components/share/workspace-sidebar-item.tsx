@@ -1,17 +1,23 @@
 import { useState } from "react";
 import {
+	Ellipsis,
 	Folder,
 	LayoutColumns3,
 	Pin,
 	Plus,
 	Puzzle,
 	TargetDart,
+	TrashBin,
 } from "@gravity-ui/icons";
+import { Button } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { TaskActionDropdown } from "@/components/share/task-action-dropdown";
 import { WorkspaceActionDropdown } from "@/components/share/workspace-action-dropdown";
-import { useWorkspaceSkills } from "@/queries/skill";
+import type { DropdownMenuItemProps } from "@/components/ui/dropdown-menu";
+import { DropdownMenu } from "@/components/ui/dropdown-menu";
+import { handleError } from "@/utils/error";
+import { useUnmountWorkspaceSkill, useWorkspaceSkills } from "@/queries/skill";
 import { useTasks } from "@/queries/task";
 import type { Workspace } from "@/types/workspace";
 
@@ -23,6 +29,8 @@ type WorkspaceSidebarItemProps = {
 	/** Persisted Workspace rendered with the original Figma tree structure. */
 	workspace: Workspace;
 };
+
+type MountedSkillMenuAction = "unmount";
 
 /**
  * Connects one persisted Workspace to the existing expandable sidebar tree.
@@ -42,10 +50,38 @@ const WorkspaceSidebarItem = ({
 	const [isSkillsExpanded, setIsSkillsExpanded] = useState(false);
 	const tasksQuery = useTasks(workspace.id);
 	const skillsQuery = useWorkspaceSkills(workspace.id);
+	const unmountSkillMutation = useUnmountWorkspaceSkill();
 	const tasks = tasksQuery.data ?? [];
 	const mountedSkillCount = skillsQuery.data?.length ?? 0;
 	const workspacePath = `/workspaces/${encodeURIComponent(workspace.id)}`;
 	const isWorkspaceSelected = currentPath.startsWith(workspacePath);
+	const mountedSkillMenuItems: DropdownMenuItemProps<MountedSkillMenuAction>[] =
+		[
+			{
+				icon: (
+					<TrashBin
+						aria-hidden="true"
+						className="size-4 shrink-0 text-danger"
+					/>
+				),
+				id: "unmount",
+				isDisabled: unmountSkillMutation.isPending,
+				labelKey: "workspaceSidebar.unmountSkillFromWorkspace",
+			},
+		];
+
+	/** Removes one Skill mount only from this Workspace. */
+	const removeMountedSkill = async (skillId: string) => {
+		if (unmountSkillMutation.isPending) return;
+		try {
+			await unmountSkillMutation.mutateAsync({
+				skillId,
+				workspaceId: workspace.id,
+			});
+		} catch (error) {
+			handleError(error, "Workspace Skill unmount failed", true);
+		}
+	};
 
 	return (
 		<div
@@ -268,14 +304,35 @@ const WorkspaceSidebarItem = ({
 									<div
 										aria-label={skill.folderName}
 										aria-level={3}
-										className="mt-xs flex h-8 items-center rounded-md pl-12 pr-[6px] text-body-sm font-medium text-mute"
+										className="group mt-xs flex h-8 items-center gap-[7px] rounded-md pl-12 pr-[6px] text-body-sm font-medium hover:bg-hairline"
 										key={skill.id}
 										role="treeitem"
 										tabIndex={-1}
 									>
-										<span className="min-w-0 flex-1 truncate">
+										<span className="min-w-0 flex-1 truncate text-left">
 											{skill.folderName}
 										</span>
+										<div className="flex shrink-0 items-center gap-sm text-mute opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:transition-none">
+											<DropdownMenu
+												items={mountedSkillMenuItems}
+												onAction={() => removeMountedSkill(skill.id)}
+												placement="bottom end"
+												trigger={
+													<Button
+														aria-label={t(
+															"workspaceSidebar.mountedSkillActions",
+															{ skill: skill.folderName },
+														)}
+														className="size-4 min-w-4 cursor-pointer rounded-sm p-0 text-mute shadow-none outline-none transition-colors hover:bg-transparent hover:text-ink focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+														isIconOnly
+														size="sm"
+														variant="ghost"
+													>
+														<Ellipsis aria-hidden="true" className="size-4" />
+													</Button>
+												}
+											/>
+										</div>
 									</div>
 								))
 							)

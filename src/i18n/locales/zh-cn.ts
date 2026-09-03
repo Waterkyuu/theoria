@@ -109,6 +109,8 @@ const zhCN = {
 			renameConversation: "重命名",
 			benchmarks: "基准测试",
 			mountedSkills: "已挂载技能",
+			mountedSkillActions: "{{skill}}的更多操作",
+			unmountSkillFromWorkspace: "从这个工作区移除挂载",
 			appSettings: "应用设置",
 		},
 		settings: {
