@@ -28,6 +28,12 @@ pub(crate) enum AppError {
     QoderNeedsInput,
     QoderTaskFailed,
     QoderTimedOut,
+    TraeNotInstalled,
+    TraeProbeFailed,
+    TraeProtocolFailed,
+    TraeNeedsInput,
+    TraeTaskFailed,
+    TraeTimedOut,
     ProcessProbeFailed,
     WorkBuddyNotInstalled,
     WorkBuddyConfigReadFailed,
@@ -174,6 +180,22 @@ impl IpcError {
                 ("QODER_TASK_FAILED", ErrorMessageKey::QoderTaskFailed, None)
             }
             AppError::QoderTimedOut => ("QODER_TIMED_OUT", ErrorMessageKey::QoderTimedOut, None),
+            AppError::TraeNotInstalled => (
+                "TRAE_NOT_INSTALLED",
+                ErrorMessageKey::ProcessProbeFailed,
+                None,
+            ),
+            AppError::TraeProbeFailed => (
+                "TRAE_PROBE_FAILED",
+                ErrorMessageKey::ProcessProbeFailed,
+                None,
+            ),
+            AppError::TraeProtocolFailed => {
+                ("TRAE_PROTOCOL_FAILED", ErrorMessageKey::WorkerFailed, None)
+            }
+            AppError::TraeNeedsInput => ("TRAE_NEEDS_INPUT", ErrorMessageKey::WorkerFailed, None),
+            AppError::TraeTaskFailed => ("TRAE_TASK_FAILED", ErrorMessageKey::WorkerFailed, None),
+            AppError::TraeTimedOut => ("TRAE_TIMED_OUT", ErrorMessageKey::WorkerFailed, None),
             AppError::ProcessProbeFailed => (
                 "PROCESS_PROBE_FAILED",
                 ErrorMessageKey::ProcessProbeFailed,
