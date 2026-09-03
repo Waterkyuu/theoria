@@ -376,6 +376,8 @@ const enUS = {
 			claude: "Claude Code",
 			codex: "Codex",
 			opencode: "OpenCode",
+			qoder: "Qoder",
+			traecode: "TraeCode",
 			workbuddy: "WorkBuddy",
 		},
 		agentSelection: "Select agents to compare",

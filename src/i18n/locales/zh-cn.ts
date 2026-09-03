@@ -361,6 +361,8 @@ const zhCN = {
 			claude: "Claude Code",
 			codex: "Codex",
 			opencode: "OpenCode",
+			qoder: "Qoder",
+			traecode: "TraeCode",
 			workbuddy: "WorkBuddy",
 		},
 		agentSelection: "选择要对比的 Agent",
