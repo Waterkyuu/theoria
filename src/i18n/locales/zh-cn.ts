@@ -250,6 +250,7 @@ const zhCN = {
 			tokens: "总 token",
 			toolCalls: "工具调用",
 			toolCall: "调用 {{sequence}}",
+			noToolCall: "无",
 			expandToolCalls: "展开工具调用明细",
 			collapseToolCalls: "收起工具调用明细",
 			files: "文件变化",
