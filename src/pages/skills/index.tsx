@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { BarsDescendingAlignCenter, Check, Puzzle } from "@gravity-ui/icons";
-import { Button, Input, Label, TextField } from "@heroui/react";
+import { Button, Input, Label, Table, TextField } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
@@ -239,135 +239,124 @@ const SkillsPage = () => {
 					))}
 				</div>
 
-				<div className="-mx-4 mt-[22px] overflow-x-auto border-y border-hairline bg-surface-card pb-5 sm:mx-0 sm:rounded-lg sm:border">
-					<table
-						aria-label={t("skills.libraryLabel")}
-						className="w-full min-w-195 table-fixed border-collapse"
-					>
-						<colgroup>
-							<col className="w-[48%]" />
-							<col className="w-[16%]" />
-							<col className="w-[18%]" />
-							<col className="w-[10%]" />
-							<col className="w-[13%]" />
-						</colgroup>
-						<thead>
-							<tr className="h-12 border-b border-hairline text-left text-caption-sm font-medium text-mute">
-								<th className="px-lg font-medium" scope="col">
+				<Table className="-mx-4 mt-[22px] sm:mx-0">
+					<Table.ScrollContainer>
+						<Table.Content
+							aria-label={t("skills.libraryLabel")}
+							className="min-w-195 table-fixed"
+						>
+							<Table.Header>
+								<Table.Column className="w-[48%]" isRowHeader>
 									{t("skills.columns.skill")}
-								</th>
-								<th className="px-sm font-medium" scope="col">
+								</Table.Column>
+								<Table.Column className="w-[16%]">
 									{t("skills.columns.source")}
-								</th>
-								<th className="px-sm font-medium" scope="col">
+								</Table.Column>
+								<Table.Column className="w-[18%]">
 									{t("skills.columns.workspaces")}
-								</th>
-								<th className="px-sm font-medium" scope="col">
+								</Table.Column>
+								<Table.Column className="w-[10%]">
 									{t("skills.columns.access")}
-								</th>
-								<th aria-label={t("skills.columns.actions")} scope="col" />
-							</tr>
-						</thead>
-						<tbody>
-							{visibleSkills.map((skill) => (
-								<tr
-									className="h-24 border-b border-hairline last:border-b-0"
-									key={skill.id}
-								>
-									<td className="px-lg">
-										<div className="flex items-start gap-[14px]">
-											<Puzzle
-												aria-hidden="true"
-												className="mt-xs size-5 shrink-0"
-											/>
-											<div className="min-w-0">
-												<p className="truncate text-body-md font-medium leading-5 text-ink">
-													{skill.name}
-												</p>
-												<p className="mt-xs truncate text-[13px] leading-4 text-charcoal">
-													{skill.description}
-												</p>
+								</Table.Column>
+								<Table.Column
+									aria-label={t("skills.columns.actions")}
+									className="w-[13%]"
+								/>
+							</Table.Header>
+							<Table.Body>
+								{visibleSkills.map((skill) => (
+									<Table.Row className="h-24" id={skill.id} key={skill.id}>
+										<Table.Cell>
+											<div className="flex items-start gap-[14px]">
+												<Puzzle
+													aria-hidden="true"
+													className="mt-xs size-5 shrink-0"
+												/>
+												<div className="min-w-0">
+													<p className="truncate text-body-md font-medium leading-5 text-ink">
+														{skill.name}
+													</p>
+													<p className="mt-xs truncate text-[13px] leading-4 text-charcoal">
+														{skill.description}
+													</p>
+												</div>
 											</div>
-										</div>
-									</td>
-									<td className="px-sm text-body-sm text-charcoal">
-										{skill.sourceLabel}
-									</td>
-									<td
-										className={cn(
-											"px-sm text-body-sm",
-											skill.mountedCount === 0 ? "text-mute" : "text-ink",
-										)}
-									>
-										{skill.mountedCount === 0
-											? t("skills.notMounted")
-											: t("skills.mountedCount", {
-													count: skill.mountedCount,
-												})}
-									</td>
-									<td className="px-sm text-body-sm text-charcoal">
-										{skill.accessLabel}
-									</td>
-									<td className="px-sm text-right">
-										<div className="flex justify-end gap-sm">
-											{skill.sourceType === "git" ? (
-												<button
-													aria-label={t("skills.updateNamed", {
-														name: skill.name,
+										</Table.Cell>
+										<Table.Cell className="text-body-sm text-charcoal">
+											{skill.sourceLabel}
+										</Table.Cell>
+										<Table.Cell className="text-body-sm text-charcoal">
+											{skill.mountedCount === 0
+												? t("skills.notMounted")
+												: t("skills.mountedCount", {
+														count: skill.mountedCount,
 													})}
-													className="h-9 rounded-md border border-hairline bg-surface-card px-md text-body-sm font-medium text-ink outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
-													disabled={updateGitSkillMutation.isPending}
-													onClick={() => updateGitSkill(skill.id)}
+										</Table.Cell>
+										<Table.Cell className="text-body-sm text-charcoal">
+											{skill.accessLabel}
+										</Table.Cell>
+										<Table.Cell className="text-right">
+											<div className="flex justify-end gap-sm">
+												{skill.sourceType === "git" ? (
+													<button
+														aria-label={t("skills.updateNamed", {
+															name: skill.name,
+														})}
+														className="h-9 rounded-md border border-hairline bg-surface-card px-md text-body-sm font-medium text-ink outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+														disabled={updateGitSkillMutation.isPending}
+														onClick={() => updateGitSkill(skill.id)}
+														type="button"
+													>
+														{t("skills.update")}
+													</button>
+												) : null}
+												<button
+													className="h-9 w-[94px] rounded-md border border-hairline bg-surface-card text-body-sm font-medium text-ink outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+													onClick={() => setManagedSkill(skill)}
 													type="button"
 												>
-													{t("skills.update")}
+													{t(
+														skill.mountedCount > 0
+															? "skills.manage"
+															: "skills.mount",
+													)}
 												</button>
-											) : null}
-											<button
-												className="h-9 w-[94px] rounded-md border border-hairline bg-surface-card text-body-sm font-medium text-ink outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
-												onClick={() => setManagedSkill(skill)}
-												type="button"
-											>
+											</div>
+										</Table.Cell>
+									</Table.Row>
+								))}
+								{isLoading || pageError ? (
+									<Table.Row id="status">
+										<Table.Cell
+											className="h-24 text-center text-body-sm text-mute"
+											colSpan={5}
+										>
+											<span role={pageError ? "alert" : "status"}>
 												{t(
-													skill.mountedCount > 0
-														? "skills.manage"
-														: "skills.mount",
+													pageError
+														? importSkillMutation.error
+															? "skills.importFailed"
+															: "skills.loadFailed"
+														: "skills.loading",
 												)}
-											</button>
-										</div>
-									</td>
-								</tr>
-							))}
-							{isLoading || pageError ? (
-								<tr>
-									<td
-										className="h-24 px-lg text-center text-body-sm text-mute"
-										colSpan={5}
-										role={pageError ? "alert" : "status"}
-									>
-										{t(
-											pageError
-												? importSkillMutation.error
-													? "skills.importFailed"
-													: "skills.loadFailed"
-												: "skills.loading",
-										)}
-									</td>
-								</tr>
-							) : null}
-							{!isLoading && !pageError && visibleSkills.length === 0 ? (
-								<tr>
-									<td
-										className="h-24 px-lg text-center text-body-sm text-mute"
-										colSpan={5}
-									>
-										{t("skills.noResults")}
-									</td>
-								</tr>
-							) : null}
-						</tbody>
-					</table>
-				</div>
+											</span>
+										</Table.Cell>
+									</Table.Row>
+								) : null}
+								{!isLoading && !pageError && visibleSkills.length === 0 ? (
+									<Table.Row id="empty">
+										<Table.Cell
+											className="h-24 text-center text-body-sm text-mute"
+											colSpan={5}
+										>
+											{t("skills.noResults")}
+										</Table.Cell>
+									</Table.Row>
+								) : null}
+							</Table.Body>
+						</Table.Content>
+					</Table.ScrollContainer>
+				</Table>
 			</div>
 			{managedSkill ? (
 				<WorkspaceMountModal

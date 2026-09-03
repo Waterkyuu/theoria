@@ -332,7 +332,7 @@ describe("SkillsPage", () => {
 			screen.getByRole("searchbox", { name: "按名称、来源或能力搜索" }),
 			"测试命令",
 		);
-		const table = screen.getByRole("table", { name: "技能库" });
+		const table = screen.getByRole("grid", { name: "技能库" });
 		expect(within(table).getByText("test-runner")).toBeInTheDocument();
 		expect(within(table).queryByText("repository-map")).not.toBeInTheDocument();
 	});
