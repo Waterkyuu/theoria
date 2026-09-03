@@ -542,7 +542,7 @@ fn activity_from_transcript(
         AgentKind::Claude | AgentKind::WorkBuddy => {
             claude_status_from_jsonl(&contents, process_running)
         }
-        AgentKind::OpenCode => None,
+        AgentKind::OpenCode | AgentKind::Qoder | AgentKind::Trae => None,
     }?;
     let updated_at_ms = fs::symlink_metadata(path)
         .ok()?

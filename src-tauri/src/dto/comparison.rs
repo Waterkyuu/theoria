@@ -9,6 +9,8 @@ pub(crate) enum AgentKindRequest {
     Codex,
     Claude,
     OpenCode,
+    Qoder,
+    Trae,
     WorkBuddy,
 }
 
@@ -18,6 +20,8 @@ impl From<AgentKindRequest> for AgentKind {
             AgentKindRequest::Codex => Self::Codex,
             AgentKindRequest::Claude => Self::Claude,
             AgentKindRequest::OpenCode => Self::OpenCode,
+            AgentKindRequest::Qoder => Self::Qoder,
+            AgentKindRequest::Trae => Self::Trae,
             AgentKindRequest::WorkBuddy => Self::WorkBuddy,
         }
     }
@@ -29,6 +33,8 @@ impl From<AgentKind> for AgentKindRequest {
             AgentKind::Codex => Self::Codex,
             AgentKind::Claude => Self::Claude,
             AgentKind::OpenCode => Self::OpenCode,
+            AgentKind::Qoder => Self::Qoder,
+            AgentKind::Trae => Self::Trae,
             AgentKind::WorkBuddy => Self::WorkBuddy,
         }
     }

@@ -3,6 +3,8 @@ use crate::adapters::agent::{AgentSessionRunOutput, AgentTurnOutcome};
 use crate::adapters::claude::{ClaudeRuntimeSettingsCache, SystemClaudeAdapter};
 use crate::adapters::codex::{CodexRuntimeDefaultsCache, SystemCodexAdapter};
 use crate::adapters::opencode::SystemOpenCodeAdapter;
+use crate::adapters::qoder::SystemQoderAdapter;
+use crate::adapters::trae::SystemTraeAdapter;
 use crate::adapters::workbuddy::SystemWorkBuddyAdapter;
 use crate::domain::agent_kind::AgentKind;
 use crate::domain::agent_run::{AgentRunMetrics, AgentRunOutput, TokenUsage, ToolCallMetric};
@@ -476,6 +478,20 @@ fn run_one_agent(
                 cancelled,
             ),
         AgentKind::OpenCode => SystemOpenCodeAdapter.run_session_turn_with_config_cancellable(
+            prompt,
+            execution_directory,
+            config,
+            session_id,
+            cancelled,
+        ),
+        AgentKind::Qoder => SystemQoderAdapter.run_session_turn_with_config_cancellable(
+            prompt,
+            execution_directory,
+            config,
+            session_id,
+            cancelled,
+        ),
+        AgentKind::Trae => SystemTraeAdapter.run_session_turn_with_config_cancellable(
             prompt,
             execution_directory,
             config,
