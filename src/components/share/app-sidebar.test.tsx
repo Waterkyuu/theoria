@@ -121,7 +121,28 @@ describe("AppSidebar", () => {
 			error: null,
 		}));
 		queryMocks.useWorkspaceSkills.mockReturnValue({
-			data: [{ id: "skill-1" }, { id: "skill-2" }],
+			data: [
+				{
+					id: "skill-1",
+					folderName: "repository-map",
+					displayName: "Repository Map",
+					description: "Maps repository structure.",
+					sourceType: "local_folder",
+					sourcePath: "/tmp/repository-map",
+					createdAtMs: 1,
+					updatedAtMs: 1,
+				},
+				{
+					id: "skill-2",
+					folderName: "test-runner",
+					displayName: "Test Runner",
+					description: "Runs project tests.",
+					sourceType: "platform",
+					sourcePath: null,
+					createdAtMs: 2,
+					updatedAtMs: 2,
+				},
+			],
 			isLoading: false,
 			error: null,
 		});
@@ -226,6 +247,22 @@ describe("AppSidebar", () => {
 		expect(recent.querySelectorAll("svg")).toHaveLength(4);
 		expect(within(recent).getByText("普通任务")).toBeInTheDocument();
 		expect(within(recent).queryByText("History")).not.toBeInTheDocument();
+	});
+
+	it("expands mounted Workspace Skills beneath their sidebar section", async () => {
+		const user = userEvent.setup();
+		render(
+			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
+				<main>content</main>
+			</AppSidebar>,
+		);
+
+		expect(screen.queryByText("repository-map")).not.toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "已挂载技能2" }));
+
+		expect(screen.getByText("repository-map")).toBeInTheDocument();
+		expect(screen.getByText("test-runner")).toBeInTheDocument();
 	});
 
 	it("lets the Recent add icon inherit the button hover color", () => {

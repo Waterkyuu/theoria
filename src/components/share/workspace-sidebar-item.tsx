@@ -253,6 +253,33 @@ const WorkspaceSidebarItem = ({
 								)}
 							</span>
 						</button>
+						{isSkillsExpanded ? (
+							skillsQuery.isLoading ? (
+								<div
+									aria-label={t("loadingPage")}
+									className="space-y-xs py-xs pl-12"
+									role="status"
+								>
+									<div className="h-8 animate-pulse rounded-md bg-hairline motion-reduce:animate-none" />
+									<div className="h-8 animate-pulse rounded-md bg-hairline motion-reduce:animate-none" />
+								</div>
+							) : (
+								(skillsQuery.data ?? []).map((skill) => (
+									<div
+										aria-label={skill.folderName}
+										aria-level={3}
+										className="mt-xs flex h-8 items-center rounded-md pl-12 pr-[6px] text-body-sm font-medium text-mute"
+										key={skill.id}
+										role="treeitem"
+										tabIndex={-1}
+									>
+										<span className="min-w-0 flex-1 truncate">
+											{skill.folderName}
+										</span>
+									</div>
+								))
+							)
+						) : null}
 					</div>
 				</div>
 			</div>
