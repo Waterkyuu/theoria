@@ -3,6 +3,7 @@ import { invokeWithResponseSchema } from "@/api/ipc";
 import { CompiledSkillSchema, CompiledSkillsSchema } from "@/types/skill";
 
 const EmptyResponseSchema = z.compile(z.void());
+const OptionalPathSchema = z.compile(z.string().nullable());
 
 /** Lists every managed Skill available to normal Tasks and Workspace mounts. */
 const listSkills = () =>
@@ -12,6 +13,12 @@ const listSkills = () =>
 const importLocalSkill = (sourcePath: string) =>
 	invokeWithResponseSchema("import_local_skill", CompiledSkillSchema, {
 		request: { sourcePath },
+	});
+
+/** Opens the native Skill folder picker with platform-specific visibility rules. */
+const selectSkillFolder = (title: string) =>
+	invokeWithResponseSchema("select_skill_folder", OptionalPathSchema, {
+		title,
 	});
 
 type CreatePlatformSkillInput = {
@@ -67,6 +74,7 @@ export {
 	listSkills,
 	listWorkspaceSkills,
 	mountWorkspaceSkill,
+	selectSkillFolder,
 	unmountWorkspaceSkill,
 	updateGitSkill,
 };

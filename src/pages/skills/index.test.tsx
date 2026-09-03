@@ -17,7 +17,7 @@ const queryMocks = vi.hoisted(() => ({
 	useWorkspaces: vi.fn(),
 	updateGitSkill: vi.fn(),
 }));
-const dialogMocks = vi.hoisted(() => ({ open: vi.fn() }));
+const skillApiMocks = vi.hoisted(() => ({ selectSkillFolder: vi.fn() }));
 const navigateMock = vi.hoisted(() => vi.fn());
 
 vi.mock("react-router", async (importOriginal) => ({
@@ -25,7 +25,9 @@ vi.mock("react-router", async (importOriginal) => ({
 	useNavigate: () => navigateMock,
 }));
 
-vi.mock("@tauri-apps/plugin-dialog", () => ({ open: dialogMocks.open }));
+vi.mock("@/api/skill", () => ({
+	selectSkillFolder: skillApiMocks.selectSkillFolder,
+}));
 
 vi.mock("@/queries/skill", () => ({
 	useCreatePlatformSkill: () => ({
@@ -101,7 +103,7 @@ const SKILLS = [
 describe("SkillsPage", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		dialogMocks.open.mockResolvedValue(
+		skillApiMocks.selectSkillFolder.mockResolvedValue(
 			"/Users/me/.agents/skills/repository-map",
 		);
 		queryMocks.importSkill.mockResolvedValue(SKILLS[0]);
@@ -196,11 +198,9 @@ describe("SkillsPage", () => {
 			screen.getByRole("menuitem", { name: "从本地文件夹导入" }),
 		);
 
-		expect(dialogMocks.open).toHaveBeenCalledWith({
-			directory: true,
-			multiple: false,
-			title: "选择技能文件夹",
-		});
+		expect(skillApiMocks.selectSkillFolder).toHaveBeenCalledWith(
+			"选择技能文件夹",
+		);
 		expect(queryMocks.importSkill).toHaveBeenCalledWith(
 			"/Users/me/.agents/skills/repository-map",
 		);

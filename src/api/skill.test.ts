@@ -4,6 +4,7 @@ import {
 	createPlatformSkill,
 	importGitSkill,
 	importLocalSkill,
+	selectSkillFolder,
 	updateGitSkill,
 } from "@/api/skill";
 
@@ -11,6 +12,18 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
 describe("Skill IPC", () => {
 	afterEach(() => vi.clearAllMocks());
+
+	it("opens the dedicated Skill folder picker", async () => {
+		vi.mocked(invoke).mockResolvedValue(
+			"/Users/me/.agents/skills/repository-map",
+		);
+
+		await selectSkillFolder("Choose a Skill folder");
+
+		expect(invoke).toHaveBeenCalledWith("select_skill_folder", {
+			title: "Choose a Skill folder",
+		});
+	});
 
 	it("imports a complete local Skill folder", async () => {
 		vi.mocked(invoke).mockResolvedValue({

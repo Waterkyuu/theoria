@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { BarsDescendingAlignCenter, Check, Puzzle } from "@gravity-ui/icons";
 import { Button, Input, Label, TextField } from "@heroui/react";
-import { open } from "@tauri-apps/plugin-dialog";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
@@ -9,6 +8,7 @@ import { PageHeader } from "@/components/share/page-header";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { ModalProvider } from "@/components/ui/modal-provider";
 import { handleError } from "@/utils/error";
+import { selectSkillFolder } from "@/api/skill";
 import {
 	useImportGitSkill,
 	useImportSkill,
@@ -88,15 +88,11 @@ const SkillsPage = () => {
 		return matchesFilter && searchableText.includes(searchTerm);
 	});
 
-	/** Opens the native picker and delegates SKILL.md validation to native storage. */
+	/** Opens the Skill-specific native picker and delegates validation to native storage. */
 	const importSkillFolder = async () => {
 		if (importSkillMutation.isPending) return;
 		try {
-			const sourcePath = await open({
-				directory: true,
-				multiple: false,
-				title: t("skills.chooseFolderTitle"),
-			});
+			const sourcePath = await selectSkillFolder(t("skills.chooseFolderTitle"));
 			if (sourcePath) await importSkillMutation.mutateAsync(sourcePath);
 		} catch (error) {
 			handleError(error, "Skill import failed");
