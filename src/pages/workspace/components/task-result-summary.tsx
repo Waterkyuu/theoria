@@ -84,8 +84,6 @@ const TaskResultSummary = ({ onClose, task }: TaskResultSummaryProps) => {
 	const [isFullscreen, setIsFullscreen] = useState(false);
 	const [expandedKeys, setExpandedKeys] = useState<Selection>(() => new Set());
 	const unavailable = t("taskSummary.unavailable");
-	const noToolCall = t("taskSummary.noToolCall");
-	const unknownModel = t("unknownModel");
 	const results = new Map(
 		task.results.map((result) => [result.taskAgentId, result]),
 	);
@@ -100,7 +98,7 @@ const TaskResultSummary = ({ onClose, task }: TaskResultSummaryProps) => {
 			label: t("taskSummary.toolCall", { sequence: index + 1 }),
 			value: (result) => {
 				const toolCall = metricToolCalls(result)[index];
-				if (!toolCall) return noToolCall;
+				if (!toolCall) return t("taskSummary.noToolCall");
 				return (
 					<span className="flex items-center justify-between gap-lg">
 						<span className="font-sans text-charcoal">{toolCall.name}</span>
@@ -297,7 +295,7 @@ const TaskResultSummary = ({ onClose, task }: TaskResultSummaryProps) => {
 												·
 											</span>
 											<span className="font-mono text-caption-sm font-normal text-mute">
-												{agent.modelSnapshot ?? unknownModel}
+												{agent.modelSnapshot ?? t("unknownModel")}
 											</span>
 										</span>
 									</Table.Column>
