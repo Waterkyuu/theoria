@@ -143,7 +143,10 @@ const AgentPanel = ({
 		agent.status === "preparing" ||
 		agent.status === "running" ||
 		agent.status === "waiting";
-	const metadata = [agent.modelSnapshot, agent.modeSnapshot]
+	const metadata = [
+		agent.modelSnapshot ?? t("unknownModel"),
+		agent.modeSnapshot,
+	]
 		.filter(Boolean)
 		.join(" ");
 	const tokenUsage = readMetricObject(result?.metrics, "tokenUsage");
@@ -175,7 +178,7 @@ const AgentPanel = ({
 					<AgentIcon name={agent.agentKind} width={24} height={24} />
 				</span>
 				<p className="min-w-0 flex-1 truncate text-[12px] text-mute">
-					{metadata || t("metricUnavailable")}
+					{metadata}
 				</p>
 				<span className="flex shrink-0 items-center gap-[6px] text-[12px] font-medium text-charcoal">
 					<span

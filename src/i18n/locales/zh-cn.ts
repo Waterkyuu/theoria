@@ -419,6 +419,7 @@ const zhCN = {
 		noToolCalls: "本次未调用工具",
 		responseTitle: "响应",
 		metricUnavailable: "不可用",
+		unknownModel: "未知模型",
 		requestFailed: "任务执行失败，请重试",
 		comparisonHistory: {
 			tagline: "本地性能记录",

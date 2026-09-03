@@ -435,6 +435,7 @@ const enUS = {
 		noToolCalls: "No tools called in this run",
 		responseTitle: "Response",
 		metricUnavailable: "Unavailable",
+		unknownModel: "Unknown model",
 		requestFailed: "The task failed. Please try again",
 		comparisonHistory: {
 			tagline: "Local performance records",
