@@ -57,7 +57,7 @@ const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 				aria-hidden={!isSidebarVisible}
 				aria-label={t("workspaceSidebar.label")}
 				className={cn(
-					"sticky top-0 flex h-[100dvh] w-[287px] min-w-[287px] flex-col gap-[9px] overflow-hidden border-r border-hairline bg-surface-soft px-[14px] py-[7px] opacity-100 transition-[width,min-width,padding,opacity,transform,border-color] duration-200 ease-out motion-reduce:transition-none max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:z-50 max-md:h-16 max-md:w-full max-md:min-w-0 max-md:gap-0 max-md:border-r-0 max-md:border-t max-md:px-0 max-md:py-0",
+					"sticky top-0 z-50 flex h-[100dvh] w-[287px] min-w-[287px] flex-col gap-[9px] overflow-hidden border-r border-hairline bg-surface-soft px-[14px] py-[7px] opacity-100 transition-[width,min-width,padding,opacity,transform,border-color] duration-200 ease-out motion-reduce:transition-none max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:h-16 max-md:w-full max-md:min-w-0 max-md:gap-0 max-md:border-r-0 max-md:border-t max-md:px-0 max-md:py-0",
 					!isSidebarVisible &&
 						"pointer-events-none w-0 min-w-0 -translate-x-full border-r-transparent px-0 opacity-0",
 				)}
