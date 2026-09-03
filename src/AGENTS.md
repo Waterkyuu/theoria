@@ -48,6 +48,7 @@ src/
 
 ### UI / UX Design
 @DESIGN.md
+@reference/react/ux.md
 
 ### Avoid Redundant Type Guards
 
@@ -291,3 +292,4 @@ const [dialogVisible, setDialogVisible] = useState(false);
 3. **Zod new version 4.5 feature** `reference/typescript/zod-4.5.md`
 4. **ModalProvider usage rules:** `reference/react/modal-provider.md`
 5. **AlertDialog usage rules:** `reference/react/alert-dialog.md`
+6. **UX rules for user-facing React flows:** `reference/react/ux.md`
