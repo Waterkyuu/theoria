@@ -214,7 +214,7 @@ const SkillLibraryTable = ({
 				</Table.Content>
 			</Table.ScrollContainer>
 			{!status && skills.length > 0 ? (
-				<Table.Footer>
+				<Table.Footer className="py-xs">
 					<Pagination aria-label={t("skills.pagination.label")} size="sm">
 						<Pagination.Summary>
 							{t("skills.pagination.summary", {
