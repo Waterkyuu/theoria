@@ -1,5 +1,6 @@
-import { Puzzle } from "@gravity-ui/icons";
-import { Table } from "@heroui/react";
+import { useState } from "react";
+import { Puzzle, TrashBin } from "@gravity-ui/icons";
+import { Checkbox, type Selection, Table } from "@heroui/react";
 import { useTranslation } from "react-i18next";
 import type { Skill } from "@/types/skill";
 
@@ -49,6 +50,9 @@ const SkillLibraryTable = ({
 	status,
 }: SkillLibraryTableProps) => {
 	const { t } = useTranslation();
+	const [selectedKeys, setSelectedKeys] = useState<Selection>(new Set());
+	const hasSelectedSkills =
+		selectedKeys === "all" ? skills.length > 0 : selectedKeys.size > 0;
 
 	return (
 		<Table className="-mx-4 mt-[22px] sm:mx-0">
@@ -56,8 +60,20 @@ const SkillLibraryTable = ({
 				<Table.Content
 					aria-label={t("skills.libraryLabel")}
 					className="min-w-195 table-fixed"
+					onSelectionChange={setSelectedKeys}
+					selectedKeys={selectedKeys}
+					selectionMode="multiple"
 				>
 					<Table.Header>
+						<Table.Column className="w-12">
+							<Checkbox aria-label={t("skills.selectAll")} slot="selection">
+								<Checkbox.Content>
+									<Checkbox.Control>
+										<Checkbox.Indicator />
+									</Checkbox.Control>
+								</Checkbox.Content>
+							</Checkbox>
+						</Table.Column>
 						<Table.Column className="w-[48%]" isRowHeader>
 							{t("skills.columns.skill")}
 						</Table.Column>
@@ -73,11 +89,33 @@ const SkillLibraryTable = ({
 						<Table.Column
 							aria-label={t("skills.columns.actions")}
 							className="w-[13%]"
-						/>
+						>
+							{hasSelectedSkills ? (
+								<button
+									aria-label={t("skills.deleteSelected")}
+									className="ml-auto flex size-8 items-center justify-center rounded-md text-danger outline-none hover:bg-danger-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
+									type="button"
+								>
+									<TrashBin aria-hidden="true" className="size-4" />
+								</button>
+							) : null}
+						</Table.Column>
 					</Table.Header>
 					<Table.Body>
 						{skills.map((skill) => (
 							<Table.Row className="h-24" id={skill.id} key={skill.id}>
+								<Table.Cell>
+									<Checkbox
+										aria-label={t("skills.selectNamed", { name: skill.name })}
+										slot="selection"
+									>
+										<Checkbox.Content>
+											<Checkbox.Control>
+												<Checkbox.Indicator />
+											</Checkbox.Control>
+										</Checkbox.Content>
+									</Checkbox>
+								</Table.Cell>
 								<Table.Cell>
 									<div className="flex items-start gap-[14px]">
 										<Puzzle
@@ -141,7 +179,7 @@ const SkillLibraryTable = ({
 							<Table.Row id="status">
 								<Table.Cell
 									className="h-24 text-center text-body-sm text-mute"
-									colSpan={5}
+									colSpan={6}
 								>
 									<span role={status === "loading" ? "status" : "alert"}>
 										{t(STATUS_TRANSLATION_KEYS[status])}
@@ -153,7 +191,7 @@ const SkillLibraryTable = ({
 							<Table.Row id="empty">
 								<Table.Cell
 									className="h-24 text-center text-body-sm text-mute"
-									colSpan={5}
+									colSpan={6}
 								>
 									{t("skills.noResults")}
 								</Table.Cell>
