@@ -48,6 +48,12 @@ const updateGitSkill = (skillId: string) =>
 		request: { skillId },
 	});
 
+/** Permanently removes one managed Skill and all of its Workspace mounts. */
+const removeSkill = (skillId: string) =>
+	invokeWithResponseSchema("remove_skill", EmptyResponseSchema, {
+		request: { skillId },
+	});
+
 /** Lists managed Skills mounted for future Tasks in one Workspace. */
 const listWorkspaceSkills = (workspaceId: string) =>
 	invokeWithResponseSchema("list_workspace_skills", CompiledSkillsSchema, {
@@ -74,6 +80,7 @@ export {
 	listSkills,
 	listWorkspaceSkills,
 	mountWorkspaceSkill,
+	removeSkill,
 	selectSkillFolder,
 	unmountWorkspaceSkill,
 	updateGitSkill,
