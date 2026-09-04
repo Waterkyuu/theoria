@@ -138,7 +138,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let app_data_directory = app.path().app_data_dir()?;
-            let database_path = app_data_directory.join("agent-gauge.sqlite3");
+            let database_path = app_data_directory.join("theoria.sqlite3");
             let comparison_database = tauri::async_runtime::block_on(async {
                 tokio::fs::create_dir_all(&app_data_directory).await?;
                 let database = connect_sqlite_path(&database_path)
