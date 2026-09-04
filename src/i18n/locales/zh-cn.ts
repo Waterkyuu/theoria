@@ -317,6 +317,9 @@ const zhCN = {
 			mount: "挂载",
 			update: "更新",
 			updateNamed: "更新 {{name}}",
+			selectAll: "选择全部技能",
+			selectNamed: "选择 {{name}}",
+			deleteSelected: "删除已选技能",
 			gitDialog: {
 				title: "从 Git 链接导入",
 				description: "仓库根目录需要包含有效的 SKILL.md，导入后可从远程更新",
