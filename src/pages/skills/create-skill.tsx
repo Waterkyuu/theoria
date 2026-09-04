@@ -1,5 +1,12 @@
 import { type FormEvent, useState } from "react";
-import { Button, Input, Label, TextArea, TextField } from "@heroui/react";
+import {
+	Button,
+	Input,
+	Label,
+	TextArea,
+	TextField,
+	Toast,
+} from "@heroui/react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { PageHeader } from "@/components/share/page-header";
@@ -31,9 +38,17 @@ const CreateSkillPage = () => {
 				description: description.trim(),
 				content: content.trim(),
 			});
+			Toast.toast.success(
+				t("skills.create.success", { skill: trimmedDisplayName }),
+			);
 			navigate("/skills");
 		} catch (error) {
-			handleError(error, "Platform Skill creation failed");
+			handleError(
+				error,
+				"Platform Skill creation failed",
+				true,
+				t("skills.create.failed"),
+			);
 		}
 	};
 

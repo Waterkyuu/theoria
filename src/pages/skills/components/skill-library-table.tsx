@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Puzzle, TrashBin } from "@gravity-ui/icons";
 import { Checkbox, Pagination, type Selection, Table } from "@heroui/react";
 import { useTranslation } from "react-i18next";
+import { AlertDialog } from "@/components/ui/alert-dialog";
 import type { Skill } from "@/types/skill";
 
 type SkillLibraryItem = Skill & {
@@ -18,8 +19,12 @@ type SkillLibraryStatus = "importFailed" | "loadFailed" | "loading" | null;
 type SkillLibraryTableProps = {
 	/** Whether a Git-backed Skill update is currently pending. */
 	isUpdatePending: boolean;
+	/** Whether selected Skills are currently being removed. */
+	isRemovePending: boolean;
 	/** Opens Workspace mount management for the selected Skill. */
 	onManageSkill: (skill: Skill) => void;
+	/** Removes the selected managed Skills after confirmation. */
+	onRemoveSkills: (skillIds: string[]) => void;
 	/** Refreshes the selected Git-backed Skill from its saved remote. */
 	onUpdateSkill: (skillId: string) => void;
 	/** Localized and filtered records rendered in the table. */
@@ -41,16 +46,19 @@ const ROWS_PER_PAGE = 8;
  * Keeps eight-row pagination with the HeroUI table while the page retains data orchestration.
  *
  * @example
- * <SkillLibraryTable skills={skills} status={null} onManageSkill={manage} onUpdateSkill={update} isUpdatePending={false} />
+ * <SkillLibraryTable skills={skills} status={null} onManageSkill={manage} onRemoveSkills={remove} onUpdateSkill={update} isRemovePending={false} isUpdatePending={false} />
  */
 const SkillLibraryTable = ({
+	isRemovePending,
 	isUpdatePending,
 	onManageSkill,
+	onRemoveSkills,
 	onUpdateSkill,
 	skills,
 	status,
 }: SkillLibraryTableProps) => {
 	const { t } = useTranslation();
+	const [isRemoveOpen, setIsRemoveOpen] = useState(false);
 	const [selectedKeys, setSelectedKeys] = useState<Selection>(new Set());
 	const [page, setPage] = useState(1);
 	const hasSelectedSkills =
@@ -62,8 +70,22 @@ const SkillLibraryTable = ({
 	// The rows and footer summary share this offset to keep the visible range consistent.
 	const startIndex = (currentPage - 1) * ROWS_PER_PAGE;
 	const paginatedSkills = skills.slice(startIndex, startIndex + ROWS_PER_PAGE);
+	const selectedSkillIds =
+		selectedKeys === "all"
+			? paginatedSkills.map((skill) => skill.id)
+			: Array.from(selectedKeys, String);
 	const rangeStart = startIndex + 1;
 	const rangeEnd = Math.min(currentPage * ROWS_PER_PAGE, skills.length);
+
+	/** Opens the required destructive-action confirmation without starting the request. */
+	const requestSelectedSkillRemoval = () => setIsRemoveOpen(true);
+
+	/** Starts removal only from the AlertDialog confirmation action. */
+	const confirmSelectedSkillRemoval = () => {
+		if (isRemovePending) return;
+		onRemoveSkills(selectedSkillIds);
+		setSelectedKeys(new Set());
+	};
 
 	return (
 		<Table className="-mx-4 mt-[22px] sm:mx-0">
@@ -102,6 +124,8 @@ const SkillLibraryTable = ({
 								<button
 									aria-label={t("skills.deleteSelected")}
 									className="ml-auto flex size-8 items-center justify-center rounded-md text-danger outline-none hover:bg-danger-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
+									disabled={isRemovePending}
+									onClick={requestSelectedSkillRemoval}
 									type="button"
 								>
 									<TrashBin aria-hidden="true" className="size-4" />
@@ -250,6 +274,17 @@ const SkillLibraryTable = ({
 					</Pagination>
 				</Table.Footer>
 			) : null}
+			<AlertDialog
+				confirmText={t("skills.removeDialog.confirm")}
+				description={t("skills.removeDialog.description", {
+					count: selectedSkillIds.length,
+				})}
+				isConfirmDisabled={isRemovePending}
+				isOpen={isRemoveOpen}
+				onConfirm={confirmSelectedSkillRemoval}
+				onOpenChange={setIsRemoveOpen}
+				title={t("skills.removeDialog.title")}
+			/>
 		</Table>
 	);
 };

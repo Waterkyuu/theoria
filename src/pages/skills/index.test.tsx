@@ -11,6 +11,7 @@ const queryMocks = vi.hoisted(() => ({
 	importGitSkill: vi.fn(),
 	importSkill: vi.fn(),
 	mountWorkspaceSkill: vi.fn(),
+	removeSkills: vi.fn(),
 	unmountWorkspaceSkill: vi.fn(),
 	useSkillMountCounts: vi.fn(),
 	useSkills: vi.fn(),
@@ -45,6 +46,10 @@ vi.mock("@/queries/skill", () => ({
 		mutateAsync: queryMocks.importSkill,
 		isPending: false,
 		error: null,
+	}),
+	useRemoveSkills: () => ({
+		mutateAsync: queryMocks.removeSkills,
+		isPending: false,
 	}),
 	useSkillMountCounts: queryMocks.useSkillMountCounts,
 	useSkills: queryMocks.useSkills,
@@ -139,6 +144,7 @@ describe("SkillsPage", () => {
 			error: null,
 		}));
 		queryMocks.mountWorkspaceSkill.mockResolvedValue(SKILLS[0]);
+		queryMocks.removeSkills.mockResolvedValue(undefined);
 		queryMocks.unmountWorkspaceSkill.mockResolvedValue(undefined);
 	});
 
@@ -168,6 +174,9 @@ describe("SkillsPage", () => {
 			skillId: "skill-1",
 			workspaceId: "workspace-1",
 		});
+		expect(toastSuccess).toHaveBeenCalledWith(
+			"已从 Website 移除 repository-map 挂载",
+		);
 	});
 
 	it("offers platform, local folder, and Git creation methods", async () => {
@@ -194,6 +203,7 @@ describe("SkillsPage", () => {
 
 	it("imports a selected local folder from the Add skill menu", async () => {
 		const user = userEvent.setup();
+		const toastSuccess = vi.spyOn(Toast.toast, "success");
 		render(<SkillsPage />);
 
 		await user.click(screen.getByRole("button", { name: "添加技能" }));
@@ -207,10 +217,12 @@ describe("SkillsPage", () => {
 		expect(queryMocks.importSkill).toHaveBeenCalledWith(
 			"/Users/me/.agents/skills/repository-map",
 		);
+		expect(toastSuccess).toHaveBeenCalledWith("已导入技能“repository-map”");
 	});
 
 	it("imports a Skill from a Git link", async () => {
 		const user = userEvent.setup();
+		const toastSuccess = vi.spyOn(Toast.toast, "success");
 		render(<SkillsPage />);
 
 		await user.click(screen.getByRole("button", { name: "添加技能" }));
@@ -224,19 +236,23 @@ describe("SkillsPage", () => {
 		expect(queryMocks.importGitSkill).toHaveBeenCalledWith(
 			"https://github.com/example/test-runner.git",
 		);
+		expect(toastSuccess).toHaveBeenCalledWith("已导入技能“test-runner”");
 	});
 
 	it("updates Git-backed Skills from their saved remote", async () => {
 		const user = userEvent.setup();
+		const toastSuccess = vi.spyOn(Toast.toast, "success");
 		render(<SkillsPage />);
 
 		await user.click(screen.getByRole("button", { name: "更新 test-runner" }));
 
 		expect(queryMocks.updateGitSkill).toHaveBeenCalledWith("skill-2");
+		expect(toastSuccess).toHaveBeenCalledWith("已更新技能“test-runner”");
 	});
 
 	it("creates a platform Skill from name, description, and main content", async () => {
 		const user = userEvent.setup();
+		const toastSuccess = vi.spyOn(Toast.toast, "success");
 		render(<CreateSkillPage />);
 
 		await user.type(
@@ -259,6 +275,7 @@ describe("SkillsPage", () => {
 			content: "总结变更并突出用户可见的改进。",
 		});
 		expect(navigateMock).toHaveBeenCalledWith("/skills");
+		expect(toastSuccess).toHaveBeenCalledWith("已创建技能“Release Notes”");
 	});
 
 	it("requires an English Skill name", async () => {
