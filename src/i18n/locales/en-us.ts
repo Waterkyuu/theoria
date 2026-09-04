@@ -311,7 +311,6 @@ const enUS = {
 				skill: "Skill",
 				source: "Source",
 				workspaces: "Workspaces",
-				access: "Access",
 				actions: "Actions",
 			},
 			source: {
@@ -321,7 +320,6 @@ const enUS = {
 				platform: "Platform created",
 				git: "Git",
 			},
-			access: { read: "Read", execute: "Execute" },
 			mountedCount: "{{count}} mounted",
 			notMounted: "Not mounted",
 			manage: "Manage",

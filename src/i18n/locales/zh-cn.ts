@@ -300,7 +300,6 @@ const zhCN = {
 				skill: "技能",
 				source: "来源",
 				workspaces: "工作区",
-				access: "权限",
 				actions: "操作",
 			},
 			source: {
@@ -310,7 +309,6 @@ const zhCN = {
 				platform: "平台创建",
 				git: "Git",
 			},
-			access: { read: "读取", execute: "执行" },
 			mountedCount: "已挂载 {{count}} 个",
 			notMounted: "未挂载",
 			manage: "管理",

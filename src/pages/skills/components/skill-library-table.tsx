@@ -5,8 +5,6 @@ import { useTranslation } from "react-i18next";
 import type { Skill } from "@/types/skill";
 
 type SkillLibraryItem = Skill & {
-	/** Localized access policy shown in the permission column. */
-	accessLabel: string;
 	/** Number of persisted Workspace mount relationships. */
 	mountedCount: number;
 	/** Folder-backed name used as the primary row label. */
@@ -87,17 +85,14 @@ const SkillLibraryTable = ({
 								</Checkbox.Content>
 							</Checkbox>
 						</Table.Column>
-						<Table.Column className="w-[48%]" isRowHeader>
+						<Table.Column className="w-[55%]" isRowHeader>
 							{t("skills.columns.skill")}
 						</Table.Column>
 						<Table.Column className="w-[16%]">
 							{t("skills.columns.source")}
 						</Table.Column>
-						<Table.Column className="w-[18%]">
+						<Table.Column className="w-[21%]">
 							{t("skills.columns.workspaces")}
-						</Table.Column>
-						<Table.Column className="w-[10%]">
-							{t("skills.columns.access")}
 						</Table.Column>
 						<Table.Column
 							aria-label={t("skills.columns.actions")}
@@ -155,9 +150,6 @@ const SkillLibraryTable = ({
 												count: skill.mountedCount,
 											})}
 								</Table.Cell>
-								<Table.Cell className="text-body-sm text-charcoal">
-									{skill.accessLabel}
-								</Table.Cell>
 								<Table.Cell className="text-right">
 									<div className="flex justify-end gap-sm">
 										{skill.sourceType === "git" ? (
@@ -192,7 +184,7 @@ const SkillLibraryTable = ({
 							<Table.Row id="status">
 								<Table.Cell
 									className="h-24 text-center text-body-sm text-mute"
-									colSpan={6}
+									colSpan={5}
 								>
 									<span role={status === "loading" ? "status" : "alert"}>
 										{t(STATUS_TRANSLATION_KEYS[status])}
@@ -204,7 +196,7 @@ const SkillLibraryTable = ({
 							<Table.Row id="empty">
 								<Table.Cell
 									className="h-24 text-center text-body-sm text-mute"
-									colSpan={6}
+									colSpan={5}
 								>
 									{t("skills.noResults")}
 								</Table.Cell>

@@ -13,7 +13,6 @@ const SKILLS = [
 		sourcePath: "/tmp/repository-map",
 		createdAtMs: 1,
 		updatedAtMs: 1,
-		accessLabel: "读取",
 		mountedCount: 0,
 		name: "repository-map",
 		sourceLabel: "文件导入",
@@ -39,6 +38,23 @@ const PAGINATED_SKILLS = [
 }));
 
 describe("SkillLibraryTable", () => {
+	it("does not present Skills as owning runtime permissions", () => {
+		render(
+			<SkillLibraryTable
+				isUpdatePending={false}
+				onManageSkill={vi.fn()}
+				onUpdateSkill={vi.fn()}
+				skills={SKILLS}
+				status={null}
+			/>,
+		);
+
+		expect(
+			screen.queryByRole("columnheader", { name: "权限" }),
+		).not.toBeInTheDocument();
+		expect(screen.queryByText("读取")).not.toBeInTheDocument();
+	});
+
 	it("reveals the delete action after a Skill is selected", async () => {
 		const user = userEvent.setup();
 		render(

@@ -67,7 +67,6 @@ const SkillsPage = () => {
 		)
 		.map((skill) => ({
 			...skill,
-			accessLabel: t("skills.access.read"),
 			name: skill.folderName,
 			sourceLabel: t(`skills.source.${skill.sourceType}`),
 		}));
@@ -81,7 +80,6 @@ const SkillsPage = () => {
 			skill.displayName,
 			skill.description,
 			skill.sourceLabel,
-			skill.accessLabel,
 		]
 			.join(" ")
 			.toLocaleLowerCase();
