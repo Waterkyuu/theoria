@@ -60,6 +60,22 @@ describe("SkillLibraryTable", () => {
 		expect(screen.getByLabelText("删除已选技能")).toBeInTheDocument();
 	});
 
+	it("hides pagination while all Skills fit on the first page", () => {
+		render(
+			<SkillLibraryTable
+				isUpdatePending={false}
+				onManageSkill={vi.fn()}
+				onUpdateSkill={vi.fn()}
+				skills={PAGINATED_SKILLS.slice(0, 8)}
+				status={null}
+			/>,
+		);
+
+		expect(
+			screen.queryByRole("navigation", { name: "技能分页" }),
+		).not.toBeInTheDocument();
+	});
+
 	it("moves through Skill pages eight rows at a time", async () => {
 		const user = userEvent.setup();
 		render(

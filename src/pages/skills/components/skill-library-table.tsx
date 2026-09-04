@@ -213,7 +213,7 @@ const SkillLibraryTable = ({
 					</Table.Body>
 				</Table.Content>
 			</Table.ScrollContainer>
-			{!status && skills.length > 0 ? (
+			{!status && skills.length > ROWS_PER_PAGE ? (
 				<Table.Footer className="py-xs">
 					<Pagination aria-label={t("skills.pagination.label")} size="sm">
 						<Pagination.Summary>
