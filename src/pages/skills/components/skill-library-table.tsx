@@ -36,6 +36,7 @@ const STATUS_TRANSLATION_KEYS = {
 	loading: "skills.loading",
 } as const;
 
+/** Keeps the table scan-friendly and its page height predictable across the library. */
 const ROWS_PER_PAGE = 8;
 
 /**
@@ -57,8 +58,10 @@ const SkillLibraryTable = ({
 	const hasSelectedSkills =
 		selectedKeys === "all" ? skills.length > 0 : selectedKeys.size > 0;
 	const totalPages = Math.max(1, Math.ceil(skills.length / ROWS_PER_PAGE));
+	// Filtering can shrink the result set while a later page is active, so render the nearest valid page immediately.
 	const currentPage = Math.min(page, totalPages);
 	const pages = Array.from({ length: totalPages }, (_, index) => index + 1);
+	// The rows and footer summary share this offset to keep the visible range consistent.
 	const startIndex = (currentPage - 1) * ROWS_PER_PAGE;
 	const paginatedSkills = skills.slice(startIndex, startIndex + ROWS_PER_PAGE);
 	const rangeStart = startIndex + 1;
