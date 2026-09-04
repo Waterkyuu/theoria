@@ -425,7 +425,9 @@ describe("AppSidebar", () => {
 		expect(
 			screen.getByRole("menuitem", { name: "重命名" }),
 		).toBeInTheDocument();
-		expect(screen.getByRole("menuitem", { name: "归档" })).toBeInTheDocument();
+		expect(
+			screen.queryByRole("menuitem", { name: "归档" }),
+		).not.toBeInTheDocument();
 		expect(screen.getByRole("menuitem", { name: "移除" })).toBeInTheDocument();
 	});
 

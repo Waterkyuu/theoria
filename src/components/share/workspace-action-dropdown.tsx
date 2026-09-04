@@ -1,6 +1,5 @@
 import { useState } from "react";
 import {
-	Archive,
 	Ellipsis,
 	PencilToSquare,
 	Pin,
@@ -27,7 +26,7 @@ type WorkspaceActionDropdownProps = {
 	workspace: Workspace;
 };
 
-type WorkspaceMenuAction = "archive" | "pin" | "remove" | "rename";
+type WorkspaceMenuAction = "pin" | "remove" | "rename";
 
 /**
  * Keeps workspace-specific actions outside the shell's navigation structure.
@@ -115,12 +114,7 @@ const WorkspaceActionDropdown = ({
 		}
 	};
 
-	/**
-	 * Dispatches implemented Workspace actions while preserving the inert archive item.
-	 *
-	 * @example
-	 * handleMenuAction("rename");
-	 */
+	/** Dispatches implemented Workspace actions. */
 	const handleMenuAction = (action: WorkspaceMenuAction) => {
 		const actions: Partial<Record<WorkspaceMenuAction, () => void>> = {
 			pin: setPinState,
@@ -160,16 +154,7 @@ const WorkspaceActionDropdown = ({
 						id: "rename",
 						labelKey: "workspaceSidebar.renameWorkspace",
 					},
-					{
-						icon: (
-							<Archive
-								aria-hidden="true"
-								className="size-4 shrink-0 text-ink"
-							/>
-						),
-						id: "archive",
-						labelKey: "workspaceSidebar.archiveWorkspace",
-					},
+					/* Archive is temporarily hidden until the workflow is ready. */
 					{
 						danger: true,
 						icon: (
