@@ -239,21 +239,18 @@ impl MigrationTrait for CreateWorkspaceTaskSystem {
                     source_type TEXT NOT NULL,
                     storage_relative_path TEXT NOT NULL,
                     source_path TEXT,
-                    deleted_at_ms INTEGER,
                     created_at_ms INTEGER NOT NULL,
                     updated_at_ms INTEGER NOT NULL,
                     CHECK (length(folder_name) BETWEEN 1 AND 64),
                     CHECK (length(trim(display_name)) BETWEEN 1 AND 120),
                     CHECK (source_type IN ('local_folder', 'platform', 'git')),
                     CHECK (length(storage_relative_path) > 0),
-                    CHECK (deleted_at_ms IS NULL OR deleted_at_ms > 0),
                     CHECK (created_at_ms > 0),
                     CHECK (updated_at_ms > 0)
                 );
 
-                CREATE UNIQUE INDEX idx_skills_active_folder_name
-                    ON skills(folder_name)
-                    WHERE deleted_at_ms IS NULL;
+                CREATE UNIQUE INDEX idx_skills_folder_name
+                    ON skills(folder_name);
 
                 CREATE TABLE workspace_skill_mounts (
                     workspace_id TEXT NOT NULL,
@@ -734,7 +731,7 @@ mod tests {
             let objects = database
                 .query_all_raw(Statement::from_string(
                     DatabaseBackend::Sqlite,
-                    "SELECT name FROM sqlite_master WHERE name IN ('workspaces', 'skills', 'workspace_skill_mounts', 'tasks', 'task_agents', 'task_permissions', 'task_skills', 'task_agent_results', 'task_agent_turns', 'idx_workspaces_source', 'idx_skills_active_folder_name', 'idx_tasks_scope_history', 'idx_task_agent_turns_agent_sequence') ORDER BY name".to_string(),
+                    "SELECT name FROM sqlite_master WHERE name IN ('workspaces', 'skills', 'workspace_skill_mounts', 'tasks', 'task_agents', 'task_permissions', 'task_skills', 'task_agent_results', 'task_agent_turns', 'idx_workspaces_source', 'idx_skills_folder_name', 'idx_tasks_scope_history', 'idx_task_agent_turns_agent_sequence') ORDER BY name".to_string(),
                 ))
                 .await
                 .expect("workspace schema should be readable")
@@ -748,7 +745,7 @@ mod tests {
             assert_eq!(
                 objects,
                 vec![
-                    "idx_skills_active_folder_name",
+                    "idx_skills_folder_name",
                     "idx_task_agent_turns_agent_sequence",
                     "idx_tasks_scope_history",
                     "idx_workspaces_source",

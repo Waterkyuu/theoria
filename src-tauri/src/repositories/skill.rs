@@ -3,7 +3,7 @@ use crate::models::skill::{self as skill, workspace_skill_mount};
 use sea_orm::sea_query::{Expr, OnConflict};
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, DbErr, EntityTrait,
-    QueryFilter, QueryOrder,
+    QueryFilter, QueryOrder, TransactionTrait,
 };
 use std::path::PathBuf;
 
@@ -43,7 +43,6 @@ impl SkillRepository {
             source_type: Set(skill.source_type.as_str().to_string()),
             storage_relative_path: Set(storage_path.to_string()),
             source_path: Set(source_path),
-            deleted_at_ms: Set(None),
             created_at_ms: Set(skill.created_at_ms),
             updated_at_ms: Set(skill.created_at_ms),
         }
@@ -53,10 +52,31 @@ impl SkillRepository {
         skill_from_model(model, None)
     }
 
-    /// Lists active managed Skills by user-visible name.
+    /// Finds one managed Skill by its stable identifier.
+    pub(crate) async fn find(&self, skill_id: &str) -> Result<Option<Skill>, DbErr> {
+        skill::Entity::find_by_id(skill_id)
+            .one(&self.database)
+            .await?
+            .map(|model| skill_from_model(model, None))
+            .transpose()
+    }
+
+    /// Hard-deletes one Skill after its managed files have been removed.
+    pub(crate) async fn delete(&self, skill_id: &str) -> Result<(), DbErr> {
+        let transaction = self.database.begin().await?;
+        workspace_skill_mount::Entity::delete_many()
+            .filter(workspace_skill_mount::Column::SkillId.eq(skill_id))
+            .exec(&transaction)
+            .await?;
+        skill::Entity::delete_by_id(skill_id)
+            .exec(&transaction)
+            .await?;
+        transaction.commit().await
+    }
+
+    /// Lists managed Skills by user-visible name.
     pub(crate) async fn list(&self) -> Result<Vec<Skill>, DbErr> {
         skill::Entity::find()
-            .filter(skill::Column::DeletedAtMs.is_null())
             .order_by_asc(Expr::cust("display_name COLLATE NOCASE"))
             .order_by_asc(skill::Column::Id)
             .all(&self.database)
@@ -123,12 +143,11 @@ impl SkillRepository {
         Ok(())
     }
 
-    /// Lists active Skills mounted for future Tasks from one Workspace.
+    /// Lists Skills mounted for future Tasks from one Workspace.
     pub(crate) async fn list_for_workspace(&self, workspace_id: &str) -> Result<Vec<Skill>, DbErr> {
         workspace_skill_mount::Entity::find()
             .find_both_related(skill::Entity)
             .filter(workspace_skill_mount::Column::WorkspaceId.eq(workspace_id))
-            .filter(skill::Column::DeletedAtMs.is_null())
             .order_by_asc(Expr::cust("skills.display_name COLLATE NOCASE"))
             .order_by_asc(skill::Column::Id)
             .all(&self.database)

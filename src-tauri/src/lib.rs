@@ -341,6 +341,7 @@ pub fn run() {
             commands::skill::create_platform_skill,
             commands::skill::import_git_skill,
             commands::skill::list_skills,
+            commands::skill::remove_skill,
             commands::skill::list_workspace_skills,
             commands::skill::mount_workspace_skill,
             commands::skill::unmount_workspace_skill,

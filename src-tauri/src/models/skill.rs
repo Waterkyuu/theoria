@@ -19,8 +19,6 @@ pub(crate) struct Model {
     pub(crate) storage_relative_path: String,
     /// Original source directory when imported.
     pub(crate) source_path: Option<String>,
-    /// Soft-deletion time in Unix milliseconds.
-    pub(crate) deleted_at_ms: Option<i64>,
     /// Creation time in Unix milliseconds.
     pub(crate) created_at_ms: i64,
     /// Latest metadata update time in Unix milliseconds.
