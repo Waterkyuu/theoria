@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Puzzle, TrashBin } from "@gravity-ui/icons";
-import { Checkbox, type Selection, Table } from "@heroui/react";
+import { Checkbox, Pagination, type Selection, Table } from "@heroui/react";
 import { useTranslation } from "react-i18next";
 import type { Skill } from "@/types/skill";
 
@@ -36,8 +36,10 @@ const STATUS_TRANSLATION_KEYS = {
 	loading: "skills.loading",
 } as const;
 
+const ROWS_PER_PAGE = 8;
+
 /**
- * Owns the Skill Library's HeroUI table markup while the page retains data orchestration.
+ * Keeps eight-row pagination with the HeroUI table while the page retains data orchestration.
  *
  * @example
  * <SkillLibraryTable skills={skills} status={null} onManageSkill={manage} onUpdateSkill={update} isUpdatePending={false} />
@@ -51,8 +53,16 @@ const SkillLibraryTable = ({
 }: SkillLibraryTableProps) => {
 	const { t } = useTranslation();
 	const [selectedKeys, setSelectedKeys] = useState<Selection>(new Set());
+	const [page, setPage] = useState(1);
 	const hasSelectedSkills =
 		selectedKeys === "all" ? skills.length > 0 : selectedKeys.size > 0;
+	const totalPages = Math.max(1, Math.ceil(skills.length / ROWS_PER_PAGE));
+	const currentPage = Math.min(page, totalPages);
+	const pages = Array.from({ length: totalPages }, (_, index) => index + 1);
+	const startIndex = (currentPage - 1) * ROWS_PER_PAGE;
+	const paginatedSkills = skills.slice(startIndex, startIndex + ROWS_PER_PAGE);
+	const rangeStart = startIndex + 1;
+	const rangeEnd = Math.min(currentPage * ROWS_PER_PAGE, skills.length);
 
 	return (
 		<Table className="-mx-4 mt-[22px] sm:mx-0">
@@ -102,7 +112,7 @@ const SkillLibraryTable = ({
 						</Table.Column>
 					</Table.Header>
 					<Table.Body>
-						{skills.map((skill) => (
+						{paginatedSkills.map((skill) => (
 							<Table.Row className="h-24" id={skill.id} key={skill.id}>
 								<Table.Cell>
 									<Checkbox
@@ -200,6 +210,51 @@ const SkillLibraryTable = ({
 					</Table.Body>
 				</Table.Content>
 			</Table.ScrollContainer>
+			{!status && skills.length > 0 ? (
+				<Table.Footer>
+					<Pagination aria-label={t("skills.pagination.label")} size="sm">
+						<Pagination.Summary>
+							{t("skills.pagination.summary", {
+								end: rangeEnd,
+								start: rangeStart,
+								total: skills.length,
+							})}
+						</Pagination.Summary>
+						<Pagination.Content>
+							<Pagination.Item>
+								<Pagination.Previous
+									isDisabled={currentPage === 1}
+									onPress={() => setPage((value) => Math.max(1, value - 1))}
+								>
+									<Pagination.PreviousIcon />
+									{t("skills.pagination.previous")}
+								</Pagination.Previous>
+							</Pagination.Item>
+							{pages.map((pageNumber) => (
+								<Pagination.Item key={pageNumber}>
+									<Pagination.Link
+										isActive={pageNumber === currentPage}
+										onPress={() => setPage(pageNumber)}
+									>
+										{pageNumber}
+									</Pagination.Link>
+								</Pagination.Item>
+							))}
+							<Pagination.Item>
+								<Pagination.Next
+									isDisabled={currentPage === totalPages}
+									onPress={() =>
+										setPage((value) => Math.min(totalPages, value + 1))
+									}
+								>
+									{t("skills.pagination.next")}
+									<Pagination.NextIcon />
+								</Pagination.Next>
+							</Pagination.Item>
+						</Pagination.Content>
+					</Pagination>
+				</Table.Footer>
+			) : null}
 		</Table>
 	);
 };

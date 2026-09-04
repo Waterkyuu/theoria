@@ -20,6 +20,24 @@ const SKILLS = [
 	},
 ];
 
+const PAGINATED_SKILLS = [
+	"alpha",
+	"beta",
+	"gamma",
+	"delta",
+	"epsilon",
+	"zeta",
+	"eta",
+	"theta",
+	"iota",
+].map((name, index) => ({
+	...SKILLS[0],
+	id: `skill-${index + 1}`,
+	folderName: name,
+	displayName: name,
+	name,
+}));
+
 describe("SkillLibraryTable", () => {
 	it("reveals the delete action after a Skill is selected", async () => {
 		const user = userEvent.setup();
@@ -40,5 +58,28 @@ describe("SkillLibraryTable", () => {
 		);
 
 		expect(screen.getByLabelText("删除已选技能")).toBeInTheDocument();
+	});
+
+	it("moves through Skill pages eight rows at a time", async () => {
+		const user = userEvent.setup();
+		render(
+			<SkillLibraryTable
+				isUpdatePending={false}
+				onManageSkill={vi.fn()}
+				onUpdateSkill={vi.fn()}
+				skills={PAGINATED_SKILLS}
+				status={null}
+			/>,
+		);
+
+		expect(screen.getByText("alpha")).toBeInTheDocument();
+		expect(screen.queryByText("iota")).not.toBeInTheDocument();
+		expect(screen.getByText("1 至 8，共 9 条结果")).toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "下一页" }));
+
+		expect(screen.queryByText("alpha")).not.toBeInTheDocument();
+		expect(screen.getByText("iota")).toBeInTheDocument();
+		expect(screen.getByText("9 至 9，共 9 条结果")).toBeInTheDocument();
 	});
 });
