@@ -331,6 +331,12 @@ const enUS = {
 			selectAll: "Select all skills",
 			selectNamed: "Select {{name}}",
 			deleteSelected: "Delete selected skills",
+			pagination: {
+				label: "Skill pagination",
+				summary: "{{start}} to {{end}} of {{total}} results",
+				previous: "Previous",
+				next: "Next",
+			},
 			gitDialog: {
 				title: "Import from Git URL",
 				description:
