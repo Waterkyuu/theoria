@@ -56,10 +56,18 @@ const TaskActionDropdown = ({
 		if (deleteTaskMutation.isPending) return;
 		try {
 			await deleteTaskMutation.mutateAsync(taskId);
+			Toast.toast.success(
+				t("workspaceSidebar.taskDelete.success", { task: taskName }),
+			);
 			setIsDeleteOpen(false);
 			onDeleted?.();
 		} catch (error) {
-			handleError(error, "Task deletion failed");
+			handleError(
+				error,
+				"Task deletion failed",
+				true,
+				t("workspaceSidebar.taskDelete.failed"),
+			);
 		}
 	};
 
@@ -80,8 +88,21 @@ const TaskActionDropdown = ({
 		if (!supportsPinning || setTaskPinMutation.isPending) return;
 		try {
 			await setTaskPinMutation.mutateAsync({ isPinned: !isPinned, taskId });
+			Toast.toast.success(
+				t(
+					isPinned
+						? "workspaceSidebar.taskPin.unpinned"
+						: "workspaceSidebar.taskPin.pinned",
+					{ task: taskName },
+				),
+			);
 		} catch (error) {
-			handleError(error, "Task pin update failed", true);
+			handleError(
+				error,
+				"Task pin update failed",
+				true,
+				t("workspaceSidebar.taskPin.failed"),
+			);
 		}
 	};
 

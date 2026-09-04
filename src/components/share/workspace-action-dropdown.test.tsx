@@ -36,6 +36,7 @@ describe("WorkspaceActionDropdown", () => {
 
 	it("offers to unpin a pinned Workspace and persists that choice", async () => {
 		const user = userEvent.setup();
+		const toastSuccess = vi.spyOn(Toast.toast, "success");
 		render(
 			<WorkspaceActionDropdown
 				workspace={{
@@ -57,6 +58,7 @@ describe("WorkspaceActionDropdown", () => {
 			isPinned: false,
 			workspaceId: "workspace-1",
 		});
+		expect(toastSuccess).toHaveBeenCalledWith("已取消置顶工作区“Docs”");
 	});
 
 	it("shows a danger toast when the pin update fails", async () => {
@@ -82,7 +84,7 @@ describe("WorkspaceActionDropdown", () => {
 		await user.click(screen.getByRole("button", { name: "Docs 的更多操作" }));
 		await user.click(await screen.findByRole("menuitem", { name: "置顶" }));
 
-		expect(toastDanger).toHaveBeenCalledWith("置顶失败，请重试。");
+		expect(toastDanger).toHaveBeenCalledWith("工作区置顶状态更新失败，请重试");
 	});
 
 	it("renames a Workspace through the shared rename modal", async () => {

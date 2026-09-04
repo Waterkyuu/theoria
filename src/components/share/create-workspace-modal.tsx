@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { FolderPlus } from "@gravity-ui/icons";
-import { Button, Input, Label, Tabs, TextField } from "@heroui/react";
+import { Button, Input, Label, Tabs, TextField, Toast } from "@heroui/react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useTranslation } from "react-i18next";
 import { ModalProvider } from "@/components/ui/modal-provider";
@@ -92,10 +92,20 @@ const NewWorkspaceModal = ({
 							sourcePath: trimmedSourcePath,
 						},
 			);
+			Toast.toast.success(
+				t("workspaceSidebar.createWorkspaceSuccess", {
+					workspace: workspace.name,
+				}),
+			);
 			handleOpenChange(false);
 			onCreated(workspace);
 		} catch (error) {
-			handleError(error, "Workspace creation failed", true);
+			handleError(
+				error,
+				"Workspace creation failed",
+				true,
+				t("workspaceSidebar.createWorkspaceFailed"),
+			);
 		}
 	};
 	const renderWorkspaceNameField = () => (

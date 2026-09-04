@@ -80,8 +80,21 @@ const WorkspaceActionDropdown = ({
 				isPinned: !isPinned,
 				workspaceId: workspace.id,
 			});
+			Toast.toast.success(
+				t(
+					isPinned
+						? "workspaceSidebar.workspacePin.unpinned"
+						: "workspaceSidebar.workspacePin.pinned",
+					{ workspace: workspace.name },
+				),
+			);
 		} catch (error) {
-			handleError(error, "Workspace pin update failed", true);
+			handleError(
+				error,
+				"Workspace pin update failed",
+				true,
+				t("workspaceSidebar.workspacePin.failed"),
+			);
 		}
 	};
 
