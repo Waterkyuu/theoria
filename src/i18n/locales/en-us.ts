@@ -328,6 +328,15 @@ const enUS = {
 			mount: "Mount",
 			update: "Update",
 			updateNamed: "Update {{name}}",
+			selectAll: "Select all skills",
+			selectNamed: "Select {{name}}",
+			deleteSelected: "Delete selected skills",
+			pagination: {
+				label: "Skill pagination",
+				summary: "{{start}} to {{end}} of {{total}} results",
+				previous: "Previous",
+				next: "Next",
+			},
 			gitDialog: {
 				title: "Import from Git URL",
 				description:

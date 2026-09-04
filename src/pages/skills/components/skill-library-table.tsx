@@ -1,5 +1,6 @@
-import { Puzzle } from "@gravity-ui/icons";
-import { Table } from "@heroui/react";
+import { useState } from "react";
+import { Puzzle, TrashBin } from "@gravity-ui/icons";
+import { Checkbox, Pagination, type Selection, Table } from "@heroui/react";
 import { useTranslation } from "react-i18next";
 import type { Skill } from "@/types/skill";
 
@@ -35,8 +36,11 @@ const STATUS_TRANSLATION_KEYS = {
 	loading: "skills.loading",
 } as const;
 
+/** Keeps the table scan-friendly and its page height predictable across the library. */
+const ROWS_PER_PAGE = 8;
+
 /**
- * Owns the Skill Library's HeroUI table markup while the page retains data orchestration.
+ * Keeps eight-row pagination with the HeroUI table while the page retains data orchestration.
  *
  * @example
  * <SkillLibraryTable skills={skills} status={null} onManageSkill={manage} onUpdateSkill={update} isUpdatePending={false} />
@@ -49,6 +53,19 @@ const SkillLibraryTable = ({
 	status,
 }: SkillLibraryTableProps) => {
 	const { t } = useTranslation();
+	const [selectedKeys, setSelectedKeys] = useState<Selection>(new Set());
+	const [page, setPage] = useState(1);
+	const hasSelectedSkills =
+		selectedKeys === "all" ? skills.length > 0 : selectedKeys.size > 0;
+	const totalPages = Math.max(1, Math.ceil(skills.length / ROWS_PER_PAGE));
+	// Filtering can shrink the result set while a later page is active, so render the nearest valid page immediately.
+	const currentPage = Math.min(page, totalPages);
+	const pages = Array.from({ length: totalPages }, (_, index) => index + 1);
+	// The rows and footer summary share this offset to keep the visible range consistent.
+	const startIndex = (currentPage - 1) * ROWS_PER_PAGE;
+	const paginatedSkills = skills.slice(startIndex, startIndex + ROWS_PER_PAGE);
+	const rangeStart = startIndex + 1;
+	const rangeEnd = Math.min(currentPage * ROWS_PER_PAGE, skills.length);
 
 	return (
 		<Table className="-mx-4 mt-[22px] sm:mx-0">
@@ -56,8 +73,20 @@ const SkillLibraryTable = ({
 				<Table.Content
 					aria-label={t("skills.libraryLabel")}
 					className="min-w-195 table-fixed"
+					onSelectionChange={setSelectedKeys}
+					selectedKeys={selectedKeys}
+					selectionMode="multiple"
 				>
 					<Table.Header>
+						<Table.Column className="w-12">
+							<Checkbox aria-label={t("skills.selectAll")} slot="selection">
+								<Checkbox.Content>
+									<Checkbox.Control>
+										<Checkbox.Indicator />
+									</Checkbox.Control>
+								</Checkbox.Content>
+							</Checkbox>
+						</Table.Column>
 						<Table.Column className="w-[48%]" isRowHeader>
 							{t("skills.columns.skill")}
 						</Table.Column>
@@ -73,11 +102,33 @@ const SkillLibraryTable = ({
 						<Table.Column
 							aria-label={t("skills.columns.actions")}
 							className="w-[13%]"
-						/>
+						>
+							{hasSelectedSkills ? (
+								<button
+									aria-label={t("skills.deleteSelected")}
+									className="ml-auto flex size-8 items-center justify-center rounded-md text-danger outline-none hover:bg-danger-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
+									type="button"
+								>
+									<TrashBin aria-hidden="true" className="size-4" />
+								</button>
+							) : null}
+						</Table.Column>
 					</Table.Header>
 					<Table.Body>
-						{skills.map((skill) => (
+						{paginatedSkills.map((skill) => (
 							<Table.Row className="h-24" id={skill.id} key={skill.id}>
+								<Table.Cell>
+									<Checkbox
+										aria-label={t("skills.selectNamed", { name: skill.name })}
+										slot="selection"
+									>
+										<Checkbox.Content>
+											<Checkbox.Control>
+												<Checkbox.Indicator />
+											</Checkbox.Control>
+										</Checkbox.Content>
+									</Checkbox>
+								</Table.Cell>
 								<Table.Cell>
 									<div className="flex items-start gap-[14px]">
 										<Puzzle
@@ -141,7 +192,7 @@ const SkillLibraryTable = ({
 							<Table.Row id="status">
 								<Table.Cell
 									className="h-24 text-center text-body-sm text-mute"
-									colSpan={5}
+									colSpan={6}
 								>
 									<span role={status === "loading" ? "status" : "alert"}>
 										{t(STATUS_TRANSLATION_KEYS[status])}
@@ -153,7 +204,7 @@ const SkillLibraryTable = ({
 							<Table.Row id="empty">
 								<Table.Cell
 									className="h-24 text-center text-body-sm text-mute"
-									colSpan={5}
+									colSpan={6}
 								>
 									{t("skills.noResults")}
 								</Table.Cell>
@@ -162,6 +213,51 @@ const SkillLibraryTable = ({
 					</Table.Body>
 				</Table.Content>
 			</Table.ScrollContainer>
+			{!status && skills.length > ROWS_PER_PAGE ? (
+				<Table.Footer className="py-xs">
+					<Pagination aria-label={t("skills.pagination.label")} size="sm">
+						<Pagination.Summary>
+							{t("skills.pagination.summary", {
+								end: rangeEnd,
+								start: rangeStart,
+								total: skills.length,
+							})}
+						</Pagination.Summary>
+						<Pagination.Content>
+							<Pagination.Item>
+								<Pagination.Previous
+									isDisabled={currentPage === 1}
+									onPress={() => setPage((value) => Math.max(1, value - 1))}
+								>
+									<Pagination.PreviousIcon />
+									{t("skills.pagination.previous")}
+								</Pagination.Previous>
+							</Pagination.Item>
+							{pages.map((pageNumber) => (
+								<Pagination.Item key={pageNumber}>
+									<Pagination.Link
+										isActive={pageNumber === currentPage}
+										onPress={() => setPage(pageNumber)}
+									>
+										{pageNumber}
+									</Pagination.Link>
+								</Pagination.Item>
+							))}
+							<Pagination.Item>
+								<Pagination.Next
+									isDisabled={currentPage === totalPages}
+									onPress={() =>
+										setPage((value) => Math.min(totalPages, value + 1))
+									}
+								>
+									{t("skills.pagination.next")}
+									<Pagination.NextIcon />
+								</Pagination.Next>
+							</Pagination.Item>
+						</Pagination.Content>
+					</Pagination>
+				</Table.Footer>
+			) : null}
 		</Table>
 	);
 };
