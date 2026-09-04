@@ -292,7 +292,7 @@ impl SkillLibraryService {
         }
     }
 
-    /// Lists active Skill Library entries.
+    /// Lists Skill Library entries.
     pub(crate) async fn list(&self) -> Result<Vec<Skill>, AppError> {
         self.repository
             .list()
@@ -300,7 +300,41 @@ impl SkillLibraryService {
             .map_err(|_| AppError::SkillDatabaseFailed)
     }
 
-    /// Mounts an active Library Skill for future Tasks from one Workspace.
+    /// Removes one managed Skill and every Workspace mount without touching import sources.
+    pub(crate) async fn remove(&self, skill_id: &str) -> Result<(), AppError> {
+        if skill_id.is_empty()
+            || skill_id.len() > 128
+            || !skill_id
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
+        {
+            return Err(AppError::InvalidSkill);
+        }
+        let Some(skill) = self
+            .repository
+            .find(skill_id)
+            .await
+            .map_err(|_| AppError::SkillDatabaseFailed)?
+        else {
+            return Ok(());
+        };
+        let expected_relative_path = PathBuf::from("skills").join(skill_id);
+        if skill.storage_relative_path != expected_relative_path {
+            return Err(AppError::SkillFilesystemFailed);
+        }
+        let managed_path = self.app_data_directory.join(expected_relative_path);
+        match tokio::fs::remove_dir_all(managed_path).await {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(_) => return Err(AppError::SkillFilesystemFailed),
+        }
+        self.repository
+            .delete(skill_id)
+            .await
+            .map_err(|_| AppError::SkillDatabaseFailed)
+    }
+
+    /// Mounts a Library Skill for future Tasks from one Workspace.
     pub(crate) async fn mount_to_workspace(
         &self,
         workspace_id: &str,
@@ -448,11 +482,81 @@ mod tests {
     use super::SkillLibraryService;
     use crate::db::connection::connect_sqlite;
     use crate::db::migration::Migrator;
+    use crate::domain::workspace::{NewWorkspace, WorkspaceSourceKind};
     use crate::repositories::skill::SkillRepository;
+    use crate::repositories::workspace::WorkspaceRepository;
     use sea_orm_migration::MigratorTrait;
     use std::sync::atomic::{AtomicU64, Ordering};
 
     static RESOURCE_SEQUENCE: AtomicU64 = AtomicU64::new(1);
+
+    #[test]
+    fn removes_a_managed_skill_and_its_mounts_without_touching_the_import_source() {
+        tauri::async_runtime::block_on(async {
+            let sequence = RESOURCE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+            let root = std::env::temp_dir().join(format!(
+                "theoria-remove-skill-test-{}-{sequence}",
+                std::process::id()
+            ));
+            let source = root.join("source/repository-map");
+            std::fs::create_dir_all(&source).expect("Skill source should be created");
+            std::fs::write(
+                source.join("SKILL.md"),
+                "---\nname: Repository Map\ndescription: Maps repository structure.\n---\n",
+            )
+            .expect("Skill manifest should be written");
+            let database_path = root.join("theoria.sqlite3");
+            let database =
+                connect_sqlite(&format!("sqlite://{}?mode=rwc", database_path.display()))
+                    .await
+                    .expect("database should connect");
+            Migrator::up(&database, None)
+                .await
+                .expect("migration should run");
+            WorkspaceRepository::new(database.clone())
+                .create(NewWorkspace {
+                    id: "workspace-1".to_string(),
+                    name: "Docs".to_string(),
+                    source_kind: WorkspaceSourceKind::External,
+                    source_path: root.join("workspace-source"),
+                    created_at_ms: 100,
+                })
+                .await
+                .expect("Workspace should save");
+            let repository = SkillRepository::new(database.clone());
+            let service = SkillLibraryService::new(repository.clone(), root.join("app-data"));
+            let skill = service
+                .import_local_folder(source.clone())
+                .await
+                .expect("Skill should import");
+            service
+                .mount_to_workspace("workspace-1", &skill.id)
+                .await
+                .expect("Skill should mount");
+            let managed_path = root.join("app-data").join(&skill.storage_relative_path);
+
+            service
+                .remove(&skill.id)
+                .await
+                .expect("Skill should be removed");
+
+            assert!(source.join("SKILL.md").is_file());
+            assert!(!managed_path.exists());
+            assert!(service.list().await.expect("Skills should list").is_empty());
+            assert!(repository
+                .list_for_workspace("workspace-1")
+                .await
+                .expect("Workspace mounts should list")
+                .is_empty());
+            service
+                .remove(&skill.id)
+                .await
+                .expect("repeated removal should remain successful");
+
+            database.close().await.expect("database should close");
+            std::fs::remove_dir_all(root).expect("fixture should be removable");
+        });
+    }
 
     #[test]
     fn creates_a_platform_skill_in_managed_storage() {

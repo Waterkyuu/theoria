@@ -4,6 +4,7 @@ import {
 	createPlatformSkill,
 	importGitSkill,
 	importLocalSkill,
+	removeSkill,
 	selectSkillFolder,
 	unmountWorkspaceSkill,
 	updateGitSkill,
@@ -103,6 +104,15 @@ describe("Skill IPC", () => {
 		).resolves.toBeNull();
 		expect(invoke).toHaveBeenCalledWith("unmount_workspace_skill", {
 			request: { skillId: "skill-1", workspaceId: "workspace-1" },
+		});
+	});
+
+	it("removes one managed Skill by its stable identifier", async () => {
+		vi.mocked(invoke).mockResolvedValue(null);
+
+		await expect(removeSkill("skill-1")).resolves.toBeNull();
+		expect(invoke).toHaveBeenCalledWith("remove_skill", {
+			request: { skillId: "skill-1" },
 		});
 	});
 });

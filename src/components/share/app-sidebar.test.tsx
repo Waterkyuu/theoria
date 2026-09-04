@@ -277,6 +277,7 @@ describe("AppSidebar", () => {
 
 	it("removes mounted Workspace Skills from the sidebar more menu", async () => {
 		const user = userEvent.setup();
+		const toastSuccess = vi.spyOn(Toast.toast, "success");
 		render(
 			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
 				<main>content</main>
@@ -301,6 +302,9 @@ describe("AppSidebar", () => {
 			skillId: "skill-1",
 			workspaceId: "workspace-1",
 		});
+		expect(toastSuccess).toHaveBeenCalledWith(
+			"已从 agent-gauge 移除 repository-map 挂载",
+		);
 	});
 
 	it("lets the Recent add icon inherit the button hover color", () => {
@@ -374,6 +378,7 @@ describe("AppSidebar", () => {
 	it("opens a workspace name modal from the new workspace action", async () => {
 		const user = userEvent.setup();
 		const onNavigate = vi.fn();
+		const toastSuccess = vi.spyOn(Toast.toast, "success");
 		render(
 			<AppSidebar currentPath="/" onNavigate={onNavigate}>
 				<main>content</main>
@@ -399,6 +404,7 @@ describe("AppSidebar", () => {
 			sourceKind: "managed",
 		});
 		expect(onNavigate).toHaveBeenCalledWith("/workspaces/workspace-created");
+		expect(toastSuccess).toHaveBeenCalledWith("已创建工作区“docs-lab”");
 	});
 
 	it("opens the workspace action menu", async () => {
@@ -419,7 +425,9 @@ describe("AppSidebar", () => {
 		expect(
 			screen.getByRole("menuitem", { name: "重命名" }),
 		).toBeInTheDocument();
-		expect(screen.getByRole("menuitem", { name: "归档" })).toBeInTheDocument();
+		expect(
+			screen.queryByRole("menuitem", { name: "归档" }),
+		).not.toBeInTheDocument();
 		expect(screen.getByRole("menuitem", { name: "移除" })).toBeInTheDocument();
 	});
 
@@ -558,6 +566,7 @@ describe("AppSidebar", () => {
 
 	it("deletes a Task and its run files from the existing conversation menu", async () => {
 		const user = userEvent.setup();
+		const toastSuccess = vi.spyOn(Toast.toast, "success");
 		render(
 			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
 				<main>content</main>
@@ -578,6 +587,7 @@ describe("AppSidebar", () => {
 		expect(dialog).toHaveTextContent("隔离运行目录和结果文件");
 		await user.click(within(dialog).getByRole("button", { name: "删除任务" }));
 		expect(queryMocks.deleteTask).toHaveBeenCalledWith("workspace-task-1");
+		expect(toastSuccess).toHaveBeenCalledWith("已删除任务“当前任务”");
 	});
 
 	it("renames a Recent Task from the shared rename modal", async () => {
@@ -608,6 +618,7 @@ describe("AppSidebar", () => {
 
 	it("pins an unpinned Recent Task from its action menu", async () => {
 		const user = userEvent.setup();
+		const toastSuccess = vi.spyOn(Toast.toast, "success");
 		render(
 			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
 				<main>content</main>
@@ -623,6 +634,7 @@ describe("AppSidebar", () => {
 			isPinned: true,
 			taskId: "recent-task-1",
 		});
+		expect(toastSuccess).toHaveBeenCalledWith("已置顶任务“普通任务”");
 	});
 
 	it("pins an unpinned Workspace Task from its action menu", async () => {

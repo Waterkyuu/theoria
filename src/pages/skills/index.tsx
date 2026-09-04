@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Input, Label, TextField } from "@heroui/react";
+import { Button, Input, Label, TextField, Toast } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
@@ -10,6 +10,7 @@ import { selectSkillFolder } from "@/api/skill";
 import {
 	useImportGitSkill,
 	useImportSkill,
+	useRemoveSkills,
 	useSkillMountCounts,
 	useSkills,
 	useUpdateGitSkill,
@@ -52,6 +53,7 @@ const SkillsPage = () => {
 	const mountCountsQuery = useSkillMountCounts();
 	const importSkillMutation = useImportSkill();
 	const importGitSkillMutation = useImportGitSkill();
+	const removeSkillsMutation = useRemoveSkills();
 	const updateGitSkillMutation = useUpdateGitSkill();
 	const isLoading = skillsQuery.isLoading || mountCountsQuery.isLoading;
 	const loadError = skillsQuery.error ?? mountCountsQuery.error;
@@ -67,7 +69,6 @@ const SkillsPage = () => {
 		)
 		.map((skill) => ({
 			...skill,
-			accessLabel: t("skills.access.read"),
 			name: skill.folderName,
 			sourceLabel: t(`skills.source.${skill.sourceType}`),
 		}));
@@ -81,7 +82,6 @@ const SkillsPage = () => {
 			skill.displayName,
 			skill.description,
 			skill.sourceLabel,
-			skill.accessLabel,
 		]
 			.join(" ")
 			.toLocaleLowerCase();
@@ -94,9 +94,14 @@ const SkillsPage = () => {
 		if (importSkillMutation.isPending) return;
 		try {
 			const sourcePath = await selectSkillFolder(t("skills.chooseFolderTitle"));
-			if (sourcePath) await importSkillMutation.mutateAsync(sourcePath);
+			if (sourcePath) {
+				const skill = await importSkillMutation.mutateAsync(sourcePath);
+				Toast.toast.success(
+					t("skills.importSuccess", { skill: skill.folderName }),
+				);
+			}
 		} catch (error) {
-			handleError(error, "Skill import failed");
+			handleError(error, "Skill import failed", true, t("skills.importFailed"));
 		}
 	};
 
@@ -105,11 +110,19 @@ const SkillsPage = () => {
 		const trimmedGitUrl = gitUrl.trim();
 		if (!trimmedGitUrl || importGitSkillMutation.isPending) return;
 		try {
-			await importGitSkillMutation.mutateAsync(trimmedGitUrl);
+			const skill = await importGitSkillMutation.mutateAsync(trimmedGitUrl);
+			Toast.toast.success(
+				t("skills.importSuccess", { skill: skill.folderName }),
+			);
 			setGitUrl("");
 			setIsGitImportOpen(false);
 		} catch (error) {
-			handleError(error, "Git Skill import failed");
+			handleError(
+				error,
+				"Git Skill import failed",
+				true,
+				t("skills.gitDialog.failed"),
+			);
 		}
 	};
 
@@ -117,9 +130,30 @@ const SkillsPage = () => {
 	const updateGitSkill = async (skillId: string) => {
 		if (updateGitSkillMutation.isPending) return;
 		try {
-			await updateGitSkillMutation.mutateAsync(skillId);
+			const skill = await updateGitSkillMutation.mutateAsync(skillId);
+			Toast.toast.success(
+				t("skills.updateSuccess", { skill: skill.folderName }),
+			);
 		} catch (error) {
-			handleError(error, "Git Skill update failed");
+			handleError(
+				error,
+				"Git Skill update failed",
+				true,
+				t("skills.updateFailed"),
+			);
+		}
+	};
+
+	/** Removes the confirmed selection and reports the user-triggered request outcome. */
+	const removeSelectedSkills = async (skillIds: string[]) => {
+		if (removeSkillsMutation.isPending) return;
+		try {
+			await removeSkillsMutation.mutateAsync(skillIds);
+			Toast.toast.success(
+				t("skills.removeDialog.success", { count: skillIds.length }),
+			);
+		} catch (error) {
+			handleError(error, t("skills.removeDialog.failed"), true);
 		}
 	};
 
@@ -210,8 +244,10 @@ const SkillsPage = () => {
 				</div>
 
 				<SkillLibraryTable
+					isRemovePending={removeSkillsMutation.isPending}
 					isUpdatePending={updateGitSkillMutation.isPending}
 					onManageSkill={setManagedSkill}
+					onRemoveSkills={removeSelectedSkills}
 					onUpdateSkill={updateGitSkill}
 					skills={visibleSkills}
 					status={tableStatus}

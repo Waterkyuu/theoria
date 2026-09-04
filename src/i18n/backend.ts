@@ -10,7 +10,12 @@ import i18n from ".";
  */
 const backendLanguageChanged = (language: string) => {
 	invoke("set_backend_locale", { locale: language }).catch((error) => {
-		handleError(error, "Failed to synchronize the backend locale");
+		handleError(
+			error,
+			"Failed to synchronize the backend locale",
+			true,
+			i18n.t("settings.language.failed"),
+		);
 	});
 };
 
@@ -21,7 +26,11 @@ const backendLanguageChanged = (language: string) => {
  * initializeBackendI18n();
  */
 const initializeBackendI18n = () => {
-	backendLanguageChanged(i18n.resolvedLanguage ?? i18n.language);
+	invoke("set_backend_locale", {
+		locale: i18n.resolvedLanguage ?? i18n.language,
+	}).catch((error) => {
+		handleError(error, "Failed to initialize the backend locale");
+	});
 };
 
 i18n.on("languageChanged", backendLanguageChanged);

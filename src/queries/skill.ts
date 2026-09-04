@@ -7,6 +7,7 @@ import {
 	listSkills,
 	listWorkspaceSkills,
 	mountWorkspaceSkill,
+	removeSkill,
 	unmountWorkspaceSkill,
 	updateGitSkill,
 } from "@/api/skill";
@@ -101,6 +102,19 @@ const useUpdateGitSkill = () => {
 	});
 };
 
+/** Removes selected Skills one by one and refreshes library state even after a partial failure. */
+const useRemoveSkills = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: async (skillIds: string[]) => {
+			for (const skillId of skillIds) await removeSkill(skillId);
+		},
+		onSettled: () => {
+			queryClient.invalidateQueries({ queryKey: skillKeys.all });
+		},
+	});
+};
+
 type WorkspaceSkillMutationInput = {
 	/** Managed Skill whose future-Task mount relationship changes. */
 	skillId: string;
@@ -138,6 +152,7 @@ export {
 	useImportGitSkill,
 	useImportSkill,
 	useMountWorkspaceSkill,
+	useRemoveSkills,
 	useSkillMountCounts,
 	useSkills,
 	useUnmountWorkspaceSkill,

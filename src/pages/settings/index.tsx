@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Check, ChevronDown } from "@gravity-ui/icons";
-import { Button } from "@heroui/react";
+import { Button, Toast } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/share/page-header";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
+import { handleError } from "@/utils/error";
 import i18n from "@/i18n";
 import {
 	applyThemePreference,
@@ -42,8 +43,18 @@ const SettingsPage = () => {
 	 * @example
 	 * changeLanguage("en-US");
 	 */
-	const changeLanguage = (language: LanguageOption) => {
-		i18n.changeLanguage(language);
+	const changeLanguage = async (language: LanguageOption) => {
+		try {
+			await i18n.changeLanguage(language);
+			Toast.toast.success(i18n.t("settings.language.success"));
+		} catch (error) {
+			handleError(
+				error,
+				"Language change failed",
+				true,
+				i18n.t("settings.language.failed"),
+			);
+		}
 	};
 
 	const themeValue = t(`settings.theme.options.${themePreference}`);

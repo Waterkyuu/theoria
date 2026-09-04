@@ -51,9 +51,22 @@ const WorkspaceMountRow = ({ skill, workspace }: WorkspaceMountRowProps) => {
 						workspace: workspace.name,
 					}),
 				);
-			} else await unmountMutation.mutateAsync(input);
+			} else {
+				await unmountMutation.mutateAsync(input);
+				Toast.toast.success(
+					t("skills.mountDialog.unmountedSuccess", {
+						skill: skill.folderName,
+						workspace: workspace.name,
+					}),
+				);
+			}
 		} catch (error) {
-			handleError(error, "Workspace Skill mount update failed", true);
+			handleError(
+				error,
+				"Workspace Skill mount update failed",
+				true,
+				t("skills.mountDialog.updateFailed"),
+			);
 		}
 	};
 

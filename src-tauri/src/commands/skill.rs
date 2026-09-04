@@ -82,6 +82,15 @@ pub(crate) async fn list_skills(
         .map_err(Into::into)
 }
 
+/// Removes one managed Skill, its local copy, and all future-Task Workspace mounts.
+#[tauri::command]
+pub(crate) async fn remove_skill(
+    request: SkillRequest,
+    service: State<'_, SkillLibraryService>,
+) -> Result<(), IpcError> {
+    service.remove(&request.skill_id).await.map_err(Into::into)
+}
+
 /// Mounts one managed Skill to affect only future Workspace Tasks.
 #[tauri::command]
 pub(crate) async fn mount_workspace_skill(

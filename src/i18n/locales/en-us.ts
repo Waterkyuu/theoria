@@ -52,6 +52,7 @@ const enUS = {
 			chooseFolder: "Choose local folder",
 			chooseFolderTitle: "Choose a Workspace folder",
 			createWorkspace: "Create",
+			createWorkspaceSuccess: 'Created Workspace "{{workspace}}"',
 			createWorkspaceFailed:
 				"Workspace creation failed. Check the name and folder path",
 			collapseWorkspaces: "Collapse Workspaces",
@@ -70,6 +71,12 @@ const enUS = {
 				label: "Workspace name",
 				save: "Save",
 				success: 'Workspace renamed to "{{name}}"',
+			},
+			workspacePin: {
+				pinned: 'Pinned Workspace "{{workspace}}"',
+				unpinned: 'Unpinned Workspace "{{workspace}}"',
+				failed:
+					"The Workspace pin state could not be updated. Please try again",
 			},
 			archiveWorkspace: "Archive",
 			removeWorkspace: "Remove",
@@ -100,7 +107,13 @@ const enUS = {
 				description:
 					'"{{task}}", its isolated run directories, and result files will be permanently deleted. This cannot be undone.',
 				confirm: "Delete Task",
+				success: 'Deleted Task "{{task}}"',
 				failed: "The Task could not be deleted. Please try again",
+			},
+			taskPin: {
+				pinned: 'Pinned Task "{{task}}"',
+				unpinned: 'Unpinned Task "{{task}}"',
+				failed: "The Task pin state could not be updated. Please try again",
 			},
 			mockConversation: "Current task",
 			mockConversationActions: "More actions for {{conversation}}",
@@ -116,6 +129,7 @@ const enUS = {
 				title: "Remove mount?",
 				description:
 					"{{skill}} will be removed from {{workspace}} mounted skills.",
+				success: "Removed {{skill}} from {{workspace}} mounts",
 				failed: "The mount could not be removed. Please try again",
 			},
 			appSettings: "App settings",
@@ -145,6 +159,8 @@ const enUS = {
 					"zh-CN": "简体中文",
 					"en-US": "English",
 				},
+				success: "Language changed",
+				failed: "The language could not be synchronized. Please try again",
 			},
 		},
 		workspace: {
@@ -187,6 +203,8 @@ const enUS = {
 			closeEnvironment: "Close Agent environment",
 			sendTask: "Send task",
 			dispatched: "Task dispatched to {{count}} Agents",
+			runCompleted: "Task execution completed",
+			runFailed: "Task execution failed. Please try again",
 			workspacePath: "{{workspace}}",
 			noSkills: "No skills are available",
 		},
@@ -197,6 +215,8 @@ const enUS = {
 				"Task creation failed. Check the Workspace and Agent environment, then try again",
 			sections: "Result sections",
 			stopAgent: "Stop {{agent}}",
+			stopSuccess: "Stopped {{agent}}",
+			stopFailed: "Could not stop {{agent}}. Please try again",
 			toolCalls: "{{count}} tool calls",
 			noAnswer: "No answer has been produced yet",
 			fileSummary:
@@ -251,6 +271,8 @@ const enUS = {
 			allAgents: "All Agents",
 			targetAgent: "Send only to {{agent}}",
 			send: "Send follow-up",
+			sent: "Follow-up sent",
+			failed: "The follow-up could not be sent. Please try again",
 		},
 		taskSummary: {
 			title: "Result summary",
@@ -288,9 +310,12 @@ const enUS = {
 				git: "Import from Git URL",
 			},
 			chooseFolderTitle: "Choose a Skill folder",
+			importSuccess: 'Imported Skill "{{skill}}"',
 			importFailed:
 				"Skill import failed. Confirm that the folder contains a valid SKILL.md",
 			loading: "Loading skills",
+			updateSuccess: 'Updated Skill "{{skill}}"',
+			updateFailed: "The Skill could not be updated. Please try again",
 			loadFailed: "The Skill Library could not be loaded",
 			searchPlaceholder: "Search by name, source, or capability",
 			libraryLabel: "Skill library",
@@ -311,7 +336,6 @@ const enUS = {
 				skill: "Skill",
 				source: "Source",
 				workspaces: "Workspaces",
-				access: "Access",
 				actions: "Actions",
 			},
 			source: {
@@ -321,7 +345,6 @@ const enUS = {
 				platform: "Platform created",
 				git: "Git",
 			},
-			access: { read: "Read", execute: "Execute" },
 			mountedCount: "{{count}} mounted",
 			notMounted: "Not mounted",
 			manage: "Manage",
@@ -331,6 +354,14 @@ const enUS = {
 			selectAll: "Select all skills",
 			selectNamed: "Select {{name}}",
 			deleteSelected: "Delete selected skills",
+			removeDialog: {
+				title: "Remove selected skills?",
+				description:
+					"This permanently deletes the Theoria-managed copies of {{count}} skills and removes every Workspace mount. Import sources and existing Task snapshots stay unchanged.",
+				confirm: "Remove skills",
+				success: "Removed {{count}} skills",
+				failed: "Skill removal failed. Try again.",
+			},
 			pagination: {
 				label: "Skill pagination",
 				summary: "{{start}} to {{end}} of {{total}} results",
@@ -357,6 +388,7 @@ const enUS = {
 				descriptionLabel: "Description",
 				contentLabel: "Main content",
 				submit: "Create skill",
+				success: 'Created Skill "{{skill}}"',
 				failed: "Skill creation failed. Check the entered content.",
 			},
 			mountDialog: {
@@ -368,6 +400,9 @@ const enUS = {
 				workspacesFailed: "The Workspace list could not be loaded",
 				empty: "No Workspaces yet. Create a Workspace first",
 				mountedSuccess: "Mounted {{skill}} to {{workspace}}",
+				unmountedSuccess: "Removed {{skill}} from {{workspace}} mounts",
+				updateFailed:
+					"The Workspace mount could not be updated. Please try again",
 			},
 			noResults: "No matching skills",
 			mock: {

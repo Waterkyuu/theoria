@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { SkillLibraryTable } from "./skill-library-table";
@@ -13,7 +13,6 @@ const SKILLS = [
 		sourcePath: "/tmp/repository-map",
 		createdAtMs: 1,
 		updatedAtMs: 1,
-		accessLabel: "读取",
 		mountedCount: 0,
 		name: "repository-map",
 		sourceLabel: "文件导入",
@@ -39,12 +38,34 @@ const PAGINATED_SKILLS = [
 }));
 
 describe("SkillLibraryTable", () => {
-	it("reveals the delete action after a Skill is selected", async () => {
-		const user = userEvent.setup();
+	it("does not present Skills as owning runtime permissions", () => {
 		render(
 			<SkillLibraryTable
+				isRemovePending={false}
 				isUpdatePending={false}
 				onManageSkill={vi.fn()}
+				onRemoveSkills={vi.fn()}
+				onUpdateSkill={vi.fn()}
+				skills={SKILLS}
+				status={null}
+			/>,
+		);
+
+		expect(
+			screen.queryByRole("columnheader", { name: "权限" }),
+		).not.toBeInTheDocument();
+		expect(screen.queryByText("读取")).not.toBeInTheDocument();
+	});
+
+	it("removes selected Skills only after explicit confirmation", async () => {
+		const user = userEvent.setup();
+		const removeSkills = vi.fn();
+		render(
+			<SkillLibraryTable
+				isRemovePending={false}
+				isUpdatePending={false}
+				onManageSkill={vi.fn()}
+				onRemoveSkills={removeSkills}
 				onUpdateSkill={vi.fn()}
 				skills={SKILLS}
 				status={null}
@@ -57,14 +78,24 @@ describe("SkillLibraryTable", () => {
 			screen.getByRole("checkbox", { name: /^选择 repository-map/ }),
 		);
 
-		expect(screen.getByLabelText("删除已选技能")).toBeInTheDocument();
+		await user.click(screen.getByLabelText("删除已选技能"));
+		const dialog = await screen.findByRole("alertdialog", {
+			name: "移除所选技能？",
+		});
+
+		expect(removeSkills).not.toHaveBeenCalled();
+		await user.click(within(dialog).getByRole("button", { name: "移除技能" }));
+
+		expect(removeSkills).toHaveBeenCalledWith(["skill-1"]);
 	});
 
 	it("hides pagination while all Skills fit on the first page", () => {
 		render(
 			<SkillLibraryTable
+				isRemovePending={false}
 				isUpdatePending={false}
 				onManageSkill={vi.fn()}
+				onRemoveSkills={vi.fn()}
 				onUpdateSkill={vi.fn()}
 				skills={PAGINATED_SKILLS.slice(0, 8)}
 				status={null}
@@ -80,8 +111,10 @@ describe("SkillLibraryTable", () => {
 		const user = userEvent.setup();
 		render(
 			<SkillLibraryTable
+				isRemovePending={false}
 				isUpdatePending={false}
 				onManageSkill={vi.fn()}
+				onRemoveSkills={vi.fn()}
 				onUpdateSkill={vi.fn()}
 				skills={PAGINATED_SKILLS}
 				status={null}

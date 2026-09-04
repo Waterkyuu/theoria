@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Ellipsis, TrashBin } from "@gravity-ui/icons";
-import { Button } from "@heroui/react";
+import { Button, Toast } from "@heroui/react";
 import { useTranslation } from "react-i18next";
 import { AlertDialog } from "@/components/ui/alert-dialog";
 import type { DropdownMenuItemProps } from "@/components/ui/dropdown-menu";
@@ -49,9 +49,20 @@ const MountedSkillActionDropdown = ({
 				skillId: skill.id,
 				workspaceId: workspace.id,
 			});
+			Toast.toast.success(
+				t("workspaceSidebar.skillUnmount.success", {
+					skill: skill.folderName,
+					workspace: workspace.name,
+				}),
+			);
 			setIsUnmountOpen(false);
 		} catch (error) {
-			handleError(error, "Workspace Skill unmount failed", true);
+			handleError(
+				error,
+				"Workspace Skill unmount failed",
+				true,
+				t("workspaceSidebar.skillUnmount.failed"),
+			);
 		}
 	};
 
