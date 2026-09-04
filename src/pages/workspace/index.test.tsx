@@ -1,3 +1,4 @@
+import { Toast } from "@heroui/react";
 import "@testing-library/jest-dom/vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -333,6 +334,7 @@ describe("WorkspacePage", () => {
 
 	it("creates a locked Task and starts every selected Agent", async () => {
 		const user = userEvent.setup();
+		const toastSuccess = vi.spyOn(Toast.toast, "success");
 		render(<WorkspacePage />);
 
 		await user.type(screen.getByRole("textbox", { name: "任务内容" }), "/");
@@ -358,7 +360,14 @@ describe("WorkspacePage", () => {
 		expect(
 			await screen.findByRole("region", { name: /Codex/ }),
 		).toBeInTheDocument();
-		expect(apiMocks.runTask).toHaveBeenCalledWith("task-42");
+		expect(apiMocks.runTask).toHaveBeenCalledWith(
+			"task-42",
+			expect.objectContaining({
+				onError: expect.any(Function),
+				onSuccess: expect.any(Function),
+			}),
+		);
+		expect(toastSuccess).toHaveBeenCalledWith("任务已分发到 1 个 Agent");
 	});
 
 	it("freezes the Composer permission selection into the created Task", async () => {
@@ -453,6 +462,7 @@ describe("WorkspacePage", () => {
 
 	it("continues the restored Task for all or one existing Agent", async () => {
 		const user = userEvent.setup();
+		const toastSuccess = vi.spyOn(Toast.toast, "success");
 		apiMocks.useTask.mockReturnValue({ data: RESTORED_TASK, isLoading: false });
 		apiMocks.continueTask.mockResolvedValue(RESTORED_TASK);
 		render(<WorkspacePage taskId="task-42" />);
@@ -474,5 +484,6 @@ describe("WorkspacePage", () => {
 			prompt: "Check Codex output",
 			taskAgentIds: ["task-agent-1"],
 		});
+		expect(toastSuccess).toHaveBeenCalledWith("已发送继续任务");
 	});
 });

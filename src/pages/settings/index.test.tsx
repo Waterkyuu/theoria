@@ -1,7 +1,8 @@
+import { Toast } from "@heroui/react";
 import "@testing-library/jest-dom/vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import SettingsPage from ".";
 
 describe("SettingsPage", () => {
@@ -33,6 +34,7 @@ describe("SettingsPage", () => {
 
 	it("switches the application language from its Dropdown", async () => {
 		const user = userEvent.setup();
+		const toastSuccess = vi.spyOn(Toast.toast, "success");
 		render(<SettingsPage />);
 
 		await user.click(
@@ -46,5 +48,6 @@ describe("SettingsPage", () => {
 		expect(
 			screen.getByRole("button", { name: "Language, current: English" }),
 		).toBeInTheDocument();
+		expect(toastSuccess).toHaveBeenCalledWith("Language changed");
 	});
 });

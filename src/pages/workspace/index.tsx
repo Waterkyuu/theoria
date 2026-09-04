@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { LayoutColumns3 } from "@gravity-ui/icons";
+import { Toast } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { AgentEnvironmentDropdown } from "@/components/share/agent-environment-dropdown";
@@ -173,9 +174,26 @@ const WorkspacePage = ({ workspaceId, taskId }: WorkspacePageProps) => {
 			const detail = await createTaskMutation.mutateAsync(request);
 			setCreatedTask(detail);
 			openCreatedTask(detail);
-			runTaskMutation.mutate(detail.task.id);
+			runTaskMutation.mutate(detail.task.id, {
+				onError: (error) =>
+					handleError(
+						error,
+						"Task execution failed",
+						true,
+						t("workspace.runFailed"),
+					),
+				onSuccess: () => Toast.toast.success(t("workspace.runCompleted")),
+			});
+			Toast.toast.success(
+				t("workspace.dispatched", { count: submission.agents.length }),
+			);
 		} catch (error) {
-			handleError(error, "Task creation failed", true);
+			handleError(
+				error,
+				"Task creation failed",
+				true,
+				t("taskPanel.createFailed"),
+			);
 		}
 	};
 
@@ -191,9 +209,35 @@ const WorkspacePage = ({ workspaceId, taskId }: WorkspacePageProps) => {
 				prompt,
 				taskAgentIds,
 			});
+			Toast.toast.success(t("taskFollowUp.sent"));
 		} catch (error) {
-			handleError(error, "Task continuation failed");
+			handleError(
+				error,
+				"Task continuation failed",
+				true,
+				t("taskFollowUp.failed"),
+			);
 		}
+	};
+
+	/** Stops one Agent from its panel and reports the explicit user request outcome. */
+	const stopTaskAgent = (taskAgentId: string) => {
+		if (stopTaskAgentMutation.isPending) return;
+		const agentKind = task?.agents.find(
+			(agent) => agent.id === taskAgentId,
+		)?.agentKind;
+		const agentName = agentKind ? t(`agentNames.${agentKind}`) : taskAgentId;
+		stopTaskAgentMutation.mutate(taskAgentId, {
+			onError: (error) =>
+				handleError(
+					error,
+					"Agent stop failed",
+					true,
+					t("taskPanel.stopFailed", { agent: agentName }),
+				),
+			onSuccess: () =>
+				Toast.toast.success(t("taskPanel.stopSuccess", { agent: agentName })),
+		});
 	};
 
 	return (
@@ -258,9 +302,7 @@ const WorkspacePage = ({ workspaceId, taskId }: WorkspacePageProps) => {
 								<AgentPanel
 									agent={agent}
 									key={agent.id}
-									onStop={(taskAgentId) =>
-										stopTaskAgentMutation.mutate(taskAgentId)
-									}
+									onStop={stopTaskAgent}
 									prompt={task.task.prompt}
 									result={task.results.find(
 										(result) => result.taskAgentId === agent.id,
