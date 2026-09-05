@@ -11,7 +11,6 @@ import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { FileTypeIcon } from "@/components/share/file-type-icon";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
-import { FOLDER_ICON_COLOR } from "@/constants/file-icons";
 
 type FileTreeProps = {
 	/** Relative files and explicit folders marked by a trailing slash. */
@@ -134,13 +133,11 @@ const FileTree = ({
 								>
 									<FolderFill
 										aria-hidden="true"
-										className="size-4 shrink-0 [details[open]>summary>&]:hidden"
-										style={{ color: FOLDER_ICON_COLOR }}
+										className="size-4 shrink-0 text-blue-300 [details[open]>summary>&]:hidden"
 									/>
 									<FolderOpenFill
 										aria-hidden="true"
-										className="hidden size-4 shrink-0 [details[open]>summary>&]:block"
-										style={{ color: FOLDER_ICON_COLOR }}
+										className="hidden size-4 shrink-0 text-blue-300 [details[open]>summary>&]:block"
 									/>
 									<span className="truncate">{name}</span>
 								</summary>
