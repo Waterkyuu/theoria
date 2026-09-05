@@ -117,6 +117,9 @@ importers:
       lint-staged:
         specifier: ^17.3.0
         version: 17.3.0
+      material-icon-theme:
+        specifier: ^5.38.1
+        version: 5.38.1
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3
@@ -1548,6 +1551,9 @@ packages:
   character-reference-invalid@2.0.1:
     resolution: {integrity: sha512-iBZ4F4wRbyORVsu0jPV7gXkOsGYjGHPmAyv+HiHG8gi5PtC9KI2j1+v8/tlibRvjoWX027ypmG/n0HtO5t7unw==}
 
+  chroma-js@3.2.0:
+    resolution: {integrity: sha512-os/OippSlX1RlWWr+QDPcGUZs0uoqr32urfxESG9U93lhUfbnlyckte84Q8P1UQY/qth983AS1JONKmLS4T0nw==}
+
   client-only@0.0.1:
     resolution: {integrity: sha512-IV3Ou0jSMzZrd3pZ48nLkT9DA7Ag1pnPzaiQhpW7c3RbcqqzvzzVu+L8gfqMp/8IM2MQtSiqaCxrrcfu8I8rMA==}
 
@@ -1916,6 +1922,10 @@ packages:
   make-dir@4.0.0:
     resolution: {integrity: sha512-hXdUTZYIVOt1Ex//jAQi+wTZZpUpwBj/0QsOzqegb3rGMMeJiSEu5xLHnYfBrRV4RH2+OCSOO95Is/7x1WJ4bw==}
     engines: {node: '>=10'}
+
+  material-icon-theme@5.38.1:
+    resolution: {integrity: sha512-14cFM4NJGdbuo68rIZTq9TSX0f5BtA6VF+eNX3zq23Z5NoEeVtM4Zn4PpZ0ERl++50jCBrywKFWXmOjbxf0xTA==}
+    engines: {vscode: ^1.55.0}
 
   mdast-util-from-markdown@2.0.3:
     resolution: {integrity: sha512-W4mAWTvSlKvf8L6J+VN9yLSqQ9AOAAvHuoDAmPkz4dHf553m5gVj2ejadHJhoJmcmxEnOv6Pa8XJhpxE93kb8Q==}
@@ -3873,6 +3883,8 @@ snapshots:
 
   character-reference-invalid@2.0.1: {}
 
+  chroma-js@3.2.0: {}
+
   client-only@0.0.1: {}
 
   clsx@2.1.1: {}
@@ -4218,6 +4230,10 @@ snapshots:
   make-dir@4.0.0:
     dependencies:
       semver: 7.8.5
+
+  material-icon-theme@5.38.1:
+    dependencies:
+      chroma-js: 3.2.0
 
   mdast-util-from-markdown@2.0.3:
     dependencies:

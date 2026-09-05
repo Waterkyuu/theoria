@@ -60,6 +60,7 @@
 		"husky": "^9.1.7",
 		"jsdom": "^30.0.1",
 		"lint-staged": "^17.3.0",
+		"material-icon-theme": "^5.38.1",
 		"tailwindcss": "^4.3.3",
 		"typescript": "~7.0.2",
 		"vite": "^7.0.4",
