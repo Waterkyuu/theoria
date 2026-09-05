@@ -22,7 +22,11 @@
 		"typecheck": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit"
 	},
 	"dependencies": {
+		"@codemirror/lang-javascript": "^6.2.5",
+		"@codemirror/lang-json": "^6.0.2",
 		"@codemirror/lang-markdown": "^6.5.2",
+		"@codemirror/language": "^6.12.4",
+		"@codemirror/legacy-modes": "^6.5.4",
 		"@codemirror/state": "^6.7.4",
 		"@gravity-ui/icons": "^2.21.0",
 		"@heroui/react": "^3.2.3",

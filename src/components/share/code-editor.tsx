@@ -1,7 +1,9 @@
 import { useEffect, useEffectEvent, useRef } from "react";
-import { markdown } from "@codemirror/lang-markdown";
+import { LanguageDescription } from "@codemirror/language";
 import { Compartment, EditorState } from "@codemirror/state";
 import { basicSetup, EditorView } from "codemirror";
+import { handleError } from "@/utils/error";
+import { EDITOR_LANGUAGES } from "@/constants/editor-languages";
 import "@/styles/code-editor.css";
 
 type CodeEditorProps = {
@@ -16,10 +18,14 @@ type CodeEditorProps = {
 };
 
 /**
- * Bundles the editor locally for offline use in Tauri, with Markdown support and independent undo per file.
+ * Bundles the editor locally for offline use in Tauri, with language highlighting and independent undo per file.
  *
  * @example
- * <CodeEditor path="SKILL.md" value={content} onChange={setContent} />
+ * <CodeEditor
+ *   path="SKILL.md"
+ *   value={content}
+ *   onChange={setContent}
+ * />
  */
 const CodeEditor = ({
 	path,
@@ -31,6 +37,7 @@ const CodeEditor = ({
 	const editor = useRef<EditorView | null>(null);
 	const states = useRef(new Map<string, EditorState>());
 	const readOnly = useRef(new Compartment());
+	const language = useRef(new Compartment());
 	const initialValue = useEffectEvent(() => value);
 	const reportChange = useEffectEvent((content: string) => onChange(content));
 
@@ -44,7 +51,7 @@ const CodeEditor = ({
 					doc: initialValue(),
 					extensions: [
 						basicSetup,
-						/\.md$/i.test(path) ? markdown() : [],
+						language.current.of([]),
 						EditorView.lineWrapping,
 						readOnly.current.of(EditorState.readOnly.of(false)),
 						EditorView.contentAttributes.of({
@@ -87,8 +94,24 @@ const CodeEditor = ({
 				}),
 		});
 		editor.current = view;
+		let disposed = false;
+		const description = LanguageDescription.matchFilename(
+			EDITOR_LANGUAGES,
+			path.toLowerCase(),
+		);
+		// Ignore late language loads after switching files or unmounting the editor.
+		description
+			?.load()
+			.then((support) => {
+				if (!disposed)
+					view.dispatch({ effects: language.current.reconfigure(support) });
+			})
+			.catch((error: unknown) =>
+				handleError(error, "Failed to load editor language"),
+			);
 		const documents = states.current;
 		return () => {
+			disposed = true;
 			documents.set(path, view.state);
 			view.destroy();
 			editor.current = null;
