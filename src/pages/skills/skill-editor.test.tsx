@@ -264,7 +264,7 @@ it("requires confirmation before deleting a folder and allows replacing the mani
 	expect(screen.getByRole("textbox", { name: "SKILL.md" })).toHaveValue("");
 });
 
-it("opens rename and delete actions by holding a file row", async () => {
+it("opens actions only from the more button", async () => {
 	const user = userEvent.setup();
 	renderEditor();
 	const file = screen.getByRole("button", { name: "SKILL.md" });
@@ -273,7 +273,16 @@ it("opens rename and delete actions by holding a file row", async () => {
 		screen.queryByRole("menuitem", { name: "重命名" }),
 	).not.toBeInTheDocument();
 	await user.pointer({ keys: "[MouseLeft>]", target: file });
-	expect(await screen.findByRole("menuitem", { name: "重命名" })).toBeVisible();
-	expect(screen.getByRole("menuitem", { name: "删除" })).toBeVisible();
+	await new Promise((resolve) => setTimeout(resolve, 650));
+	expect(
+		screen.queryByRole("menuitem", { name: "重命名" }),
+	).not.toBeInTheDocument();
 	await user.pointer({ keys: "[/MouseLeft]" });
+	await user.pointer({ keys: "[MouseRight]", target: file });
+	expect(
+		screen.queryByRole("menuitem", { name: "重命名" }),
+	).not.toBeInTheDocument();
+	await user.click(screen.getByRole("button", { name: "SKILL.md 的操作" }));
+	expect(screen.getByRole("menuitem", { name: "重命名" })).toBeVisible();
+	expect(screen.getByRole("menuitem", { name: "删除" })).toBeVisible();
 });
