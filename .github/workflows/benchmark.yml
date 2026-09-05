@@ -52,7 +52,7 @@ jobs:
             current/pnpm-lock.yaml
 
       - name: Test benchmark thresholds
-        run: node --test current/.github/scripts/benchmark_test.mjs
+        run: node --test current/.github/scripts/benchmark.test.mjs
 
       - name: Compare frontend builds and enforce thresholds
         run: node current/.github/scripts/benchmark.mjs frontend baseline current

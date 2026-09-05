@@ -1,5 +1,5 @@
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
 
 export default defineConfig({
@@ -16,6 +16,7 @@ export default defineConfig({
 		},
 	},
 	test: {
+		exclude: [...configDefaults.exclude, ".github/scripts/**"],
 		css: true,
 		environment: "jsdom",
 		setupFiles: ["./test-setup.ts"],
