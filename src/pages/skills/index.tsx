@@ -169,6 +169,7 @@ const SkillsPage = () => {
 			folder: importSkillFolder,
 			git: () => setIsGitImportOpen(true),
 			platform: () => navigate("/skills/create-skill"),
+			editor: () => navigate("/skills/create-skill?mode=editor"),
 		};
 
 		actions[action]();

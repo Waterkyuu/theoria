@@ -9,6 +9,8 @@ import {
 import { useTranslation } from "react-i18next";
 
 type DropdownMenuItemProps<T extends string> = {
+	/** Nested actions displayed in a submenu. */
+	children?: readonly DropdownMenuItemProps<T>[];
 	/** Whether the item uses the danger visual treatment. */
 	danger?: boolean;
 	/** Optional decorative icon rendered before the item label. */
@@ -80,7 +82,7 @@ const DropdownMenu = <T extends string>({
 			elements.push(<Separator key={`${item.id}-separator`} />);
 		}
 
-		elements.push(
+		const menuItem = (
 			<Dropdown.Item
 				className={itemClassName}
 				data-testid={item.testId}
@@ -92,7 +94,30 @@ const DropdownMenu = <T extends string>({
 			>
 				{item.icon}
 				<Label>{label}</Label>
-			</Dropdown.Item>,
+				{item.children ? <Dropdown.SubmenuIndicator /> : null}
+			</Dropdown.Item>
+		);
+		elements.push(
+			item.children ? (
+				<Dropdown.SubmenuTrigger key={item.id}>
+					{menuItem}
+					<Dropdown.Popover>
+						<Dropdown.Menu onAction={(key) => onAction(key as T)}>
+							{item.children.map((child) => (
+								<Dropdown.Item
+									key={child.id}
+									id={child.id}
+									textValue={t(child.labelKey)}
+								>
+									<Label>{t(child.labelKey)}</Label>
+								</Dropdown.Item>
+							))}
+						</Dropdown.Menu>
+					</Dropdown.Popover>
+				</Dropdown.SubmenuTrigger>
+			) : (
+				menuItem
+			),
 		);
 
 		return elements;
