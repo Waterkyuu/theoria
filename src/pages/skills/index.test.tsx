@@ -9,6 +9,7 @@ import { CreateSkillPage } from "./create-skill";
 const queryMocks = vi.hoisted(() => ({
 	createPlatformSkill: vi.fn(),
 	importGitSkill: vi.fn(),
+	importGitSkillPending: false,
 	importSkill: vi.fn(),
 	mountWorkspaceSkill: vi.fn(),
 	removeSkills: vi.fn(),
@@ -39,7 +40,7 @@ vi.mock("@/queries/skill", () => ({
 	}),
 	useImportGitSkill: () => ({
 		mutateAsync: queryMocks.importGitSkill,
-		isPending: false,
+		isPending: queryMocks.importGitSkillPending,
 		error: null,
 	}),
 	useImportSkill: () => ({
@@ -109,6 +110,7 @@ const SKILLS = [
 describe("SkillsPage", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		queryMocks.importGitSkillPending = false;
 		skillApiMocks.selectSkillFolder.mockResolvedValue(
 			"/Users/me/.agents/skills/repository-map",
 		);
@@ -245,6 +247,28 @@ describe("SkillsPage", () => {
 			"https://github.com/example/test-runner.git",
 		);
 		expect(toastSuccess).toHaveBeenCalledWith("已从 Git 导入 2 个技能");
+	});
+
+	it("shows that a Git import is still in progress", async () => {
+		const user = userEvent.setup();
+		queryMocks.importGitSkill.mockImplementation(() => {
+			queryMocks.importGitSkillPending = true;
+			return new Promise(() => undefined);
+		});
+		const { rerender } = render(<SkillsPage />);
+
+		await user.click(screen.getByRole("button", { name: "添加技能" }));
+		await user.click(screen.getByRole("menuitem", { name: "从 Git 链接导入" }));
+		await user.type(
+			screen.getByRole("textbox", { name: "Git 仓库链接" }),
+			"https://github.com/example/test-runner.git",
+		);
+		await user.click(screen.getByRole("button", { name: "导入" }));
+		rerender(<SkillsPage />);
+
+		expect(
+			screen.getByRole("button", { name: "正在导入" }),
+		).toBeInTheDocument();
 	});
 
 	it("updates Git-backed Skills from their saved remote", async () => {

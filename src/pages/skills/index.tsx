@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Input, Label, TextField, Toast } from "@heroui/react";
+import { Button, Input, Label, Spinner, TextField, Toast } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
@@ -274,11 +274,19 @@ const SkillsPage = () => {
 							{t("common.cancel")}
 						</Button>
 						<Button
-							isDisabled={!gitUrl.trim() || importGitSkillMutation.isPending}
+							isDisabled={!gitUrl.trim()}
+							isPending={importGitSkillMutation.isPending}
 							onPress={() => importSkillFromGit()}
 							variant="primary"
 						>
-							{t("skills.gitDialog.import")}
+							{importGitSkillMutation.isPending ? (
+								<>
+									<Spinner aria-hidden="true" size="sm" />
+									{t("skills.gitDialog.importing")}
+								</>
+							) : (
+								t("skills.gitDialog.import")
+							)}
 						</Button>
 					</>
 				}
