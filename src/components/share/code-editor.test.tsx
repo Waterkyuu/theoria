@@ -59,10 +59,28 @@ it.each([
 	["Main.java", "public class Main {}", "public"],
 	["config.json", '{"enabled": true}', "true"],
 	["CONFIG.JSON", '{"enabled": false}', "false"],
+	["main.py", "def hello(): pass", "def"],
+	["scripts/run.sh", "if true; then echo ok; fi", "if"],
+	["scripts/.bashrc", "if true; then echo ok; fi", "if"],
+	["config.yaml", "enabled: true", "true"],
+	["Cargo.toml", "enabled = true", "true"],
+	["index.html", '<div class="main">Hello</div>', "div"],
+	["style.css", "body { color: red; }", "body"],
+	["query.sql", "SELECT name FROM users;", "SELECT"],
+	["main.c", "int main() { return 0; }", "return"],
+	["main.cpp", "class Example {};", "class"],
+	["Main.cs", "public class Main {}", "public"],
+	["index.php", "<?php echo 1;", "echo"],
+	["main.rb", "def hello; end", "def"],
+	["main.swift", "func hello() {}", "func"],
+	["Main.kt", "fun main() {}", "fun"],
+	["main.lua", "local value = true", "local"],
+	["deploy/Dockerfile", "FROM alpine", "FROM"],
+	["Dockerfile.dev", "FROM alpine", "FROM"],
 ])("highlights language tokens in %s", async (path, value, token) => {
 	render(<CodeEditor path={path} value={value} onChange={vi.fn()} />);
 	await waitFor(() =>
-		expect(screen.getByText(token, { selector: "span" })).toBeVisible(),
+		expect(screen.getAllByText(token, { selector: "span" })[0]).toBeVisible(),
 	);
 });
 
