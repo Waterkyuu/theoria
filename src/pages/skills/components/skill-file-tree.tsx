@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import {
 	Ellipsis,
-	Folder,
-	FolderOpen,
+	FolderFill,
+	FolderOpenFill,
 	PencilToSquare,
 	TrashBin,
 } from "@gravity-ui/icons";
@@ -11,6 +11,7 @@ import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { FileTypeIcon } from "@/components/share/file-type-icon";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
+import { FOLDER_ICON_COLOR } from "@/constants/file-icons";
 
 type FileTreeProps = {
 	/** Relative files and explicit folders marked by a trailing slash. */
@@ -131,13 +132,15 @@ const FileTree = ({
 									aria-current={selectedPath === path ? "true" : undefined}
 									className="flex select-none touch-pan-y cursor-pointer list-none items-center gap-2 rounded-md px-2 py-2 pr-10 text-body-sm text-charcoal aria-current:bg-surface-soft aria-current:font-medium outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring [&::-webkit-details-marker]:hidden"
 								>
-									<Folder
+									<FolderFill
 										aria-hidden="true"
 										className="size-4 shrink-0 [details[open]>summary>&]:hidden"
+										style={{ color: FOLDER_ICON_COLOR }}
 									/>
-									<FolderOpen
+									<FolderOpenFill
 										aria-hidden="true"
 										className="hidden size-4 shrink-0 [details[open]>summary>&]:block"
+										style={{ color: FOLDER_ICON_COLOR }}
 									/>
 									<span className="truncate">{name}</span>
 								</summary>

@@ -120,6 +120,8 @@ const FILE_TYPE_ICONS = {
 
 type FileIconName = keyof typeof FILE_TYPE_ICONS;
 
+const FOLDER_ICON_COLOR = "#93c5fd";
+
 const FILE_ICON_COLORS: Partial<Record<FileIconName, string>> = {
 	markdown: "#16a34a",
 };
@@ -276,4 +278,5 @@ export {
 	FILE_ICON_FILENAMES,
 	FILE_ICON_LIGHT_VARIANTS,
 	FILE_TYPE_ICONS,
+	FOLDER_ICON_COLOR,
 };
