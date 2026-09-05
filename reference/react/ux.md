@@ -8,8 +8,9 @@ leaving users guessing whether an action worked.
 1. User-triggered requests must show toast feedback on both success and failure.
 2. Copy style must be consistent. Do not mix labels such as OK, 确定, and 确认提交 in
    the same product flow.
-3. Desktop pages must set a reasonable `max-width`.
-4. Check responsive behavior at `375px`, `768px`, and `1440px` widths.
+3. Desktop pages must follow the Desktop Responsive Layout rules below.
+4. Check responsive behavior at `375px`, `768px`, `960px`, `1024px`, and
+   `1440px` widths.
 5. On mobile, check button size, modal height, bottom action areas, and
    horizontal overflow.
 6. If dark mode is supported, support it completely. If it is not supported, do
@@ -47,6 +48,38 @@ leaving users guessing whether an action worked.
     Toast, Empty, and Skeleton patterns.
 27. Tailwind classes should use shared tokens where possible. Do not scatter
     random colors and sizes through feature code.
+
+## Desktop Responsive Layout
+
+Desktop windows must remain fully usable at a minimum viewport size of
+`960px × 640px`.
+
+Rules:
+
+1. Treat `960px` as the hard minimum supported desktop width, `1024px` as the
+   primary desktop layout baseline, and `1280px` or wider as the enhanced layout.
+2. Set the native desktop window minimum size to `960px × 640px`. Do not rely on
+   users resizing the window to recover controls or content that is inaccessible
+   at the minimum size.
+3. Keep primary page content fluid and centered with a maximum content width of
+   `1200px`, unless a focused workflow has a documented reason to be narrower.
+4. At `960px`, navigation, primary content, and required actions must remain
+   visible and usable without viewport-level horizontal scrolling.
+5. Collapse, stack, wrap, or hide secondary content before reducing primary
+   controls below usable sizes. Required actions must not be hidden solely to
+   make the layout fit.
+6. Fixed-width sidebars, panels, and gutters count toward the minimum-width
+   budget. Verify the remaining content area rather than evaluating each region
+   in isolation.
+7. Data tables may use contained horizontal scrolling only when stacking or
+   hiding columns would remove essential information. The page viewport itself
+   must not scroll horizontally.
+8. Modals, drawers, dropdowns, and sticky action areas must fit within the
+   `960px × 640px` viewport and keep their close, cancel, and confirm controls
+   reachable.
+9. Verify desktop layouts at `960px`, `1024px`, and `1440px` widths. Also verify
+   the mobile and tablet layouts at `375px` and `768px` when those layouts are
+   supported by the surface.
 
 ## Request Feedback
 
