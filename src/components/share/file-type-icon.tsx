@@ -3,6 +3,7 @@ import {
 	FILE_ICON_LIGHT_VARIANTS,
 	FILE_TYPE_ICONS,
 } from "@/constants/file-icons";
+import "@/styles/file-type-icon.css";
 
 type FileTypeIconProps = {
 	/** Relative file path used to resolve language and framework-specific icons. */
@@ -21,6 +22,14 @@ const FileTypeIcon = ({ path }: FileTypeIconProps) => {
 	const name = getFileIconName(path);
 	const src = FILE_TYPE_ICONS[name];
 	const light = FILE_ICON_LIGHT_VARIANTS[name];
+	if (name === "markdown") {
+		return (
+			<span
+				aria-hidden="true"
+				className="file-type-icon-markdown size-4 shrink-0"
+			/>
+		);
+	}
 	return light ? (
 		<>
 			<img
