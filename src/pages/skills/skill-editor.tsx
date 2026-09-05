@@ -3,7 +3,7 @@ import {
 	ChevronRight,
 	File,
 	FilePlus,
-	Folder,
+	FolderFill,
 	FolderPlus,
 	LayoutSplitSideContentLeft,
 	LayoutSplitSideContentRight,
@@ -431,14 +431,14 @@ const SkillEditorPage = () => {
 									<form onSubmit={addEntry} className="py-1">
 										<div className="flex items-center gap-2 px-2">
 											{entryKind === "folder" ? (
-												<Folder
+												<FolderFill
 													aria-hidden="true"
-													className="size-4 shrink-0 text-charcoal"
+													className="size-4 shrink-0 text-blue-300"
 												/>
 											) : (
 												<File
 													aria-hidden="true"
-													className="size-4 shrink-0 text-charcoal"
+													className="size-4 shrink-0 text-blue-300"
 												/>
 											)}
 											<TextField
