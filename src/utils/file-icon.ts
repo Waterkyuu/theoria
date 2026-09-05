@@ -1,4 +1,5 @@
 import {
+	FILE_ICON_COLORS,
 	FILE_ICON_CONFIGS,
 	FILE_ICON_EXTENSIONS,
 	FILE_ICON_FILENAMES,
@@ -14,10 +15,6 @@ type FileIconAppearance = {
 	light?: string;
 	/** Optional tint; omitted icons retain their original SVG colors. */
 	color?: string;
-};
-
-const FILE_ICON_COLORS: Partial<Record<FileIconName, string>> = {
-	markdown: "#16a34a",
 };
 
 /**

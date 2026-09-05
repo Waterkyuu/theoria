@@ -120,6 +120,10 @@ const FILE_TYPE_ICONS = {
 
 type FileIconName = keyof typeof FILE_TYPE_ICONS;
 
+const FILE_ICON_COLORS: Partial<Record<FileIconName, string>> = {
+	markdown: "#16a34a",
+};
+
 const FILE_ICON_LIGHT_VARIANTS: Partial<Record<FileIconName, string>> = {
 	next: icon_next_light,
 	pnpm: icon_pnpm_light,
@@ -266,6 +270,7 @@ const FILE_ICON_CONFIGS = new Map<string, FileIconName>([
 
 export type { FileIconName };
 export {
+	FILE_ICON_COLORS,
 	FILE_ICON_CONFIGS,
 	FILE_ICON_EXTENSIONS,
 	FILE_ICON_FILENAMES,
