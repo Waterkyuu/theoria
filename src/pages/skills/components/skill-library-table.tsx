@@ -181,7 +181,7 @@ const SkillLibraryTable = ({
 												aria-label={t("skills.updateNamed", {
 													name: skill.name,
 												})}
-												className="h-9 shrink-0 whitespace-nowrap rounded-md border border-hairline bg-surface-card px-md text-body-sm font-medium text-ink outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+												className="h-9 w-[94px] shrink-0 whitespace-nowrap rounded-md border border-hairline bg-surface-card text-body-sm font-medium text-ink outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
 												disabled={isUpdatePending}
 												onClick={() => onUpdateSkill(skill.id)}
 												type="button"
@@ -190,7 +190,7 @@ const SkillLibraryTable = ({
 											</button>
 										) : null}
 										<button
-											className="h-9 w-[94px] rounded-md border border-hairline bg-surface-card text-body-sm font-medium text-ink outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+											className="h-9 w-[94px] shrink-0 rounded-md border border-hairline bg-surface-card text-body-sm font-medium text-ink outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
 											onClick={() => onManageSkill(skill)}
 											type="button"
 										>
