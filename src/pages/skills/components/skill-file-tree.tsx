@@ -73,7 +73,7 @@ const FileTree = ({
 										icon: (
 											<TrashBin
 												aria-hidden="true"
-												className="size-4 shrink-0"
+												className="size-4 shrink-0 text-danger"
 											/>
 										),
 										danger: true,

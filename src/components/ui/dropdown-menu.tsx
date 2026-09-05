@@ -93,7 +93,9 @@ const DropdownMenu = <T extends string>({
 				variant={item.danger ? "danger" : undefined}
 			>
 				{item.icon}
-				<Label>{label}</Label>
+				<Label className={item.danger ? "text-danger" : undefined}>
+					{label}
+				</Label>
 				{item.children ? <Dropdown.SubmenuIndicator /> : null}
 			</Dropdown.Item>
 		);
