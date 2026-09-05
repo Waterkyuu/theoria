@@ -2,6 +2,7 @@ import { Toast } from "@heroui/react";
 import "@testing-library/jest-dom/vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import SkillsPage from ".";
 import { CreateSkillPage } from "./create-skill";
@@ -208,6 +209,7 @@ describe("SkillsPage", () => {
 		await user.click(
 			screen.getByRole("menuitem", { name: "在 Theoria 中创建" }),
 		);
+		await user.click(screen.getByRole("menuitem", { name: "简单创建" }));
 		expect(navigateMock).toHaveBeenCalledWith("/skills/create-skill");
 	});
 
@@ -285,7 +287,11 @@ describe("SkillsPage", () => {
 	it("creates a platform Skill from name, description, and main content", async () => {
 		const user = userEvent.setup();
 		const toastSuccess = vi.spyOn(Toast.toast, "success");
-		render(<CreateSkillPage />);
+		render(
+			<MemoryRouter>
+				<CreateSkillPage />
+			</MemoryRouter>,
+		);
 
 		await user.type(
 			screen.getByRole("textbox", { name: "技能名称" }),
@@ -312,7 +318,11 @@ describe("SkillsPage", () => {
 
 	it("requires an English Skill name", async () => {
 		const user = userEvent.setup();
-		render(<CreateSkillPage />);
+		render(
+			<MemoryRouter>
+				<CreateSkillPage />
+			</MemoryRouter>,
+		);
 
 		await user.type(
 			screen.getByRole("textbox", { name: "技能名称" }),

@@ -303,7 +303,45 @@ const enUS = {
 			description:
 				"A reusable library of capabilities. Mount a skill into one or more Workspaces when needed",
 			addSkill: "Add skill",
+			editor: {
+				selectRoot: "Select root directory",
+				rename: "Rename",
+				delete: "Delete",
+				entryActions: "Actions for {{path}}",
+				deleteTitle: "Delete “{{path}}”?",
+				deleteDescription:
+					"All files inside the folder will also be deleted. Changes apply when saved.",
+				noDocument: "Select or create a file to start editing",
+
+				newFolder: "New folder",
+				folderPath: "Folder path",
+
+				metadata: "Metadata",
+				document: "Document",
+				directory: "Files",
+				moveLeft: "Move files to left",
+				moveRight: "Move files to right",
+				save: "Save",
+				saving: "Saving…",
+				edit: "Edit",
+				preview: "Preview",
+				newFile: "New file",
+				filter: "Filter files…",
+				filePath: "File path",
+				pathError:
+					"File path is invalid or already exists. Choose another name.",
+				noFiles: "No matching files",
+				saveFailed: "Save failed. Check your files or retry.",
+				folderHint: "Save as {{name}}/ · 1 MB per file, 10 MB total",
+				metadataHint:
+					"Fill in name and description in SKILL.md. The name is the folder name: letters, numbers, - and _, up to 120 characters.",
+				discardTitle: "Discard unsaved skill?",
+				discardDescription: "Your current files will be lost when you leave.",
+				discard: "Discard changes",
+			},
 			addMenu: {
+				simple: "Simple creation",
+				editor: "Create in editor",
 				title: "Choose a creation method",
 				platform: "Create in Theoria",
 				folder: "Import local folder",

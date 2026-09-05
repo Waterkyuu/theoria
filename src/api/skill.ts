@@ -21,14 +21,21 @@ const selectSkillFolder = (title: string) =>
 		title,
 	});
 
-type CreatePlatformSkillInput = {
-	/** Main instructions written below SKILL.md frontmatter. */
-	content: string;
-	/** Short capability summary. */
-	description: string;
-	/** User-visible Skill name. */
-	displayName: string;
-};
+type CreatePlatformSkillInput =
+	| {
+			/** Complete file tree authored in the editor, including SKILL.md. */
+			files: Record<string, string>;
+			/** Explicit folders to retain even when they contain no files. */
+			directories?: string[];
+	  }
+	| {
+			/** Main instructions written below SKILL.md frontmatter. */
+			content: string;
+			/** Short capability summary. */
+			description: string;
+			/** User-visible Skill name. */
+			displayName: string;
+	  };
 
 /** Creates a minimal Skill directly in Theoria-managed storage. */
 const createPlatformSkill = (request: CreatePlatformSkillInput) =>

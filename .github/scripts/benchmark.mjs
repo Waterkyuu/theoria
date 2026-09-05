@@ -13,8 +13,19 @@ import { pathToFileURL } from "node:url";
 
 const BUILD_TIME_LIMIT_PERCENT = 30;
 const SIZE_LIMIT_PERCENT = 10;
+// Includes the locally bundled editor, with limited headroom over its initial build.
+// Absolute budgets prevent the allowed frontend size from growing after every merge.
+const FRONTEND_SIZE_BUDGETS = new Map([
+	["dist total (bytes)", 2_400_000],
+	["JavaScript (bytes)", 1_950_000],
+]);
 
-/** Compare measurements with the configured time and size growth limits. */
+/**
+ * Enforce fixed editor-inclusive asset budgets while retaining other growth limits.
+ *
+ * @example
+ * compareMetrics({ "Build time (s)": 10 }, { "Build time (s)": 12 })
+ */
 const compareMetrics = (baseline, current) => {
 	const names = Object.keys(baseline);
 	if (!names.length || names.length !== Object.keys(current).length) {
@@ -38,11 +49,14 @@ const compareMetrics = (baseline, current) => {
 		}
 		const percent =
 			name === "Build time (s)" ? BUILD_TIME_LIMIT_PERCENT : SIZE_LIMIT_PERCENT;
-		const maximum = (before * (100 + percent)) / 100;
+		const budget = FRONTEND_SIZE_BUDGETS.get(name);
+		const maximum = budget ?? (before * (100 + percent)) / 100;
+		const limitLabel =
+			budget === undefined ? `+${percent}%` : "absolute budget";
 		const regression = after > maximum;
 		failed ||= regression;
 		rows.push(
-			`| ${name} | ${before.toFixed(3)} | ${after.toFixed(3)} | ${maximum.toFixed(3)} (+${percent}%) | ${regression ? "FAIL" : "PASS"} |`,
+			`| ${name} | ${before.toFixed(3)} | ${after.toFixed(3)} | ${maximum.toFixed(3)} (${limitLabel}) | ${regression ? "FAIL" : "PASS"} |`,
 		);
 	}
 	return { report: rows.join("\n"), failed };

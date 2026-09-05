@@ -37,11 +37,19 @@ pub(crate) async fn create_platform_skill(
     request: CreatePlatformSkillRequest,
     service: State<'_, SkillLibraryService>,
 ) -> Result<SkillResponse, IpcError> {
-    service
-        .create_platform_skill(request.display_name, request.description, request.content)
-        .await
-        .map(Into::into)
-        .map_err(Into::into)
+    let result = match request.files {
+        Some(files) => {
+            service
+                .create_editor_skill(files, request.directories)
+                .await
+        }
+        None => {
+            service
+                .create_platform_skill(request.display_name, request.description, request.content)
+                .await
+        }
+    };
+    result.map(Into::into).map_err(Into::into)
 }
 
 /// Clones and imports the root Skill or every Skill under a repository's `skills/` directory.

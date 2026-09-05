@@ -7,12 +7,19 @@ import { DropdownMenu } from "@/components/ui/dropdown-menu";
 const SKILL_SOURCE_FILTERS = ["git", "platform", "local_folder"] as const;
 const SKILL_FILTERS = ["all", "mounted", ...SKILL_SOURCE_FILTERS] as const;
 const SKILL_ADD_ITEMS = [
-	{ id: "platform", labelKey: "skills.addMenu.platform" },
+	{
+		id: "platform",
+		labelKey: "skills.addMenu.platform",
+		children: [
+			{ id: "platform", labelKey: "skills.addMenu.simple" },
+			{ id: "editor", labelKey: "skills.addMenu.editor" },
+		],
+	},
 	{ id: "folder", labelKey: "skills.addMenu.folder" },
 	{ id: "git", labelKey: "skills.addMenu.git" },
 ] as const;
 
-type SkillAddAction = (typeof SKILL_ADD_ITEMS)[number]["id"];
+type SkillAddAction = (typeof SKILL_ADD_ITEMS)[number]["id"] | "editor";
 type SkillSourceFilter = (typeof SKILL_SOURCE_FILTERS)[number];
 type SkillFilter = (typeof SKILL_FILTERS)[number];
 
