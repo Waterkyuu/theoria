@@ -2,7 +2,7 @@ import { useEffect, useEffectEvent, useRef } from "react";
 import { markdown } from "@codemirror/lang-markdown";
 import { Compartment, EditorState } from "@codemirror/state";
 import { basicSetup, EditorView } from "codemirror";
-import "./code-editor.css";
+import "@/styles/code-editor.css";
 
 type CodeEditorProps = {
 	/** File path used for language selection and the accessible editor name. */
