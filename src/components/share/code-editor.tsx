@@ -81,7 +81,7 @@ const CodeEditor = ({
 							"&.cm-focused": { outline: "none" },
 							"&.cm-editor.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, &.cm-editor .cm-selectionBackground":
 								{
-									backgroundColor: "var(--color-focus-ring)",
+									backgroundColor: "rgba(59, 130, 246, 0.2)",
 								},
 							".cm-content ::selection": { color: "var(--color-ink)" },
 							".cm-cursor": { borderLeftColor: "var(--color-ink)" },
