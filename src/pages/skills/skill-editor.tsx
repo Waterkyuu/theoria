@@ -29,9 +29,9 @@ const isPortableName = (name: string) =>
  * Reads supported single-line frontmatter without rewriting the saved file.
  *
  * @example
- * readMetadata("---\nname: demo\ndescription: Test\n---\n")
+ * readFrontmatter("---\nname: demo\ndescription: Test\n---\n")
  */
-const readMetadata = (manifest: string) => {
+const readFrontmatter = (manifest: string) => {
 	const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(
 		manifest,
 	)?.[1];
@@ -52,6 +52,18 @@ const readMetadata = (manifest: string) => {
 		}
 		fields[match[1]] = value;
 	}
+	return fields;
+};
+
+/**
+ * Validates required fields for saving without hiding incomplete values in the preview.
+ *
+ * @example
+ * readMetadata("---\nname: demo\ndescription: Test\n---\n")
+ */
+const readMetadata = (manifest: string) => {
+	const fields = readFrontmatter(manifest);
+	if (!fields) return null;
 	const { name, description } = fields;
 	if (
 		!name ||
@@ -324,11 +336,28 @@ const SkillEditorPage = () => {
 						/>
 					</div>
 					{preview && markdown ? (
-						<article className="min-h-0 flex-1 overflow-auto break-words p-6 text-body-sm leading-7 text-ink [&_h1]:mb-4 [&_h1]:text-2xl [&_h1]:font-semibold [&_h2]:my-4 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:my-3 [&_h3]:font-semibold [&_p]:my-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_pre]:overflow-auto [&_pre]:rounded-md [&_pre]:bg-surface-soft [&_pre]:p-4 [&_blockquote]:border-l-2 [&_blockquote]:border-hairline [&_blockquote]:pl-4 [&_a]:underline">
+						<article className="min-h-0 flex-1 overflow-auto break-words p-6 text-body-sm leading-7 text-ink [&_h1]:mb-4 [&_h1]:text-2xl [&_h1]:font-semibold [&>h2]:my-4 [&>h2]:text-xl [&>h2]:font-semibold [&_h3]:my-3 [&_h3]:font-semibold [&_p]:my-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_pre]:overflow-auto [&_pre]:rounded-md [&_pre]:bg-surface-soft [&_pre]:p-4 [&_blockquote]:border-l-2 [&_blockquote]:border-hairline [&_blockquote]:pl-4 [&_a]:underline">
 							{frontmatter ? (
-								<pre>
-									<code>{frontmatter.trimEnd()}</code>
-								</pre>
+								<section
+									aria-label={t("skills.editor.metadata")}
+									className="mb-6 rounded-lg border border-hairline bg-surface-soft px-4 py-3"
+								>
+									<h2 className="mb-3 text-body-sm font-medium text-charcoal">
+										{t("skills.editor.metadata")}
+									</h2>
+									<dl className="grid grid-cols-[minmax(0,1fr)_minmax(0,3fr)] gap-x-4 gap-y-2 font-mono text-body-sm leading-relaxed">
+										{Object.entries(readFrontmatter(frontmatter) ?? {}).map(
+											([field, value]) => (
+												<div key={field} className="contents">
+													<dt className="text-charcoal">{field}</dt>
+													<dd className="min-w-0 whitespace-pre-wrap break-words text-ink">
+														{value}
+													</dd>
+												</div>
+											),
+										)}
+									</dl>
+								</section>
 							) : null}
 							<ReactMarkdown>
 								{frontmatter ? content.slice(frontmatter.length) : content}

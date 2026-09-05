@@ -293,6 +293,7 @@ const zhCN = {
 			description: "可复用的能力库。需要时可将技能挂载到一个或多个工作区",
 			addSkill: "添加技能",
 			editor: {
+				metadata: "元数据",
 				document: "编辑区",
 				directory: "目录",
 				moveLeft: "目录移到左侧",

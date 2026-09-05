@@ -125,17 +125,25 @@ it("keeps the draft when saving fails and prevents repeat submission while pendi
 	expect(screen.getByRole("button", { name: "保存中…" })).toBeDisabled();
 });
 
-it("shows frontmatter in Markdown preview instead of dropping skill metadata", async () => {
-	const user = userEvent.setup();
-	renderEditor();
-	await user.clear(screen.getByRole("textbox", { name: "SKILL.md" }));
-	await user.type(
-		screen.getByRole("textbox", { name: "SKILL.md" }),
-		"---\n\nname: ddd\ndescription:\n---\n\n# Instructions",
-	);
-	await user.click(screen.getByRole("button", { name: "预览" }));
-	expect(
-		within(screen.getByRole("article")).getByText(/name: ddd/),
-	).toBeVisible();
-	expect(screen.getByRole("heading", { name: "Instructions" })).toBeVisible();
-});
+it.each(["", "Creates release notes for users."])(
+	"previews metadata as labeled values, including an empty description (%s)",
+	async (description) => {
+		const user = userEvent.setup();
+		renderEditor();
+		await user.clear(screen.getByRole("textbox", { name: "SKILL.md" }));
+		await user.type(
+			screen.getByRole("textbox", { name: "SKILL.md" }),
+			`---\n\nname: ddd\ndescription: ${description}\n---\n\n# Instructions`,
+		);
+		await user.click(screen.getByRole("button", { name: "预览" }));
+		const metadata = within(screen.getByRole("region", { name: "元数据" }));
+		expect(metadata.getAllByRole("term")[0]).toHaveTextContent("name");
+		expect(metadata.getAllByRole("term")[1]).toHaveTextContent("description");
+		expect(metadata.getAllByRole("definition")[0]).toHaveTextContent("ddd");
+		expect(metadata.getAllByRole("definition")[1].textContent).toBe(
+			description,
+		);
+		expect(metadata.queryByText("---")).not.toBeInTheDocument();
+		expect(screen.getByRole("heading", { name: "Instructions" })).toBeVisible();
+	},
+);

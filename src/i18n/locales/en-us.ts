@@ -304,6 +304,7 @@ const enUS = {
 				"A reusable library of capabilities. Mount a skill into one or more Workspaces when needed",
 			addSkill: "Add skill",
 			editor: {
+				metadata: "Metadata",
 				document: "Document",
 				directory: "Files",
 				moveLeft: "Move files to left",
