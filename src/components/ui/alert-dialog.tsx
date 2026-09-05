@@ -20,6 +20,8 @@ type AlertDialogBaseProps = {
 	className?: string;
 	/** The confirm button label. Falls back to the shared translation when omitted. */
 	confirmText?: string;
+	/** The confirm button visual style. Defaults to danger. */
+	confirmVariant?: ButtonProps["variant"];
 	/** Whether the confirm button is disabled. */
 	isConfirmDisabled?: boolean;
 	/** Business callback invoked when the confirm button is pressed. */
@@ -67,6 +69,7 @@ const AlertDialog = ({
 	cancelText,
 	children,
 	className,
+	confirmVariant = "danger",
 	confirmText,
 	isConfirmDisabled = false,
 	isOpen,
@@ -103,7 +106,7 @@ const AlertDialog = ({
 								isDisabled={isConfirmDisabled}
 								onPress={onConfirm}
 								slot="close"
-								variant="danger"
+								variant={confirmVariant}
 							>
 								{confirmText ?? t("common.confirm")}
 							</Button>
