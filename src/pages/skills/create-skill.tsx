@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, lazy, Suspense, useState } from "react";
 import {
 	Button,
 	Input,
@@ -8,13 +8,30 @@ import {
 	Toast,
 } from "@heroui/react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { PageHeader } from "@/components/share/page-header";
 import { handleError } from "@/utils/error";
 import { useCreatePlatformSkill } from "@/queries/skill";
 
-/** Minimal MVP form for authoring a managed SKILL.md inside Theoria. */
+const SkillEditorPage = lazy(() =>
+	import("./skill-editor").then((module) => ({
+		default: module.SkillEditorPage,
+	})),
+);
+
 const CreateSkillPage = () => {
+	const [params] = useSearchParams();
+	return params.get("mode") === "editor" ? (
+		<Suspense>
+			<SkillEditorPage />
+		</Suspense>
+	) : (
+		<SimpleCreateSkillPage />
+	);
+};
+
+/** Minimal MVP form for authoring a managed SKILL.md inside Theoria. */
+const SimpleCreateSkillPage = () => {
 	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const createSkillMutation = useCreatePlatformSkill();
