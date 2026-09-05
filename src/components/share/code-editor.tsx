@@ -1,9 +1,9 @@
 import { useEffect, useEffectEvent, useRef } from "react";
 import { LanguageDescription } from "@codemirror/language";
+import { languages } from "@codemirror/language-data";
 import { Compartment, EditorState } from "@codemirror/state";
 import { basicSetup, EditorView } from "codemirror";
 import { handleError } from "@/utils/error";
-import { EDITOR_LANGUAGES } from "@/constants/editor-languages";
 import "@/styles/code-editor.css";
 
 type CodeEditorProps = {
@@ -95,10 +95,22 @@ const CodeEditor = ({
 		});
 		editor.current = view;
 		let disposed = false;
-		const description = LanguageDescription.matchFilename(
-			EDITOR_LANGUAGES,
-			path.toLowerCase(),
-		);
+		// Match basenames so upstream exact-name rules work in nested directories.
+		// Preserve the existing shell, Dockerfile, and extension aliases beyond upstream defaults.
+		const filename = (path.split(/[\\/]/).pop() ?? path)
+			.replace(/^(?:dockerfile|containerfile)(?:\..*)?$/i, "Dockerfile")
+			.replace(
+				/^\.(?:bashrc|bash_profile|zshrc|zprofile|profile)$/i,
+				"script.sh",
+			)
+			.replace(/\.zsh$/i, ".sh")
+			.replace(/\.pyi$/i, ".py")
+			.replace(/\.(?:mts|cts)$/i, ".ts")
+			.replace(/^gemfile$/i, "Gemfile")
+			.replace(/^rakefile$/i, "Rakefile");
+		const description =
+			LanguageDescription.matchFilename(languages, filename) ??
+			LanguageDescription.matchFilename(languages, filename.toLowerCase());
 		// Ignore late language loads after switching files or unmounting the editor.
 		description
 			?.load()

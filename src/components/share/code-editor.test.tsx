@@ -62,7 +62,7 @@ it.each([
 	["main.py", "def hello(): pass", "def"],
 	["scripts/run.sh", "if true; then echo ok; fi", "if"],
 	["scripts/.bashrc", "if true; then echo ok; fi", "if"],
-	["config.yaml", "enabled: true", "true"],
+	["config.yaml", "enabled: true", "enabled"],
 	["Cargo.toml", "enabled = true", "true"],
 	["index.html", '<div class="main">Hello</div>', "div"],
 	["style.css", "body { color: red; }", "body"],
@@ -77,6 +77,12 @@ it.each([
 	["main.lua", "local value = true", "local"],
 	["deploy/Dockerfile", "FROM alpine", "FROM"],
 	["Dockerfile.dev", "FROM alpine", "FROM"],
+	["app/Main.scala", "class Example {}", "class"],
+	["app/main.dart", "class Example {}", "class"],
+	["templates/config.xml", '<settings enabled="true" />', "settings"],
+	["native/CMakeLists.txt", "set(VERSION 1)", "set"],
+	["types/index.mts", "interface User {}", "interface"],
+	["types/models.pyi", "class User: pass", "class"],
 ])("highlights language tokens in %s", async (path, value, token) => {
 	render(<CodeEditor path={path} value={value} onChange={vi.fn()} />);
 	await waitFor(() =>
