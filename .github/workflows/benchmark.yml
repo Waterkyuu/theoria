@@ -14,84 +14,72 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # PRs compare with their target; main pushes compare with the previous tip.
+  # Manual runs compare the selected ref with main.
+  BASELINE_REF: ${{ github.event.pull_request.base.sha || github.event.before || 'main' }}
+  HUSKY: 0
+
 jobs:
   frontend:
     name: Frontend build benchmark
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      HUSKY: 0
+    timeout-minutes: 30
     steps:
-      - name: Checkout repository
+      - name: Checkout current revision
         uses: actions/checkout@v7
+        with:
+          path: current
+
+      - name: Checkout baseline
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.BASELINE_REF }}
+          path: baseline
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
+        with:
+          package_json_file: current/package.json
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
+          cache-dependency-path: |
+            baseline/pnpm-lock.yaml
+            current/pnpm-lock.yaml
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Test benchmark thresholds
+        run: node --test current/.github/scripts/benchmark_test.mjs
 
-      - name: Benchmark frontend build
-        shell: bash
-        run: |
-          SECONDS=0
-          pnpm build
-          build_seconds=$SECONDS
-          total_bytes=$(find dist -type f -exec wc -c {} \; | awk '{sum += $1} END {print sum+0}')
-          js_bytes=$(find dist -type f -name '*.js' -exec wc -c {} \; | awk '{sum += $1} END {print sum+0}')
-          css_bytes=$(find dist -type f -name '*.css' -exec wc -c {} \; | awk '{sum += $1} END {print sum+0}')
-          {
-            echo '### Frontend build benchmark'
-            echo ''
-            echo '| Metric | Value |'
-            echo '| --- | ---: |'
-            echo "| Build time | ${build_seconds} s |"
-            echo "| dist total | ${total_bytes} bytes |"
-            echo "| JavaScript | ${js_bytes} bytes |"
-            echo "| CSS | ${css_bytes} bytes |"
-            echo ''
-            echo 'Measures pnpm build (type-check + Vite production build), excluding dependency installation. Sizes are uncompressed file sizes.'
-          } | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Compare frontend builds and enforce thresholds
+        run: node current/.github/scripts/benchmark.mjs frontend baseline current
 
   rust:
     name: Rust build benchmark
     runs-on: macos-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
-      - name: Checkout repository
+      - name: Checkout current revision
         uses: actions/checkout@v7
+        with:
+          path: current
+
+      - name: Checkout baseline
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.BASELINE_REF }}
+          path: baseline
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Restore Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: ./src-tauri -> target
-
-      - name: Benchmark Rust release build
-        shell: bash
-        run: |
-          SECONDS=0
-          cargo build --manifest-path src-tauri/Cargo.toml --locked --release --all-features --bin agent-gauge
-          build_seconds=$SECONDS
-          binary=src-tauri/target/release/agent-gauge
-          binary_bytes=$(wc -c < "$binary" | tr -d '[:space:]')
-          {
-            echo '### Rust backend build benchmark'
-            echo ''
-            echo '| Metric | Value |'
-            echo '| --- | ---: |'
-            echo "| Runner | ${RUNNER_OS} / ${RUNNER_ARCH} |"
-            echo "| Release build time | ${build_seconds} s |"
-            echo "| Executable | ${binary_bytes} bytes |"
-            echo ''
-            echo 'Measures cargo build --release with all features and the existing Rust cache enabled. Executable size excludes installer packaging; this is not a cold-build benchmark.'
-          } | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Compare Rust release builds and enforce thresholds
+        run: node current/.github/scripts/benchmark.mjs rust baseline current
