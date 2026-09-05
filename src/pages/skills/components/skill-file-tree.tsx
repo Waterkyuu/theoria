@@ -39,7 +39,14 @@ type FileTreeProps = {
  * Keeps folder expansion local while the draft remains owned by the editor page.
  *
  * @example
- * <FileTree paths={["SKILL.md"]} selectedPath="SKILL.md" onSelect={setPath} onAction={handleAction} onSelectFolder={setPath} isDisabled={false} />
+ * <FileTree
+ *   paths={["SKILL.md"]}
+ *   selectedPath="SKILL.md"
+ *   onSelect={setPath}
+ *   onAction={handleAction}
+ *   onSelectFolder={setPath}
+ *   isDisabled={false}
+ * />
  */
 const FileTree = ({
 	paths,
