@@ -164,7 +164,22 @@
 	[data-theme="default"] {
 		--accent: var(--color-primary);
 		--accent-foreground: var(--color-on-primary);
+		--accent-hover: var(--color-primary);
 		--focus: var(--color-focus-ring);
+	}
+
+	@supports (color: color-mix(in lab, red, red)) {
+		:root,
+		.light,
+		.default,
+		[data-theme="light"],
+		[data-theme="default"] {
+			--accent-hover: color-mix(
+				in oklab,
+				var(--color-primary) 90%,
+				var(--color-on-primary) 10%
+			);
+		}
 	}
 
 	.dark,
@@ -188,7 +203,19 @@
 		--color-link-mute: #b8b8b8;
 		--accent: var(--color-primary);
 		--accent-foreground: var(--color-on-primary);
+		--accent-hover: var(--color-primary);
 		--focus: var(--color-focus-ring);
+	}
+
+	@supports (color: color-mix(in lab, red, red)) {
+		.dark,
+		[data-theme="dark"] {
+			--accent-hover: color-mix(
+				in oklab,
+				var(--color-primary) 90%,
+				var(--color-on-primary) 10%
+			);
+		}
 	}
 
 	html {
