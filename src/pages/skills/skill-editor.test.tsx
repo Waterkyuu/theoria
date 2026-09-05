@@ -147,3 +147,44 @@ it.each(["", "Creates release notes for users."])(
 		expect(screen.getByRole("heading", { name: "Instructions" })).toBeVisible();
 	},
 );
+
+it("creates empty folders and saves files inside them", async () => {
+	const user = userEvent.setup();
+	renderEditor();
+	await user.clear(screen.getByRole("textbox", { name: "SKILL.md" }));
+	await user.type(
+		screen.getByRole("textbox", { name: "SKILL.md" }),
+		"---\nname: demo\ndescription: Test\n---\n",
+	);
+	await user.click(screen.getByRole("button", { name: "新建文件夹" }));
+	await user.type(
+		screen.getByRole("textbox", { name: "文件夹路径" }),
+		"references",
+	);
+	await user.click(screen.getByRole("button", { name: "创建文件夹" }));
+	expect(screen.getByText("references")).toBeVisible();
+	await user.click(screen.getByRole("button", { name: "新建文件" }));
+	await user.type(
+		screen.getByRole("textbox", { name: "文件路径" }),
+		"references/guide.md",
+	);
+	await user.click(screen.getByRole("button", { name: "创建文件" }));
+	expect(
+		screen.getByRole("textbox", { name: "references/guide.md" }),
+	).toBeVisible();
+	await user.click(screen.getByRole("button", { name: "新建文件夹" }));
+	await user.type(
+		screen.getByRole("textbox", { name: "文件夹路径" }),
+		"scripts",
+	);
+	await user.click(screen.getByRole("button", { name: "创建文件夹" }));
+	mutateAsync.mockResolvedValue({});
+	await user.click(screen.getByRole("button", { name: "保存" }));
+	expect(mutateAsync).toHaveBeenCalledWith({
+		files: {
+			"SKILL.md": "---\nname: demo\ndescription: Test\n---\n",
+			"references/guide.md": "",
+		},
+		directories: ["references", "scripts"],
+	});
+});

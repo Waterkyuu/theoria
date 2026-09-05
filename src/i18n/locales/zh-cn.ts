@@ -293,6 +293,10 @@ const zhCN = {
 			description: "可复用的能力库。需要时可将技能挂载到一个或多个工作区",
 			addSkill: "添加技能",
 			editor: {
+				newFolder: "新建文件夹",
+				folderPath: "文件夹路径",
+				createFolder: "创建文件夹",
+
 				metadata: "元数据",
 				document: "编辑区",
 				directory: "目录",
@@ -305,7 +309,7 @@ const zhCN = {
 				newFile: "新建文件",
 				filter: "筛选文件…",
 				filePath: "文件路径",
-				pathHint: "使用 / 创建子目录，最多 100 个文件。",
+				pathHint: "使用 / 创建子目录，最多 100 个文件或文件夹。",
 				pathError: "文件路径无效或已存在，请换一个名称。",
 				createFile: "创建文件",
 				noFiles: "没有匹配的文件",

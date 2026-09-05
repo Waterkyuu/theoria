@@ -1,6 +1,14 @@
 import { type FormEvent, useState } from "react";
-import { ChevronRight, File, Folder, Plus } from "@gravity-ui/icons";
-import { Button, Input, Label, TextField, Toast } from "@heroui/react";
+import {
+	ChevronRight,
+	File,
+	FilePlus,
+	Folder,
+	FolderPlus,
+	LayoutSplitSideContentLeft,
+	LayoutSplitSideContentRight,
+} from "@gravity-ui/icons";
+import { Button, Input, Label, TextField, Toast, Tooltip } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
@@ -106,10 +114,13 @@ const FileTree = ({
 		<ul className="space-y-1">
 			{names.map((name) => {
 				const path = prefix + name;
-				const children = paths.filter((file) => file.startsWith(`${path}/`));
+				const children = paths.filter(
+					(file) => file.startsWith(`${path}/`) && file !== `${path}/`,
+				);
+				const isFolder = children.length > 0 || paths.includes(`${path}/`);
 				return (
 					<li key={path}>
-						{children.length ? (
+						{isFolder ? (
 							<details className="group" open>
 								<summary className="flex cursor-pointer list-none items-center gap-2 rounded-md px-2 py-2 text-body-sm text-charcoal outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring [&::-webkit-details-marker]:hidden">
 									<ChevronRight className="size-4 shrink-0 group-open:rotate-90" />
@@ -155,10 +166,12 @@ const SkillEditorPage = () => {
 	const [files, setFiles] = useState<Record<string, string>>({
 		"SKILL.md": "---\nname: \ndescription: \n---\n",
 	});
+	const [directories, setDirectories] = useState<string[]>([]);
+	const [entryKind, setEntryKind] = useState<"file" | "folder">("file");
 	const [activePath, setActivePath] = useState("SKILL.md");
 	const [preview, setPreview] = useState(false);
 	const [filter, setFilter] = useState("");
-	const [newFile, setNewFile] = useState<string | null>(null);
+	const [newPath, setNewPath] = useState<string | null>(null);
 	const [pathError, setPathError] = useState(false);
 	const [saveError, setSaveError] = useState(false);
 	const [dirty, setDirty] = useState(false);
@@ -169,9 +182,10 @@ const SkillEditorPage = () => {
 			: "right",
 	);
 	const metadata = readMetadata(files["SKILL.md"]);
-	const paths = Object.keys(files).filter((path) =>
-		path.toLowerCase().includes(filter.toLowerCase()),
-	);
+	const paths = [
+		...Object.keys(files),
+		...directories.map((path) => `${path}/`),
+	].filter((path) => path.toLowerCase().includes(filter.toLowerCase()));
 	const markdown = /\.md$/i.test(activePath);
 	const content = files[activePath];
 	const frontmatter = /^---\r?\n[\s\S]*?\r?\n-{3,}(?:\r?\n|$)/.exec(
@@ -182,13 +196,13 @@ const SkillEditorPage = () => {
 	 * Draft paths are relative to the skill root; reject conflicts before replacing any content.
 	 *
 	 * @example
-	 * addFile(event)
+	 * addEntry(event)
 	 */
-	const addFile = (event: FormEvent<HTMLFormElement>) => {
+	const addEntry = (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
-		const path = newFile?.trim() ?? "";
+		const path = newPath?.trim() ?? "";
 		const lower = path.toLowerCase();
-		const conflict = Object.keys(files).some((file) => {
+		const fileConflict = Object.keys(files).some((file) => {
 			const existing = file.toLowerCase();
 			return (
 				existing === lower ||
@@ -196,19 +210,28 @@ const SkillEditorPage = () => {
 				lower.startsWith(`${existing}/`)
 			);
 		});
+		const directoryConflict = directories.some((directory) => {
+			const existing = directory.toLowerCase();
+			return existing === lower || existing.startsWith(`${lower}/`);
+		});
 		if (
 			path.length > 240 ||
 			!path.split("/").every(isPortableName) ||
-			conflict ||
-			Object.keys(files).length >= 100
+			fileConflict ||
+			directoryConflict ||
+			Object.keys(files).length + directories.length >= 100
 		) {
 			setPathError(true);
 			return;
 		}
-		setFiles({ ...files, [path]: "" });
-		setActivePath(path);
-		setPreview(false);
-		setNewFile(null);
+		if (entryKind === "folder") {
+			setDirectories([...directories, path]);
+		} else {
+			setFiles({ ...files, [path]: "" });
+			setActivePath(path);
+			setPreview(false);
+		}
+		setNewPath(null);
 		setPathError(false);
 		setDirty(true);
 	};
@@ -220,7 +243,10 @@ const SkillEditorPage = () => {
 		if (!metadata || mutation.isPending) return;
 		setSaveError(false);
 		try {
-			await mutation.mutateAsync({ files });
+			await mutation.mutateAsync({
+				files,
+				...(directories.length ? { directories } : {}),
+			});
 			Toast.toast.success(t("skills.create.success", { skill: metadata.name }));
 			navigate("/skills");
 		} catch (error) {
@@ -266,13 +292,6 @@ const SkillEditorPage = () => {
 					</span>
 				</div>
 				<div className="flex items-center gap-2">
-					<Button size="sm" variant="tertiary" onPress={switchSide}>
-						{t(
-							side === "right"
-								? "skills.editor.moveLeft"
-								: "skills.editor.moveRight",
-						)}
-					</Button>
 					<Button
 						size="sm"
 						variant="primary"
@@ -373,32 +392,102 @@ const SkillEditorPage = () => {
 						<span className="text-body-sm font-medium text-charcoal">
 							{t("skills.editor.directory")}
 						</span>
-						<Button
-							size="sm"
-							variant="ghost"
-							isDisabled={mutation.isPending}
-							onPress={() => {
-								setNewFile("");
-								setPathError(false);
-							}}
-						>
-							<Plus className="size-4" />
-							{t("skills.editor.newFile")}
-						</Button>
+						<div className="flex items-center gap-1">
+							<Tooltip delay={0}>
+								<Button
+									aria-label={t("skills.editor.newFile")}
+									isIconOnly
+									size="sm"
+									variant="ghost"
+									isDisabled={mutation.isPending}
+									onPress={() => {
+										setEntryKind("file");
+										setNewPath("");
+										setPathError(false);
+									}}
+								>
+									<FilePlus aria-hidden="true" className="size-4" />
+								</Button>
+								<Tooltip.Content placement="bottom">
+									{t("skills.editor.newFile")}
+								</Tooltip.Content>
+							</Tooltip>
+							<Tooltip delay={0}>
+								<Button
+									aria-label={t("skills.editor.newFolder")}
+									isIconOnly
+									size="sm"
+									variant="ghost"
+									isDisabled={mutation.isPending}
+									onPress={() => {
+										setEntryKind("folder");
+										setNewPath("");
+										setPathError(false);
+									}}
+								>
+									<FolderPlus aria-hidden="true" className="size-4" />
+								</Button>
+								<Tooltip.Content placement="bottom">
+									{t("skills.editor.newFolder")}
+								</Tooltip.Content>
+							</Tooltip>
+							<Tooltip delay={0}>
+								<Button
+									aria-label={t(
+										side === "right"
+											? "skills.editor.moveLeft"
+											: "skills.editor.moveRight",
+									)}
+									isIconOnly
+									size="sm"
+									variant="ghost"
+									onPress={switchSide}
+								>
+									{side === "right" ? (
+										<LayoutSplitSideContentLeft
+											aria-hidden="true"
+											className="size-4"
+										/>
+									) : (
+										<LayoutSplitSideContentRight
+											aria-hidden="true"
+											className="size-4"
+										/>
+									)}
+								</Button>
+								<Tooltip.Content placement="bottom">
+									{t(
+										side === "right"
+											? "skills.editor.moveLeft"
+											: "skills.editor.moveRight",
+									)}
+								</Tooltip.Content>
+							</Tooltip>
+						</div>
 					</div>
 					<SearchBox
 						value={filter}
 						onValueChange={setFilter}
 						placeholder={t("skills.editor.filter")}
 					/>
-					{newFile !== null ? (
-						<form onSubmit={addFile} className="flex flex-col gap-2">
+					{newPath !== null ? (
+						<form onSubmit={addEntry} className="flex flex-col gap-2">
 							<TextField autoFocus>
-								<Label>{t("skills.editor.filePath")}</Label>
+								<Label>
+									{t(
+										entryKind === "folder"
+											? "skills.editor.folderPath"
+											: "skills.editor.filePath",
+									)}
+								</Label>
 								<Input
-									value={newFile}
-									onChange={(event) => setNewFile(event.target.value)}
-									placeholder="references/guide.md"
+									value={newPath}
+									onChange={(event) => setNewPath(event.target.value)}
+									placeholder={
+										entryKind === "folder"
+											? "references"
+											: "references/guide.md"
+									}
 								/>
 							</TextField>
 							<p className="text-caption-sm text-mute">
@@ -411,13 +500,17 @@ const SkillEditorPage = () => {
 							) : null}
 							<div className="flex gap-2">
 								<Button size="sm" type="submit" isDisabled={mutation.isPending}>
-									{t("skills.editor.createFile")}
+									{t(
+										entryKind === "folder"
+											? "skills.editor.createFolder"
+											: "skills.editor.createFile",
+									)}
 								</Button>
 								<Button
 									size="sm"
 									variant="ghost"
 									onPress={() => {
-										setNewFile(null);
+										setNewPath(null);
 										setPathError(false);
 									}}
 								>
