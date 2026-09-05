@@ -27,10 +27,10 @@ type AlertDialogBaseProps = {
 	confirmVariant?: ButtonProps["variant"];
 	/** Whether the confirm button is disabled. */
 	isConfirmDisabled?: boolean;
-	/** The icon status. Defaults to danger. */
-	iconStatus?: AlertDialogIconStatus;
 	/** Business callback invoked when the confirm button is pressed. */
 	onConfirm: () => void;
+	/** The icon status. Defaults to danger. */
+	status?: AlertDialogIconStatus;
 	/** The size forwarded to the underlying AlertDialog. Defaults to md. */
 	size?: AlertDialogSize;
 	/** Optional description rendered below the title. */
@@ -74,19 +74,21 @@ const AlertDialog = ({
 	cancelText,
 	children,
 	className,
-	confirmVariant = "danger",
+	confirmVariant,
 	confirmText,
-	iconStatus = "danger",
 	isConfirmDisabled = false,
 	isOpen,
 	onConfirm,
 	onOpenChange,
+	status = "danger",
 	size = "md",
 	description,
 	title,
 	trigger,
 }: AlertDialogProps) => {
 	const { t } = useTranslation();
+	const resolvedConfirmVariant =
+		confirmVariant ?? (status === "danger" ? "danger" : "primary");
 
 	return (
 		<HeroUIAlertDialog isOpen={isOpen} onOpenChange={onOpenChange}>
@@ -95,7 +97,7 @@ const AlertDialog = ({
 				<HeroUIAlertDialog.Container size={size}>
 					<HeroUIAlertDialog.Dialog className={className}>
 						<HeroUIAlertDialog.Header>
-							<HeroUIAlertDialog.Icon status={iconStatus} />
+							<HeroUIAlertDialog.Icon status={status} />
 							<HeroUIAlertDialog.Heading>{title}</HeroUIAlertDialog.Heading>
 						</HeroUIAlertDialog.Header>
 						{(description || children) && (
@@ -112,7 +114,7 @@ const AlertDialog = ({
 								isDisabled={isConfirmDisabled}
 								onPress={onConfirm}
 								slot="close"
-								variant={confirmVariant}
+								variant={resolvedConfirmVariant}
 							>
 								{confirmText ?? t("common.confirm")}
 							</Button>
