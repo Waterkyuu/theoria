@@ -11,7 +11,6 @@ import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { FileTypeIcon } from "@/components/share/file-type-icon";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
-import "@/styles/skill-file-tree.css";
 
 type FileTreeProps = {
 	/** Relative files and explicit folders marked by a trailing slash. */
@@ -125,11 +124,7 @@ const FileTree = ({
 							/>
 						</div>
 						{isFolder ? (
-							<details
-								className="skill-file-tree-folder"
-								key={isDraftInside ? "editing" : "idle"}
-								open
-							>
+							<details key={isDraftInside ? "editing" : "idle"} open>
 								{/* biome-ignore lint/a11y/noStaticElementInteractions: Native summary already supports keyboard activation and disclosure. */}
 								<summary
 									onClick={() => onSelectFolder(path)}
@@ -138,11 +133,11 @@ const FileTree = ({
 								>
 									<Folder
 										aria-hidden="true"
-										className="folder-closed-icon size-4 shrink-0"
+										className="size-4 shrink-0 [details[open]>summary>&]:hidden"
 									/>
 									<FolderOpen
 										aria-hidden="true"
-										className="folder-open-icon size-4 shrink-0"
+										className="hidden size-4 shrink-0 [details[open]>summary>&]:block"
 									/>
 									<span className="truncate">{name}</span>
 								</summary>
