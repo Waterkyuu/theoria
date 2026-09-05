@@ -1,6 +1,7 @@
 use crate::domain::skill::{NewSkill, Skill, SkillSourceType};
 use crate::error::AppError;
 use crate::repositories::skill::SkillRepository;
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -110,8 +111,11 @@ impl SkillLibraryService {
         result
     }
 
-    /// Clones a Git repository whose root contains SKILL.md into managed storage.
-    pub(crate) async fn import_git_repository(&self, git_url: String) -> Result<Skill, AppError> {
+    /// Clones a Git repository and imports its root Skill or every Skill under `skills/`.
+    pub(crate) async fn import_git_repository(
+        &self,
+        git_url: String,
+    ) -> Result<Vec<Skill>, AppError> {
         let git_url = git_url.trim();
         if git_url.is_empty() || git_url.len() > 2048 {
             return Err(AppError::InvalidSkill);
@@ -137,30 +141,29 @@ impl SkillLibraryService {
             let _cleanup_result = tokio::fs::remove_dir_all(staging_path).await;
             return Err(AppError::InvalidSkill);
         }
-        let manifest = tokio::fs::read_to_string(staging_path.join("SKILL.md"))
-            .await
-            .map_err(|_| AppError::InvalidSkill)?;
-        let (display_name, description) = parse_skill_metadata(&manifest)?;
         let repository_name = git_url
             .trim_end_matches('/')
             .rsplit(['/', ':'])
             .next()
             .unwrap_or_default()
             .trim_end_matches(".git");
-        let folder_name =
-            folder_name_from_display_name(repository_name).ok_or(AppError::InvalidSkill)?;
-        let result = self
-            .store_directory(
-                staging_path.clone(),
-                folder_name,
-                display_name,
-                description,
-                SkillSourceType::Git,
-                Some(PathBuf::from(git_url)),
-            )
-            .await;
+        let candidates = collect_git_skill_candidates(&staging_path, repository_name).await?;
+        let mut imported = Vec::with_capacity(candidates.len());
+        for (source_path, folder_name, display_name, description) in candidates {
+            imported.push(
+                self.store_directory(
+                    source_path,
+                    folder_name,
+                    display_name,
+                    description,
+                    SkillSourceType::Git,
+                    Some(PathBuf::from(git_url)),
+                )
+                .await?,
+            );
+        }
         let _cleanup_result = tokio::fs::remove_dir_all(staging_path).await;
-        result
+        Ok(imported)
     }
 
     /// Refreshes a Git-backed Skill while preserving the previous copy on failure.
@@ -185,9 +188,10 @@ impl SkillLibraryService {
             SKILL_ID_SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));
         let clone_target = staging_path.clone();
+        let clone_url = git_url.clone();
         let cloned = tokio::task::spawn_blocking(move || {
             std::process::Command::new("git")
-                .args(["clone", "--depth", "1", "--", &git_url])
+                .args(["clone", "--depth", "1", "--", &clone_url])
                 .arg(&clone_target)
                 .status()
                 .map(|status| status.success())
@@ -199,16 +203,21 @@ impl SkillLibraryService {
             let _cleanup_result = tokio::fs::remove_dir_all(staging_path).await;
             return Err(AppError::InvalidSkill);
         }
-        let manifest = tokio::fs::read_to_string(staging_path.join("SKILL.md"))
-            .await
-            .map_err(|_| AppError::InvalidSkill)?;
-        let (display_name, description) = parse_skill_metadata(&manifest)?;
-        let folder_name =
-            folder_name_from_display_name(&display_name).ok_or(AppError::InvalidSkill)?;
+        let repository_name = git_url
+            .trim_end_matches('/')
+            .rsplit(['/', ':'])
+            .next()
+            .unwrap_or_default()
+            .trim_end_matches(".git");
+        let (copy_source, folder_name, display_name, description) =
+            collect_git_skill_candidates(&staging_path, repository_name)
+                .await?
+                .into_iter()
+                .find(|candidate| candidate.1.eq_ignore_ascii_case(&skill.folder_name))
+                .ok_or(AppError::InvalidSkill)?;
         let managed_path = self.app_data_directory.join(&skill.storage_relative_path);
         let replacement_path = managed_path.with_extension("replacement");
         let backup_path = managed_path.with_extension("backup");
-        let copy_source = staging_path.clone();
         let copy_target = replacement_path.clone();
         tokio::task::spawn_blocking(move || copy_skill_directory(&copy_source, &copy_target))
             .await
@@ -440,6 +449,69 @@ fn parse_skill_metadata(manifest: &str) -> Result<(String, String), AppError> {
     }
 }
 
+/// Finds the root Skill first, otherwise the independently installable Skills under `skills/`.
+async fn collect_git_skill_candidates(
+    repository_path: &Path,
+    repository_name: &str,
+) -> Result<Vec<(PathBuf, String, String, String)>, AppError> {
+    let root_manifest_path = repository_path.join("SKILL.md");
+    if tokio::fs::symlink_metadata(&root_manifest_path)
+        .await
+        .is_ok_and(|metadata| metadata.is_file())
+    {
+        let manifest = tokio::fs::read_to_string(root_manifest_path)
+            .await
+            .map_err(|_| AppError::InvalidSkill)?;
+        let (display_name, description) = parse_skill_metadata(&manifest)?;
+        let folder_name =
+            folder_name_from_display_name(repository_name).ok_or(AppError::InvalidSkill)?;
+        return Ok(vec![(
+            repository_path.to_path_buf(),
+            folder_name,
+            display_name,
+            description,
+        )]);
+    }
+
+    let mut directories = tokio::fs::read_dir(repository_path.join("skills"))
+        .await
+        .map_err(|_| AppError::InvalidSkill)?;
+    let mut candidates = Vec::new();
+    while let Some(entry) = directories
+        .next_entry()
+        .await
+        .map_err(|_| AppError::SkillFilesystemFailed)?
+    {
+        if !entry
+            .file_type()
+            .await
+            .map_err(|_| AppError::SkillFilesystemFailed)?
+            .is_dir()
+        {
+            continue;
+        }
+        let manifest_path = entry.path().join("SKILL.md");
+        if !tokio::fs::symlink_metadata(&manifest_path)
+            .await
+            .is_ok_and(|metadata| metadata.is_file())
+        {
+            continue;
+        }
+        let manifest = tokio::fs::read_to_string(manifest_path)
+            .await
+            .map_err(|_| AppError::InvalidSkill)?;
+        let (display_name, description) = parse_skill_metadata(&manifest)?;
+        let folder_name =
+            folder_name_from_display_name(&display_name).ok_or(AppError::InvalidSkill)?;
+        candidates.push((entry.path(), folder_name, display_name, description));
+    }
+    candidates.sort_by(|left, right| left.1.cmp(&right.1));
+    if candidates.is_empty() {
+        return Err(AppError::InvalidSkill);
+    }
+    Ok(candidates)
+}
+
 /// Recursively copies regular Skill files while rejecting links that can escape the source.
 fn copy_skill_directory(
     source: &std::path::Path,
@@ -664,10 +736,13 @@ mod tests {
                 root.join("app-data"),
             );
 
-            let skill = service
+            let imported = service
                 .import_git_repository(source.to_string_lossy().to_string())
                 .await
                 .expect("Git Skill should import");
+            let skill = imported
+                .first()
+                .expect("single-Skill repository should import one Skill");
             let managed = root
                 .join("app-data")
                 .join(skill.storage_relative_path.clone());
@@ -710,6 +785,123 @@ mod tests {
             assert!(std::fs::read_to_string(managed.join("SKILL.md"))
                 .expect("managed manifest should remain readable")
                 .contains("Use the latest repository."));
+
+            database.close().await.expect("database should close");
+            std::fs::remove_dir_all(root).expect("fixture should be removable");
+        });
+    }
+
+    #[test]
+    fn imports_every_skill_from_a_git_repository_skills_directory() {
+        tauri::async_runtime::block_on(async {
+            let sequence = RESOURCE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+            let root = std::env::temp_dir().join(format!(
+                "theoria-git-skill-collection-test-{}-{sequence}",
+                std::process::id()
+            ));
+            let source = root.join("git-source");
+            for (folder_name, display_name) in
+                [("design-taste", "Design Taste"), ("imagegen", "Imagegen")]
+            {
+                let skill_directory = source.join("skills").join(folder_name);
+                std::fs::create_dir_all(&skill_directory).expect("fixture should be created");
+                std::fs::write(
+                    skill_directory.join("SKILL.md"),
+                    format!(
+                        "---\nname: {display_name}\ndescription: Imported from a collection.\n---\n"
+                    ),
+                )
+                .expect("Skill manifest should be written");
+            }
+            for arguments in [
+                vec!["init"],
+                vec!["add", "skills"],
+                vec![
+                    "-c",
+                    "user.name=Theoria Tests",
+                    "-c",
+                    "user.email=tests@theoria.local",
+                    "commit",
+                    "-m",
+                    "test skill collection",
+                ],
+            ] {
+                assert!(std::process::Command::new("git")
+                    .args(arguments)
+                    .current_dir(&source)
+                    .status()
+                    .expect("git should run")
+                    .success());
+            }
+            let database_path = root.join("theoria.sqlite3");
+            let database =
+                connect_sqlite(&format!("sqlite://{}?mode=rwc", database_path.display()))
+                    .await
+                    .expect("database should connect");
+            Migrator::up(&database, None)
+                .await
+                .expect("migration should run");
+            let service = SkillLibraryService::new(
+                SkillRepository::new(database.clone()),
+                root.join("app-data"),
+            );
+
+            service
+                .import_git_repository(source.to_string_lossy().to_string())
+                .await
+                .expect("Git Skill collection should import");
+            let imported = service.list().await.expect("Skills should list");
+
+            assert_eq!(
+                imported
+                    .iter()
+                    .map(|skill| skill.folder_name.as_str())
+                    .collect::<Vec<_>>(),
+                vec!["design-taste", "imagegen"]
+            );
+            for skill in &imported {
+                let managed = root
+                    .join("app-data")
+                    .join(skill.storage_relative_path.clone());
+                assert!(managed.join("SKILL.md").is_file());
+                assert!(!managed.join("skills").exists());
+            }
+
+            std::fs::write(
+                source.join("skills/design-taste/SKILL.md"),
+                "---\nname: Design Taste\ndescription: Updated from a collection.\n---\n",
+            )
+            .expect("updated manifest should be written");
+            for arguments in [
+                vec!["add", "skills/design-taste/SKILL.md"],
+                vec![
+                    "-c",
+                    "user.name=Theoria Tests",
+                    "-c",
+                    "user.email=tests@theoria.local",
+                    "commit",
+                    "-m",
+                    "update collection skill",
+                ],
+            ] {
+                assert!(std::process::Command::new("git")
+                    .args(arguments)
+                    .current_dir(&source)
+                    .status()
+                    .expect("git should run")
+                    .success());
+            }
+            let design_skill = imported
+                .iter()
+                .find(|skill| skill.folder_name == "design-taste")
+                .expect("Design Skill should be imported");
+
+            let updated = service
+                .update_git_skill(&design_skill.id)
+                .await
+                .expect("nested Git Skill should update");
+
+            assert_eq!(updated.description, "Updated from a collection.");
 
             database.close().await.expect("database should close");
             std::fs::remove_dir_all(root).expect("fixture should be removable");
