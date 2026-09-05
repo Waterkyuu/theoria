@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { SkillEditorPage } from "./skill-editor";
 
 const { mutateAsync, mutation } = vi.hoisted(() => {
@@ -41,10 +41,20 @@ const renderEditor = () =>
 		</MemoryRouter>,
 	);
 
+// JSDOM has no layout; place the divider away from the editor and toolbar click targets.
 beforeEach(() => {
+	vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+		function (this: HTMLElement) {
+			return this.getAttribute("role") === "separator"
+				? new DOMRect(700, 0, 1, 800)
+				: new DOMRect(0, 0, 1000, 800);
+		},
+	);
 	mutateAsync.mockReset();
 	mutation.isPending = false;
 });
+
+afterEach(() => vi.restoreAllMocks());
 
 it("starts with frontmatter and saves every file without changing the name", async () => {
 	const user = userEvent.setup();
@@ -332,4 +342,40 @@ it("creates inline in the selected directory and cancels with Escape", async () 
 	);
 	await user.keyboard("{Enter}");
 	expect(screen.getByRole("textbox", { name: "README.md" })).toBeVisible();
+});
+
+it("keeps a resize divider between the document and directory on either side", async () => {
+	const user = userEvent.setup();
+	renderEditor();
+	const directory = screen.getByRole("complementary", { name: "目录" });
+	const divider = screen.getByRole("separator", { name: "调整目录宽度" });
+	expect(divider).toHaveAttribute("aria-orientation", "vertical");
+	const initialSize = divider.getAttribute("aria-valuenow");
+	await user.pointer([
+		{ target: divider, keys: "[MouseLeft>]", coords: { x: 700, y: 100 } },
+		{ target: divider, coords: { x: 600, y: 100 } },
+		{ keys: "[/MouseLeft]" },
+	]);
+	expect(divider.getAttribute("aria-valuenow")).not.toBe(initialSize);
+	expect(
+		divider.compareDocumentPosition(directory) &
+			Node.DOCUMENT_POSITION_FOLLOWING,
+	).toBeTruthy();
+	await user.click(screen.getByRole("button", { name: "目录移到左侧" }));
+	const movedDivider = screen.getByRole("separator", { name: "调整目录宽度" });
+	const leftSize = movedDivider.getAttribute("aria-valuenow");
+	await user.pointer([
+		{ target: movedDivider, keys: "[MouseLeft>]", coords: { x: 700, y: 100 } },
+		{ target: movedDivider, coords: { x: 650, y: 100 } },
+		{ keys: "[/MouseLeft]" },
+	]);
+	expect(movedDivider.getAttribute("aria-valuenow")).not.toBe(leftSize);
+	expect(
+		screen
+			.getByRole("complementary", { name: "目录" })
+			.compareDocumentPosition(movedDivider) & Node.DOCUMENT_POSITION_FOLLOWING,
+	).toBeTruthy();
+	expect(screen.getByRole("textbox", { name: "SKILL.md" })).toHaveValue(
+		"---\nname: \ndescription: \n---\n",
+	);
 });

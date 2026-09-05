@@ -1,7 +1,10 @@
 import { useEffect, useEffectEvent, useRef } from "react";
-import { markdown } from "@codemirror/lang-markdown";
+import { LanguageDescription } from "@codemirror/language";
+import { languages } from "@codemirror/language-data";
 import { Compartment, EditorState } from "@codemirror/state";
 import { basicSetup, EditorView } from "codemirror";
+import { handleError } from "@/utils/error";
+import "@/styles/code-editor.css";
 
 type CodeEditorProps = {
 	/** File path used for language selection and the accessible editor name. */
@@ -15,10 +18,14 @@ type CodeEditorProps = {
 };
 
 /**
- * Bundles the editor locally for offline use in Tauri, with Markdown support and independent undo per file.
+ * Bundles the editor locally for offline use in Tauri, with language highlighting and independent undo per file.
  *
  * @example
- * <CodeEditor path="SKILL.md" value={content} onChange={setContent} />
+ * <CodeEditor
+ *   path="SKILL.md"
+ *   value={content}
+ *   onChange={setContent}
+ * />
  */
 const CodeEditor = ({
 	path,
@@ -30,6 +37,7 @@ const CodeEditor = ({
 	const editor = useRef<EditorView | null>(null);
 	const states = useRef(new Map<string, EditorState>());
 	const readOnly = useRef(new Compartment());
+	const language = useRef(new Compartment());
 	const initialValue = useEffectEvent(() => value);
 	const reportChange = useEffectEvent((content: string) => onChange(content));
 
@@ -43,7 +51,7 @@ const CodeEditor = ({
 					doc: initialValue(),
 					extensions: [
 						basicSetup,
-						/\.md$/i.test(path) ? markdown() : [],
+						language.current.of([]),
 						EditorView.lineWrapping,
 						readOnly.current.of(EditorState.readOnly.of(false)),
 						EditorView.contentAttributes.of({
@@ -79,10 +87,6 @@ const CodeEditor = ({
 							// Keep the active line transparent so it cannot cover the selection drawn beneath it.
 							".cm-activeLine": { backgroundColor: "transparent" },
 							"&.cm-focused": { outline: "none" },
-							"&.cm-editor.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, &.cm-editor .cm-selectionBackground":
-								{
-									backgroundColor: "var(--color-focus-ring)",
-								},
 							".cm-content ::selection": { color: "var(--color-ink)" },
 							".cm-cursor": { borderLeftColor: "var(--color-ink)" },
 						}),
@@ -90,8 +94,36 @@ const CodeEditor = ({
 				}),
 		});
 		editor.current = view;
+		let disposed = false;
+		// Match basenames so upstream exact-name rules work in nested directories.
+		// Preserve the existing shell, Dockerfile, and extension aliases beyond upstream defaults.
+		const filename = (path.split(/[\\/]/).pop() ?? path)
+			.replace(/^(?:dockerfile|containerfile)(?:\..*)?$/i, "Dockerfile")
+			.replace(
+				/^\.(?:bashrc|bash_profile|zshrc|zprofile|profile)$/i,
+				"script.sh",
+			)
+			.replace(/\.zsh$/i, ".sh")
+			.replace(/\.pyi$/i, ".py")
+			.replace(/\.(?:mts|cts)$/i, ".ts")
+			.replace(/^gemfile$/i, "Gemfile")
+			.replace(/^rakefile$/i, "Rakefile");
+		const description =
+			LanguageDescription.matchFilename(languages, filename) ??
+			LanguageDescription.matchFilename(languages, filename.toLowerCase());
+		// Ignore late language loads after switching files or unmounting the editor.
+		description
+			?.load()
+			.then((support) => {
+				if (!disposed)
+					view.dispatch({ effects: language.current.reconfigure(support) });
+			})
+			.catch((error: unknown) =>
+				handleError(error, "Failed to load editor language"),
+			);
 		const documents = states.current;
 		return () => {
+			disposed = true;
 			documents.set(path, view.state);
 			view.destroy();
 			editor.current = null;
@@ -117,7 +149,12 @@ const CodeEditor = ({
 		}
 	}, [value]);
 
-	return <div className="h-full min-h-0 min-w-0 overflow-hidden" ref={host} />;
+	return (
+		<div
+			className="skill-code-editor h-full min-h-0 min-w-0 overflow-hidden"
+			ref={host}
+		/>
+	);
 };
 
 export type { CodeEditorProps };

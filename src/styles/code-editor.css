@@ -1,0 +1,9 @@
+/* Override generated themes, including themes retained in cached document states. */
+div.skill-code-editor .cm-editor .cm-selectionBackground,
+div.skill-code-editor
+	.cm-editor.cm-focused
+	> .cm-scroller
+	> .cm-selectionLayer
+	.cm-selectionBackground {
+	background-color: rgba(59, 130, 246, 0.2);
+}

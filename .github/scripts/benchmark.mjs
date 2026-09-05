@@ -13,11 +13,11 @@ import { pathToFileURL } from "node:url";
 
 const BUILD_TIME_LIMIT_PERCENT = 30;
 const SIZE_LIMIT_PERCENT = 10;
-// Includes the locally bundled editor, with limited headroom over its initial build.
+// Includes the locally bundled editor and full language catalog, with limited size headroom.
 // Absolute budgets prevent the allowed frontend size from growing after every merge.
 const FRONTEND_SIZE_BUDGETS = new Map([
-	["dist total (bytes)", 2_400_000],
-	["JavaScript (bytes)", 1_950_000],
+	["dist total (bytes)", 3_550_000],
+	["JavaScript (bytes)", 3_100_000],
 ]);
 
 /**

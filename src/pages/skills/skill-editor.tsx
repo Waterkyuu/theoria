@@ -1,9 +1,8 @@
 import { type FormEvent, useState } from "react";
 import {
 	ChevronRight,
-	File,
 	FilePlus,
-	Folder,
+	FolderFill,
 	FolderPlus,
 	LayoutSplitSideContentLeft,
 	LayoutSplitSideContentRight,
@@ -19,6 +18,7 @@ import { AlertDialog } from "@/components/ui/alert-dialog";
 import { SearchBox } from "@/components/ui/search-box";
 import { handleError } from "@/utils/error";
 import { useCreatePlatformSkill } from "@/queries/skill";
+import { SkillEditorLayout } from "./components/skill-editor-layout";
 import { FileTree } from "./components/skill-file-tree";
 
 /**
@@ -124,7 +124,7 @@ const SkillEditorPage = () => {
 	const [saveError, setSaveError] = useState(false);
 	const [dirty, setDirty] = useState(false);
 	const [confirmExit, setConfirmExit] = useState(false);
-	const [side, setSide] = useState(() =>
+	const [side, setSide] = useState<"left" | "right">(() =>
 		localStorage.getItem("skill-editor-directory-side") === "left"
 			? "left"
 			: "right",
@@ -327,11 +327,198 @@ const SkillEditorPage = () => {
 					</Button>
 				</div>
 			</div>
-			<div
-				className={cn(
-					"flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row",
-					side === "left" && "md:flex-row-reverse",
-				)}
+			<SkillEditorLayout
+				side={side}
+				directory={
+					<aside
+						aria-label={t("skills.editor.directory")}
+						className="flex max-h-64 min-h-0 w-full flex-col gap-3 overflow-y-auto bg-surface-card p-3 md:max-h-none"
+					>
+						<div className="flex items-center justify-between">
+							<span className="text-body-sm font-medium text-charcoal">
+								{t("skills.editor.directory")}
+							</span>
+							<div className="flex items-center gap-1">
+								<Tooltip delay={0}>
+									<Button
+										aria-label={t("skills.editor.newFile")}
+										isIconOnly
+										size="sm"
+										variant="ghost"
+										isDisabled={mutation.isPending}
+										onPress={() => {
+											setRenamingPath(null);
+											setEntryParent(targetDirectory);
+											setFilter("");
+											setEntryKind("file");
+											setNewPath("");
+											setPathError(false);
+										}}
+									>
+										<FilePlus aria-hidden="true" className="size-4" />
+									</Button>
+									<Tooltip.Content placement="bottom">
+										{t("skills.editor.newFile")}
+									</Tooltip.Content>
+								</Tooltip>
+								<Tooltip delay={0}>
+									<Button
+										aria-label={t("skills.editor.newFolder")}
+										isIconOnly
+										size="sm"
+										variant="ghost"
+										isDisabled={mutation.isPending}
+										onPress={() => {
+											setRenamingPath(null);
+											setEntryParent(targetDirectory);
+											setFilter("");
+											setEntryKind("folder");
+											setNewPath("");
+											setPathError(false);
+										}}
+									>
+										<FolderPlus aria-hidden="true" className="size-4" />
+									</Button>
+									<Tooltip.Content placement="bottom">
+										{t("skills.editor.newFolder")}
+									</Tooltip.Content>
+								</Tooltip>
+								<Tooltip delay={0}>
+									<Button
+										aria-label={t(
+											side === "right"
+												? "skills.editor.moveLeft"
+												: "skills.editor.moveRight",
+										)}
+										isIconOnly
+										size="sm"
+										variant="ghost"
+										onPress={switchSide}
+									>
+										{side === "right" ? (
+											<LayoutSplitSideContentLeft
+												aria-hidden="true"
+												className="size-4"
+											/>
+										) : (
+											<LayoutSplitSideContentRight
+												aria-hidden="true"
+												className="size-4"
+											/>
+										)}
+									</Button>
+									<Tooltip.Content placement="bottom">
+										{t(
+											side === "right"
+												? "skills.editor.moveLeft"
+												: "skills.editor.moveRight",
+										)}
+									</Tooltip.Content>
+								</Tooltip>
+							</div>
+						</div>
+						<SearchBox
+							value={filter}
+							onValueChange={setFilter}
+							placeholder={t("skills.editor.filter")}
+						/>
+						<FileTree
+							draftParent={newPath !== null ? entryParent : undefined}
+							draftPath={renamingPath}
+							draftInput={
+								newPath !== null ? (
+									<form onSubmit={addEntry} className="py-1">
+										<div className="flex items-center gap-2 px-2">
+											{entryKind === "folder" ? (
+												<FolderFill
+													aria-hidden="true"
+													className="size-4 shrink-0 text-blue-300"
+												/>
+											) : (
+												<svg
+													aria-hidden="true"
+													viewBox="0 0 16 16"
+													fill="currentColor"
+													className="size-4 shrink-0 text-blue-300"
+												>
+													<path d="M5 1a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V8h-4a3 3 0 0 1-3-3V1H5Zm3.5.697V5A1.5 1.5 0 0 0 10 6.5h3.303a1.5 1.5 0 0 0-.242-.318L8.818 1.939a1.5 1.5 0 0 0-.318-.242Z" />
+												</svg>
+											)}
+											<TextField
+												autoFocus
+												className="min-w-0 flex-1"
+												aria-label={t(
+													entryKind === "folder"
+														? "skills.editor.folderPath"
+														: "skills.editor.filePath",
+												)}
+											>
+												<Input
+													value={newPath}
+													onChange={(event) => setNewPath(event.target.value)}
+													onFocus={(event) => event.target.select()}
+													onKeyDown={(event) => {
+														if (event.key === "Escape") {
+															event.preventDefault();
+															setNewPath(null);
+															setRenamingPath(null);
+															setPathError(false);
+														}
+													}}
+												/>
+											</TextField>
+										</div>
+										{pathError ? (
+											<p
+												role="alert"
+												className="mt-1 text-caption-sm text-terminal-red"
+											>
+												{t("skills.editor.pathError")}
+											</p>
+										) : null}
+									</form>
+								) : null
+							}
+							onSelectFolder={setSelectedPath}
+							isDisabled={mutation.isPending}
+							onAction={(action, path) => {
+								if (action === "delete") {
+									setDeletingPath(path);
+									return;
+								}
+								setEntryKind(files[path] === undefined ? "folder" : "file");
+								setRenamingPath(path);
+								setSelectedPath(path);
+								setEntryParent(parentDirectory(path));
+								setNewPath(path.slice(path.lastIndexOf("/") + 1));
+								setFilter("");
+								setPathError(false);
+							}}
+							paths={paths}
+							selectedPath={selectedPath}
+							onSelect={(path) => {
+								setActivePath(path);
+								setSelectedPath(path);
+								setPreview(false);
+							}}
+						/>
+						<button
+							type="button"
+							aria-label={t("skills.editor.selectRoot")}
+							className="min-h-8 w-full flex-1 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+							onClick={() => {
+								setSelectedPath("");
+								setNewPath(null);
+								setRenamingPath(null);
+							}}
+						/>
+						{paths.length === 0 && newPath === null ? (
+							<p className="text-body-sm text-mute">
+								{t("skills.editor.noFiles")}
+							</p>
+						) : null}
+					</aside>
+				}
 			>
 				<section
 					aria-label={t("skills.editor.document")}
@@ -411,191 +598,7 @@ const SkillEditorPage = () => {
 						</article>
 					) : null}
 				</section>
-				<aside
-					aria-label={t("skills.editor.directory")}
-					className="flex max-h-64 min-h-0 flex-col gap-3 overflow-y-auto border-x border-hairline bg-surface-card p-3 md:max-h-none md:w-64 md:shrink-0 lg:w-72"
-				>
-					<div className="flex items-center justify-between">
-						<span className="text-body-sm font-medium text-charcoal">
-							{t("skills.editor.directory")}
-						</span>
-						<div className="flex items-center gap-1">
-							<Tooltip delay={0}>
-								<Button
-									aria-label={t("skills.editor.newFile")}
-									isIconOnly
-									size="sm"
-									variant="ghost"
-									isDisabled={mutation.isPending}
-									onPress={() => {
-										setRenamingPath(null);
-										setEntryParent(targetDirectory);
-										setFilter("");
-										setEntryKind("file");
-										setNewPath("");
-										setPathError(false);
-									}}
-								>
-									<FilePlus aria-hidden="true" className="size-4" />
-								</Button>
-								<Tooltip.Content placement="bottom">
-									{t("skills.editor.newFile")}
-								</Tooltip.Content>
-							</Tooltip>
-							<Tooltip delay={0}>
-								<Button
-									aria-label={t("skills.editor.newFolder")}
-									isIconOnly
-									size="sm"
-									variant="ghost"
-									isDisabled={mutation.isPending}
-									onPress={() => {
-										setRenamingPath(null);
-										setEntryParent(targetDirectory);
-										setFilter("");
-										setEntryKind("folder");
-										setNewPath("");
-										setPathError(false);
-									}}
-								>
-									<FolderPlus aria-hidden="true" className="size-4" />
-								</Button>
-								<Tooltip.Content placement="bottom">
-									{t("skills.editor.newFolder")}
-								</Tooltip.Content>
-							</Tooltip>
-							<Tooltip delay={0}>
-								<Button
-									aria-label={t(
-										side === "right"
-											? "skills.editor.moveLeft"
-											: "skills.editor.moveRight",
-									)}
-									isIconOnly
-									size="sm"
-									variant="ghost"
-									onPress={switchSide}
-								>
-									{side === "right" ? (
-										<LayoutSplitSideContentLeft
-											aria-hidden="true"
-											className="size-4"
-										/>
-									) : (
-										<LayoutSplitSideContentRight
-											aria-hidden="true"
-											className="size-4"
-										/>
-									)}
-								</Button>
-								<Tooltip.Content placement="bottom">
-									{t(
-										side === "right"
-											? "skills.editor.moveLeft"
-											: "skills.editor.moveRight",
-									)}
-								</Tooltip.Content>
-							</Tooltip>
-						</div>
-					</div>
-					<SearchBox
-						value={filter}
-						onValueChange={setFilter}
-						placeholder={t("skills.editor.filter")}
-					/>
-					<FileTree
-						draftParent={newPath !== null ? entryParent : undefined}
-						draftPath={renamingPath}
-						draftInput={
-							newPath !== null ? (
-								<form onSubmit={addEntry} className="py-1">
-									<div className="flex items-center gap-2 px-2">
-										{entryKind === "folder" ? (
-											<Folder
-												aria-hidden="true"
-												className="size-4 shrink-0 text-charcoal"
-											/>
-										) : (
-											<File
-												aria-hidden="true"
-												className="size-4 shrink-0 text-charcoal"
-											/>
-										)}
-										<TextField
-											autoFocus
-											className="min-w-0 flex-1"
-											aria-label={t(
-												entryKind === "folder"
-													? "skills.editor.folderPath"
-													: "skills.editor.filePath",
-											)}
-										>
-											<Input
-												value={newPath}
-												onChange={(event) => setNewPath(event.target.value)}
-												onFocus={(event) => event.target.select()}
-												onKeyDown={(event) => {
-													if (event.key === "Escape") {
-														event.preventDefault();
-														setNewPath(null);
-														setRenamingPath(null);
-														setPathError(false);
-													}
-												}}
-											/>
-										</TextField>
-									</div>
-									{pathError ? (
-										<p
-											role="alert"
-											className="mt-1 text-caption-sm text-terminal-red"
-										>
-											{t("skills.editor.pathError")}
-										</p>
-									) : null}
-								</form>
-							) : null
-						}
-						onSelectFolder={setSelectedPath}
-						isDisabled={mutation.isPending}
-						onAction={(action, path) => {
-							if (action === "delete") {
-								setDeletingPath(path);
-								return;
-							}
-							setEntryKind(files[path] === undefined ? "folder" : "file");
-							setRenamingPath(path);
-							setSelectedPath(path);
-							setEntryParent(parentDirectory(path));
-							setNewPath(path.slice(path.lastIndexOf("/") + 1));
-							setFilter("");
-							setPathError(false);
-						}}
-						paths={paths}
-						selectedPath={selectedPath}
-						onSelect={(path) => {
-							setActivePath(path);
-							setSelectedPath(path);
-							setPreview(false);
-						}}
-					/>
-					<button
-						type="button"
-						aria-label={t("skills.editor.selectRoot")}
-						className="min-h-8 w-full flex-1 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-						onClick={() => {
-							setSelectedPath("");
-							setNewPath(null);
-							setRenamingPath(null);
-						}}
-					/>
-					{paths.length === 0 && newPath === null ? (
-						<p className="text-body-sm text-mute">
-							{t("skills.editor.noFiles")}
-						</p>
-					) : null}
-				</aside>
-			</div>
+			</SkillEditorLayout>
 			<div className="border-t border-hairline px-4 py-2 text-caption-sm text-mute">
 				{saveError ? (
 					<p role="alert" className="text-terminal-red">

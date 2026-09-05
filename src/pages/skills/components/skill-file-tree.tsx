@@ -1,15 +1,15 @@
 import type { ReactNode } from "react";
 import {
-	ChevronRight,
 	Ellipsis,
-	File,
-	Folder,
+	FolderFill,
+	FolderOpenFill,
 	PencilToSquare,
 	TrashBin,
 } from "@gravity-ui/icons";
 import { Button } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
+import { FileTypeIcon } from "@/components/share/file-type-icon";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 
 type FileTreeProps = {
@@ -124,19 +124,21 @@ const FileTree = ({
 							/>
 						</div>
 						{isFolder ? (
-							<details
-								className="group"
-								key={isDraftInside ? "editing" : "idle"}
-								open
-							>
+							<details key={isDraftInside ? "editing" : "idle"} open>
 								{/* biome-ignore lint/a11y/noStaticElementInteractions: Native summary already supports keyboard activation and disclosure. */}
 								<summary
 									onClick={() => onSelectFolder(path)}
 									aria-current={selectedPath === path ? "true" : undefined}
 									className="flex select-none touch-pan-y cursor-pointer list-none items-center gap-2 rounded-md px-2 py-2 pr-10 text-body-sm text-charcoal aria-current:bg-surface-soft aria-current:font-medium outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring [&::-webkit-details-marker]:hidden"
 								>
-									<ChevronRight className="size-4 shrink-0 group-open:rotate-90" />
-									<Folder className="size-4 shrink-0" />
+									<FolderFill
+										aria-hidden="true"
+										className="size-4 shrink-0 text-blue-300 [details[open]>summary>&]:hidden"
+									/>
+									<FolderOpenFill
+										aria-hidden="true"
+										className="hidden size-4 shrink-0 text-blue-300 [details[open]>summary>&]:block"
+									/>
 									<span className="truncate">{name}</span>
 								</summary>
 								<div className="ml-4 border-l border-hairline pl-2">
@@ -166,7 +168,7 @@ const FileTree = ({
 										: "text-charcoal",
 								)}
 							>
-								<File className="size-4 shrink-0" />
+								<FileTypeIcon path={path} />
 								<span className="truncate">{name}</span>
 							</button>
 						)}

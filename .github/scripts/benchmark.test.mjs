@@ -52,8 +52,8 @@ test("editor assets fit the explicit frontend budgets", () => {
 
 test("frontend budgets accept the boundary and reject one extra byte", () => {
 	for (const [name, budget] of [
-		["dist total (bytes)", 2400000],
-		["JavaScript (bytes)", 1950000],
+		["dist total (bytes)", 3550000],
+		["JavaScript (bytes)", 3100000],
 	]) {
 		assert.equal(
 			compareMetrics({ [name]: 100 }, { [name]: budget }).failed,
@@ -74,4 +74,20 @@ test("Rust executable growth still uses the 10 percent limit", () => {
 		).failed,
 		true,
 	);
+});
+
+test("additional local language modes fit the frontend budgets", () => {
+	const result = compareMetrics(
+		{ "dist total (bytes)": 1649805, "JavaScript (bytes)": 1197382 },
+		{ "dist total (bytes)": 2493366, "JavaScript (bytes)": 2037525 },
+	);
+	assert.equal(result.failed, false);
+});
+
+test("the offline language catalog fits the frontend budgets", () => {
+	const result = compareMetrics(
+		{ "dist total (bytes)": 1649805, "JavaScript (bytes)": 1197382 },
+		{ "dist total (bytes)": 3337005, "JavaScript (bytes)": 2881164 },
+	);
+	assert.equal(result.failed, false);
 });

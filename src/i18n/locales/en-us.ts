@@ -319,6 +319,7 @@ const enUS = {
 				metadata: "Metadata",
 				document: "Document",
 				directory: "Files",
+				resizeDirectory: "Resize file directory",
 				moveLeft: "Move files to left",
 				moveRight: "Move files to right",
 				save: "Save",

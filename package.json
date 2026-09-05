@@ -22,7 +22,8 @@
 		"typecheck": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit"
 	},
 	"dependencies": {
-		"@codemirror/lang-markdown": "^6.5.2",
+		"@codemirror/language": "^6.12.4",
+		"@codemirror/language-data": "^6.5.2",
 		"@codemirror/state": "^6.7.4",
 		"@gravity-ui/icons": "^2.21.0",
 		"@heroui/react": "^3.2.3",
@@ -55,9 +56,11 @@
 		"@types/react-dom": "^19.1.6",
 		"@vitejs/plugin-react": "^4.6.0",
 		"@vitest/coverage-v8": "^4.1.10",
+		"babel-plugin-react-compiler": "^1.0.0",
 		"husky": "^9.1.7",
 		"jsdom": "^30.0.1",
 		"lint-staged": "^17.3.0",
+		"material-icon-theme": "^5.38.1",
 		"tailwindcss": "^4.3.3",
 		"typescript": "~7.0.2",
 		"vite": "^7.0.4",
