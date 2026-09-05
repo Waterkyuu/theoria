@@ -105,14 +105,15 @@ const SkillsPage = () => {
 		}
 	};
 
-	/** Imports one repository URL after the user confirms the Git dialog. */
+	/** Imports every Skill discovered at one repository URL after user confirmation. */
 	const importSkillFromGit = async () => {
 		const trimmedGitUrl = gitUrl.trim();
 		if (!trimmedGitUrl || importGitSkillMutation.isPending) return;
 		try {
-			const skill = await importGitSkillMutation.mutateAsync(trimmedGitUrl);
+			const importedSkills =
+				await importGitSkillMutation.mutateAsync(trimmedGitUrl);
 			Toast.toast.success(
-				t("skills.importSuccess", { skill: skill.folderName }),
+				t("skills.gitDialog.success", { count: importedSkills.length }),
 			);
 			setGitUrl("");
 			setIsGitImportOpen(false);

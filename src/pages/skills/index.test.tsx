@@ -118,7 +118,15 @@ describe("SkillsPage", () => {
 			sourceType: "platform",
 			sourcePath: null,
 		});
-		queryMocks.importGitSkill.mockResolvedValue(SKILLS[1]);
+		queryMocks.importGitSkill.mockResolvedValue([
+			SKILLS[1],
+			{
+				...SKILLS[1],
+				id: "skill-4",
+				folderName: "imagegen",
+				displayName: "Imagegen",
+			},
+		]);
 		queryMocks.updateGitSkill.mockResolvedValue(SKILLS[1]);
 		queryMocks.useSkills.mockReturnValue({
 			data: SKILLS,
@@ -236,7 +244,7 @@ describe("SkillsPage", () => {
 		expect(queryMocks.importGitSkill).toHaveBeenCalledWith(
 			"https://github.com/example/test-runner.git",
 		);
-		expect(toastSuccess).toHaveBeenCalledWith("已导入技能“test-runner”");
+		expect(toastSuccess).toHaveBeenCalledWith("已从 Git 导入 2 个技能");
 	});
 
 	it("updates Git-backed Skills from their saved remote", async () => {

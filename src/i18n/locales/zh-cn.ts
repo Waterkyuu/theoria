@@ -358,9 +358,11 @@ const zhCN = {
 			},
 			gitDialog: {
 				title: "从 Git 链接导入",
-				description: "仓库根目录需要包含有效的 SKILL.md，导入后可从远程更新",
+				description:
+					"支持导入仓库根目录的单个技能，或 skills 目录下的多个技能；导入后可从远程更新",
 				urlLabel: "Git 仓库链接",
 				import: "导入",
+				success: "已从 Git 导入 {{count}} 个技能",
 				failed: "Git 技能导入失败，请检查链接和仓库内容",
 			},
 			create: {
