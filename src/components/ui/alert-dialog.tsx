@@ -23,8 +23,6 @@ type AlertDialogBaseProps = {
 	className?: string;
 	/** The confirm button label. Falls back to the shared translation when omitted. */
 	confirmText?: string;
-	/** The confirm button visual style. Defaults to danger. */
-	confirmVariant?: ButtonProps["variant"];
 	/** Whether the confirm button is disabled. */
 	isConfirmDisabled?: boolean;
 	/** Business callback invoked when the confirm button is pressed. */
@@ -74,7 +72,6 @@ const AlertDialog = ({
 	cancelText,
 	children,
 	className,
-	confirmVariant,
 	confirmText,
 	isConfirmDisabled = false,
 	isOpen,
@@ -87,8 +84,6 @@ const AlertDialog = ({
 	trigger,
 }: AlertDialogProps) => {
 	const { t } = useTranslation();
-	const resolvedConfirmVariant =
-		confirmVariant ?? (status === "danger" ? "danger" : "primary");
 
 	return (
 		<HeroUIAlertDialog isOpen={isOpen} onOpenChange={onOpenChange}>
@@ -114,7 +109,7 @@ const AlertDialog = ({
 								isDisabled={isConfirmDisabled}
 								onPress={onConfirm}
 								slot="close"
-								variant={resolvedConfirmVariant}
+								variant={status === "danger" ? "danger" : "primary"}
 							>
 								{confirmText ?? t("common.confirm")}
 							</Button>
