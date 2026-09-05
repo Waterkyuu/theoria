@@ -184,7 +184,9 @@ cn("px-2 py-1", isActive && "px-4", { "text-red-500": hasError });
 // "py-1 px-4 text-red-500"
 ```
 
-2. Unless necessary, do not hardcode heights or widths. Prefer padding utilities such as `p-xxx` and allow the content to determine the element's size naturally. Hardcoded dimensions can create visual inconsistencies across devices and cause text truncation. Calibrate dimensions so the visual height matches the design, and do not assign arbitrary `p-xxx` values.
+2. Desktop responsive design must be followed.
+
+3. Unless necessary, do not hardcode heights or widths. Prefer padding utilities such as `p-xxx` and allow the content to determine the element's size naturally. Hardcoded dimensions can create visual inconsistencies across devices and cause text truncation. Calibrate dimensions so the visual height matches the design, and do not assign arbitrary `p-xxx` values.
 
 ### React
 
