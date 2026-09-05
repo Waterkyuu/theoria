@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import {
 	ChevronRight,
 	Ellipsis,
-	File,
 	Folder,
 	PencilToSquare,
 	TrashBin,
@@ -10,6 +9,7 @@ import {
 import { Button } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
+import { FileTypeIcon } from "@/components/share/file-type-icon";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 
 type FileTreeProps = {
@@ -166,7 +166,7 @@ const FileTree = ({
 										: "text-charcoal",
 								)}
 							>
-								<File className="size-4 shrink-0" />
+								<FileTypeIcon path={path} />
 								<span className="truncate">{name}</span>
 							</button>
 						)}
