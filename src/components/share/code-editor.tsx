@@ -2,6 +2,7 @@ import { useEffect, useEffectEvent, useRef } from "react";
 import { markdown } from "@codemirror/lang-markdown";
 import { Compartment, EditorState } from "@codemirror/state";
 import { basicSetup, EditorView } from "codemirror";
+import "./code-editor.css";
 
 type CodeEditorProps = {
 	/** File path used for language selection and the accessible editor name. */
@@ -79,10 +80,6 @@ const CodeEditor = ({
 							// Keep the active line transparent so it cannot cover the selection drawn beneath it.
 							".cm-activeLine": { backgroundColor: "transparent" },
 							"&.cm-focused": { outline: "none" },
-							"&.cm-editor.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, &.cm-editor .cm-selectionBackground":
-								{
-									backgroundColor: "rgba(59, 130, 246, 0.2)",
-								},
 							".cm-content ::selection": { color: "var(--color-ink)" },
 							".cm-cursor": { borderLeftColor: "var(--color-ink)" },
 						}),
@@ -117,7 +114,12 @@ const CodeEditor = ({
 		}
 	}, [value]);
 
-	return <div className="h-full min-h-0 min-w-0 overflow-hidden" ref={host} />;
+	return (
+		<div
+			className="skill-code-editor h-full min-h-0 min-w-0 overflow-hidden"
+			ref={host}
+		/>
+	);
 };
 
 export type { CodeEditorProps };
