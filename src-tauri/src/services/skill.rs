@@ -111,6 +111,99 @@ impl SkillLibraryService {
         result
     }
 
+    /// Validates the complete draft before any filesystem writes; files never escape staging.
+    pub(crate) async fn create_editor_skill(
+        &self,
+        files: std::collections::BTreeMap<String, String>,
+    ) -> Result<Skill, AppError> {
+        if files.is_empty()
+            || files.len() > 100
+            || files.values().map(String::len).sum::<usize>() > 10 * 1024 * 1024
+        {
+            return Err(AppError::InvalidSkill);
+        }
+        let mut paths = std::collections::BTreeSet::new();
+        for (path, content) in &files {
+            if path.len() > 240
+                || content.len() > 1024 * 1024
+                || !path.split('/').all(is_portable_file_component)
+                || !paths.insert(path.to_lowercase())
+            {
+                return Err(AppError::InvalidSkill);
+            }
+        }
+        for path in &paths {
+            let mut parent = Path::new(path).parent();
+            while let Some(directory) = parent {
+                if directory.to_str().is_some_and(|name| paths.contains(name)) {
+                    return Err(AppError::InvalidSkill);
+                }
+                parent = directory.parent();
+            }
+        }
+        let manifest = files.get("SKILL.md").ok_or(AppError::InvalidSkill)?;
+        let mut lines = manifest.lines();
+        if lines.next() != Some("---") {
+            return Err(AppError::InvalidSkill);
+        }
+        let mut metadata = String::new();
+        let mut closed = false;
+        for line in lines {
+            if line == "---" {
+                closed = true;
+                break;
+            }
+            metadata.push_str(line);
+            metadata.push('\n');
+        }
+        if !closed {
+            return Err(AppError::InvalidSkill);
+        }
+        let (name, description) = parse_skill_metadata(&metadata)?;
+        let name = parse_editor_scalar(&name)?;
+        let description = parse_editor_scalar(&description)?;
+        if !is_valid_folder_name(&name)
+            || !is_portable_file_component(&name)
+            || description.trim().is_empty()
+        {
+            return Err(AppError::InvalidSkill);
+        }
+        let staging = self.app_data_directory.join("skill-staging").join(format!(
+            "editor-{}-{}",
+            current_time_ms()?,
+            SKILL_ID_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        tokio::fs::create_dir_all(&staging)
+            .await
+            .map_err(|_| AppError::SkillFilesystemFailed)?;
+        let result = async {
+            for (path, content) in files {
+                let target = staging.join(path);
+                if let Some(parent) = target.parent() {
+                    tokio::fs::create_dir_all(parent)
+                        .await
+                        .map_err(|_| AppError::SkillFilesystemFailed)?;
+                }
+                tokio::fs::write(target, content)
+                    .await
+                    .map_err(|_| AppError::SkillFilesystemFailed)?;
+            }
+            self.store_directory(
+                staging.clone(),
+                name.clone(),
+                name,
+                description,
+                SkillSourceType::Platform,
+                None,
+            )
+            .await
+        }
+        .await;
+        // Staging is disposable; a cleanup failure must not hide successful creation.
+        let _cleanup_result = tokio::fs::remove_dir_all(staging).await;
+        result
+    }
+
     /// Clones a Git repository and imports its root Skill or every Skill under `skills/`.
     pub(crate) async fn import_git_repository(
         &self,
@@ -271,7 +364,7 @@ impl SkillLibraryService {
             "skill-{created_at_ms}-{}",
             SKILL_ID_SEQUENCE.fetch_add(1, Ordering::Relaxed)
         );
-        let storage_relative_path = PathBuf::from("skills").join(&id);
+        let storage_relative_path = PathBuf::from("skills").join(&id).join(&folder_name);
         let managed_path = self.app_data_directory.join(&storage_relative_path);
         let copy_target = managed_path.clone();
         tokio::task::spawn_blocking(move || copy_skill_directory(&source_path, &copy_target))
@@ -328,7 +421,10 @@ impl SkillLibraryService {
             return Ok(());
         };
         let expected_relative_path = PathBuf::from("skills").join(skill_id);
-        if skill.storage_relative_path != expected_relative_path {
+        if skill.storage_relative_path != expected_relative_path
+            && (!is_valid_folder_name(&skill.folder_name)
+                || skill.storage_relative_path != expected_relative_path.join(&skill.folder_name))
+        {
             return Err(AppError::SkillFilesystemFailed);
         }
         let managed_path = self.app_data_directory.join(expected_relative_path);
@@ -429,6 +525,45 @@ fn folder_name_from_display_name(name: &str) -> Option<String> {
         .collect::<Vec<_>>()
         .join("-");
     is_valid_folder_name(&folder_name).then_some(folder_name)
+}
+
+/// Rejects names that alias or escape files on either macOS or Windows.
+fn is_portable_file_component(name: &str) -> bool {
+    let stem = name
+        .split('.')
+        .next()
+        .unwrap_or_default()
+        .to_ascii_uppercase();
+    let reserved = matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || (stem.len() == 4
+            && (stem.starts_with("COM") || stem.starts_with("LPT"))
+            && matches!(stem.as_bytes()[3], b'1'..=b'9'));
+    !name.is_empty()
+        && name != "."
+        && name != ".."
+        && !name.ends_with(['.', ' '])
+        && !name
+            .chars()
+            .any(|c| c.is_control() || "<>:\"/\\|?*".contains(c))
+        && !reserved
+}
+
+/// Supports plain and quoted single-line frontmatter values without altering saved Markdown.
+fn parse_editor_scalar(value: &str) -> Result<String, AppError> {
+    if value.starts_with('"') {
+        return serde_json::from_str::<String>(value).map_err(|_| AppError::InvalidSkill);
+    }
+    if value.starts_with('\'') {
+        return value
+            .strip_prefix('\'')
+            .and_then(|s| s.strip_suffix('\''))
+            .map(|s| s.replace("''", "'"))
+            .ok_or(AppError::InvalidSkill);
+    }
+    if matches!(value, "|" | ">" | "null" | "~") {
+        return Err(AppError::InvalidSkill);
+    }
+    Ok(value.to_string())
 }
 
 /// Reads the required name and description from Skill frontmatter.
@@ -685,6 +820,75 @@ mod tests {
 
             database.close().await.expect("database should close");
             std::fs::remove_dir_all(root).expect("fixture should be removable");
+        });
+    }
+
+    #[test]
+    fn saves_editor_files_with_exact_name_and_rejects_unsafe_paths() {
+        tauri::async_runtime::block_on(async {
+            let sequence = RESOURCE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+            let root = std::env::temp_dir()
+                .join(format!("theoria-editor-{}-{sequence}", std::process::id()));
+            std::fs::create_dir_all(&root).expect("fixture");
+            let database = connect_sqlite(&format!(
+                "sqlite://{}?mode=rwc",
+                root.join("db.sqlite").display()
+            ))
+            .await
+            .expect("database");
+            Migrator::up(&database, None).await.expect("migration");
+            let service =
+                SkillLibraryService::new(SkillRepository::new(database.clone()), root.join("app"));
+            let manifest = "---\nname: Release_Notes\ndescription: Write release notes\n---\n";
+            let files = std::collections::BTreeMap::from([
+                ("SKILL.md".to_string(), manifest.to_string()),
+                ("references/guide.md".to_string(), "# Guide\n".to_string()),
+            ]);
+            let skill = service
+                .create_editor_skill(files.clone())
+                .await
+                .expect("editor skill");
+            assert_eq!(skill.folder_name, "Release_Notes");
+            let saved = root.join("app").join(skill.storage_relative_path);
+            assert_eq!(
+                saved.file_name().and_then(|name| name.to_str()),
+                Some("Release_Notes")
+            );
+            assert_eq!(
+                std::fs::read_to_string(saved.join("SKILL.md")).expect("manifest"),
+                manifest
+            );
+            assert_eq!(
+                std::fs::read_to_string(saved.join("references/guide.md")).expect("guide"),
+                "# Guide\n"
+            );
+            for path in [
+                "../escape.md",
+                "/absolute.md",
+                "a/../../escape",
+                "a\\b",
+                "CON",
+                "a/CON.txt",
+                "a.",
+                "SKILL.md/child",
+            ] {
+                let mut invalid = files.clone();
+                invalid.insert(path.to_string(), "content".to_string());
+                assert!(
+                    matches!(
+                        service.create_editor_skill(invalid).await,
+                        Err(crate::error::AppError::InvalidSkill)
+                    ),
+                    "{path}"
+                );
+            }
+            let invalid_manifest = std::collections::BTreeMap::from([(
+                "SKILL.md".to_string(),
+                "---\nname: ../escape\ndescription: test\n---".to_string(),
+            )]);
+            assert!(service.create_editor_skill(invalid_manifest).await.is_err());
+            database.close().await.expect("close");
+            std::fs::remove_dir_all(root).expect("cleanup");
         });
     }
 
