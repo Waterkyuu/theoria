@@ -188,3 +188,92 @@ it("creates empty folders and saves files inside them", async () => {
 		directories: ["references", "scripts"],
 	});
 });
+
+it("renames a folder and keeps the open file contents under its new path", async () => {
+	const user = userEvent.setup();
+	renderEditor();
+	await user.click(screen.getByRole("button", { name: "新建文件" }));
+	await user.type(
+		screen.getByRole("textbox", { name: "文件路径" }),
+		"references/guide.md",
+	);
+	await user.click(screen.getByRole("button", { name: "创建文件" }));
+	await user.type(
+		screen.getByRole("textbox", { name: "references/guide.md" }),
+		"# Keep this draft",
+	);
+	await user.click(screen.getByRole("button", { name: "references 的操作" }));
+	await user.click(screen.getByRole("menuitem", { name: "重命名" }));
+	const path = screen.getByRole("textbox", { name: "文件夹路径" });
+	await user.clear(path);
+	await user.type(path, "SKILL.md");
+	await user.click(screen.getByRole("button", { name: "重命名" }));
+	expect(screen.getByRole("alert")).toBeVisible();
+	await user.clear(path);
+	await user.type(path, "docs");
+	await user.click(screen.getByRole("button", { name: "重命名" }));
+	expect(screen.getByRole("textbox", { name: "docs/guide.md" })).toHaveValue(
+		"# Keep this draft",
+	);
+	expect(screen.queryByText("references")).not.toBeInTheDocument();
+});
+
+it("requires confirmation before deleting a folder and allows replacing the manifest", async () => {
+	const user = userEvent.setup();
+	renderEditor();
+	await user.click(screen.getByRole("button", { name: "新建文件" }));
+	await user.type(
+		screen.getByRole("textbox", { name: "文件路径" }),
+		"references/guide.md",
+	);
+	await user.click(screen.getByRole("button", { name: "创建文件" }));
+	await user.click(screen.getByRole("button", { name: "references 的操作" }));
+	await user.click(screen.getByRole("menuitem", { name: "删除" }));
+	await user.click(
+		within(screen.getByRole("alertdialog")).getByRole("button", {
+			name: "取消",
+		}),
+	);
+	expect(
+		screen.getByRole("textbox", { name: "references/guide.md" }),
+	).toBeVisible();
+	await user.click(screen.getByRole("button", { name: "references 的操作" }));
+	await user.click(screen.getByRole("menuitem", { name: "删除" }));
+	await user.click(
+		within(screen.getByRole("alertdialog")).getByRole("button", {
+			name: "删除",
+		}),
+	);
+	expect(screen.queryByText("references")).not.toBeInTheDocument();
+	expect(screen.getByRole("textbox", { name: "SKILL.md" })).toBeVisible();
+	await user.click(screen.getByRole("button", { name: "SKILL.md 的操作" }));
+	await user.click(screen.getByRole("menuitem", { name: "删除" }));
+	await user.click(
+		within(screen.getByRole("alertdialog")).getByRole("button", {
+			name: "删除",
+		}),
+	);
+	expect(screen.getByRole("button", { name: "保存" })).toBeDisabled();
+	expect(screen.getByText("选择或创建文件开始编辑")).toBeVisible();
+	await user.click(screen.getByRole("button", { name: "新建文件" }));
+	await user.type(
+		screen.getByRole("textbox", { name: "文件路径" }),
+		"SKILL.md",
+	);
+	await user.click(screen.getByRole("button", { name: "创建文件" }));
+	expect(screen.getByRole("textbox", { name: "SKILL.md" })).toHaveValue("");
+});
+
+it("opens rename and delete actions by holding a file row", async () => {
+	const user = userEvent.setup();
+	renderEditor();
+	const file = screen.getByRole("button", { name: "SKILL.md" });
+	await user.click(file);
+	expect(
+		screen.queryByRole("menuitem", { name: "重命名" }),
+	).not.toBeInTheDocument();
+	await user.pointer({ keys: "[MouseLeft>]", target: file });
+	expect(await screen.findByRole("menuitem", { name: "重命名" })).toBeVisible();
+	expect(screen.getByRole("menuitem", { name: "删除" })).toBeVisible();
+	await user.pointer({ keys: "[/MouseLeft]" });
+});

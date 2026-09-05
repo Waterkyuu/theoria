@@ -304,6 +304,14 @@ const enUS = {
 				"A reusable library of capabilities. Mount a skill into one or more Workspaces when needed",
 			addSkill: "Add skill",
 			editor: {
+				rename: "Rename",
+				delete: "Delete",
+				entryActions: "Actions for {{path}}",
+				deleteTitle: "Delete “{{path}}”?",
+				deleteDescription:
+					"All files inside the folder will also be deleted. Changes apply when saved.",
+				noDocument: "Select or create a file to start editing",
+
 				newFolder: "New folder",
 				folderPath: "Folder path",
 				createFolder: "Create folder",

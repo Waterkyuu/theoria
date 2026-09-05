@@ -1,9 +1,7 @@
 import { type FormEvent, useState } from "react";
 import {
 	ChevronRight,
-	File,
 	FilePlus,
-	Folder,
 	FolderPlus,
 	LayoutSplitSideContentLeft,
 	LayoutSplitSideContentRight,
@@ -19,6 +17,7 @@ import { AlertDialog } from "@/components/ui/alert-dialog";
 import { SearchBox } from "@/components/ui/search-box";
 import { handleError } from "@/utils/error";
 import { useCreatePlatformSkill } from "@/queries/skill";
+import { FileTree } from "./components/skill-file-tree";
 
 /**
  * Rejects filenames that collide or escape on supported desktop platforms.
@@ -84,80 +83,14 @@ const readMetadata = (manifest: string) => {
 	return { name, description };
 };
 
-type FileTreeProps = {
-	/** Relative file paths; directories are derived from their shared prefixes. */
-	paths: string[];
-	/** Current prefix, empty at the skill root. */
-	prefix?: string;
-	/** Active document to mark in the directory. */
-	activePath: string;
-	/** Switches documents without discarding edits. */
-	onSelect: (path: string) => void;
-};
-
 /**
- * Keeps folder expansion local while the draft remains owned by the editor page.
+ * Uses a path boundary so operations on one folder cannot affect similarly named siblings.
  *
  * @example
- * <FileTree paths={["SKILL.md"]} activePath="SKILL.md" onSelect={setPath} />
+ * isEntryPath("references/guide.md", "references")
  */
-const FileTree = ({
-	paths,
-	prefix = "",
-	activePath,
-	onSelect,
-}: FileTreeProps) => {
-	const names = [
-		...new Set(paths.map((path) => path.slice(prefix.length).split("/")[0])),
-	].sort();
-	return (
-		<ul className="space-y-1">
-			{names.map((name) => {
-				const path = prefix + name;
-				const children = paths.filter(
-					(file) => file.startsWith(`${path}/`) && file !== `${path}/`,
-				);
-				const isFolder = children.length > 0 || paths.includes(`${path}/`);
-				return (
-					<li key={path}>
-						{isFolder ? (
-							<details className="group" open>
-								<summary className="flex cursor-pointer list-none items-center gap-2 rounded-md px-2 py-2 text-body-sm text-charcoal outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring [&::-webkit-details-marker]:hidden">
-									<ChevronRight className="size-4 shrink-0 group-open:rotate-90" />
-									<Folder className="size-4 shrink-0" />
-									<span className="truncate">{name}</span>
-								</summary>
-								<div className="ml-4 border-l border-hairline pl-2">
-									<FileTree
-										paths={children}
-										prefix={`${path}/`}
-										activePath={activePath}
-										onSelect={onSelect}
-									/>
-								</div>
-							</details>
-						) : (
-							<button
-								type="button"
-								aria-current={activePath === path ? "true" : undefined}
-								onClick={() => onSelect(path)}
-								className={cn(
-									"flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-body-sm outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring",
-									activePath === path
-										? "bg-surface-soft font-medium text-ink"
-										: "text-charcoal",
-								)}
-							>
-								<File className="size-4 shrink-0" />
-								<span className="truncate">{name}</span>
-							</button>
-						)}
-					</li>
-				);
-			})}
-		</ul>
-	);
-};
+const isEntryPath = (path: string, root: string) =>
+	path === root || path.startsWith(`${root}/`);
 
 const SkillEditorPage = () => {
 	const { t } = useTranslation();
@@ -172,6 +105,8 @@ const SkillEditorPage = () => {
 	const [preview, setPreview] = useState(false);
 	const [filter, setFilter] = useState("");
 	const [newPath, setNewPath] = useState<string | null>(null);
+	const [renamingPath, setRenamingPath] = useState<string | null>(null);
+	const [deletingPath, setDeletingPath] = useState<string | null>(null);
 	const [pathError, setPathError] = useState(false);
 	const [saveError, setSaveError] = useState(false);
 	const [dirty, setDirty] = useState(false);
@@ -181,13 +116,13 @@ const SkillEditorPage = () => {
 			? "left"
 			: "right",
 	);
-	const metadata = readMetadata(files["SKILL.md"]);
+	const metadata = readMetadata(files["SKILL.md"] ?? "");
 	const paths = [
 		...Object.keys(files),
 		...directories.map((path) => `${path}/`),
 	].filter((path) => path.toLowerCase().includes(filter.toLowerCase()));
 	const markdown = /\.md$/i.test(activePath);
-	const content = files[activePath];
+	const content = files[activePath] ?? "";
 	const frontmatter = /^---\r?\n[\s\S]*?\r?\n-{3,}(?:\r?\n|$)/.exec(
 		content,
 	)?.[0];
@@ -202,7 +137,18 @@ const SkillEditorPage = () => {
 		event.preventDefault();
 		const path = newPath?.trim() ?? "";
 		const lower = path.toLowerCase();
-		const fileConflict = Object.keys(files).some((file) => {
+		if (renamingPath === path) {
+			setRenamingPath(null);
+			setNewPath(null);
+			return;
+		}
+		const remainingFiles = Object.keys(files).filter(
+			(file) => !renamingPath || !isEntryPath(file, renamingPath),
+		);
+		const remainingDirectories = directories.filter(
+			(directory) => !renamingPath || !isEntryPath(directory, renamingPath),
+		);
+		const fileConflict = remainingFiles.some((file) => {
 			const existing = file.toLowerCase();
 			return (
 				existing === lower ||
@@ -210,21 +156,49 @@ const SkillEditorPage = () => {
 				lower.startsWith(`${existing}/`)
 			);
 		});
-		const directoryConflict = directories.some((directory) => {
+		const directoryConflict = remainingDirectories.some((directory) => {
 			const existing = directory.toLowerCase();
 			return existing === lower || existing.startsWith(`${lower}/`);
 		});
+		const invalidMove =
+			renamingPath &&
+			(isEntryPath(path, renamingPath) ||
+				[...Object.keys(files), ...directories].some(
+					(entry) =>
+						isEntryPath(entry, renamingPath) &&
+						path.length + entry.length - renamingPath.length > 240,
+				));
 		if (
 			path.length > 240 ||
 			!path.split("/").every(isPortableName) ||
 			fileConflict ||
 			directoryConflict ||
-			Object.keys(files).length + directories.length >= 100
+			invalidMove ||
+			(!renamingPath && Object.keys(files).length + directories.length >= 100)
 		) {
 			setPathError(true);
 			return;
 		}
-		if (entryKind === "folder") {
+		if (renamingPath) {
+			/**
+			 * Rewrites descendants together so renamed folders retain their open document and contents.
+			 *
+			 * @example
+			 * movePath("references/guide.md")
+			 */
+			const movePath = (entry: string) =>
+				isEntryPath(entry, renamingPath)
+					? path + entry.slice(renamingPath.length)
+					: entry;
+			setFiles(
+				Object.fromEntries(
+					Object.entries(files).map(([file, value]) => [movePath(file), value]),
+				),
+			);
+			setDirectories(directories.map(movePath));
+			setActivePath(movePath(activePath));
+			setRenamingPath(null);
+		} else if (entryKind === "folder") {
 			setDirectories([...directories, path]);
 		} else {
 			setFiles({ ...files, [path]: "" });
@@ -233,6 +207,30 @@ const SkillEditorPage = () => {
 		}
 		setNewPath(null);
 		setPathError(false);
+		setDirty(true);
+	};
+
+	/**
+	 * Removes the confirmed entry and all descendants from the next saved snapshot.
+	 */
+	const deleteEntry = () => {
+		if (!deletingPath || mutation.isPending) return;
+		const remaining = Object.fromEntries(
+			Object.entries(files).filter(
+				([path]) => !isEntryPath(path, deletingPath),
+			),
+		);
+		setFiles(remaining);
+		setDirectories(
+			directories.filter((path) => !isEntryPath(path, deletingPath)),
+		);
+		if (isEntryPath(activePath, deletingPath)) {
+			setActivePath(Object.keys(remaining)[0] ?? "");
+			setPreview(false);
+		}
+		setNewPath(null);
+		setRenamingPath(null);
+		setDeletingPath(null);
 		setDirty(true);
 	};
 
@@ -344,15 +342,21 @@ const SkillEditorPage = () => {
 					<div
 						className={cn("min-h-0 flex-1", preview && markdown && "hidden")}
 					>
-						<CodeEditor
-							path={activePath}
-							value={content}
-							isReadOnly={mutation.isPending}
-							onChange={(value) => {
-								setFiles((draft) => ({ ...draft, [activePath]: value }));
-								setDirty(true);
-							}}
-						/>
+						{activePath ? (
+							<CodeEditor
+								path={activePath}
+								value={content}
+								isReadOnly={mutation.isPending}
+								onChange={(value) => {
+									setFiles((draft) => ({ ...draft, [activePath]: value }));
+									setDirty(true);
+								}}
+							/>
+						) : (
+							<p className="p-6 text-body-sm text-mute">
+								{t("skills.editor.noDocument")}
+							</p>
+						)}
 					</div>
 					{preview && markdown ? (
 						<article className="min-h-0 flex-1 overflow-auto break-words p-6 text-body-sm leading-7 text-ink [&_h1]:mb-4 [&_h1]:text-2xl [&_h1]:font-semibold [&>h2]:my-4 [&>h2]:text-xl [&>h2]:font-semibold [&_h3]:my-3 [&_h3]:font-semibold [&_p]:my-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_pre]:overflow-auto [&_pre]:rounded-md [&_pre]:bg-surface-soft [&_pre]:p-4 [&_blockquote]:border-l-2 [&_blockquote]:border-hairline [&_blockquote]:pl-4 [&_a]:underline">
@@ -401,6 +405,7 @@ const SkillEditorPage = () => {
 									variant="ghost"
 									isDisabled={mutation.isPending}
 									onPress={() => {
+										setRenamingPath(null);
 										setEntryKind("file");
 										setNewPath("");
 										setPathError(false);
@@ -420,6 +425,7 @@ const SkillEditorPage = () => {
 									variant="ghost"
 									isDisabled={mutation.isPending}
 									onPress={() => {
+										setRenamingPath(null);
 										setEntryKind("folder");
 										setNewPath("");
 										setPathError(false);
@@ -501,9 +507,11 @@ const SkillEditorPage = () => {
 							<div className="flex gap-2">
 								<Button size="sm" type="submit" isDisabled={mutation.isPending}>
 									{t(
-										entryKind === "folder"
-											? "skills.editor.createFolder"
-											: "skills.editor.createFile",
+										renamingPath
+											? "skills.editor.rename"
+											: entryKind === "folder"
+												? "skills.editor.createFolder"
+												: "skills.editor.createFile",
 									)}
 								</Button>
 								<Button
@@ -520,6 +528,17 @@ const SkillEditorPage = () => {
 						</form>
 					) : null}
 					<FileTree
+						isDisabled={mutation.isPending}
+						onAction={(action, path) => {
+							if (action === "delete") {
+								setDeletingPath(path);
+								return;
+							}
+							setEntryKind(files[path] === undefined ? "folder" : "file");
+							setRenamingPath(path);
+							setNewPath(path);
+							setPathError(false);
+						}}
 						paths={paths}
 						activePath={activePath}
 						onSelect={(path) => {
@@ -547,6 +566,17 @@ const SkillEditorPage = () => {
 					</p>
 				)}
 			</div>
+			<AlertDialog
+				isOpen={deletingPath !== null}
+				onOpenChange={(open) => {
+					if (!open) setDeletingPath(null);
+				}}
+				title={t("skills.editor.deleteTitle", { path: deletingPath })}
+				description={t("skills.editor.deleteDescription")}
+				confirmText={t("skills.editor.delete")}
+				isConfirmDisabled={mutation.isPending}
+				onConfirm={deleteEntry}
+			/>
 			<AlertDialog
 				isOpen={confirmExit}
 				onOpenChange={setConfirmExit}

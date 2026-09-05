@@ -293,6 +293,13 @@ const zhCN = {
 			description: "可复用的能力库。需要时可将技能挂载到一个或多个工作区",
 			addSkill: "添加技能",
 			editor: {
+				rename: "重命名",
+				delete: "删除",
+				entryActions: "{{path}} 的操作",
+				deleteTitle: "删除“{{path}}”？",
+				deleteDescription: "文件夹中的所有文件也会删除。保存后生效。",
+				noDocument: "选择或创建文件开始编辑",
+
 				newFolder: "新建文件夹",
 				folderPath: "文件夹路径",
 				createFolder: "创建文件夹",
