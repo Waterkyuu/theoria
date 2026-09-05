@@ -293,6 +293,7 @@ const zhCN = {
 			description: "可复用的能力库。需要时可将技能挂载到一个或多个工作区",
 			addSkill: "添加技能",
 			editor: {
+				selectRoot: "选择根目录",
 				rename: "重命名",
 				delete: "删除",
 				entryActions: "{{path}} 的操作",
@@ -302,7 +303,6 @@ const zhCN = {
 
 				newFolder: "新建文件夹",
 				folderPath: "文件夹路径",
-				createFolder: "创建文件夹",
 
 				metadata: "元数据",
 				document: "编辑区",
@@ -316,9 +316,7 @@ const zhCN = {
 				newFile: "新建文件",
 				filter: "筛选文件…",
 				filePath: "文件路径",
-				pathHint: "使用 / 创建子目录，最多 100 个文件或文件夹。",
 				pathError: "文件路径无效或已存在，请换一个名称。",
-				createFile: "创建文件",
 				noFiles: "没有匹配的文件",
 				saveFailed: "保存失败，请检查文件内容或重试。",
 				folderHint: "保存为 {{name}}/ · 单文件上限 1 MB，总计 10 MB",

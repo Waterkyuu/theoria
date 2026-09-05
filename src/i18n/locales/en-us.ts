@@ -304,6 +304,7 @@ const enUS = {
 				"A reusable library of capabilities. Mount a skill into one or more Workspaces when needed",
 			addSkill: "Add skill",
 			editor: {
+				selectRoot: "Select root directory",
 				rename: "Rename",
 				delete: "Delete",
 				entryActions: "Actions for {{path}}",
@@ -314,7 +315,6 @@ const enUS = {
 
 				newFolder: "New folder",
 				folderPath: "Folder path",
-				createFolder: "Create folder",
 
 				metadata: "Metadata",
 				document: "Document",
@@ -328,10 +328,8 @@ const enUS = {
 				newFile: "New file",
 				filter: "Filter files…",
 				filePath: "File path",
-				pathHint: "Use / for subdirectories. Up to 100 files or folders.",
 				pathError:
 					"File path is invalid or already exists. Choose another name.",
-				createFile: "Create file",
 				noFiles: "No matching files",
 				saveFailed: "Save failed. Check your files or retry.",
 				folderHint: "Save as {{name}}/ · 1 MB per file, 10 MB total",

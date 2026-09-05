@@ -1,12 +1,14 @@
 import { type FormEvent, useState } from "react";
 import {
 	ChevronRight,
+	File,
 	FilePlus,
+	Folder,
 	FolderPlus,
 	LayoutSplitSideContentLeft,
 	LayoutSplitSideContentRight,
 } from "@gravity-ui/icons";
-import { Button, Input, Label, TextField, Toast, Tooltip } from "@heroui/react";
+import { Button, Input, TextField, Toast, Tooltip } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
@@ -92,6 +94,15 @@ const readMetadata = (manifest: string) => {
 const isEntryPath = (path: string, root: string) =>
 	path === root || path.startsWith(`${root}/`);
 
+/**
+ * Uses the containing directory when a file is selected as the creation target.
+ *
+ * @example
+ * parentDirectory("references/guide.md")
+ */
+const parentDirectory = (path: string) =>
+	path.slice(0, Math.max(0, path.lastIndexOf("/")));
+
 const SkillEditorPage = () => {
 	const { t } = useTranslation();
 	const navigate = useNavigate();
@@ -101,6 +112,8 @@ const SkillEditorPage = () => {
 	});
 	const [directories, setDirectories] = useState<string[]>([]);
 	const [entryKind, setEntryKind] = useState<"file" | "folder">("file");
+	const [selectedPath, setSelectedPath] = useState("SKILL.md");
+	const [entryParent, setEntryParent] = useState("");
 	const [activePath, setActivePath] = useState("SKILL.md");
 	const [preview, setPreview] = useState(false);
 	const [filter, setFilter] = useState("");
@@ -116,6 +129,10 @@ const SkillEditorPage = () => {
 			? "left"
 			: "right",
 	);
+	const targetDirectory =
+		files[selectedPath] !== undefined
+			? parentDirectory(selectedPath)
+			: selectedPath;
 	const metadata = readMetadata(files["SKILL.md"] ?? "");
 	const paths = [
 		...Object.keys(files),
@@ -135,7 +152,8 @@ const SkillEditorPage = () => {
 	 */
 	const addEntry = (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
-		const path = newPath?.trim() ?? "";
+		const name = newPath?.trim() ?? "";
+		const path = entryParent ? `${entryParent}/${name}` : name;
 		const lower = path.toLowerCase();
 		if (renamingPath === path) {
 			setRenamingPath(null);
@@ -197,12 +215,15 @@ const SkillEditorPage = () => {
 			);
 			setDirectories(directories.map(movePath));
 			setActivePath(movePath(activePath));
+			setSelectedPath(movePath(selectedPath));
 			setRenamingPath(null);
 		} else if (entryKind === "folder") {
 			setDirectories([...directories, path]);
+			setSelectedPath(path);
 		} else {
 			setFiles({ ...files, [path]: "" });
 			setActivePath(path);
+			setSelectedPath(path);
 			setPreview(false);
 		}
 		setNewPath(null);
@@ -221,6 +242,8 @@ const SkillEditorPage = () => {
 			),
 		);
 		setFiles(remaining);
+		if (isEntryPath(selectedPath, deletingPath))
+			setSelectedPath(parentDirectory(deletingPath));
 		setDirectories(
 			directories.filter((path) => !isEntryPath(path, deletingPath)),
 		);
@@ -406,6 +429,8 @@ const SkillEditorPage = () => {
 									isDisabled={mutation.isPending}
 									onPress={() => {
 										setRenamingPath(null);
+										setEntryParent(targetDirectory);
+										setFilter("");
 										setEntryKind("file");
 										setNewPath("");
 										setPathError(false);
@@ -426,6 +451,8 @@ const SkillEditorPage = () => {
 									isDisabled={mutation.isPending}
 									onPress={() => {
 										setRenamingPath(null);
+										setEntryParent(targetDirectory);
+										setFilter("");
 										setEntryKind("folder");
 										setNewPath("");
 										setPathError(false);
@@ -476,58 +503,60 @@ const SkillEditorPage = () => {
 						onValueChange={setFilter}
 						placeholder={t("skills.editor.filter")}
 					/>
-					{newPath !== null ? (
-						<form onSubmit={addEntry} className="flex flex-col gap-2">
-							<TextField autoFocus>
-								<Label>
-									{t(
-										entryKind === "folder"
-											? "skills.editor.folderPath"
-											: "skills.editor.filePath",
-									)}
-								</Label>
-								<Input
-									value={newPath}
-									onChange={(event) => setNewPath(event.target.value)}
-									placeholder={
-										entryKind === "folder"
-											? "references"
-											: "references/guide.md"
-									}
-								/>
-							</TextField>
-							<p className="text-caption-sm text-mute">
-								{t("skills.editor.pathHint")}
-							</p>
-							{pathError ? (
-								<p role="alert" className="text-caption-sm text-terminal-red">
-									{t("skills.editor.pathError")}
-								</p>
-							) : null}
-							<div className="flex gap-2">
-								<Button size="sm" type="submit" isDisabled={mutation.isPending}>
-									{t(
-										renamingPath
-											? "skills.editor.rename"
-											: entryKind === "folder"
-												? "skills.editor.createFolder"
-												: "skills.editor.createFile",
-									)}
-								</Button>
-								<Button
-									size="sm"
-									variant="ghost"
-									onPress={() => {
-										setNewPath(null);
-										setPathError(false);
-									}}
-								>
-									{t("common.cancel")}
-								</Button>
-							</div>
-						</form>
-					) : null}
 					<FileTree
+						draftParent={newPath !== null ? entryParent : undefined}
+						draftPath={renamingPath}
+						draftInput={
+							newPath !== null ? (
+								<form onSubmit={addEntry} className="py-1">
+									<div className="flex items-center gap-2 px-2">
+										{entryKind === "folder" ? (
+											<Folder
+												aria-hidden="true"
+												className="size-4 shrink-0 text-charcoal"
+											/>
+										) : (
+											<File
+												aria-hidden="true"
+												className="size-4 shrink-0 text-charcoal"
+											/>
+										)}
+										<TextField
+											autoFocus
+											className="min-w-0 flex-1"
+											aria-label={t(
+												entryKind === "folder"
+													? "skills.editor.folderPath"
+													: "skills.editor.filePath",
+											)}
+										>
+											<Input
+												value={newPath}
+												onChange={(event) => setNewPath(event.target.value)}
+												onFocus={(event) => event.target.select()}
+												onKeyDown={(event) => {
+													if (event.key === "Escape") {
+														event.preventDefault();
+														setNewPath(null);
+														setRenamingPath(null);
+														setPathError(false);
+													}
+												}}
+											/>
+										</TextField>
+									</div>
+									{pathError ? (
+										<p
+											role="alert"
+											className="mt-1 text-caption-sm text-terminal-red"
+										>
+											{t("skills.editor.pathError")}
+										</p>
+									) : null}
+								</form>
+							) : null
+						}
+						onSelectFolder={setSelectedPath}
 						isDisabled={mutation.isPending}
 						onAction={(action, path) => {
 							if (action === "delete") {
@@ -536,17 +565,31 @@ const SkillEditorPage = () => {
 							}
 							setEntryKind(files[path] === undefined ? "folder" : "file");
 							setRenamingPath(path);
-							setNewPath(path);
+							setSelectedPath(path);
+							setEntryParent(parentDirectory(path));
+							setNewPath(path.slice(path.lastIndexOf("/") + 1));
+							setFilter("");
 							setPathError(false);
 						}}
 						paths={paths}
-						activePath={activePath}
+						selectedPath={selectedPath}
 						onSelect={(path) => {
 							setActivePath(path);
+							setSelectedPath(path);
 							setPreview(false);
 						}}
 					/>
-					{paths.length === 0 ? (
+					<button
+						type="button"
+						aria-label={t("skills.editor.selectRoot")}
+						className="min-h-8 w-full flex-1 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+						onClick={() => {
+							setSelectedPath("");
+							setNewPath(null);
+							setRenamingPath(null);
+						}}
+					/>
+					{paths.length === 0 && newPath === null ? (
 						<p className="text-body-sm text-mute">
 							{t("skills.editor.noFiles")}
 						</p>

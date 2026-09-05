@@ -62,7 +62,7 @@ it("starts with frontmatter and saves every file without changing the name", asy
 		screen.getByRole("textbox", { name: "文件路径" }),
 		"references/guide.md",
 	);
-	await user.click(screen.getByRole("button", { name: "创建文件" }));
+	await user.keyboard("{Enter}");
 	await user.type(
 		screen.getByRole("textbox", { name: "references/guide.md" }),
 		"# Guide",
@@ -99,7 +99,7 @@ it("rejects colliding and escaping paths and remembers the directory side", asyn
 	]) {
 		await user.clear(path);
 		await user.type(path, invalid);
-		await user.click(screen.getByRole("button", { name: "创建文件" }));
+		await user.keyboard("{Enter}");
 		expect(screen.getByRole("alert")).toHaveTextContent("文件路径无效或已存在");
 	}
 });
@@ -161,23 +161,24 @@ it("creates empty folders and saves files inside them", async () => {
 		screen.getByRole("textbox", { name: "文件夹路径" }),
 		"references",
 	);
-	await user.click(screen.getByRole("button", { name: "创建文件夹" }));
+	await user.keyboard("{Enter}");
 	expect(screen.getByText("references")).toBeVisible();
 	await user.click(screen.getByRole("button", { name: "新建文件" }));
 	await user.type(
 		screen.getByRole("textbox", { name: "文件路径" }),
-		"references/guide.md",
+		"guide.md",
 	);
-	await user.click(screen.getByRole("button", { name: "创建文件" }));
+	await user.keyboard("{Enter}");
 	expect(
 		screen.getByRole("textbox", { name: "references/guide.md" }),
 	).toBeVisible();
+	await user.click(screen.getByRole("button", { name: "选择根目录" }));
 	await user.click(screen.getByRole("button", { name: "新建文件夹" }));
 	await user.type(
 		screen.getByRole("textbox", { name: "文件夹路径" }),
 		"scripts",
 	);
-	await user.click(screen.getByRole("button", { name: "创建文件夹" }));
+	await user.keyboard("{Enter}");
 	mutateAsync.mockResolvedValue({});
 	await user.click(screen.getByRole("button", { name: "保存" }));
 	expect(mutateAsync).toHaveBeenCalledWith({
@@ -197,7 +198,7 @@ it("renames a folder and keeps the open file contents under its new path", async
 		screen.getByRole("textbox", { name: "文件路径" }),
 		"references/guide.md",
 	);
-	await user.click(screen.getByRole("button", { name: "创建文件" }));
+	await user.keyboard("{Enter}");
 	await user.type(
 		screen.getByRole("textbox", { name: "references/guide.md" }),
 		"# Keep this draft",
@@ -207,11 +208,11 @@ it("renames a folder and keeps the open file contents under its new path", async
 	const path = screen.getByRole("textbox", { name: "文件夹路径" });
 	await user.clear(path);
 	await user.type(path, "SKILL.md");
-	await user.click(screen.getByRole("button", { name: "重命名" }));
+	await user.keyboard("{Enter}");
 	expect(screen.getByRole("alert")).toBeVisible();
 	await user.clear(path);
 	await user.type(path, "docs");
-	await user.click(screen.getByRole("button", { name: "重命名" }));
+	await user.keyboard("{Enter}");
 	expect(screen.getByRole("textbox", { name: "docs/guide.md" })).toHaveValue(
 		"# Keep this draft",
 	);
@@ -226,7 +227,7 @@ it("requires confirmation before deleting a folder and allows replacing the mani
 		screen.getByRole("textbox", { name: "文件路径" }),
 		"references/guide.md",
 	);
-	await user.click(screen.getByRole("button", { name: "创建文件" }));
+	await user.keyboard("{Enter}");
 	await user.click(screen.getByRole("button", { name: "references 的操作" }));
 	await user.click(screen.getByRole("menuitem", { name: "删除" }));
 	await user.click(
@@ -260,7 +261,7 @@ it("requires confirmation before deleting a folder and allows replacing the mani
 		screen.getByRole("textbox", { name: "文件路径" }),
 		"SKILL.md",
 	);
-	await user.click(screen.getByRole("button", { name: "创建文件" }));
+	await user.keyboard("{Enter}");
 	expect(screen.getByRole("textbox", { name: "SKILL.md" })).toHaveValue("");
 });
 
@@ -285,4 +286,50 @@ it("opens actions only from the more button", async () => {
 	await user.click(screen.getByRole("button", { name: "SKILL.md 的操作" }));
 	expect(screen.getByRole("menuitem", { name: "重命名" })).toBeVisible();
 	expect(screen.getByRole("menuitem", { name: "删除" })).toBeVisible();
+});
+
+it("creates inline in the selected directory and cancels with Escape", async () => {
+	const user = userEvent.setup();
+	renderEditor();
+	await user.click(screen.getByRole("button", { name: "新建文件夹" }));
+	await user.type(
+		screen.getByRole("textbox", { name: "文件夹路径" }),
+		"references",
+	);
+	await user.keyboard("{Enter}");
+	await user.click(screen.getByRole("button", { name: "SKILL.md" }));
+	await user.click(screen.getByText("references"));
+	await user.click(screen.getByRole("button", { name: "新建文件夹" }));
+	await user.type(
+		screen.getByRole("textbox", { name: "文件夹路径" }),
+		"examples",
+	);
+	await user.keyboard("{Enter}");
+	await user.click(screen.getByRole("button", { name: "新建文件" }));
+	await user.type(
+		screen.getByRole("textbox", { name: "文件路径" }),
+		"guide.md",
+	);
+	await user.keyboard("{Enter}");
+	expect(
+		screen.getByRole("textbox", { name: "references/examples/guide.md" }),
+	).toBeVisible();
+	await user.click(screen.getByRole("button", { name: "新建文件" }));
+	await user.type(
+		screen.getByRole("textbox", { name: "文件路径" }),
+		"cancelled.md",
+	);
+	await user.keyboard("{Escape}");
+	expect(
+		screen.queryByRole("textbox", { name: "文件路径" }),
+	).not.toBeInTheDocument();
+	expect(screen.queryByText("cancelled.md")).not.toBeInTheDocument();
+	await user.click(screen.getByRole("button", { name: "选择根目录" }));
+	await user.click(screen.getByRole("button", { name: "新建文件" }));
+	await user.type(
+		screen.getByRole("textbox", { name: "文件路径" }),
+		"README.md",
+	);
+	await user.keyboard("{Enter}");
+	expect(screen.getByRole("textbox", { name: "README.md" })).toBeVisible();
 });
