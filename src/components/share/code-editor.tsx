@@ -73,11 +73,13 @@ const CodeEditor = ({
 								border: "none",
 							},
 							".cm-gutterElement": { padding: "0 8px" },
-							".cm-activeLine, .cm-activeLineGutter": {
+							".cm-activeLineGutter": {
 								backgroundColor: "var(--color-surface-soft)",
 							},
+							// Keep the active line transparent so it cannot cover the selection drawn beneath it.
+							".cm-activeLine": { backgroundColor: "transparent" },
 							"&.cm-focused": { outline: "none" },
-							"&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection":
+							"&.cm-editor.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, &.cm-editor .cm-selectionBackground":
 								{
 									backgroundColor: "var(--color-focus-ring)",
 								},
