@@ -26,7 +26,7 @@ pub(crate) struct CreatePlatformSkillRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ImportGitSkillRequest {
-    /// Clone URL whose repository root contains SKILL.md.
+    /// Clone URL containing a root Skill or independently installable Skills under `skills/`.
     pub(crate) git_url: String,
 }
 

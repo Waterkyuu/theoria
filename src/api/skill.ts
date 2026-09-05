@@ -36,9 +36,9 @@ const createPlatformSkill = (request: CreatePlatformSkillInput) =>
 		request,
 	});
 
-/** Clones a Git repository into Theoria-managed Skill storage. */
+/** Clones every discovered Skill from a Git repository into managed storage. */
 const importGitSkill = (gitUrl: string) =>
-	invokeWithResponseSchema("import_git_skill", CompiledSkillSchema, {
+	invokeWithResponseSchema("import_git_skill", CompiledSkillsSchema, {
 		request: { gitUrl },
 	});
 

@@ -1,0 +1,85 @@
+name: Benchmark
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: benchmark-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # PRs compare with their target; main pushes compare with the previous tip.
+  # Manual runs compare the selected ref with main.
+  BASELINE_REF: ${{ github.event.pull_request.base.sha || github.event.before || 'main' }}
+  HUSKY: 0
+
+jobs:
+  frontend:
+    name: Frontend build benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout current revision
+        uses: actions/checkout@v7
+        with:
+          path: current
+
+      - name: Checkout baseline
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.BASELINE_REF }}
+          path: baseline
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          package_json_file: current/package.json
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: |
+            baseline/pnpm-lock.yaml
+            current/pnpm-lock.yaml
+
+      - name: Test benchmark thresholds
+        run: node --test current/.github/scripts/benchmark_test.mjs
+
+      - name: Compare frontend builds and enforce thresholds
+        run: node current/.github/scripts/benchmark.mjs frontend baseline current
+
+  rust:
+    name: Rust build benchmark
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout current revision
+        uses: actions/checkout@v7
+        with:
+          path: current
+
+      - name: Checkout baseline
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.BASELINE_REF }}
+          path: baseline
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Compare Rust release builds and enforce thresholds
+        run: node current/.github/scripts/benchmark.mjs rust baseline current

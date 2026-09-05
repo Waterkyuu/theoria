@@ -371,9 +371,11 @@ const enUS = {
 			gitDialog: {
 				title: "Import from Git URL",
 				description:
-					"The repository root must contain a valid SKILL.md. Git imports can be updated from the remote.",
+					"Import one Skill from the repository root or multiple Skills from its skills directory. Git imports can be updated from the remote.",
 				urlLabel: "Git repository URL",
 				import: "Import",
+				importing: "Importing",
+				success: "Imported {{count}} Skills from Git",
 				failed:
 					"Git Skill import failed. Check the URL and repository contents.",
 			},

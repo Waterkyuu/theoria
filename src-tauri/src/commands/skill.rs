@@ -44,16 +44,16 @@ pub(crate) async fn create_platform_skill(
         .map_err(Into::into)
 }
 
-/// Clones and imports a Skill from a Git repository.
+/// Clones and imports the root Skill or every Skill under a repository's `skills/` directory.
 #[tauri::command]
 pub(crate) async fn import_git_skill(
     request: ImportGitSkillRequest,
     service: State<'_, SkillLibraryService>,
-) -> Result<SkillResponse, IpcError> {
+) -> Result<Vec<SkillResponse>, IpcError> {
     service
         .import_git_repository(request.git_url)
         .await
-        .map(Into::into)
+        .map(|items| items.into_iter().map(Into::into).collect())
         .map_err(Into::into)
 }
 

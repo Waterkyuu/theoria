@@ -74,20 +74,36 @@ describe("Skill IPC", () => {
 	});
 
 	it("imports and updates a Git-backed Skill", async () => {
-		vi.mocked(invoke).mockResolvedValue({
-			id: "skill-3",
-			folderName: "git-skill",
-			displayName: "Git Skill",
-			description: "Imported from Git.",
-			sourceType: "git",
-			sourcePath: "https://github.com/example/git-skill.git",
-			createdAtMs: 1,
-			updatedAtMs: 1,
-		});
+		vi.mocked(invoke)
+			.mockResolvedValueOnce([
+				{
+					id: "skill-3",
+					folderName: "git-skill",
+					displayName: "Git Skill",
+					description: "Imported from Git.",
+					sourceType: "git",
+					sourcePath: "https://github.com/example/git-skill.git",
+					createdAtMs: 1,
+					updatedAtMs: 1,
+				},
+			])
+			.mockResolvedValueOnce({
+				id: "skill-3",
+				folderName: "git-skill",
+				displayName: "Git Skill",
+				description: "Imported from Git.",
+				sourceType: "git",
+				sourcePath: "https://github.com/example/git-skill.git",
+				createdAtMs: 1,
+				updatedAtMs: 1,
+			});
 
-		await importGitSkill("https://github.com/example/git-skill.git");
+		const imported = await importGitSkill(
+			"https://github.com/example/git-skill.git",
+		);
 		await updateGitSkill("skill-3");
 
+		expect(imported).toHaveLength(1);
 		expect(invoke).toHaveBeenNthCalledWith(1, "import_git_skill", {
 			request: { gitUrl: "https://github.com/example/git-skill.git" },
 		});

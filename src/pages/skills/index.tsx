@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Input, Label, TextField, Toast } from "@heroui/react";
+import { Button, Input, Label, Spinner, TextField, Toast } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
@@ -105,14 +105,15 @@ const SkillsPage = () => {
 		}
 	};
 
-	/** Imports one repository URL after the user confirms the Git dialog. */
+	/** Imports every Skill discovered at one repository URL after user confirmation. */
 	const importSkillFromGit = async () => {
 		const trimmedGitUrl = gitUrl.trim();
 		if (!trimmedGitUrl || importGitSkillMutation.isPending) return;
 		try {
-			const skill = await importGitSkillMutation.mutateAsync(trimmedGitUrl);
+			const importedSkills =
+				await importGitSkillMutation.mutateAsync(trimmedGitUrl);
 			Toast.toast.success(
-				t("skills.importSuccess", { skill: skill.folderName }),
+				t("skills.gitDialog.success", { count: importedSkills.length }),
 			);
 			setGitUrl("");
 			setIsGitImportOpen(false);
@@ -273,11 +274,19 @@ const SkillsPage = () => {
 							{t("common.cancel")}
 						</Button>
 						<Button
-							isDisabled={!gitUrl.trim() || importGitSkillMutation.isPending}
+							isDisabled={!gitUrl.trim()}
+							isPending={importGitSkillMutation.isPending}
 							onPress={() => importSkillFromGit()}
 							variant="primary"
 						>
-							{t("skills.gitDialog.import")}
+							{importGitSkillMutation.isPending ? (
+								<>
+									<Spinner aria-hidden="true" size="sm" />
+									{t("skills.gitDialog.importing")}
+								</>
+							) : (
+								t("skills.gitDialog.import")
+							)}
 						</Button>
 					</>
 				}

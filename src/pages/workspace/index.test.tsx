@@ -194,8 +194,11 @@ describe("WorkspacePage", () => {
 			}),
 		).toBeInTheDocument();
 		expect(
-			screen.getByRole("button", { name: "探索模式" }),
-		).toBeInTheDocument();
+			screen.queryByRole("button", { name: "探索模式" }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "基准测试模式" }),
+		).not.toBeInTheDocument();
 		expect(
 			screen.getByRole("button", { name: "已选择 0 个 Agent" }),
 		).toBeInTheDocument();
@@ -241,16 +244,18 @@ describe("WorkspacePage", () => {
 		).toBeInTheDocument();
 	});
 
-	it("makes benchmark semantics explicit before a formal run", async () => {
-		const user = userEvent.setup();
+	it("keeps benchmark mode unavailable from the composer", () => {
 		render(<WorkspacePage />);
 
-		await user.click(screen.getByRole("button", { name: "探索模式" }));
-		await user.click(screen.getByRole("option", { name: "基准测试模式" }));
-
 		expect(
-			screen.getByText("每个 Agent 从相同内容开始，运行期间彼此隔离"),
-		).toBeInTheDocument();
+			screen.queryByRole("button", { name: "探索模式" }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("option", { name: "基准测试模式" }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByText("每个 Agent 从相同内容开始，运行期间彼此隔离"),
+		).not.toBeInTheDocument();
 	});
 
 	it("shows backend Agent installation, process, and runtime configuration", async () => {
