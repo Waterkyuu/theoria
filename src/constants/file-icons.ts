@@ -1,121 +1,121 @@
-import icon_angular from "material-icon-theme/icons/angular.svg?no-inline";
-import icon_astro from "material-icon-theme/icons/astro.svg?no-inline";
-import icon_c from "material-icon-theme/icons/c.svg?no-inline";
-import icon_clojure from "material-icon-theme/icons/clojure.svg?no-inline";
-import icon_cmake from "material-icon-theme/icons/cmake.svg?no-inline";
-import icon_console from "material-icon-theme/icons/console.svg?no-inline";
-import icon_cpp from "material-icon-theme/icons/cpp.svg?no-inline";
-import icon_csharp from "material-icon-theme/icons/csharp.svg?no-inline";
-import icon_css from "material-icon-theme/icons/css.svg?no-inline";
-import icon_dart from "material-icon-theme/icons/dart.svg?no-inline";
-import icon_database from "material-icon-theme/icons/database.svg?no-inline";
-import icon_docker from "material-icon-theme/icons/docker.svg?no-inline";
-import icon_elixir from "material-icon-theme/icons/elixir.svg?no-inline";
-import icon_eslint from "material-icon-theme/icons/eslint.svg?no-inline";
-import icon_file from "material-icon-theme/icons/file.svg?no-inline";
-import icon_git from "material-icon-theme/icons/git.svg?no-inline";
-import icon_go from "material-icon-theme/icons/go.svg?no-inline";
-import icon_go_mod from "material-icon-theme/icons/go-mod.svg?no-inline";
-import icon_graphql from "material-icon-theme/icons/graphql.svg?no-inline";
-import icon_html from "material-icon-theme/icons/html.svg?no-inline";
-import icon_java from "material-icon-theme/icons/java.svg?no-inline";
-import icon_javascript from "material-icon-theme/icons/javascript.svg?no-inline";
-import icon_json from "material-icon-theme/icons/json.svg?no-inline";
-import icon_kotlin from "material-icon-theme/icons/kotlin.svg?no-inline";
-import icon_less from "material-icon-theme/icons/less.svg?no-inline";
-import icon_lua from "material-icon-theme/icons/lua.svg?no-inline";
-import icon_markdown from "material-icon-theme/icons/markdown.svg?no-inline";
-import icon_next from "material-icon-theme/icons/next.svg?no-inline";
-import icon_next_light from "material-icon-theme/icons/next_light.svg?no-inline";
-import icon_nodejs from "material-icon-theme/icons/nodejs.svg?no-inline";
-import icon_npm from "material-icon-theme/icons/npm.svg?no-inline";
-import icon_nuxt from "material-icon-theme/icons/nuxt.svg?no-inline";
-import icon_php from "material-icon-theme/icons/php.svg?no-inline";
-import icon_pnpm from "material-icon-theme/icons/pnpm.svg?no-inline";
-import icon_pnpm_light from "material-icon-theme/icons/pnpm_light.svg?no-inline";
-import icon_prettier from "material-icon-theme/icons/prettier.svg?no-inline";
-import icon_prisma from "material-icon-theme/icons/prisma.svg?no-inline";
-import icon_python from "material-icon-theme/icons/python.svg?no-inline";
-import icon_react from "material-icon-theme/icons/react.svg?no-inline";
-import icon_react_ts from "material-icon-theme/icons/react_ts.svg?no-inline";
-import icon_ruby from "material-icon-theme/icons/ruby.svg?no-inline";
-import icon_rust from "material-icon-theme/icons/rust.svg?no-inline";
-import icon_sass from "material-icon-theme/icons/sass.svg?no-inline";
-import icon_scala from "material-icon-theme/icons/scala.svg?no-inline";
-import icon_settings from "material-icon-theme/icons/settings.svg?no-inline";
-import icon_svelte from "material-icon-theme/icons/svelte.svg?no-inline";
-import icon_swift from "material-icon-theme/icons/swift.svg?no-inline";
-import icon_tailwindcss from "material-icon-theme/icons/tailwindcss.svg?no-inline";
-import icon_toml from "material-icon-theme/icons/toml.svg?no-inline";
-import icon_toml_light from "material-icon-theme/icons/toml_light.svg?no-inline";
-import icon_typescript from "material-icon-theme/icons/typescript.svg?no-inline";
-import icon_typescript_def from "material-icon-theme/icons/typescript-def.svg?no-inline";
-import icon_vite from "material-icon-theme/icons/vite.svg?no-inline";
-import icon_vitest from "material-icon-theme/icons/vitest.svg?no-inline";
-import icon_vue from "material-icon-theme/icons/vue.svg?no-inline";
-import icon_webpack from "material-icon-theme/icons/webpack.svg?no-inline";
-import icon_xml from "material-icon-theme/icons/xml.svg?no-inline";
-import icon_yaml from "material-icon-theme/icons/yaml.svg?no-inline";
-import icon_yarn from "material-icon-theme/icons/yarn.svg?no-inline";
+import angularIcon from "material-icon-theme/icons/angular.svg?no-inline";
+import astroIcon from "material-icon-theme/icons/astro.svg?no-inline";
+import cIcon from "material-icon-theme/icons/c.svg?no-inline";
+import clojureIcon from "material-icon-theme/icons/clojure.svg?no-inline";
+import cmakeIcon from "material-icon-theme/icons/cmake.svg?no-inline";
+import consoleIcon from "material-icon-theme/icons/console.svg?no-inline";
+import cppIcon from "material-icon-theme/icons/cpp.svg?no-inline";
+import csharpIcon from "material-icon-theme/icons/csharp.svg?no-inline";
+import cssIcon from "material-icon-theme/icons/css.svg?no-inline";
+import dartIcon from "material-icon-theme/icons/dart.svg?no-inline";
+import databaseIcon from "material-icon-theme/icons/database.svg?no-inline";
+import dockerIcon from "material-icon-theme/icons/docker.svg?no-inline";
+import elixirIcon from "material-icon-theme/icons/elixir.svg?no-inline";
+import eslintIcon from "material-icon-theme/icons/eslint.svg?no-inline";
+import fileIcon from "material-icon-theme/icons/file.svg?no-inline";
+import gitIcon from "material-icon-theme/icons/git.svg?no-inline";
+import goIcon from "material-icon-theme/icons/go.svg?no-inline";
+import goModIcon from "material-icon-theme/icons/go-mod.svg?no-inline";
+import graphqlIcon from "material-icon-theme/icons/graphql.svg?no-inline";
+import htmlIcon from "material-icon-theme/icons/html.svg?no-inline";
+import javaIcon from "material-icon-theme/icons/java.svg?no-inline";
+import javascriptIcon from "material-icon-theme/icons/javascript.svg?no-inline";
+import jsonIcon from "material-icon-theme/icons/json.svg?no-inline";
+import kotlinIcon from "material-icon-theme/icons/kotlin.svg?no-inline";
+import lessIcon from "material-icon-theme/icons/less.svg?no-inline";
+import luaIcon from "material-icon-theme/icons/lua.svg?no-inline";
+import markdownIcon from "material-icon-theme/icons/markdown.svg?no-inline";
+import nextIcon from "material-icon-theme/icons/next.svg?no-inline";
+import nextLightIcon from "material-icon-theme/icons/next_light.svg?no-inline";
+import nodejsIcon from "material-icon-theme/icons/nodejs.svg?no-inline";
+import npmIcon from "material-icon-theme/icons/npm.svg?no-inline";
+import nuxtIcon from "material-icon-theme/icons/nuxt.svg?no-inline";
+import phpIcon from "material-icon-theme/icons/php.svg?no-inline";
+import pnpmIcon from "material-icon-theme/icons/pnpm.svg?no-inline";
+import pnpmLightIcon from "material-icon-theme/icons/pnpm_light.svg?no-inline";
+import prettierIcon from "material-icon-theme/icons/prettier.svg?no-inline";
+import prismaIcon from "material-icon-theme/icons/prisma.svg?no-inline";
+import pythonIcon from "material-icon-theme/icons/python.svg?no-inline";
+import reactIcon from "material-icon-theme/icons/react.svg?no-inline";
+import reactTsIcon from "material-icon-theme/icons/react_ts.svg?no-inline";
+import rubyIcon from "material-icon-theme/icons/ruby.svg?no-inline";
+import rustIcon from "material-icon-theme/icons/rust.svg?no-inline";
+import sassIcon from "material-icon-theme/icons/sass.svg?no-inline";
+import scalaIcon from "material-icon-theme/icons/scala.svg?no-inline";
+import settingsIcon from "material-icon-theme/icons/settings.svg?no-inline";
+import svelteIcon from "material-icon-theme/icons/svelte.svg?no-inline";
+import swiftIcon from "material-icon-theme/icons/swift.svg?no-inline";
+import tailwindcssIcon from "material-icon-theme/icons/tailwindcss.svg?no-inline";
+import tomlIcon from "material-icon-theme/icons/toml.svg?no-inline";
+import tomlLightIcon from "material-icon-theme/icons/toml_light.svg?no-inline";
+import typescriptIcon from "material-icon-theme/icons/typescript.svg?no-inline";
+import typescriptDefIcon from "material-icon-theme/icons/typescript-def.svg?no-inline";
+import viteIcon from "material-icon-theme/icons/vite.svg?no-inline";
+import vitestIcon from "material-icon-theme/icons/vitest.svg?no-inline";
+import vueIcon from "material-icon-theme/icons/vue.svg?no-inline";
+import webpackIcon from "material-icon-theme/icons/webpack.svg?no-inline";
+import xmlIcon from "material-icon-theme/icons/xml.svg?no-inline";
+import yamlIcon from "material-icon-theme/icons/yaml.svg?no-inline";
+import yarnIcon from "material-icon-theme/icons/yarn.svg?no-inline";
 
 // Explicit asset imports keep unused icons and the theme manifest out of production builds.
 const FILE_TYPE_ICONS = {
-	file: icon_file,
-	javascript: icon_javascript,
-	typescript: icon_typescript,
-	"typescript-def": icon_typescript_def,
-	react: icon_react,
-	react_ts: icon_react_ts,
-	vue: icon_vue,
-	svelte: icon_svelte,
-	angular: icon_angular,
-	astro: icon_astro,
-	next: icon_next,
-	nuxt: icon_nuxt,
-	vite: icon_vite,
-	vitest: icon_vitest,
-	webpack: icon_webpack,
-	nodejs: icon_nodejs,
-	npm: icon_npm,
-	pnpm: icon_pnpm,
-	yarn: icon_yarn,
-	rust: icon_rust,
-	go: icon_go,
-	"go-mod": icon_go_mod,
-	java: icon_java,
-	markdown: icon_markdown,
-	json: icon_json,
-	python: icon_python,
-	console: icon_console,
-	yaml: icon_yaml,
-	toml: icon_toml,
-	html: icon_html,
-	css: icon_css,
-	sass: icon_sass,
-	less: icon_less,
-	cpp: icon_cpp,
-	c: icon_c,
-	csharp: icon_csharp,
-	php: icon_php,
-	ruby: icon_ruby,
-	swift: icon_swift,
-	kotlin: icon_kotlin,
-	lua: icon_lua,
-	docker: icon_docker,
-	scala: icon_scala,
-	dart: icon_dart,
-	xml: icon_xml,
-	cmake: icon_cmake,
-	database: icon_database,
-	git: icon_git,
-	settings: icon_settings,
-	graphql: icon_graphql,
-	prisma: icon_prisma,
-	elixir: icon_elixir,
-	clojure: icon_clojure,
-	eslint: icon_eslint,
-	prettier: icon_prettier,
-	tailwindcss: icon_tailwindcss,
+	file: fileIcon,
+	javascript: javascriptIcon,
+	typescript: typescriptIcon,
+	"typescript-def": typescriptDefIcon,
+	react: reactIcon,
+	react_ts: reactTsIcon,
+	vue: vueIcon,
+	svelte: svelteIcon,
+	angular: angularIcon,
+	astro: astroIcon,
+	next: nextIcon,
+	nuxt: nuxtIcon,
+	vite: viteIcon,
+	vitest: vitestIcon,
+	webpack: webpackIcon,
+	nodejs: nodejsIcon,
+	npm: npmIcon,
+	pnpm: pnpmIcon,
+	yarn: yarnIcon,
+	rust: rustIcon,
+	go: goIcon,
+	"go-mod": goModIcon,
+	java: javaIcon,
+	markdown: markdownIcon,
+	json: jsonIcon,
+	python: pythonIcon,
+	console: consoleIcon,
+	yaml: yamlIcon,
+	toml: tomlIcon,
+	html: htmlIcon,
+	css: cssIcon,
+	sass: sassIcon,
+	less: lessIcon,
+	cpp: cppIcon,
+	c: cIcon,
+	csharp: csharpIcon,
+	php: phpIcon,
+	ruby: rubyIcon,
+	swift: swiftIcon,
+	kotlin: kotlinIcon,
+	lua: luaIcon,
+	docker: dockerIcon,
+	scala: scalaIcon,
+	dart: dartIcon,
+	xml: xmlIcon,
+	cmake: cmakeIcon,
+	database: databaseIcon,
+	git: gitIcon,
+	settings: settingsIcon,
+	graphql: graphqlIcon,
+	prisma: prismaIcon,
+	elixir: elixirIcon,
+	clojure: clojureIcon,
+	eslint: eslintIcon,
+	prettier: prettierIcon,
+	tailwindcss: tailwindcssIcon,
 };
 
 type FileIconName = keyof typeof FILE_TYPE_ICONS;
@@ -125,9 +125,9 @@ const FILE_ICON_COLORS: Partial<Record<FileIconName, string>> = {
 };
 
 const FILE_ICON_LIGHT_VARIANTS: Partial<Record<FileIconName, string>> = {
-	next: icon_next_light,
-	pnpm: icon_pnpm_light,
-	toml: icon_toml_light,
+	next: nextLightIcon,
+	pnpm: pnpmLightIcon,
+	toml: tomlLightIcon,
 };
 
 const FILE_ICON_EXTENSIONS = new Map<string, FileIconName>([
