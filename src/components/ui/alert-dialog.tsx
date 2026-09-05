@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from "react";
+import type { ComponentProps, ReactElement, ReactNode } from "react";
 import {
 	type AlertDialogContainerProps,
 	Button,
@@ -8,6 +8,9 @@ import {
 import { useTranslation } from "react-i18next";
 
 type AlertDialogSize = NonNullable<AlertDialogContainerProps["size"]>;
+type AlertDialogIconStatus = ComponentProps<
+	typeof HeroUIAlertDialog.Icon
+>["status"];
 
 type AlertDialogTriggerProps = Pick<ButtonProps, "onPress">;
 
@@ -24,6 +27,8 @@ type AlertDialogBaseProps = {
 	confirmVariant?: ButtonProps["variant"];
 	/** Whether the confirm button is disabled. */
 	isConfirmDisabled?: boolean;
+	/** The icon status. Defaults to danger. */
+	iconStatus?: AlertDialogIconStatus;
 	/** Business callback invoked when the confirm button is pressed. */
 	onConfirm: () => void;
 	/** The size forwarded to the underlying AlertDialog. Defaults to md. */
@@ -71,6 +76,7 @@ const AlertDialog = ({
 	className,
 	confirmVariant = "danger",
 	confirmText,
+	iconStatus = "danger",
 	isConfirmDisabled = false,
 	isOpen,
 	onConfirm,
@@ -89,7 +95,7 @@ const AlertDialog = ({
 				<HeroUIAlertDialog.Container size={size}>
 					<HeroUIAlertDialog.Dialog className={className}>
 						<HeroUIAlertDialog.Header>
-							<HeroUIAlertDialog.Icon />
+							<HeroUIAlertDialog.Icon status={iconStatus} />
 							<HeroUIAlertDialog.Heading>{title}</HeroUIAlertDialog.Heading>
 						</HeroUIAlertDialog.Header>
 						{(description || children) && (
