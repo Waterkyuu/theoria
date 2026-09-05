@@ -1,8 +1,4 @@
-import { getFileIconName } from "@/utils/file-icon";
-import {
-	FILE_ICON_LIGHT_VARIANTS,
-	FILE_TYPE_ICONS,
-} from "@/constants/file-icons";
+import { getFileIcon } from "@/utils/file-icon";
 import "@/styles/file-type-icon.css";
 
 type FileTypeIconProps = {
@@ -19,14 +15,13 @@ type FileTypeIconProps = {
  * />
  */
 const FileTypeIcon = ({ path }: FileTypeIconProps) => {
-	const name = getFileIconName(path);
-	const src = FILE_TYPE_ICONS[name];
-	const light = FILE_ICON_LIGHT_VARIANTS[name];
-	if (name === "markdown") {
+	const { src, light, color } = getFileIcon(path);
+	if (color) {
 		return (
 			<span
 				aria-hidden="true"
-				className="file-type-icon-markdown size-4 shrink-0"
+				className="file-type-icon-tinted size-4 shrink-0"
+				style={{ backgroundColor: color, maskImage: `url("${src}")` }}
 			/>
 		);
 	}

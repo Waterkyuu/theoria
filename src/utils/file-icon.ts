@@ -2,8 +2,23 @@ import {
 	FILE_ICON_CONFIGS,
 	FILE_ICON_EXTENSIONS,
 	FILE_ICON_FILENAMES,
+	FILE_ICON_LIGHT_VARIANTS,
+	FILE_TYPE_ICONS,
 	type FileIconName,
 } from "@/constants/file-icons";
+
+type FileIconAppearance = {
+	/** Local SVG asset for the resolved file type. */
+	src: string;
+	/** Alternative asset for light themes when provided by the icon set. */
+	light?: string;
+	/** Optional tint; omitted icons retain their original SVG colors. */
+	color?: string;
+};
+
+const FILE_ICON_COLORS: Partial<Record<FileIconName, string>> = {
+	markdown: "#16a34a",
+};
 
 /**
  * Resolves exact names and compound suffixes before generic extensions so framework files keep their identity.
@@ -29,4 +44,19 @@ const getFileIconName = (path: string): FileIconName => {
 	return "file";
 };
 
-export { getFileIconName };
+/**
+ * Keeps asset and color choices together so renderers do not need file-type conditions.
+ *
+ * @example
+ * getFileIcon("SKILL.md")
+ */
+const getFileIcon = (path: string): FileIconAppearance => {
+	const name = getFileIconName(path);
+	return {
+		src: FILE_TYPE_ICONS[name],
+		light: FILE_ICON_LIGHT_VARIANTS[name],
+		color: FILE_ICON_COLORS[name],
+	};
+};
+
+export { getFileIcon, getFileIconName };

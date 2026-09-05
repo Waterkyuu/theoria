@@ -1,6 +1,5 @@
-.file-type-icon-markdown {
-	background-color: #16a34a;
-	mask:
-		url("material-icon-theme/icons/markdown.svg?no-inline") center / contain
-		no-repeat;
+.file-type-icon-tinted {
+	mask-position: center;
+	mask-size: contain;
+	mask-repeat: no-repeat;
 }
