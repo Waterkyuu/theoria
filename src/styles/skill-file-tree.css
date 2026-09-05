@@ -1,0 +1,12 @@
+/* Scope disclosure icons to their own folder so nested folders remain independent. */
+.skill-file-tree-folder > summary > .folder-open-icon {
+	display: none;
+}
+
+.skill-file-tree-folder[open] > summary > .folder-closed-icon {
+	display: none;
+}
+
+.skill-file-tree-folder[open] > summary > .folder-open-icon {
+	display: block;
+}

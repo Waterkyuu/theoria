@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import {
-	ChevronRight,
 	Ellipsis,
 	Folder,
+	FolderOpen,
 	PencilToSquare,
 	TrashBin,
 } from "@gravity-ui/icons";
@@ -11,6 +11,7 @@ import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { FileTypeIcon } from "@/components/share/file-type-icon";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
+import "@/styles/skill-file-tree.css";
 
 type FileTreeProps = {
 	/** Relative files and explicit folders marked by a trailing slash. */
@@ -125,7 +126,7 @@ const FileTree = ({
 						</div>
 						{isFolder ? (
 							<details
-								className="group"
+								className="skill-file-tree-folder"
 								key={isDraftInside ? "editing" : "idle"}
 								open
 							>
@@ -135,8 +136,14 @@ const FileTree = ({
 									aria-current={selectedPath === path ? "true" : undefined}
 									className="flex select-none touch-pan-y cursor-pointer list-none items-center gap-2 rounded-md px-2 py-2 pr-10 text-body-sm text-charcoal aria-current:bg-surface-soft aria-current:font-medium outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring [&::-webkit-details-marker]:hidden"
 								>
-									<ChevronRight className="size-4 shrink-0 group-open:rotate-90" />
-									<Folder className="size-4 shrink-0" />
+									<Folder
+										aria-hidden="true"
+										className="folder-closed-icon size-4 shrink-0"
+									/>
+									<FolderOpen
+										aria-hidden="true"
+										className="folder-open-icon size-4 shrink-0"
+									/>
 									<span className="truncate">{name}</span>
 								</summary>
 								<div className="ml-4 border-l border-hairline pl-2">
