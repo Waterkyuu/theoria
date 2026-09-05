@@ -307,6 +307,7 @@ const zhCN = {
 				metadata: "元数据",
 				document: "编辑区",
 				directory: "目录",
+				resizeDirectory: "调整目录宽度",
 				moveLeft: "目录移到左侧",
 				moveRight: "目录移到右侧",
 				save: "保存",
