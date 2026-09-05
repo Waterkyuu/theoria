@@ -25,6 +25,8 @@ type CreatePlatformSkillInput =
 	| {
 			/** Complete file tree authored in the editor, including SKILL.md. */
 			files: Record<string, string>;
+			/** Explicit folders to retain even when they contain no files. */
+			directories?: string[];
 	  }
 	| {
 			/** Main instructions written below SKILL.md frontmatter. */

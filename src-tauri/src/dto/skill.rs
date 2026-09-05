@@ -16,6 +16,9 @@ pub(crate) struct ImportLocalSkillRequest {
 pub(crate) struct CreatePlatformSkillRequest {
     /// Complete editor draft, including SKILL.md; absent for the original form.
     pub(crate) files: Option<std::collections::BTreeMap<String, String>>,
+    /// Explicit relative folders, including empty folders created in the editor.
+    #[serde(default)]
+    pub(crate) directories: Vec<String>,
     /// User-visible Skill name used to derive its managed folder name.
     #[serde(default)]
     pub(crate) display_name: String,

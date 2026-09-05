@@ -115,9 +115,10 @@ impl SkillLibraryService {
     pub(crate) async fn create_editor_skill(
         &self,
         files: std::collections::BTreeMap<String, String>,
+        directories: Vec<String>,
     ) -> Result<Skill, AppError> {
         if files.is_empty()
-            || files.len() > 100
+            || files.len() + directories.len() > 100
             || files.values().map(String::len).sum::<usize>() > 10 * 1024 * 1024
         {
             return Err(AppError::InvalidSkill);
@@ -132,7 +133,18 @@ impl SkillLibraryService {
                 return Err(AppError::InvalidSkill);
             }
         }
-        for path in &paths {
+        let mut directory_paths = std::collections::BTreeSet::new();
+        for directory in &directories {
+            let path = directory.to_lowercase();
+            if directory.len() > 240
+                || !directory.split('/').all(is_portable_file_component)
+                || paths.contains(&path)
+                || !directory_paths.insert(path)
+            {
+                return Err(AppError::InvalidSkill);
+            }
+        }
+        for path in paths.iter().chain(directory_paths.iter()) {
             let mut parent = Path::new(path).parent();
             while let Some(directory) = parent {
                 if directory.to_str().is_some_and(|name| paths.contains(name)) {
@@ -177,6 +189,11 @@ impl SkillLibraryService {
             .await
             .map_err(|_| AppError::SkillFilesystemFailed)?;
         let result = async {
+            for directory in directories {
+                tokio::fs::create_dir_all(staging.join(directory))
+                    .await
+                    .map_err(|_| AppError::SkillFilesystemFailed)?;
+            }
             for (path, content) in files {
                 let target = staging.join(path);
                 if let Some(parent) = target.parent() {
@@ -845,11 +862,15 @@ mod tests {
                 ("references/guide.md".to_string(), "# Guide\n".to_string()),
             ]);
             let skill = service
-                .create_editor_skill(files.clone())
+                .create_editor_skill(files.clone(), vec!["scripts".to_string()])
                 .await
                 .expect("editor skill");
             assert_eq!(skill.folder_name, "Release_Notes");
             let saved = root.join("app").join(skill.storage_relative_path);
+            assert!(
+                saved.join("scripts").is_dir(),
+                "empty folders must be saved"
+            );
             assert_eq!(
                 saved.file_name().and_then(|name| name.to_str()),
                 Some("Release_Notes")
@@ -872,11 +893,20 @@ mod tests {
                 "a.",
                 "SKILL.md/child",
             ] {
+                assert!(
+                    matches!(
+                        service
+                            .create_editor_skill(files.clone(), vec![path.to_string()])
+                            .await,
+                        Err(crate::error::AppError::InvalidSkill)
+                    ),
+                    "invalid directory: {path}"
+                );
                 let mut invalid = files.clone();
                 invalid.insert(path.to_string(), "content".to_string());
                 assert!(
                     matches!(
-                        service.create_editor_skill(invalid).await,
+                        service.create_editor_skill(invalid, Vec::new()).await,
                         Err(crate::error::AppError::InvalidSkill)
                     ),
                     "{path}"
@@ -886,7 +916,10 @@ mod tests {
                 "SKILL.md".to_string(),
                 "---\nname: ../escape\ndescription: test\n---".to_string(),
             )]);
-            assert!(service.create_editor_skill(invalid_manifest).await.is_err());
+            assert!(service
+                .create_editor_skill(invalid_manifest, Vec::new())
+                .await
+                .is_err());
             database.close().await.expect("close");
             std::fs::remove_dir_all(root).expect("cleanup");
         });

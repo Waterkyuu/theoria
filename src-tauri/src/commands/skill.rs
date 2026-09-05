@@ -38,7 +38,11 @@ pub(crate) async fn create_platform_skill(
     service: State<'_, SkillLibraryService>,
 ) -> Result<SkillResponse, IpcError> {
     let result = match request.files {
-        Some(files) => service.create_editor_skill(files).await,
+        Some(files) => {
+            service
+                .create_editor_skill(files, request.directories)
+                .await
+        }
         None => {
             service
                 .create_platform_skill(request.display_name, request.description, request.content)
