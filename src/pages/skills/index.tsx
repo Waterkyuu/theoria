@@ -249,6 +249,9 @@ const SkillsPage = () => {
 					isRemovePending={removeSkillsMutation.isPending}
 					isUpdatePending={updateGitSkillMutation.isPending}
 					onManageSkill={setManagedSkill}
+					onEditSkill={(skillId) =>
+						navigate(`/skills/${encodeURIComponent(skillId)}/edit`)
+					}
 					onRemoveSkills={removeSelectedSkills}
 					onUpdateSkill={updateGitSkill}
 					skills={visibleSkills}

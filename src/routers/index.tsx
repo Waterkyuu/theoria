@@ -31,6 +31,7 @@ const BenchmarkPage = lazy(() => import("@/pages/benchmark"));
 const ComparisonHistoryPage = lazy(() => import("@/pages/comparison-history"));
 const RunBoardPage = lazy(() => import("@/pages/run-board"));
 const SkillsPage = lazy(() => import("@/pages/skills"));
+const EditSkillPage = lazy(() => import("@/pages/skills/edit-skill"));
 const CreateSkillPage = lazy(() => import("@/pages/skills/create-skill"));
 const SettingsPage = lazy(() => import("@/pages/settings"));
 
@@ -152,6 +153,7 @@ const RoutedApplication = () => {
 					<Route element={<AgentsPage />} path="/agents" />
 					<Route element={<SkillsPage />} path="/skills" />
 					<Route element={<CreateSkillPage />} path="/skills/create-skill" />
+					<Route element={<EditSkillPage />} path="/skills/:skillId/edit" />
 					<Route element={<BenchmarkPage />} path="/benchmark" />
 					<Route element={<SettingsPage />} path="/settings" />
 					<Route element={<Navigate replace to="/" />} path="*" />

@@ -38,6 +38,32 @@ const PAGINATED_SKILLS = [
 }));
 
 describe("SkillLibraryTable", () => {
+	it("opens the skill from its row without hijacking selection or mount actions", async () => {
+		const user = userEvent.setup();
+		const edit = vi.fn();
+		const manage = vi.fn();
+		render(
+			<SkillLibraryTable
+				isRemovePending={false}
+				isUpdatePending={false}
+				onEditSkill={edit}
+				onManageSkill={manage}
+				onRemoveSkills={vi.fn()}
+				onUpdateSkill={vi.fn()}
+				skills={SKILLS}
+				status={null}
+			/>,
+		);
+		await user.click(screen.getByText("repository-map"));
+		expect(edit).toHaveBeenCalledWith("skill-1");
+		edit.mockClear();
+		await user.click(
+			screen.getByRole("checkbox", { name: /^选择 repository-map/ }),
+		);
+		await user.click(screen.getByRole("button", { name: "挂载" }));
+		expect(edit).not.toHaveBeenCalled();
+		expect(manage).toHaveBeenCalledWith(SKILLS[0]);
+	});
 	it("does not present Skills as owning runtime permissions", () => {
 		render(
 			<SkillLibraryTable
