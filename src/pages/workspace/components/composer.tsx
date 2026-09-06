@@ -403,7 +403,7 @@ const Composer = ({
 							</div>
 							<button
 								aria-label={t("workspace.sendTask")}
-								className="grid size-8 place-items-center rounded-md bg-primary text-on-primary outline-none transition-transform enabled:active:scale-95 disabled:cursor-not-allowed disabled:bg-hairline-strong"
+								className="grid size-8 place-items-center rounded-full bg-primary text-on-primary outline-none transition-transform enabled:active:scale-95 disabled:cursor-not-allowed disabled:bg-hairline-strong"
 								disabled={
 									!prompt.trim() || selectedAgents.length === 0 || isSubmitting
 								}
