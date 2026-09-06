@@ -304,6 +304,13 @@ const enUS = {
 				"A reusable library of capabilities. Mount a skill into one or more Workspaces when needed",
 			addSkill: "Add skill",
 			editor: {
+				editTitle: "Edit skill",
+				saved: "Saved skill {{skill}}",
+				loadFailed: "Unable to read skill files. Please retry.",
+				retry: "Retry",
+				retainedFile:
+					"This file is not text or exceeds the editing size limit. The original file will be retained when saving.",
+
 				selectRoot: "Select root directory",
 				rename: "Rename",
 				delete: "Delete",

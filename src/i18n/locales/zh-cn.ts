@@ -293,6 +293,13 @@ const zhCN = {
 			description: "可复用的能力库。需要时可将技能挂载到一个或多个工作区",
 			addSkill: "添加技能",
 			editor: {
+				editTitle: "编辑技能",
+				saved: "已保存技能 {{skill}}",
+				loadFailed: "无法读取技能文件，请重试。",
+				retry: "重试",
+				retainedFile:
+					"此文件为非文本文件或超出编辑大小限制，保存时会保留原文件。",
+
 				selectRoot: "选择根目录",
 				rename: "重命名",
 				delete: "删除",

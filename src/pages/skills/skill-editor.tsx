@@ -17,7 +17,8 @@ import { PageHeader } from "@/components/share/page-header";
 import { AlertDialog } from "@/components/ui/alert-dialog";
 import { SearchBox } from "@/components/ui/search-box";
 import { handleError } from "@/utils/error";
-import { useCreatePlatformSkill } from "@/queries/skill";
+import { useSaveSkill } from "@/queries/skill";
+import type { EditorSkillFiles } from "@/types/skill";
 import { SkillEditorLayout } from "./components/skill-editor-layout";
 import { FileTree } from "./components/skill-file-tree";
 
@@ -103,14 +104,36 @@ const isEntryPath = (path: string, root: string) =>
 const parentDirectory = (path: string) =>
 	path.slice(0, Math.max(0, path.lastIndexOf("/")));
 
-const SkillEditorPage = () => {
+type SkillEditorPageProps = {
+	/** Existing identity selects replacement instead of creation. */
+	skillId?: string;
+	/** Loaded once before mounting so late query responses cannot erase edits. */
+	initialDraft?: EditorSkillFiles;
+};
+
+/** Reuses the same file operations for new and existing managed directories.
+ * @example <SkillEditorPage skillId="skill-1" initialDraft={draft} />
+ */
+const SkillEditorPage = ({ skillId, initialDraft }: SkillEditorPageProps) => {
 	const { t } = useTranslation();
 	const navigate = useNavigate();
-	const mutation = useCreatePlatformSkill();
-	const [files, setFiles] = useState<Record<string, string>>({
-		"SKILL.md": "---\nname: \ndescription: \n---\n",
-	});
-	const [directories, setDirectories] = useState<string[]>([]);
+	const mutation = useSaveSkill(skillId);
+	const [files, setFiles] = useState<Record<string, string>>(() =>
+		initialDraft
+			? {
+					...Object.fromEntries(
+						Object.keys(initialDraft.retainedFiles).map((path) => [path, ""]),
+					),
+					...initialDraft.files,
+				}
+			: { "SKILL.md": "---\nname: \ndescription: \n---\n" },
+	);
+	const [retainedFiles, setRetainedFiles] = useState(
+		initialDraft?.retainedFiles ?? {},
+	);
+	const [directories, setDirectories] = useState<string[]>(
+		initialDraft?.directories ?? [],
+	);
 	const [entryKind, setEntryKind] = useState<"file" | "folder">("file");
 	const [selectedPath, setSelectedPath] = useState("SKILL.md");
 	const [entryParent, setEntryParent] = useState("");
@@ -138,7 +161,8 @@ const SkillEditorPage = () => {
 		...Object.keys(files),
 		...directories.map((path) => `${path}/`),
 	].filter((path) => path.toLowerCase().includes(filter.toLowerCase()));
-	const markdown = /\.md$/i.test(activePath);
+	const retained = retainedFiles[activePath] !== undefined;
+	const markdown = !retained && /\.md$/i.test(activePath);
 	const content = files[activePath] ?? "";
 	const frontmatter = /^---\r?\n[\s\S]*?\r?\n-{3,}(?:\r?\n|$)/.exec(
 		content,
@@ -213,6 +237,14 @@ const SkillEditorPage = () => {
 					Object.entries(files).map(([file, value]) => [movePath(file), value]),
 				),
 			);
+			setRetainedFiles(
+				Object.fromEntries(
+					Object.entries(retainedFiles).map(([file, source]) => [
+						movePath(file),
+						source,
+					]),
+				),
+			);
 			setDirectories(directories.map(movePath));
 			setActivePath(movePath(activePath));
 			setSelectedPath(movePath(selectedPath));
@@ -242,6 +274,13 @@ const SkillEditorPage = () => {
 			),
 		);
 		setFiles(remaining);
+		setRetainedFiles(
+			Object.fromEntries(
+				Object.entries(retainedFiles).filter(
+					([path]) => !isEntryPath(path, deletingPath),
+				),
+			),
+		);
 		if (isEntryPath(selectedPath, deletingPath))
 			setSelectedPath(parentDirectory(deletingPath));
 		setDirectories(
@@ -265,16 +304,25 @@ const SkillEditorPage = () => {
 		setSaveError(false);
 		try {
 			await mutation.mutateAsync({
-				files,
+				files: Object.fromEntries(
+					Object.entries(files).filter(
+						([path]) => retainedFiles[path] === undefined,
+					),
+				),
 				...(directories.length ? { directories } : {}),
+				...(skillId ? { retainedFiles } : {}),
 			});
-			Toast.toast.success(t("skills.create.success", { skill: metadata.name }));
+			Toast.toast.success(
+				t(skillId ? "skills.editor.saved" : "skills.create.success", {
+					skill: metadata.name,
+				}),
+			);
 			navigate("/skills");
 		} catch (error) {
 			setSaveError(true);
 			handleError(
 				error,
-				"Editor Skill creation failed",
+				"Editor Skill save failed",
 				true,
 				t("skills.editor.saveFailed"),
 			);
@@ -294,7 +342,7 @@ const SkillEditorPage = () => {
 		<main className="flex h-[100dvh] min-w-0 flex-1 flex-col overflow-hidden bg-canvas selection:bg-focus-ring selection:text-ink max-md:h-[calc(100dvh-4rem)]">
 			<PageHeader>
 				<p className="text-body-sm font-medium text-charcoal">
-					{t("skills.addMenu.editor")}
+					{t(skillId ? "skills.editor.editTitle" : "skills.addMenu.editor")}
 				</p>
 			</PageHeader>
 			<div className="flex flex-wrap items-center justify-between gap-2 border-b border-hairline px-4 py-3">
@@ -552,7 +600,11 @@ const SkillEditorPage = () => {
 					<div
 						className={cn("min-h-0 flex-1", preview && markdown && "hidden")}
 					>
-						{activePath ? (
+						{retained ? (
+							<p className="p-6 text-body-sm text-mute">
+								{t("skills.editor.retainedFile")}
+							</p>
+						) : activePath ? (
 							<CodeEditor
 								path={activePath}
 								value={content}

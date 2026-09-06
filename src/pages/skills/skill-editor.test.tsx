@@ -8,7 +8,10 @@ const { mutateAsync, mutation } = vi.hoisted(() => {
 	const mutateAsync = vi.fn();
 	return { mutateAsync, mutation: { mutateAsync, isPending: false } };
 });
-vi.mock("@/queries/skill", () => ({ useCreatePlatformSkill: () => mutation }));
+vi.mock("@/queries/skill", () => ({
+	useCreatePlatformSkill: () => mutation,
+	useSaveSkill: () => mutation,
+}));
 // Isolate the third-party editing engine; exercise draft management and persistence through its public value contract.
 vi.mock("@/components/share/code-editor", () => ({
 	CodeEditor: ({
@@ -378,4 +381,55 @@ it("keeps a resize divider between the document and directory on either side", a
 	expect(screen.getByRole("textbox", { name: "SKILL.md" })).toHaveValue(
 		"---\nname: \ndescription: \n---\n",
 	);
+});
+
+it("opens all existing entries and saves text edits while retaining binary files", async () => {
+	const user = userEvent.setup();
+	const manifest = "---\nname: demo\ndescription: Existing skill\n---\n";
+	render(
+		<MemoryRouter>
+			<SkillEditorPage
+				skillId="skill-1"
+				initialDraft={{
+					files: {
+						"SKILL.md": manifest,
+						"scripts/run.py": "print(1)",
+						".hidden": "hidden",
+					},
+					directories: ["empty", "scripts"],
+					retainedFiles: { "image.bin": "image.bin" },
+				}}
+			/>
+		</MemoryRouter>,
+	);
+	expect(screen.getByRole("textbox", { name: "SKILL.md" })).toHaveValue(
+		manifest,
+	);
+	expect(screen.getByRole("button", { name: ".hidden" })).toBeVisible();
+	expect(screen.getByText("empty")).toBeVisible();
+	await user.click(screen.getByRole("button", { name: "image.bin" }));
+	expect(
+		screen.getByText(
+			"此文件为非文本文件或超出编辑大小限制，保存时会保留原文件。",
+		),
+	).toBeVisible();
+	expect(
+		screen.queryByRole("textbox", { name: "image.bin" }),
+	).not.toBeInTheDocument();
+	await user.click(screen.getByRole("button", { name: "run.py" }));
+	await user.clear(screen.getByRole("textbox", { name: "scripts/run.py" }));
+	await user.type(
+		screen.getByRole("textbox", { name: "scripts/run.py" }),
+		"print(2)",
+	);
+	await user.click(screen.getByRole("button", { name: "保存" }));
+	expect(mutateAsync).toHaveBeenCalledWith({
+		files: {
+			"SKILL.md": manifest,
+			"scripts/run.py": "print(2)",
+			".hidden": "hidden",
+		},
+		directories: ["empty", "scripts"],
+		retainedFiles: { "image.bin": "image.bin" },
+	});
 });
