@@ -168,8 +168,8 @@ const SkillsPage = () => {
 		const actions: Record<SkillAddAction, () => void> = {
 			folder: importSkillFolder,
 			git: () => setIsGitImportOpen(true),
-			platform: () => navigate("/skills/edit-skill"),
-			editor: () => navigate("/skills/edit-skill?mode=editor"),
+			platform: () => navigate("/simple-create-skill"),
+			editor: () => navigate("/skills/edit-skill"),
 		};
 
 		actions[action]();

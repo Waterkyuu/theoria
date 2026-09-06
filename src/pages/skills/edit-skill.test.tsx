@@ -12,7 +12,7 @@ vi.mock("@/api/skill", async (original) => ({
 }));
 
 /** Route parameters select creation or loading while query behavior remains real.
- * @example renderPage("/skills/edit-skill?mode=editor")
+ * @example renderPage("/skills/edit-skill")
  */
 const renderPage = (path = "/skills/edit-skill?skillId=skill-1") =>
 	render(
@@ -75,15 +75,7 @@ it("offers retry after a read failure and opens the retrieved skill", async () =
 });
 
 it("opens a new editor without requesting an existing skill", async () => {
-	renderPage("/skills/edit-skill?mode=editor");
-	expect(await screen.findByRole("button", { name: "保存" })).toBeDisabled();
-	expect(readEditorSkill).not.toHaveBeenCalled();
-});
-
-it("keeps form creation available through the same page", async () => {
 	renderPage("/skills/edit-skill");
-	expect(
-		await screen.findByRole("textbox", { name: "技能名称" }),
-	).toBeVisible();
+	expect(await screen.findByRole("button", { name: "保存" })).toBeDisabled();
 	expect(readEditorSkill).not.toHaveBeenCalled();
 });

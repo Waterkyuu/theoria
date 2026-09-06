@@ -31,6 +31,9 @@ const BenchmarkPage = lazy(() => import("@/pages/benchmark"));
 const ComparisonHistoryPage = lazy(() => import("@/pages/comparison-history"));
 const RunBoardPage = lazy(() => import("@/pages/run-board"));
 const SkillsPage = lazy(() => import("@/pages/skills"));
+const SimpleCreateSkillPage = lazy(
+	() => import("@/pages/skills/simple-create-skill"),
+);
 const EditSkillPage = lazy(() => import("@/pages/skills/edit-skill"));
 const SettingsPage = lazy(() => import("@/pages/settings"));
 
@@ -128,7 +131,10 @@ const RoutedApplication = () => {
 	const navigate = useNavigate();
 
 	return (
-		<AppSidebar currentPath={pathname} onNavigate={(path) => navigate(path)}>
+		<AppSidebar
+			currentPath={pathname === "/simple-create-skill" ? "/skills" : pathname}
+			onNavigate={(path) => navigate(path)}
+		>
 			<Suspense fallback={<RouteLoadingFallback />}>
 				<Routes>
 					<Route element={<StartupRoute />} path="/" />
@@ -151,6 +157,10 @@ const RoutedApplication = () => {
 					<Route element={<RunBoardPage />} path="/runs" />
 					<Route element={<AgentsPage />} path="/agents" />
 					<Route element={<SkillsPage />} path="/skills" />
+					<Route
+						element={<SimpleCreateSkillPage />}
+						path="/simple-create-skill"
+					/>
 					<Route element={<EditSkillPage />} path="/skills/edit-skill" />
 					<Route element={<BenchmarkPage />} path="/benchmark" />
 					<Route element={<SettingsPage />} path="/settings" />
