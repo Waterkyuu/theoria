@@ -380,8 +380,11 @@ describe("WorkspacePage", () => {
 		render(<WorkspacePage />);
 
 		await user.click(screen.getByRole("button", { name: "可写入工作区" }));
-		await user.click(screen.getByRole("option", { name: "只读文件" }));
-		await user.click(screen.getByRole("option", { name: "禁止执行命令" }));
+		await user.click(screen.getByRole("menuitemradio", { name: "只读文件" }));
+		await user.click(
+			screen.getByRole("menuitemradio", { name: "禁止执行命令" }),
+		);
+		await user.keyboard("{Escape}");
 		await user.type(screen.getByRole("textbox", { name: "任务内容" }), "/");
 		await user.click(await screen.findByRole("option", { name: /Codex/ }));
 		await user.type(

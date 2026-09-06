@@ -1,8 +1,9 @@
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 import {
 	Dropdown,
 	type DropdownPopoverProps,
 	Header,
+	type DropdownMenuProps as HeroDropdownMenuProps,
 	Label,
 	Separator,
 } from "@heroui/react";
@@ -27,7 +28,12 @@ type DropdownMenuItemProps<T extends string> = {
 	testId?: string;
 };
 
-type DropdownMenuProps<T extends string> = {
+type DropdownMenuProps<T extends string> = Pick<
+	HeroDropdownMenuProps<object>,
+	"selectionMode" | "selectedKeys" | "onSelectionChange" | "aria-label"
+> & {
+	/** Rich menu items or sections for selection menus; replaces the action item shorthand. */
+	children?: ReactNode;
 	/** Additional classes applied to the floating popover. */
 	className?: string;
 	/** Whether the menu closes after an item is selected. Defaults to true. */
@@ -37,13 +43,13 @@ type DropdownMenuProps<T extends string> = {
 	/** Additional classes applied to every menu item. */
 	itemClassName?: string;
 	/** Business actions rendered by the menu. */
-	items: readonly DropdownMenuItemProps<T>[];
+	items?: readonly DropdownMenuItemProps<T>[];
 	/** Additional classes applied to the menu list. */
 	menuClassName?: string;
 	/** Distance in pixels between the trigger and popover. Defaults to 4. */
 	offset?: DropdownPopoverProps["offset"];
 	/** Receives the selected business action for centralized dispatch. */
-	onAction: (action: T) => void;
+	onAction?: (action: T) => void;
 	/** Preferred popover placement. Defaults to bottom start. */
 	placement?: DropdownPopoverProps["placement"];
 	/** Pressable element that opens the menu, such as a HeroUI Button. */
@@ -51,7 +57,8 @@ type DropdownMenuProps<T extends string> = {
 };
 
 /**
- * Renders a constrained business action menu with translated labels and stable action identifiers.
+ * Shares anchored menu behavior across action menus and rich selection menus.
+ * Existing item descriptors remain available; children support descriptions and independent selection sections.
  *
  * @example
  * <DropdownMenu
@@ -61,11 +68,16 @@ type DropdownMenuProps<T extends string> = {
  * />
  */
 const DropdownMenu = <T extends string>({
+	children,
+	"aria-label": ariaLabel,
+	selectionMode,
+	selectedKeys,
+	onSelectionChange,
 	className,
 	closeOnSelect = true,
 	headerKey,
 	itemClassName,
-	items,
+	items = [],
 	menuClassName,
 	offset = 4,
 	onAction,
@@ -104,7 +116,7 @@ const DropdownMenu = <T extends string>({
 				<Dropdown.SubmenuTrigger key={item.id}>
 					{menuItem}
 					<Dropdown.Popover>
-						<Dropdown.Menu onAction={(key) => onAction(key as T)}>
+						<Dropdown.Menu onAction={(key) => onAction?.(key as T)}>
 							{item.children.map((child) => (
 								<Dropdown.Item
 									key={child.id}
@@ -134,21 +146,26 @@ const DropdownMenu = <T extends string>({
 				placement={placement}
 			>
 				<Dropdown.Menu
+					aria-label={ariaLabel}
+					selectionMode={selectionMode}
+					selectedKeys={selectedKeys}
+					onSelectionChange={onSelectionChange}
 					className={menuClassName}
 					onAction={(key) => {
 						const action = key as T;
-						onAction(action);
+						onAction?.(action);
 					}}
 					shouldCloseOnSelect={closeOnSelect}
 				>
-					{headerKey ? (
-						<Dropdown.Section>
-							<Header>{t(headerKey)}</Header>
-							{renderedItems}
-						</Dropdown.Section>
-					) : (
-						renderedItems
-					)}
+					{children ??
+						(headerKey ? (
+							<Dropdown.Section>
+								<Header>{t(headerKey)}</Header>
+								{renderedItems}
+							</Dropdown.Section>
+						) : (
+							renderedItems
+						))}
 				</Dropdown.Menu>
 			</Dropdown.Popover>
 		</Dropdown>

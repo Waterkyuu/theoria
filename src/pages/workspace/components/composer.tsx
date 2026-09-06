@@ -4,12 +4,14 @@ import {
 	ChevronDown,
 	CircleCheckFill,
 	Paperclip,
-	Puzzle,
-	ShieldCheck,
 } from "@gravity-ui/icons";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { AgentIcon } from "@/components/share/agent-icon";
+import {
+	ComposerPermissionDropdown,
+	ComposerSkillDropdown,
+} from "@/components/share/composer-dropdowns";
 import type {
 	AgentKind,
 	AgentProcessStates,
@@ -52,6 +54,7 @@ type ComposerProps = {
 
 /**
  * Keeps task composition state together while the page owns environment loading and results.
+ * Dropdown primitives manage dismissal and focus without changing the compact toolbar styling.
  *
  * @example
  * <Composer
@@ -83,8 +86,6 @@ const Composer = ({
 	const [commandExecution, setCommandExecution] =
 		useState<CreateTaskRequest["commandExecution"]>("allow");
 	const [isAgentMenuOpen, setIsAgentMenuOpen] = useState(false);
-	const [isSkillMenuOpen, setIsSkillMenuOpen] = useState(false);
-	const [isPermissionMenuOpen, setIsPermissionMenuOpen] = useState(false);
 	const isSlashAutocompleteOpen =
 		isAgentMenuOpen || prompt.trimEnd().endsWith("/");
 
@@ -247,160 +248,20 @@ const Composer = ({
 								<ChevronDown aria-hidden="true" className="size-3" />
 							</button>
 
-							<div className="relative">
-								<button
-									aria-expanded={isSkillMenuOpen}
-									aria-label={t("workspace.mountedSkillCount", {
-										count: workspaceSkillsLocked
-											? availableSkills.length
-											: selectedSkillIds.length,
-									})}
-									className="flex h-8 items-center gap-xs rounded-md px-sm text-caption-sm text-charcoal hover:bg-surface-soft"
-									onClick={() => setIsSkillMenuOpen((open) => !open)}
-									type="button"
-								>
-									<Puzzle aria-hidden="true" className="size-3.5" />
-									<span>
-										{workspaceSkillsLocked
-											? availableSkills.length
-											: selectedSkillIds.length}
-									</span>
-								</button>
-								{isSkillMenuOpen ? (
-									<div
-										aria-label={t("workspace.skillSelection")}
-										className="absolute bottom-[calc(100%+8px)] left-0 max-h-64 w-64 overflow-y-auto rounded-lg border border-hairline bg-canvas p-sm shadow-[0_16px_40px_rgba(0,0,0,0.12)]"
-										role="listbox"
-									>
-										{availableSkills.length > 0 ? (
-											availableSkills.map((skill) => {
-												const selected =
-													workspaceSkillsLocked ||
-													selectedSkillIds.includes(skill.id);
-												return (
-													<button
-														aria-selected={selected}
-														className="flex w-full items-start gap-sm rounded-md px-md py-sm text-left hover:bg-surface-soft disabled:cursor-default"
-														disabled={workspaceSkillsLocked}
-														key={skill.id}
-														onClick={() =>
-															setSelectedSkillIds((current) =>
-																current.includes(skill.id)
-																	? current.filter((id) => id !== skill.id)
-																	: [...current, skill.id],
-															)
-														}
-														role="option"
-														type="button"
-													>
-														<Puzzle
-															aria-hidden="true"
-															className="mt-xs size-4"
-														/>
-														<span className="min-w-0 flex-1">
-															<span className="block truncate text-body-sm font-medium">
-																{skill.displayName}
-															</span>
-															<span className="line-clamp-2 text-caption-sm text-body">
-																{skill.description}
-															</span>
-														</span>
-														{selected ? (
-															<CircleCheckFill
-																aria-hidden="true"
-																className="size-4"
-															/>
-														) : null}
-													</button>
-												);
-											})
-										) : (
-											<p className="px-md py-sm text-caption-sm text-mute">
-												{t("workspace.noSkills")}
-											</p>
-										)}
-									</div>
-								) : null}
-							</div>
+							<ComposerSkillDropdown
+								availableSkills={availableSkills}
+								selectedSkillIds={selectedSkillIds}
+								onSelectionChange={setSelectedSkillIds}
+								workspaceSkillsLocked={workspaceSkillsLocked}
+							/>
 						</div>
 						<div className="flex shrink-0 items-center gap-md">
-							<div className="relative hidden min-[1040px]:block">
-								<button
-									aria-expanded={isPermissionMenuOpen}
-									aria-label={t("workspace.permission")}
-									className="flex h-8 items-center gap-xs rounded-md px-sm text-caption-sm text-body outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
-									onClick={() => setIsPermissionMenuOpen((open) => !open)}
-									type="button"
-								>
-									<ShieldCheck aria-hidden="true" className="size-3.5" />
-									{t(
-										fileAccess === "allow_edits"
-											? "workspace.permission"
-											: "workspace.permissionReadOnly",
-									)}
-								</button>
-								{isPermissionMenuOpen ? (
-									<fieldset
-										aria-label={t("workspace.permissionSelection")}
-										className="absolute bottom-[calc(100%+8px)] right-0 w-64 rounded-lg border border-hairline bg-canvas p-sm shadow-[0_16px_40px_rgba(0,0,0,0.12)]"
-									>
-										<p className="px-md pb-xs text-[11px] font-medium uppercase text-mute">
-											{t("workspace.filePermission")}
-										</p>
-										{(["read_only", "allow_edits"] as const).map((access) => (
-											<button
-												aria-label={t(
-													access === "read_only"
-														? "workspace.permissionReadOnly"
-														: "workspace.permissionAllowEdits",
-												)}
-												aria-selected={fileAccess === access}
-												className="flex w-full items-center justify-between rounded-md px-md py-sm text-left text-body-sm hover:bg-surface-soft"
-												key={access}
-												onClick={() => setFileAccess(access)}
-												role="option"
-												type="button"
-											>
-												{t(
-													access === "read_only"
-														? "workspace.permissionReadOnly"
-														: "workspace.permissionAllowEdits",
-												)}
-												{fileAccess === access ? (
-													<CircleCheckFill
-														aria-hidden="true"
-														className="size-4"
-													/>
-												) : null}
-											</button>
-										))}
-										<p className="mt-xs border-t border-hairline px-md pb-xs pt-sm text-[11px] font-medium uppercase text-mute">
-											{t("workspace.commandPermission")}
-										</p>
-										{(["deny", "ask", "allow"] as const).map((permission) => (
-											<button
-												aria-label={t(
-													`workspace.commandPermissionOption.${permission}`,
-												)}
-												aria-selected={commandExecution === permission}
-												className="flex w-full items-center justify-between rounded-md px-md py-sm text-left text-body-sm hover:bg-surface-soft"
-												key={permission}
-												onClick={() => setCommandExecution(permission)}
-												role="option"
-												type="button"
-											>
-												{t(`workspace.commandPermissionOption.${permission}`)}
-												{commandExecution === permission ? (
-													<CircleCheckFill
-														aria-hidden="true"
-														className="size-4"
-													/>
-												) : null}
-											</button>
-										))}
-									</fieldset>
-								) : null}
-							</div>
+							<ComposerPermissionDropdown
+								fileAccess={fileAccess}
+								commandExecution={commandExecution}
+								onFileAccessChange={setFileAccess}
+								onCommandExecutionChange={setCommandExecution}
+							/>
 							<button
 								aria-label={t("workspace.sendTask")}
 								className="grid size-8 place-items-center rounded-md bg-primary text-on-primary outline-none transition-transform enabled:active:scale-95 disabled:cursor-not-allowed disabled:bg-hairline-strong"
