@@ -1,7 +1,7 @@
 import { Ellipsis } from "@gravity-ui/icons";
 import { useTranslation } from "react-i18next";
-import ReactMarkdown from "react-markdown";
 import { AgentIcon } from "@/components/share/agent-icon";
+import { MarkdownContent } from "@/components/share/markdown-content";
 import type {
 	TaskAgent,
 	TaskAgentResult,
@@ -234,7 +234,7 @@ const AgentPanel = ({
 									{t("taskPanel.run.response")}
 								</p>
 								<div className="mt-2 break-words text-[14px] leading-5 text-ink [&_a]:font-medium [&_a]:text-link [&_a]:underline [&_a]:underline-offset-2 [&_blockquote]:border-l-2 [&_blockquote]:border-hairline-strong [&_blockquote]:pl-3 [&_code]:rounded-sm [&_code]:bg-surface-soft [&_code]:px-1 [&_h1]:font-semibold [&_h2]:font-semibold [&_h3]:font-semibold [&_li]:my-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_p+p]:mt-3 [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-surface-soft [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-5">
-									<ReactMarkdown>{output}</ReactMarkdown>
+									<MarkdownContent>{output}</MarkdownContent>
 								</div>
 							</div>
 						);

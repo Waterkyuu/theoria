@@ -145,3 +145,23 @@ describe("AgentPanel", () => {
 		expect(screen.getByText("执行失败，请检查日志")).toBeInTheDocument();
 	});
 });
+
+it("renders tables and math in Agent responses using the shared Markdown configuration", () => {
+	render(
+		<AgentPanel
+			agent={{ ...RUNNING_AGENT, status: "completed" }}
+			onStop={vi.fn()}
+			prompt="Show the result"
+			stopPending={false}
+			result={{
+				...COMPLETE_RESULT,
+				responseText:
+					"| Formula | Result |\n| --- | --- |\n| $x^2$ | 4 |\n\n$$\n\\frac{1}{2}\n$$",
+			}}
+		/>,
+	);
+	expect(screen.getByRole("table")).toBeVisible();
+	expect(screen.getByRole("columnheader", { name: "Formula" })).toBeVisible();
+	// MathML is readable by assistive technology, but JSDOM does not implement its computed styles.
+	expect(screen.getAllByRole("math", { hidden: true })).toHaveLength(2);
+});

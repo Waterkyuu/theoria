@@ -2,13 +2,16 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { SkillEditorPage } from "./skill-editor";
+import { SkillEditor } from "./skill-editor";
 
 const { mutateAsync, mutation } = vi.hoisted(() => {
 	const mutateAsync = vi.fn();
 	return { mutateAsync, mutation: { mutateAsync, isPending: false } };
 });
-vi.mock("@/queries/skill", () => ({ useCreatePlatformSkill: () => mutation }));
+vi.mock("@/queries/skill", () => ({
+	useCreatePlatformSkill: () => mutation,
+	useSaveSkill: () => mutation,
+}));
 // Isolate the third-party editing engine; exercise draft management and persistence through its public value contract.
 vi.mock("@/components/share/code-editor", () => ({
 	CodeEditor: ({
@@ -35,7 +38,7 @@ const renderEditor = () =>
 	render(
 		<MemoryRouter>
 			<Routes>
-				<Route path="/" element={<SkillEditorPage />} />
+				<Route path="/" element={<SkillEditor />} />
 				<Route path="/skills" element={<h1>技能库</h1>} />
 			</Routes>
 		</MemoryRouter>,
@@ -129,7 +132,7 @@ it("keeps the draft when saving fails and prevents repeat submission while pendi
 	mutation.isPending = true;
 	view.rerender(
 		<MemoryRouter>
-			<SkillEditorPage />
+			<SkillEditor />
 		</MemoryRouter>,
 	);
 	expect(screen.getByRole("button", { name: "保存中…" })).toBeDisabled();
@@ -378,4 +381,125 @@ it("keeps a resize divider between the document and directory on either side", a
 	expect(screen.getByRole("textbox", { name: "SKILL.md" })).toHaveValue(
 		"---\nname: \ndescription: \n---\n",
 	);
+});
+
+it("opens all existing entries and saves text edits while retaining binary files", async () => {
+	const user = userEvent.setup();
+	const manifest = "---\nname: demo\ndescription: Existing skill\n---\n";
+	render(
+		<MemoryRouter>
+			<SkillEditor
+				skillId="skill-1"
+				initialDraft={{
+					files: {
+						"SKILL.md": manifest,
+						"scripts/run.py": "print(1)",
+						".hidden": "hidden",
+					},
+					directories: ["empty", "scripts"],
+					retainedFiles: { "image.bin": "image.bin" },
+				}}
+			/>
+		</MemoryRouter>,
+	);
+	expect(screen.getByRole("textbox", { name: "SKILL.md" })).toHaveValue(
+		manifest,
+	);
+	expect(screen.getByRole("button", { name: ".hidden" })).toBeVisible();
+	expect(screen.getByText("empty")).toBeVisible();
+	await user.click(screen.getByRole("button", { name: "image.bin" }));
+	expect(
+		screen.getByText(
+			"此文件为非文本文件或超出编辑大小限制，保存时会保留原文件。",
+		),
+	).toBeVisible();
+	expect(
+		screen.queryByRole("textbox", { name: "image.bin" }),
+	).not.toBeInTheDocument();
+	await user.click(screen.getByRole("button", { name: "run.py" }));
+	await user.clear(screen.getByRole("textbox", { name: "scripts/run.py" }));
+	await user.type(
+		screen.getByRole("textbox", { name: "scripts/run.py" }),
+		"print(2)",
+	);
+	await user.click(screen.getByRole("button", { name: "保存" }));
+	expect(mutateAsync).toHaveBeenCalledWith({
+		files: {
+			"SKILL.md": manifest,
+			"scripts/run.py": "print(2)",
+			".hidden": "hidden",
+		},
+		directories: ["empty", "scripts"],
+		retainedFiles: { "image.bin": "image.bin" },
+	});
+});
+
+it("renders Markdown tables in preview and preserves their source when switching back", async () => {
+	const user = userEvent.setup();
+	renderEditor();
+	const markdown =
+		"---\nname: demo\ndescription: Table preview\n---\n\n| File | Purpose |\n| :--- | ---: |\n| `SKILL.md` | **Instructions** |\n| guide.md | Reference |\n";
+	await user.clear(screen.getByRole("textbox", { name: "SKILL.md" }));
+	await user.type(screen.getByRole("textbox", { name: "SKILL.md" }), markdown);
+	await user.click(screen.getByRole("button", { name: "预览" }));
+	const table = screen.getByRole("table");
+	expect(
+		within(table).getByRole("columnheader", { name: "File" }),
+	).toBeVisible();
+	expect(
+		within(table).getByRole("cell", { name: "Instructions" }),
+	).toBeVisible();
+	expect(within(table).getAllByRole("row")).toHaveLength(3);
+	await user.click(screen.getByRole("button", { name: "编辑" }));
+	expect(screen.getByRole("textbox", { name: "SKILL.md" })).toHaveValue(
+		markdown,
+	);
+});
+
+it("renders inline and block math while preserving the editable Markdown source", async () => {
+	const user = userEvent.setup();
+	const markdown =
+		"---\nname: math-demo\ndescription: Math preview\n---\n\nInline $E=mc^2$.\n\n$$\n\\frac{a}{b}+\\sqrt{x}\n$$\n";
+	render(
+		<MemoryRouter>
+			<SkillEditor
+				initialDraft={{
+					files: { "SKILL.md": markdown },
+					directories: [],
+					retainedFiles: {},
+				}}
+			/>
+		</MemoryRouter>,
+	);
+	await user.click(screen.getByRole("button", { name: "预览" }));
+	// JSDOM cannot compute MathML styles; inspect its semantic role without a visibility calculation.
+	const formulas = screen.getAllByRole("math", { hidden: true });
+	expect(formulas).toHaveLength(2);
+	expect(formulas[1].getAttribute("display")).toBe("block");
+	await user.click(screen.getByRole("button", { name: "编辑" }));
+	expect(screen.getByRole("textbox", { name: "SKILL.md" })).toHaveValue(
+		markdown,
+	);
+});
+
+it("keeps code literal and leaves the preview usable when a formula is invalid", async () => {
+	const user = userEvent.setup();
+	const markdown =
+		"---\nname: math-demo\ndescription: Math preview\n---\n\n`$literal$`\n\n$\\frac{a}$\n\n# Still readable\n\n$x+1$\n";
+	render(
+		<MemoryRouter>
+			<SkillEditor
+				initialDraft={{
+					files: { "SKILL.md": markdown },
+					directories: [],
+					retainedFiles: {},
+				}}
+			/>
+		</MemoryRouter>,
+	);
+	await user.click(screen.getByRole("button", { name: "预览" }));
+	expect(screen.getByText("$literal$")).toBeVisible();
+	expect(screen.getByText("\\frac{a}")).toBeVisible();
+	expect(screen.getByRole("heading", { name: "Still readable" })).toBeVisible();
+	expect(screen.getAllByRole("math", { hidden: true })).toHaveLength(1);
 });

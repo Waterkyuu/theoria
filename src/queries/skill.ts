@@ -7,11 +7,14 @@ import {
 	listSkills,
 	listWorkspaceSkills,
 	mountWorkspaceSkill,
+	readEditorSkill,
 	removeSkill,
+	saveEditorSkill,
 	unmountWorkspaceSkill,
 	updateGitSkill,
 } from "@/api/skill";
 import { listWorkspaces } from "@/api/workspace";
+import type { EditorSkillFiles } from "@/types/skill";
 
 const skillKeys = {
 	all: ["skills"] as const,
@@ -74,6 +77,46 @@ const useCreatePlatformSkill = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: (input: CreatePlatformSkillInput) => createPlatformSkill(input),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: skillKeys.all });
+		},
+	});
+};
+
+/** Skips directory reads for creation and loads a fresh snapshot for an existing skill.
+ * @example useSkillFiles("skill-1")
+ */
+const useSkillFiles = (skillId?: string) =>
+	useQuery({
+		queryKey: [...skillKeys.all, "files", skillId],
+		queryFn: () => {
+			if (!skillId) throw new Error("A Skill id is required");
+			return readEditorSkill(skillId);
+		},
+		enabled: Boolean(skillId),
+		staleTime: 0,
+		gcTime: 0,
+		refetchOnWindowFocus: false,
+		refetchOnReconnect: false,
+	});
+
+/** Shares saving feedback while choosing create or replace from the editor's stable identity.
+ * @example useSaveSkill("skill-1")
+ */
+const useSaveSkill = (skillId?: string) => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (
+			draft: Pick<EditorSkillFiles, "files"> &
+				Partial<Omit<EditorSkillFiles, "files">>,
+		) =>
+			skillId
+				? saveEditorSkill(skillId, {
+						files: draft.files,
+						directories: draft.directories ?? [],
+						retainedFiles: draft.retainedFiles ?? {},
+					})
+				: createPlatformSkill(draft),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: skillKeys.all });
 		},
@@ -153,6 +196,8 @@ export {
 	useImportSkill,
 	useMountWorkspaceSkill,
 	useRemoveSkills,
+	useSaveSkill,
+	useSkillFiles,
 	useSkillMountCounts,
 	useSkills,
 	useUnmountWorkspaceSkill,

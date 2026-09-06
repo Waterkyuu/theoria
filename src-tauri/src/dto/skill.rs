@@ -100,3 +100,26 @@ impl From<Skill> for SkillResponse {
         }
     }
 }
+
+/// Complete editable directory snapshot; opaque files stay on disk until explicitly removed.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct EditorSkillFiles {
+    /// UTF-8 text files keyed by relative path.
+    pub(crate) files: std::collections::BTreeMap<String, String>,
+    /// All relative directories, including empty directories.
+    pub(crate) directories: Vec<String>,
+    /// Destination-to-original paths for binary or oversized files retained without decoding.
+    pub(crate) retained_files: std::collections::BTreeMap<String, String>,
+}
+
+/// Replaces one managed Skill's contents while preserving its identity and mounts.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SaveEditorSkillRequest {
+    /// Existing managed Skill identifier; never a filesystem path.
+    pub(crate) skill_id: String,
+    /// Complete replacement directory snapshot.
+    #[serde(flatten)]
+    pub(crate) draft: EditorSkillFiles,
+}

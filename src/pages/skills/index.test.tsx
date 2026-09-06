@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import SkillsPage from ".";
-import { CreateSkillPage } from "./create-skill";
+import { SimpleCreateSkillPage } from "./simple-create-skill";
 
 const queryMocks = vi.hoisted(() => ({
 	createPlatformSkill: vi.fn(),
@@ -210,7 +210,11 @@ describe("SkillsPage", () => {
 			screen.getByRole("menuitem", { name: "在 Theoria 中创建" }),
 		);
 		await user.click(screen.getByRole("menuitem", { name: "简单创建" }));
-		expect(navigateMock).toHaveBeenCalledWith("/skills/create-skill");
+		expect(navigateMock).toHaveBeenCalledWith("/simple-create-skill");
+		await user.click(screen.getByText("repository-map"));
+		expect(navigateMock).toHaveBeenLastCalledWith(
+			"/skills/edit-skill?skillId=skill-1",
+		);
 	});
 
 	it("imports a selected local folder from the Add skill menu", async () => {
@@ -289,7 +293,7 @@ describe("SkillsPage", () => {
 		const toastSuccess = vi.spyOn(Toast.toast, "success");
 		render(
 			<MemoryRouter>
-				<CreateSkillPage />
+				<SimpleCreateSkillPage />
 			</MemoryRouter>,
 		);
 
@@ -320,7 +324,7 @@ describe("SkillsPage", () => {
 		const user = userEvent.setup();
 		render(
 			<MemoryRouter>
-				<CreateSkillPage />
+				<SimpleCreateSkillPage />
 			</MemoryRouter>,
 		);
 

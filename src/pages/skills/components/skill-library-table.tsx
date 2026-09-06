@@ -17,6 +17,8 @@ type SkillLibraryItem = Skill & {
 type SkillLibraryStatus = "importFailed" | "loadFailed" | "loading" | null;
 
 type SkillLibraryTableProps = {
+	/** Opens the managed directory for viewing and editing. */
+	onEditSkill?: (skillId: string) => void;
 	/** Whether a Git-backed Skill update is currently pending. */
 	isUpdatePending: boolean;
 	/** Whether selected Skills are currently being removed. */
@@ -52,6 +54,7 @@ const SkillLibraryTable = ({
 	isRemovePending,
 	isUpdatePending,
 	onManageSkill,
+	onEditSkill,
 	onRemoveSkills,
 	onUpdateSkill,
 	skills,
@@ -96,6 +99,9 @@ const SkillLibraryTable = ({
 					onSelectionChange={setSelectedKeys}
 					selectedKeys={selectedKeys}
 					selectionMode="multiple"
+					onRowAction={
+						onEditSkill ? (key) => onEditSkill(String(key)) : undefined
+					}
 				>
 					<Table.Header>
 						<Table.Column className="w-12">

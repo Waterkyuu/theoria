@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { invokeWithResponseSchema } from "@/api/ipc";
-import { CompiledSkillSchema, CompiledSkillsSchema } from "@/types/skill";
+import {
+	CompiledEditorSkillFilesSchema,
+	CompiledSkillSchema,
+	CompiledSkillsSchema,
+	type EditorSkillFiles,
+} from "@/types/skill";
 
 const EmptyResponseSchema = z.compile(z.null());
 const OptionalPathSchema = z.compile(z.string().nullable());
@@ -41,6 +46,24 @@ type CreatePlatformSkillInput =
 const createPlatformSkill = (request: CreatePlatformSkillInput) =>
 	invokeWithResponseSchema("create_platform_skill", CompiledSkillSchema, {
 		request,
+	});
+
+/** Loads the managed directory rather than the original import source.
+ * @example readEditorSkill("skill-1")
+ */
+const readEditorSkill = (skillId: string) =>
+	invokeWithResponseSchema(
+		"read_editor_skill",
+		CompiledEditorSkillFilesSchema,
+		{ request: { skillId } },
+	);
+
+/** Replaces the directory contents while preserving the Skill identity.
+ * @example saveEditorSkill("skill-1", draft)
+ */
+const saveEditorSkill = (skillId: string, draft: EditorSkillFiles) =>
+	invokeWithResponseSchema("save_editor_skill", CompiledSkillSchema, {
+		request: { skillId, ...draft },
 	});
 
 /** Clones every discovered Skill from a Git repository into managed storage. */
@@ -87,7 +110,9 @@ export {
 	listSkills,
 	listWorkspaceSkills,
 	mountWorkspaceSkill,
+	readEditorSkill,
 	removeSkill,
+	saveEditorSkill,
 	selectSkillFolder,
 	unmountWorkspaceSkill,
 	updateGitSkill,
