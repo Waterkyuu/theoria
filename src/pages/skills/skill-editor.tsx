@@ -1,4 +1,4 @@
-import { type FormEvent, type ReactNode, useState } from "react";
+import { type FormEvent, useState } from "react";
 import {
 	ChevronRight,
 	FilePlus,
@@ -10,10 +10,9 @@ import {
 import { Button, Input, TextField, Toast, Tooltip } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
-import ReactMarkdown from "react-markdown";
 import { useNavigate } from "react-router";
-import remarkGfm from "remark-gfm";
 import { CodeEditor } from "@/components/share/code-editor";
+import { MarkdownContent } from "@/components/share/markdown-content";
 import { PageHeader } from "@/components/share/page-header";
 import { AlertDialog } from "@/components/ui/alert-dialog";
 import { SearchBox } from "@/components/ui/search-box";
@@ -22,22 +21,6 @@ import { useSaveSkill } from "@/queries/skill";
 import type { EditorSkillFiles } from "@/types/skill";
 import { SkillEditorLayout } from "./components/skill-editor-layout";
 import { FileTree } from "./components/skill-file-tree";
-
-type MarkdownTableProps = {
-	/** Parsed header and body supplied by the Markdown renderer. */
-	children?: ReactNode;
-};
-
-/** Keeps wide tables scrollable inside the preview without widening the editor.
- * @example <MarkdownTable><tbody><tr><td>Content</td></tr></tbody></MarkdownTable>
- */
-const MarkdownTable = ({ children }: MarkdownTableProps) => (
-	<div className="my-4 max-w-full overflow-x-auto">
-		<table className="w-full border-collapse [&_th]:border [&_th]:border-hairline [&_th]:bg-surface-soft [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-medium [&_td]:border [&_td]:border-hairline [&_td]:px-3 [&_td]:py-2">
-			{children}
-		</table>
-	</div>
-);
 
 /**
  * Rejects filenames that collide or escape on supported desktop platforms.
@@ -638,7 +621,7 @@ const SkillEditorPage = ({ skillId, initialDraft }: SkillEditorPageProps) => {
 						)}
 					</div>
 					{preview && markdown ? (
-						<article className="min-h-0 flex-1 overflow-auto break-words p-6 text-body-sm leading-7 text-ink [&_h1]:mb-4 [&_h1]:text-2xl [&_h1]:font-semibold [&>h2]:my-4 [&>h2]:text-xl [&>h2]:font-semibold [&_h3]:my-3 [&_h3]:font-semibold [&_p]:my-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_pre]:overflow-auto [&_pre]:rounded-md [&_pre]:bg-surface-soft [&_pre]:p-4 [&_blockquote]:border-l-2 [&_blockquote]:border-hairline [&_blockquote]:pl-4 [&_a]:underline">
+						<article className="min-h-0 flex-1 overflow-auto break-words p-6 text-body-sm leading-7 text-ink [&_h1]:mb-4 [&_h1]:text-2xl [&_h1]:font-semibold [&>div>h2]:my-4 [&>div>h2]:text-xl [&>div>h2]:font-semibold [&_h3]:my-3 [&_h3]:font-semibold [&_p]:my-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_pre]:overflow-auto [&_pre]:rounded-md [&_pre]:bg-surface-soft [&_pre]:p-4 [&_blockquote]:border-l-2 [&_blockquote]:border-hairline [&_blockquote]:pl-4 [&_a]:underline">
 							{frontmatter ? (
 								<section
 									aria-label={t("skills.editor.metadata")}
@@ -661,12 +644,9 @@ const SkillEditorPage = ({ skillId, initialDraft }: SkillEditorPageProps) => {
 									</dl>
 								</section>
 							) : null}
-							<ReactMarkdown
-								remarkPlugins={[remarkGfm]}
-								components={{ table: MarkdownTable }}
-							>
+							<MarkdownContent>
 								{frontmatter ? content.slice(frontmatter.length) : content}
-							</ReactMarkdown>
+							</MarkdownContent>
 						</article>
 					) : null}
 				</section>

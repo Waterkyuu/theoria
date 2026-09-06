@@ -455,3 +455,51 @@ it("renders Markdown tables in preview and preserves their source when switching
 		markdown,
 	);
 });
+
+it("renders inline and block math while preserving the editable Markdown source", async () => {
+	const user = userEvent.setup();
+	const markdown =
+		"---\nname: math-demo\ndescription: Math preview\n---\n\nInline $E=mc^2$.\n\n$$\n\\frac{a}{b}+\\sqrt{x}\n$$\n";
+	render(
+		<MemoryRouter>
+			<SkillEditorPage
+				initialDraft={{
+					files: { "SKILL.md": markdown },
+					directories: [],
+					retainedFiles: {},
+				}}
+			/>
+		</MemoryRouter>,
+	);
+	await user.click(screen.getByRole("button", { name: "预览" }));
+	// JSDOM cannot compute MathML styles; inspect its semantic role without a visibility calculation.
+	const formulas = screen.getAllByRole("math", { hidden: true });
+	expect(formulas).toHaveLength(2);
+	expect(formulas[1].getAttribute("display")).toBe("block");
+	await user.click(screen.getByRole("button", { name: "编辑" }));
+	expect(screen.getByRole("textbox", { name: "SKILL.md" })).toHaveValue(
+		markdown,
+	);
+});
+
+it("keeps code literal and leaves the preview usable when a formula is invalid", async () => {
+	const user = userEvent.setup();
+	const markdown =
+		"---\nname: math-demo\ndescription: Math preview\n---\n\n`$literal$`\n\n$\\frac{a}$\n\n# Still readable\n\n$x+1$\n";
+	render(
+		<MemoryRouter>
+			<SkillEditorPage
+				initialDraft={{
+					files: { "SKILL.md": markdown },
+					directories: [],
+					retainedFiles: {},
+				}}
+			/>
+		</MemoryRouter>,
+	);
+	await user.click(screen.getByRole("button", { name: "预览" }));
+	expect(screen.getByText("$literal$")).toBeVisible();
+	expect(screen.getByText("\\frac{a}")).toBeVisible();
+	expect(screen.getByRole("heading", { name: "Still readable" })).toBeVisible();
+	expect(screen.getAllByRole("math", { hidden: true })).toHaveLength(1);
+});
