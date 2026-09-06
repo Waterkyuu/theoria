@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import EditSkillPage from "./edit-skill";
+import EditSkillPage from "./index";
 
 const { readEditorSkill } = vi.hoisted(() => ({ readEditorSkill: vi.fn() }));
 vi.mock("@/api/skill", async (original) => ({
