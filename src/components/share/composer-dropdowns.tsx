@@ -91,7 +91,7 @@ const ComposerSkillDropdown = ({
 							id={skill.id}
 							aria-label={skill.displayName}
 							textValue={skill.displayName}
-							className="flex w-full items-start gap-sm rounded-md px-md py-sm text-left hover:bg-surface-soft disabled:cursor-default"
+							className="flex h-18 w-full shrink-0 items-start gap-sm overflow-hidden rounded-md px-md py-sm text-left hover:bg-surface-soft disabled:cursor-default"
 							isDisabled={workspaceSkillsLocked}
 							key={skill.id}
 						>
