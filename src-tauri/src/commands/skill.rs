@@ -1,6 +1,7 @@
 use crate::dto::skill::{
-    CreatePlatformSkillRequest, ImportGitSkillRequest, ImportLocalSkillRequest,
-    ListWorkspaceSkillsRequest, SkillRequest, SkillResponse, WorkspaceSkillRequest,
+    CreatePlatformSkillRequest, EditorSkillFiles, ImportGitSkillRequest, ImportLocalSkillRequest,
+    ListWorkspaceSkillsRequest, SaveEditorSkillRequest, SkillRequest, SkillResponse,
+    WorkspaceSkillRequest,
 };
 use crate::error::IpcError;
 use crate::platform::skill_folder_picker;
@@ -134,5 +135,35 @@ pub(crate) async fn list_workspace_skills(
         .list_for_workspace(&request.workspace_id)
         .await
         .map(|items| items.into_iter().map(Into::into).collect())
+        .map_err(Into::into)
+}
+
+/// Opens the managed directory as an editor snapshot without touching its import source.
+#[tauri::command]
+pub(crate) async fn read_editor_skill(
+    request: SkillRequest,
+    service: State<'_, SkillLibraryService>,
+) -> Result<EditorSkillFiles, IpcError> {
+    service
+        .read_editor_skill(&request.skill_id)
+        .await
+        .map_err(Into::into)
+}
+
+/// Saves a complete replacement while retaining the existing library entry.
+#[tauri::command]
+pub(crate) async fn save_editor_skill(
+    request: SaveEditorSkillRequest,
+    service: State<'_, SkillLibraryService>,
+) -> Result<SkillResponse, IpcError> {
+    service
+        .save_editor_skill(
+            request.draft.files,
+            request.draft.directories,
+            Some(&request.skill_id),
+            request.draft.retained_files,
+        )
+        .await
+        .map(Into::into)
         .map_err(Into::into)
 }

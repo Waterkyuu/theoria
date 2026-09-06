@@ -339,6 +339,8 @@ pub fn run() {
             commands::skill::import_local_skill,
             commands::skill::select_skill_folder,
             commands::skill::create_platform_skill,
+            commands::skill::read_editor_skill,
+            commands::skill::save_editor_skill,
             commands::skill::import_git_skill,
             commands::skill::list_skills,
             commands::skill::remove_skill,

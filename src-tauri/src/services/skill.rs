@@ -1,4 +1,5 @@
 use crate::domain::skill::{NewSkill, Skill, SkillSourceType};
+use crate::dto::skill::EditorSkillFiles;
 use crate::error::AppError;
 use crate::repositories::skill::SkillRepository;
 use std::path::Path;
@@ -117,8 +118,38 @@ impl SkillLibraryService {
         files: std::collections::BTreeMap<String, String>,
         directories: Vec<String>,
     ) -> Result<Skill, AppError> {
+        self.save_editor_skill(files, directories, None, Default::default())
+            .await
+    }
+
+    /// Reads only the managed copy; hidden files and empty directories are part of the snapshot.
+    pub(crate) async fn read_editor_skill(
+        &self,
+        skill_id: &str,
+    ) -> Result<EditorSkillFiles, AppError> {
+        let skill = self
+            .repository
+            .find(skill_id)
+            .await
+            .map_err(|_| AppError::SkillDatabaseFailed)?
+            .ok_or(AppError::InvalidSkill)?;
+        let root = self.app_data_directory.join(skill.storage_relative_path);
+        tokio::task::spawn_blocking(move || read_editor_directory(&root))
+            .await
+            .map_err(|_| AppError::SkillFilesystemFailed)?
+    }
+
+    /// Validates a full replacement before publishing it; database failure leaves the old directory intact.
+    pub(crate) async fn save_editor_skill(
+        &self,
+        files: std::collections::BTreeMap<String, String>,
+        directories: Vec<String>,
+        skill_id: Option<&str>,
+        retained_files: std::collections::BTreeMap<String, String>,
+    ) -> Result<Skill, AppError> {
         if files.is_empty()
-            || files.len() + directories.len() > 100
+            || files.len() + directories.len() + retained_files.len()
+                > if skill_id.is_some() { 10_000 } else { 100 }
             || files.values().map(String::len).sum::<usize>() > 10 * 1024 * 1024
         {
             return Err(AppError::InvalidSkill);
@@ -127,6 +158,14 @@ impl SkillLibraryService {
         for (path, content) in &files {
             if path.len() > 240
                 || content.len() > 1024 * 1024
+                || !path.split('/').all(is_portable_file_component)
+                || !paths.insert(path.to_lowercase())
+            {
+                return Err(AppError::InvalidSkill);
+            }
+        }
+        for path in retained_files.keys() {
+            if path.len() > 240
                 || !path.split('/').all(is_portable_file_component)
                 || !paths.insert(path.to_lowercase())
             {
@@ -180,6 +219,26 @@ impl SkillLibraryService {
         {
             return Err(AppError::InvalidSkill);
         }
+        let existing = match skill_id {
+            Some(id) => Some(
+                self.repository
+                    .find(id)
+                    .await
+                    .map_err(|_| AppError::SkillDatabaseFailed)?
+                    .ok_or(AppError::InvalidSkill)?,
+            ),
+            None => None,
+        };
+        if !retained_files.is_empty() {
+            let skill = existing.as_ref().ok_or(AppError::InvalidSkill)?;
+            let snapshot = self.read_editor_skill(&skill.id).await?;
+            if retained_files
+                .values()
+                .any(|source| !snapshot.retained_files.contains_key(source))
+            {
+                return Err(AppError::InvalidSkill);
+            }
+        }
         let staging = self.app_data_directory.join("skill-staging").join(format!(
             "editor-{}-{}",
             current_time_ms()?,
@@ -195,15 +254,91 @@ impl SkillLibraryService {
                     .map_err(|_| AppError::SkillFilesystemFailed)?;
             }
             for (path, content) in files {
-                let target = staging.join(path);
+                let target = staging.join(&path);
                 if let Some(parent) = target.parent() {
                     tokio::fs::create_dir_all(parent)
                         .await
                         .map_err(|_| AppError::SkillFilesystemFailed)?;
                 }
-                tokio::fs::write(target, content)
+                tokio::fs::write(&target, content)
                     .await
                     .map_err(|_| AppError::SkillFilesystemFailed)?;
+                if let Some(skill) = &existing {
+                    let source = self
+                        .app_data_directory
+                        .join(&skill.storage_relative_path)
+                        .join(&path);
+                    match tokio::fs::symlink_metadata(source).await {
+                        Ok(metadata) if metadata.is_file() => {
+                            // Replacing text must not remove executable permissions from existing scripts.
+                            tokio::fs::set_permissions(&target, metadata.permissions())
+                                .await
+                                .map_err(|_| AppError::SkillFilesystemFailed)?;
+                        }
+                        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                        _ => return Err(AppError::SkillFilesystemFailed),
+                    }
+                }
+            }
+            if let Some(skill) = existing {
+                let original = self.app_data_directory.join(&skill.storage_relative_path);
+                for (target, source) in retained_files {
+                    let destination = staging.join(target);
+                    if let Some(parent) = destination.parent() {
+                        tokio::fs::create_dir_all(parent)
+                            .await
+                            .map_err(|_| AppError::SkillFilesystemFailed)?;
+                    }
+                    let source = original.join(source);
+                    let canonical = tokio::fs::canonicalize(&source)
+                        .await
+                        .map_err(|_| AppError::InvalidSkill)?;
+                    let root = tokio::fs::canonicalize(&original)
+                        .await
+                        .map_err(|_| AppError::InvalidSkill)?;
+                    if !canonical.starts_with(root)
+                        || tokio::fs::symlink_metadata(&source)
+                            .await
+                            .map_err(|_| AppError::InvalidSkill)?
+                            .file_type()
+                            .is_symlink()
+                    {
+                        return Err(AppError::InvalidSkill);
+                    }
+                    tokio::fs::copy(source, destination)
+                        .await
+                        .map_err(|_| AppError::SkillFilesystemFailed)?;
+                }
+                let relative = PathBuf::from("skills")
+                    .join(&skill.id)
+                    .join(format!(
+                        "edit-{}-{}",
+                        current_time_ms()?,
+                        SKILL_ID_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+                    ))
+                    .join(&name);
+                let destination = self.app_data_directory.join(&relative);
+                tokio::fs::create_dir_all(destination.parent().ok_or(AppError::InvalidSkill)?)
+                    .await
+                    .map_err(|_| AppError::SkillFilesystemFailed)?;
+                tokio::fs::rename(&staging, &destination)
+                    .await
+                    .map_err(|_| AppError::SkillFilesystemFailed)?;
+                let result = self
+                    .repository
+                    .update_from_editor(&skill.id, name, description, relative, current_time_ms()?)
+                    .await;
+                match result {
+                    Ok(saved) => {
+                        // The published database path owns the new snapshot; cleanup cannot undo a successful save.
+                        let _cleanup_result = tokio::fs::remove_dir_all(original).await;
+                        return Ok(saved);
+                    }
+                    Err(_) => {
+                        let _cleanup_result = tokio::fs::remove_dir_all(destination).await;
+                        return Err(AppError::SkillDatabaseFailed);
+                    }
+                }
             }
             self.store_directory(
                 staging.clone(),
@@ -499,6 +634,73 @@ impl SkillLibraryService {
             .await
             .map_err(|_| AppError::SkillDatabaseFailed)
     }
+}
+
+/// Bounds text payloads while retaining every regular file, including binary assets, on disk.
+fn read_editor_directory(root: &Path) -> Result<EditorSkillFiles, AppError> {
+    use std::io::Read;
+    let mut draft = EditorSkillFiles {
+        files: Default::default(),
+        directories: Vec::new(),
+        retained_files: Default::default(),
+    };
+    let mut pending = vec![root.to_path_buf()];
+    let mut text_bytes = 0;
+    while let Some(directory) = pending.pop() {
+        if std::fs::symlink_metadata(&directory)
+            .map_err(|_| AppError::SkillFilesystemFailed)?
+            .file_type()
+            .is_symlink()
+        {
+            return Err(AppError::InvalidSkill);
+        }
+        for entry in std::fs::read_dir(directory).map_err(|_| AppError::SkillFilesystemFailed)? {
+            let entry = entry.map_err(|_| AppError::SkillFilesystemFailed)?;
+            let path = entry.path();
+            let relative = path
+                .strip_prefix(root)
+                .map_err(|_| AppError::InvalidSkill)?
+                .to_str()
+                .ok_or(AppError::InvalidSkill)?
+                .replace(std::path::MAIN_SEPARATOR, "/");
+            let kind = entry
+                .file_type()
+                .map_err(|_| AppError::SkillFilesystemFailed)?;
+            if kind.is_symlink() || relative.len() > 240 {
+                return Err(AppError::InvalidSkill);
+            }
+            if kind.is_dir() {
+                draft.directories.push(relative);
+                pending.push(path);
+            } else if kind.is_file() {
+                let mut bytes = Vec::new();
+                std::fs::File::open(path)
+                    .map_err(|_| AppError::SkillFilesystemFailed)?
+                    .take(1024 * 1024 + 1)
+                    .read_to_end(&mut bytes)
+                    .map_err(|_| AppError::SkillFilesystemFailed)?;
+                let editable = bytes.len() <= 1024 * 1024
+                    && !bytes.contains(&0)
+                    && text_bytes + bytes.len() <= 10 * 1024 * 1024;
+                match String::from_utf8(bytes) {
+                    Ok(content) if editable => {
+                        text_bytes += content.len();
+                        draft.files.insert(relative, content);
+                    }
+                    _ => {
+                        draft.retained_files.insert(relative.clone(), relative);
+                    }
+                }
+            } else {
+                return Err(AppError::InvalidSkill);
+            }
+            if draft.files.len() + draft.directories.len() + draft.retained_files.len() > 10_000 {
+                return Err(AppError::InvalidSkill);
+            }
+        }
+    }
+    draft.directories.sort();
+    Ok(draft)
 }
 
 /// Accepts portable project Skill directory names only.
@@ -837,6 +1039,131 @@ mod tests {
 
             database.close().await.expect("database should close");
             std::fs::remove_dir_all(root).expect("fixture should be removable");
+        });
+    }
+
+    #[test]
+    fn reopens_and_edits_a_skill_without_losing_files_or_identity() {
+        tauri::async_runtime::block_on(async {
+            let sequence = RESOURCE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+            let root = std::env::temp_dir()
+                .join(format!("theoria-reedit-{}-{sequence}", std::process::id()));
+            std::fs::create_dir_all(&root).unwrap();
+            let database = connect_sqlite(&format!(
+                "sqlite://{}?mode=rwc",
+                root.join("db.sqlite").display()
+            ))
+            .await
+            .unwrap();
+            Migrator::up(&database, None).await.unwrap();
+            let service =
+                SkillLibraryService::new(SkillRepository::new(database.clone()), root.join("app"));
+            let skill = service
+                .create_editor_skill(
+                    std::collections::BTreeMap::from([
+                        (
+                            "SKILL.md".into(),
+                            "---\nname: demo\ndescription: Before\n---\n".into(),
+                        ),
+                        ("scripts/run.py".into(), "print('before')".into()),
+                        (".hidden".into(), "hidden".into()),
+                    ]),
+                    vec!["empty".into()],
+                )
+                .await
+                .unwrap();
+            let old_path = root.join("app").join(&skill.storage_relative_path);
+            std::fs::write(old_path.join("image.bin"), [0, 255, 1]).unwrap();
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                std::fs::set_permissions(
+                    old_path.join(".hidden"),
+                    std::fs::Permissions::from_mode(0o755),
+                )
+                .unwrap();
+            }
+            let mut draft = service.read_editor_skill(&skill.id).await.unwrap();
+            assert_eq!(draft.files["scripts/run.py"], "print('before')");
+            assert_eq!(draft.files[".hidden"], "hidden");
+            assert!(draft.directories.contains(&"empty".to_string()));
+            assert_eq!(draft.retained_files["image.bin"], "image.bin");
+            draft.files.insert(
+                "SKILL.md".into(),
+                "---\nname: renamed\ndescription: After\n---\n".into(),
+            );
+            draft.files.remove("scripts/run.py");
+            draft
+                .files
+                .insert("scripts/new.py".into(), "print('after')".into());
+            draft.retained_files =
+                std::collections::BTreeMap::from([("assets/image.bin".into(), "image.bin".into())]);
+            let saved = service
+                .save_editor_skill(
+                    draft.files.clone(),
+                    draft.directories.clone(),
+                    Some(&skill.id),
+                    draft.retained_files.clone(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(saved.id, skill.id);
+            assert_eq!(saved.created_at_ms, skill.created_at_ms);
+            assert_eq!(saved.folder_name, "renamed");
+            assert_eq!(saved.description, "After");
+            assert_eq!(service.list().await.unwrap().len(), 1);
+            let saved_path = root.join("app").join(&saved.storage_relative_path);
+            assert_eq!(saved_path.file_name().unwrap(), "renamed");
+            assert!(!saved_path.join("scripts/run.py").exists());
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                assert_eq!(
+                    std::fs::metadata(saved_path.join(".hidden"))
+                        .unwrap()
+                        .permissions()
+                        .mode()
+                        & 0o777,
+                    0o755
+                );
+            }
+            assert_eq!(
+                std::fs::read(saved_path.join("assets/image.bin")).unwrap(),
+                [0, 255, 1]
+            );
+            assert_eq!(
+                service.read_editor_skill(&skill.id).await.unwrap().files["scripts/new.py"],
+                "print('after')"
+            );
+            draft.files.insert(
+                "SKILL.md".into(),
+                "---\nname: \ndescription: \n---\n".into(),
+            );
+            assert!(service
+                .save_editor_skill(
+                    draft.files,
+                    draft.directories,
+                    Some(&skill.id),
+                    Default::default()
+                )
+                .await
+                .is_err());
+            assert_eq!(
+                service.read_editor_skill(&skill.id).await.unwrap().files["SKILL.md"],
+                "---\nname: renamed\ndescription: After\n---\n"
+            );
+            let current = service.read_editor_skill(&skill.id).await.unwrap();
+            assert!(service
+                .save_editor_skill(
+                    current.files,
+                    current.directories,
+                    Some(&skill.id),
+                    std::collections::BTreeMap::from([("escape".into(), "../db.sqlite".into())])
+                )
+                .await
+                .is_err());
+            database.close().await.unwrap();
+            std::fs::remove_dir_all(root).unwrap();
         });
     }
 
