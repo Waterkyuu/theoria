@@ -11,17 +11,19 @@ vi.mock("@/api/skill", async (original) => ({
 	readEditorSkill,
 }));
 
-/** Route parameters select the managed directory; queries remain real to cover loading and retry. */
-const renderPage = () =>
+/** Route parameters select creation or loading while query behavior remains real.
+ * @example renderPage("/skills/edit-skill?mode=editor")
+ */
+const renderPage = (path = "/skills/edit-skill?skillId=skill-1") =>
 	render(
 		<QueryClientProvider
 			client={
 				new QueryClient({ defaultOptions: { queries: { retry: false } } })
 			}
 		>
-			<MemoryRouter initialEntries={["/skills/skill-1/edit"]}>
+			<MemoryRouter initialEntries={[path]}>
 				<Routes>
-					<Route path="/skills/:skillId/edit" element={<EditSkillPage />} />
+					<Route path="/skills/edit-skill" element={<EditSkillPage />} />
 				</Routes>
 			</MemoryRouter>
 		</QueryClientProvider>,
@@ -70,4 +72,18 @@ it("offers retry after a read failure and opens the retrieved skill", async () =
 	expect(await screen.findByText("empty")).toBeVisible();
 	expect(readEditorSkill).toHaveBeenLastCalledWith("skill-1");
 	expect(screen.getByRole("button", { name: "保存" })).toBeEnabled();
+});
+
+it("opens a new editor without requesting an existing skill", async () => {
+	renderPage("/skills/edit-skill?mode=editor");
+	expect(await screen.findByRole("button", { name: "保存" })).toBeDisabled();
+	expect(readEditorSkill).not.toHaveBeenCalled();
+});
+
+it("keeps form creation available through the same page", async () => {
+	renderPage("/skills/edit-skill");
+	expect(
+		await screen.findByRole("textbox", { name: "技能名称" }),
+	).toBeVisible();
+	expect(readEditorSkill).not.toHaveBeenCalled();
 });

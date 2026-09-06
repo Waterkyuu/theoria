@@ -168,8 +168,8 @@ const SkillsPage = () => {
 		const actions: Record<SkillAddAction, () => void> = {
 			folder: importSkillFolder,
 			git: () => setIsGitImportOpen(true),
-			platform: () => navigate("/skills/create-skill"),
-			editor: () => navigate("/skills/create-skill?mode=editor"),
+			platform: () => navigate("/skills/edit-skill"),
+			editor: () => navigate("/skills/edit-skill?mode=editor"),
 		};
 
 		actions[action]();
@@ -250,7 +250,9 @@ const SkillsPage = () => {
 					isUpdatePending={updateGitSkillMutation.isPending}
 					onManageSkill={setManagedSkill}
 					onEditSkill={(skillId) =>
-						navigate(`/skills/${encodeURIComponent(skillId)}/edit`)
+						navigate(
+							`/skills/edit-skill?skillId=${encodeURIComponent(skillId)}`,
+						)
 					}
 					onRemoveSkills={removeSelectedSkills}
 					onUpdateSkill={updateGitSkill}

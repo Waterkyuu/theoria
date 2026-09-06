@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import SkillsPage from ".";
-import { CreateSkillPage } from "./create-skill";
+import { EditSkillPage } from "./edit-skill";
 
 const queryMocks = vi.hoisted(() => ({
 	createPlatformSkill: vi.fn(),
@@ -34,6 +34,7 @@ vi.mock("@/api/skill", () => ({
 }));
 
 vi.mock("@/queries/skill", () => ({
+	useSkillFiles: () => ({}),
 	useCreatePlatformSkill: () => ({
 		mutateAsync: queryMocks.createPlatformSkill,
 		isPending: false,
@@ -210,7 +211,11 @@ describe("SkillsPage", () => {
 			screen.getByRole("menuitem", { name: "在 Theoria 中创建" }),
 		);
 		await user.click(screen.getByRole("menuitem", { name: "简单创建" }));
-		expect(navigateMock).toHaveBeenCalledWith("/skills/create-skill");
+		expect(navigateMock).toHaveBeenCalledWith("/skills/edit-skill");
+		await user.click(screen.getByText("repository-map"));
+		expect(navigateMock).toHaveBeenLastCalledWith(
+			"/skills/edit-skill?skillId=skill-1",
+		);
 	});
 
 	it("imports a selected local folder from the Add skill menu", async () => {
@@ -289,7 +294,7 @@ describe("SkillsPage", () => {
 		const toastSuccess = vi.spyOn(Toast.toast, "success");
 		render(
 			<MemoryRouter>
-				<CreateSkillPage />
+				<EditSkillPage />
 			</MemoryRouter>,
 		);
 
@@ -320,7 +325,7 @@ describe("SkillsPage", () => {
 		const user = userEvent.setup();
 		render(
 			<MemoryRouter>
-				<CreateSkillPage />
+				<EditSkillPage />
 			</MemoryRouter>,
 		);
 

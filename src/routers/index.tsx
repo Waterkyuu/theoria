@@ -32,7 +32,6 @@ const ComparisonHistoryPage = lazy(() => import("@/pages/comparison-history"));
 const RunBoardPage = lazy(() => import("@/pages/run-board"));
 const SkillsPage = lazy(() => import("@/pages/skills"));
 const EditSkillPage = lazy(() => import("@/pages/skills/edit-skill"));
-const CreateSkillPage = lazy(() => import("@/pages/skills/create-skill"));
 const SettingsPage = lazy(() => import("@/pages/settings"));
 
 const RouteLoadingFallback = () => {
@@ -152,8 +151,7 @@ const RoutedApplication = () => {
 					<Route element={<RunBoardPage />} path="/runs" />
 					<Route element={<AgentsPage />} path="/agents" />
 					<Route element={<SkillsPage />} path="/skills" />
-					<Route element={<CreateSkillPage />} path="/skills/create-skill" />
-					<Route element={<EditSkillPage />} path="/skills/:skillId/edit" />
+					<Route element={<EditSkillPage />} path="/skills/edit-skill" />
 					<Route element={<BenchmarkPage />} path="/benchmark" />
 					<Route element={<SettingsPage />} path="/settings" />
 					<Route element={<Navigate replace to="/" />} path="*" />
