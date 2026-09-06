@@ -52,8 +52,8 @@ test("editor assets fit the explicit frontend budgets", () => {
 
 test("frontend budgets accept the boundary and reject one extra byte", () => {
 	for (const [name, budget] of [
-		["dist total (bytes)", 3550000],
-		["JavaScript (bytes)", 3100000],
+		["dist total (bytes)", 5200000],
+		["JavaScript (bytes)", 3500000],
 	]) {
 		assert.equal(
 			compareMetrics({ [name]: 100 }, { [name]: budget }).failed,
@@ -88,6 +88,14 @@ test("the offline language catalog fits the frontend budgets", () => {
 	const result = compareMetrics(
 		{ "dist total (bytes)": 1649805, "JavaScript (bytes)": 1197382 },
 		{ "dist total (bytes)": 3337005, "JavaScript (bytes)": 2881164 },
+	);
+	assert.equal(result.failed, false);
+});
+
+test("Markdown math and offline fonts fit the frontend budgets", () => {
+	const result = compareMetrics(
+		{ "dist total (bytes)": 4858503, "JavaScript (bytes)": 3266113 },
+		{ "dist total (bytes)": 4860384, "JavaScript (bytes)": 3267913 },
 	);
 	assert.equal(result.failed, false);
 });
