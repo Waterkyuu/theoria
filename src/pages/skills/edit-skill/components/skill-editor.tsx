@@ -361,18 +361,30 @@ const SkillEditor = ({ skillId, initialDraft }: SkillEditorProps) => {
 					</span>
 				</div>
 				<div className="flex items-center gap-2">
-					<Button
-						size="sm"
-						variant="primary"
-						isDisabled={!metadata || mutation.isPending}
-						onPress={save}
-					>
-						{t(
-							mutation.isPending
-								? "skills.editor.saving"
-								: "skills.editor.save",
-						)}
-					</Button>
+					<Tooltip delay={0} isDisabled={Boolean(metadata)}>
+						<Tooltip.Trigger
+							role="group"
+							aria-label={t("skills.editor.save")}
+							tabIndex={metadata ? -1 : 0}
+						>
+							<Button
+								className={!metadata ? "pointer-events-none" : undefined}
+								size="sm"
+								variant="primary"
+								isDisabled={!metadata || mutation.isPending}
+								onPress={save}
+							>
+								{t(
+									mutation.isPending
+										? "skills.editor.saving"
+										: "skills.editor.save",
+								)}
+							</Button>
+						</Tooltip.Trigger>
+						<Tooltip.Content placement="bottom">
+							{t("skills.editor.saveDisabledHint")}
+						</Tooltip.Content>
+					</Tooltip>
 				</div>
 			</div>
 			<SkillEditorLayout

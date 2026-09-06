@@ -330,6 +330,8 @@ const enUS = {
 				moveLeft: "Move files to left",
 				moveRight: "Move files to right",
 				save: "Save",
+				saveDisabledHint:
+					"Complete the name and description in SKILL.md before saving.",
 				saving: "Saving…",
 				edit: "Edit",
 				preview: "Preview",

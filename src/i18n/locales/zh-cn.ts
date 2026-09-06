@@ -318,6 +318,8 @@ const zhCN = {
 				moveLeft: "目录移到左侧",
 				moveRight: "目录移到右侧",
 				save: "保存",
+				saveDisabledHint:
+					"请完整填写 SKILL.md 的 name 和 description 后再保存。",
 				saving: "保存中…",
 				edit: "编辑",
 				preview: "预览",
