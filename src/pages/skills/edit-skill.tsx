@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router";
 import { Loading } from "@/components/ui/loading";
 import { useSkillFiles } from "@/queries/skill";
-import { SkillEditorPage } from "./skill-editor";
+import { SkillEditor } from "./components/skill-editor";
 
 const EditSkillPage = () => {
 	const { skillId = "" } = useParams();
@@ -30,11 +30,7 @@ const EditSkillPage = () => {
 			</main>
 		);
 	return (
-		<SkillEditorPage
-			key={skillId}
-			skillId={skillId}
-			initialDraft={query.data}
-		/>
+		<SkillEditor key={skillId} skillId={skillId} initialDraft={query.data} />
 	);
 };
 

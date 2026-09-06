@@ -19,8 +19,8 @@ import { SearchBox } from "@/components/ui/search-box";
 import { handleError } from "@/utils/error";
 import { useSaveSkill } from "@/queries/skill";
 import type { EditorSkillFiles } from "@/types/skill";
-import { SkillEditorLayout } from "./components/skill-editor-layout";
-import { FileTree } from "./components/skill-file-tree";
+import { SkillEditorLayout } from "./skill-editor-layout";
+import { FileTree } from "./skill-file-tree";
 
 /**
  * Rejects filenames that collide or escape on supported desktop platforms.
@@ -104,7 +104,7 @@ const isEntryPath = (path: string, root: string) =>
 const parentDirectory = (path: string) =>
 	path.slice(0, Math.max(0, path.lastIndexOf("/")));
 
-type SkillEditorPageProps = {
+type SkillEditorProps = {
 	/** Existing identity selects replacement instead of creation. */
 	skillId?: string;
 	/** Loaded once before mounting so late query responses cannot erase edits. */
@@ -112,9 +112,9 @@ type SkillEditorPageProps = {
 };
 
 /** Reuses the same file operations for new and existing managed directories.
- * @example <SkillEditorPage skillId="skill-1" initialDraft={draft} />
+ * @example <SkillEditor skillId="skill-1" initialDraft={draft} />
  */
-const SkillEditorPage = ({ skillId, initialDraft }: SkillEditorPageProps) => {
+const SkillEditor = ({ skillId, initialDraft }: SkillEditorProps) => {
 	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const mutation = useSaveSkill(skillId);
@@ -687,4 +687,4 @@ const SkillEditorPage = ({ skillId, initialDraft }: SkillEditorPageProps) => {
 	);
 };
 
-export { SkillEditorPage };
+export { SkillEditor };

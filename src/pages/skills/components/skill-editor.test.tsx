@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { SkillEditorPage } from "./skill-editor";
+import { SkillEditor } from "./skill-editor";
 
 const { mutateAsync, mutation } = vi.hoisted(() => {
 	const mutateAsync = vi.fn();
@@ -38,7 +38,7 @@ const renderEditor = () =>
 	render(
 		<MemoryRouter>
 			<Routes>
-				<Route path="/" element={<SkillEditorPage />} />
+				<Route path="/" element={<SkillEditor />} />
 				<Route path="/skills" element={<h1>技能库</h1>} />
 			</Routes>
 		</MemoryRouter>,
@@ -132,7 +132,7 @@ it("keeps the draft when saving fails and prevents repeat submission while pendi
 	mutation.isPending = true;
 	view.rerender(
 		<MemoryRouter>
-			<SkillEditorPage />
+			<SkillEditor />
 		</MemoryRouter>,
 	);
 	expect(screen.getByRole("button", { name: "保存中…" })).toBeDisabled();
@@ -388,7 +388,7 @@ it("opens all existing entries and saves text edits while retaining binary files
 	const manifest = "---\nname: demo\ndescription: Existing skill\n---\n";
 	render(
 		<MemoryRouter>
-			<SkillEditorPage
+			<SkillEditor
 				skillId="skill-1"
 				initialDraft={{
 					files: {
@@ -462,7 +462,7 @@ it("renders inline and block math while preserving the editable Markdown source"
 		"---\nname: math-demo\ndescription: Math preview\n---\n\nInline $E=mc^2$.\n\n$$\n\\frac{a}{b}+\\sqrt{x}\n$$\n";
 	render(
 		<MemoryRouter>
-			<SkillEditorPage
+			<SkillEditor
 				initialDraft={{
 					files: { "SKILL.md": markdown },
 					directories: [],
@@ -488,7 +488,7 @@ it("keeps code literal and leaves the preview usable when a formula is invalid",
 		"---\nname: math-demo\ndescription: Math preview\n---\n\n`$literal$`\n\n$\\frac{a}$\n\n# Still readable\n\n$x+1$\n";
 	render(
 		<MemoryRouter>
-			<SkillEditorPage
+			<SkillEditor
 				initialDraft={{
 					files: { "SKILL.md": markdown },
 					directories: [],

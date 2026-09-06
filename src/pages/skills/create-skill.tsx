@@ -13,9 +13,9 @@ import { PageHeader } from "@/components/share/page-header";
 import { handleError } from "@/utils/error";
 import { useCreatePlatformSkill } from "@/queries/skill";
 
-const SkillEditorPage = lazy(() =>
-	import("./skill-editor").then((module) => ({
-		default: module.SkillEditorPage,
+const SkillEditor = lazy(() =>
+	import("./components/skill-editor").then((module) => ({
+		default: module.SkillEditor,
 	})),
 );
 
@@ -23,7 +23,7 @@ const CreateSkillPage = () => {
 	const [params] = useSearchParams();
 	return params.get("mode") === "editor" ? (
 		<Suspense>
-			<SkillEditorPage />
+			<SkillEditor />
 		</Suspense>
 	) : (
 		<SimpleCreateSkillPage />
