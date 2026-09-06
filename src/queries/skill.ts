@@ -83,13 +83,17 @@ const useCreatePlatformSkill = () => {
 	});
 };
 
-/** Loads a fresh snapshot on each editor visit without overwriting an active draft.
+/** Skips directory reads for creation and loads a fresh snapshot for an existing skill.
  * @example useSkillFiles("skill-1")
  */
-const useSkillFiles = (skillId: string) =>
+const useSkillFiles = (skillId?: string) =>
 	useQuery({
 		queryKey: [...skillKeys.all, "files", skillId],
-		queryFn: () => readEditorSkill(skillId),
+		queryFn: () => {
+			if (!skillId) throw new Error("A Skill id is required");
+			return readEditorSkill(skillId);
+		},
+		enabled: Boolean(skillId),
 		staleTime: 0,
 		gcTime: 0,
 		refetchOnWindowFocus: false,
