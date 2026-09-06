@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type ReactNode, useState } from "react";
 import {
 	ChevronRight,
 	FilePlus,
@@ -12,6 +12,7 @@ import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
 import { useNavigate } from "react-router";
+import remarkGfm from "remark-gfm";
 import { CodeEditor } from "@/components/share/code-editor";
 import { PageHeader } from "@/components/share/page-header";
 import { AlertDialog } from "@/components/ui/alert-dialog";
@@ -21,6 +22,22 @@ import { useSaveSkill } from "@/queries/skill";
 import type { EditorSkillFiles } from "@/types/skill";
 import { SkillEditorLayout } from "./components/skill-editor-layout";
 import { FileTree } from "./components/skill-file-tree";
+
+type MarkdownTableProps = {
+	/** Parsed header and body supplied by the Markdown renderer. */
+	children?: ReactNode;
+};
+
+/** Keeps wide tables scrollable inside the preview without widening the editor.
+ * @example <MarkdownTable><tbody><tr><td>Content</td></tr></tbody></MarkdownTable>
+ */
+const MarkdownTable = ({ children }: MarkdownTableProps) => (
+	<div className="my-4 max-w-full overflow-x-auto">
+		<table className="w-full border-collapse [&_th]:border [&_th]:border-hairline [&_th]:bg-surface-soft [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-medium [&_td]:border [&_td]:border-hairline [&_td]:px-3 [&_td]:py-2">
+			{children}
+		</table>
+	</div>
+);
 
 /**
  * Rejects filenames that collide or escape on supported desktop platforms.
@@ -644,7 +661,10 @@ const SkillEditorPage = ({ skillId, initialDraft }: SkillEditorPageProps) => {
 									</dl>
 								</section>
 							) : null}
-							<ReactMarkdown>
+							<ReactMarkdown
+								remarkPlugins={[remarkGfm]}
+								components={{ table: MarkdownTable }}
+							>
 								{frontmatter ? content.slice(frontmatter.length) : content}
 							</ReactMarkdown>
 						</article>

@@ -433,3 +433,25 @@ it("opens all existing entries and saves text edits while retaining binary files
 		retainedFiles: { "image.bin": "image.bin" },
 	});
 });
+
+it("renders Markdown tables in preview and preserves their source when switching back", async () => {
+	const user = userEvent.setup();
+	renderEditor();
+	const markdown =
+		"---\nname: demo\ndescription: Table preview\n---\n\n| File | Purpose |\n| :--- | ---: |\n| `SKILL.md` | **Instructions** |\n| guide.md | Reference |\n";
+	await user.clear(screen.getByRole("textbox", { name: "SKILL.md" }));
+	await user.type(screen.getByRole("textbox", { name: "SKILL.md" }), markdown);
+	await user.click(screen.getByRole("button", { name: "预览" }));
+	const table = screen.getByRole("table");
+	expect(
+		within(table).getByRole("columnheader", { name: "File" }),
+	).toBeVisible();
+	expect(
+		within(table).getByRole("cell", { name: "Instructions" }),
+	).toBeVisible();
+	expect(within(table).getAllByRole("row")).toHaveLength(3);
+	await user.click(screen.getByRole("button", { name: "编辑" }));
+	expect(screen.getByRole("textbox", { name: "SKILL.md" })).toHaveValue(
+		markdown,
+	);
+});
