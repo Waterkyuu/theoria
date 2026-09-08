@@ -31,6 +31,16 @@ pub(crate) struct TaskExecutionService {
     active_executions: ActiveExecutions,
 }
 
+/// Identifies one owned worker and the cancellation signal used by Stop.
+struct PendingExecution {
+    /// Frozen Agent metadata used to save this worker's result.
+    agent: TaskAgent,
+    /// Shared signal checked by the running adapter.
+    cancellation: Arc<AtomicBool>,
+    /// Owned blocking worker whose completion precedes result collection.
+    handle: tokio::task::JoinHandle<Result<AgentSessionRunOutput, AppError>>,
+}
+
 impl TaskExecutionService {
     /// Creates a Task execution coordinator over local storage.
     pub(crate) fn new(
@@ -212,17 +222,15 @@ impl TaskExecutionService {
                     &runner_cancellation,
                 )
             });
-            executions.push((agent, cancellation, handle));
+            executions.push(PendingExecution {
+                agent,
+                cancellation,
+                handle,
+            });
         }
-        let mut final_statuses = Vec::with_capacity(executions.len());
-        for (agent, cancellation, handle) in executions {
-            let output = handle.await.map_err(|_| AppError::WorkerFailed)?;
-            self.active_executions.remove(&agent.id);
-            let status = self
-                .persist_agent_turn(&detail, &agent, &detail.task.prompt, &cancellation, &output)
-                .await?;
-            final_statuses.push(status);
-        }
+        let final_statuses = self
+            .collect_executions(&detail, &detail.task.prompt, executions)
+            .await?;
         let task_status = aggregate_status(&final_statuses);
         self.repository
             .set_task_status(task_id, task_status, current_time_ms()?)
@@ -298,15 +306,15 @@ impl TaskExecutionService {
                     &runner_cancellation,
                 )
             });
-            executions.push((agent, cancellation, handle));
+            executions.push(PendingExecution {
+                agent,
+                cancellation,
+                handle,
+            });
         }
 
-        for (agent, cancellation, handle) in executions {
-            let output = handle.await.map_err(|_| AppError::WorkerFailed)?;
-            self.active_executions.remove(&agent.id);
-            self.persist_agent_turn(&detail, &agent, &prompt, &cancellation, &output)
-                .await?;
-        }
+        self.collect_executions(&detail, &prompt, executions)
+            .await?;
         self.repository
             .refresh_task_status(task_id, current_time_ms()?)
             .await
@@ -316,6 +324,61 @@ impl TaskExecutionService {
             .await
             .map_err(|_| AppError::TaskDatabaseFailed)?
             .ok_or(AppError::TaskNotFound)
+    }
+
+    /// Drains every execution independently before reporting an infrastructure failure.
+    async fn collect_executions(
+        &self,
+        detail: &TaskDetail,
+        prompt: &str,
+        executions: Vec<PendingExecution>,
+    ) -> Result<Vec<TaskStatus>, AppError> {
+        let mut completions = tokio::task::JoinSet::new();
+        for PendingExecution {
+            agent,
+            cancellation,
+            handle,
+        } in executions
+        {
+            let service = self.clone();
+            let detail = detail.clone();
+            let prompt = prompt.to_string();
+            completions.spawn(async move {
+                let (output, worker_error) = match handle.await {
+                    Ok(output) => (output, None),
+                    Err(_) => (Err(AppError::WorkerFailed), Some(AppError::WorkerFailed)),
+                };
+                let persisted = service
+                    .persist_agent_turn(&detail, &agent, &prompt, &cancellation, &output)
+                    .await;
+                // Cleanup must wait for both the worker and result-file writes, including failures.
+                service.active_executions.remove(&agent.id);
+                let status = persisted?;
+                match worker_error {
+                    Some(error) => Err(error),
+                    None => Ok(status),
+                }
+            });
+        }
+        let mut statuses = Vec::with_capacity(completions.len());
+        let mut first_error = None;
+        while let Some(completion) = completions.join_next().await {
+            match completion.unwrap_or(Err(AppError::WorkerFailed)) {
+                Ok(status) => statuses.push(status),
+                Err(error) => {
+                    first_error.get_or_insert(error);
+                }
+            }
+        }
+        if let Some(error) = first_error {
+            // A failed result write may leave an Agent row Running; the Task must not stay Running.
+            self.repository
+                .set_task_status(&detail.task.id, TaskStatus::Failed, current_time_ms()?)
+                .await
+                .map_err(|_| AppError::TaskDatabaseFailed)?;
+            return Err(error);
+        }
+        Ok(statuses)
     }
 
     /// Collects file changes and persists the Waiting or terminal result of one Agent turn.
@@ -698,10 +761,252 @@ fn current_time_ms() -> Result<i64, AppError> {
 mod tests {
     use super::{
         aggregate_status, select_resumable_agents, validate_follow_up, validate_frozen_paths,
+        PendingExecution, TaskExecutionService,
     };
+    use crate::adapters::agent::{AgentSessionRunOutput, AgentTurnOutcome};
+    use crate::db::{connection::connect_sqlite_path, migration::Migrator};
     use crate::domain::agent_kind::AgentKind;
+    use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput};
     use crate::domain::task::{Task, TaskAgent, TaskDetail, TaskPermissions, TaskStatus};
     use crate::error::AppError;
+    use crate::repositories::task::TaskRepository;
+    use crate::services::result::ResultCollector;
+    use sea_orm::{ConnectionTrait, DatabaseConnection};
+    use sea_orm_migration::MigratorTrait;
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::Duration;
+
+    static EXECUTION_TEST_SEQUENCE: AtomicU64 = AtomicU64::new(1);
+
+    /// Owns a real database and isolated workspaces for execution lifecycle tests.
+    struct ExecutionFixture {
+        /// Temporary application data root.
+        root: PathBuf,
+        /// Database used to verify saved results and inject a scoped write failure.
+        database: DatabaseConnection,
+        /// Service under test with its real collector and registry.
+        service: TaskExecutionService,
+        /// Two running Agents with stable slot identities.
+        detail: TaskDetail,
+    }
+
+    impl ExecutionFixture {
+        async fn new() -> Self {
+            let sequence = EXECUTION_TEST_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+            let root = std::env::temp_dir().join(format!(
+                "theoria-execution-test-{}-{sequence}",
+                std::process::id()
+            ));
+            std::fs::create_dir_all(&root).expect("create fixture root");
+            let database = connect_sqlite_path(&root.join("test.sqlite3"))
+                .await
+                .expect("open database");
+            Migrator::up(&database, None)
+                .await
+                .expect("migrate database");
+            let repository = TaskRepository::new(database.clone());
+            let mut detail = resumable_task_detail();
+            detail.task.status = TaskStatus::Running;
+            detail.agents.truncate(2);
+            for (slot, agent) in detail.agents.iter_mut().enumerate() {
+                agent.slot_index = slot as i64;
+                agent.status = TaskStatus::Running;
+                std::fs::create_dir_all(root.join(&agent.execution_relative_path))
+                    .expect("create workspace");
+            }
+            std::fs::create_dir_all(root.join(&detail.task.baseline_relative_path))
+                .expect("create baseline");
+            let detail = repository.create(detail).await.expect("save task");
+            let service = TaskExecutionService::new(
+                repository,
+                ResultCollector::new(root.clone()),
+                root.clone(),
+            );
+            Self {
+                root,
+                database,
+                service,
+                detail,
+            }
+        }
+
+        fn execution(
+            &self,
+            slot: usize,
+            handle: tokio::task::JoinHandle<Result<AgentSessionRunOutput, AppError>>,
+        ) -> PendingExecution {
+            let agent = self.detail.agents[slot].clone();
+            let cancellation = self.service.active_executions.register(&agent.id);
+            PendingExecution {
+                agent,
+                cancellation,
+                handle,
+            }
+        }
+
+        async fn saved(&self) -> TaskDetail {
+            self.service
+                .repository
+                .get(&self.detail.task.id)
+                .await
+                .expect("read task")
+                .expect("task exists")
+        }
+
+        async fn close(self) {
+            drop(self.service);
+            self.database.close().await.expect("close database");
+            std::fs::remove_dir_all(self.root).expect("remove fixture");
+        }
+    }
+
+    fn successful_turn(outcome: AgentTurnOutcome) -> Result<AgentSessionRunOutput, AppError> {
+        Ok(AgentSessionRunOutput {
+            output: AgentRunOutput {
+                response: "Agent response".to_string(),
+                metrics: AgentRunMetricsCollector::default().finish(Duration::ZERO),
+            },
+            session_id: Some("session".to_string()),
+            outcome,
+        })
+    }
+
+    #[test]
+    fn execution_completion_saves_fast_agent_while_first_worker_is_blocked() {
+        tauri::async_runtime::block_on(async {
+            let fixture = ExecutionFixture::new().await;
+            let (release, blocked) = tokio::sync::oneshot::channel();
+            let slow = fixture.execution(
+                0,
+                tokio::task::spawn_blocking(move || {
+                    blocked.blocking_recv().expect("release slow worker");
+                    successful_turn(AgentTurnOutcome::Completed)
+                }),
+            );
+            let fast = fixture.execution(
+                1,
+                tokio::task::spawn_blocking(|| successful_turn(AgentTurnOutcome::Waiting)),
+            );
+            let service = fixture.service.clone();
+            let detail = fixture.detail.clone();
+            let collection = tokio::spawn(async move {
+                service
+                    .collect_executions(&detail, "Follow up", vec![slow, fast])
+                    .await
+            });
+            // The deadline is only a deadlock watchdog; the first worker cannot finish until released.
+            let observed = tokio::time::timeout(Duration::from_secs(5), async {
+                loop {
+                    let saved = fixture.saved().await;
+                    if saved.agents[1].status == TaskStatus::Waiting
+                        && !fixture.service.active_executions.is_active("agent-2")
+                    {
+                        break saved;
+                    }
+                    tokio::task::yield_now().await;
+                }
+            })
+            .await;
+            let slow_still_active = fixture.service.active_executions.is_active("agent-1");
+            release.send(()).expect("release worker");
+            let result = collection.await.expect("join collector");
+            let saved = fixture.saved().await;
+            let all_removed = fixture
+                .detail
+                .agents
+                .iter()
+                .all(|agent| !fixture.service.active_executions.is_active(&agent.id));
+            fixture.close().await;
+            let observed =
+                observed.expect("fast Agent must be saved before the slow worker finishes");
+            assert_eq!(observed.agents[0].status, TaskStatus::Running);
+            assert!(slow_still_active);
+            assert_eq!(observed.turns.len(), 1);
+            assert_eq!(observed.turns[0].task_agent_id, "agent-2");
+            assert_eq!(observed.turns[0].prompt, "Follow up");
+            assert!(result.is_ok());
+            assert_eq!(saved.agents[0].status, TaskStatus::Completed);
+            assert!(all_removed);
+        });
+    }
+
+    #[test]
+    fn execution_completion_persists_panic_and_drains_sibling_before_reporting_error() {
+        tauri::async_runtime::block_on(async {
+            let fixture = ExecutionFixture::new().await;
+            let broken = fixture.execution(
+                0,
+                tokio::task::spawn_blocking(|| panic!("simulated worker panic")),
+            );
+            let sibling = fixture.execution(
+                1,
+                tokio::task::spawn_blocking(|| successful_turn(AgentTurnOutcome::Completed)),
+            );
+            let result = fixture
+                .service
+                .collect_executions(&fixture.detail, "Initial", vec![broken, sibling])
+                .await;
+            let saved = fixture.saved().await;
+            let all_removed = fixture
+                .detail
+                .agents
+                .iter()
+                .all(|agent| !fixture.service.active_executions.is_active(&agent.id));
+            fixture.close().await;
+            assert_eq!(result, Err(AppError::WorkerFailed));
+            assert!(all_removed, "panic must not strand registry entries");
+            assert_eq!(saved.agents[0].status, TaskStatus::Failed);
+            assert_eq!(saved.agents[1].status, TaskStatus::Completed);
+            assert_eq!(saved.results.len(), 2);
+            assert_eq!(saved.turns.len(), 2);
+            assert_eq!(saved.task.status, TaskStatus::Failed);
+        });
+    }
+
+    #[test]
+    fn execution_completion_drains_siblings_after_one_result_write_fails() {
+        tauri::async_runtime::block_on(async {
+            let fixture = ExecutionFixture::new().await;
+            fixture
+                .database
+                .execute_unprepared(
+                    "CREATE TRIGGER reject_first_result BEFORE INSERT ON task_agent_results
+                 WHEN NEW.task_agent_id = 'agent-1'
+                 BEGIN SELECT RAISE(FAIL, 'simulated result write failure'); END",
+                )
+                .await
+                .expect("inject scoped database failure");
+            let first = fixture.execution(
+                0,
+                tokio::task::spawn_blocking(|| successful_turn(AgentTurnOutcome::Completed)),
+            );
+            let sibling = fixture.execution(
+                1,
+                tokio::task::spawn_blocking(|| successful_turn(AgentTurnOutcome::Completed)),
+            );
+            let result = fixture
+                .service
+                .collect_executions(&fixture.detail, "Initial", vec![first, sibling])
+                .await;
+            let saved = fixture.saved().await;
+            let all_removed = fixture
+                .detail
+                .agents
+                .iter()
+                .all(|agent| !fixture.service.active_executions.is_active(&agent.id));
+            fixture.close().await;
+            assert_eq!(result, Err(AppError::TaskDatabaseFailed));
+            assert!(
+                all_removed,
+                "write failure must not strand registry entries"
+            );
+            assert_eq!(saved.agents[1].status, TaskStatus::Completed);
+            assert_eq!(saved.results.len(), 1);
+            assert_eq!(saved.results[0].task_agent_id, "agent-2");
+            assert_eq!(saved.task.status, TaskStatus::Failed);
+        });
+    }
 
     #[test]
     fn aggregates_without_scoring_agent_results() {
