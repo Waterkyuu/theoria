@@ -42,6 +42,16 @@ pub(crate) struct CreateTaskInput {
     pub(crate) skill_ids: Vec<String>,
 }
 
+/// Sources used to freeze a Task workspace and its selected Skills.
+struct TaskSources {
+    /// Optional external Workspace copied into the Baseline.
+    workspace_source: Option<PathBuf>,
+    /// Managed Skills included in the snapshot.
+    library_skills: Vec<crate::domain::skill::Skill>,
+    /// Persisted provenance shared by the selected Skills.
+    skill_origin: &'static str,
+}
+
 /// Restores immutable Task conditions and scoped Task lists from local storage.
 #[derive(Clone)]
 pub(crate) struct TaskService {
@@ -87,7 +97,7 @@ impl TaskService {
         {
             return Err(AppError::InvalidTask);
         }
-        let (workspace_source, library_skills, skill_origin) = self
+        let sources = self
             .task_sources(input.workspace_id.as_deref(), &input.skill_ids)
             .await?;
         let created_at_ms = current_time_ms()?;
@@ -102,12 +112,13 @@ impl TaskService {
                 agent_kind: agent.agent_kind,
             })
             .collect::<Vec<_>>();
-        let snapshot_skills = library_skills
+        let snapshot_skills = sources
+            .library_skills
             .into_iter()
             .map(|skill| SnapshotSkillInput {
                 folder_name: skill.folder_name,
                 source_path: self.app_data_directory.join(skill.storage_relative_path),
-                origin: skill_origin.to_string(),
+                origin: sources.skill_origin.to_string(),
                 library_skill_id: skill.id,
             })
             .collect();
@@ -115,7 +126,7 @@ impl TaskService {
             .snapshot_service
             .prepare(
                 &task_id,
-                workspace_source.as_deref(),
+                sources.workspace_source.as_deref(),
                 snapshot_skills,
                 &snapshot_agents,
             )
@@ -224,14 +235,7 @@ impl TaskService {
         &self,
         workspace_id: Option<&str>,
         selected_skill_ids: &[String],
-    ) -> Result<
-        (
-            Option<PathBuf>,
-            Vec<crate::domain::skill::Skill>,
-            &'static str,
-        ),
-        AppError,
-    > {
+    ) -> Result<TaskSources, AppError> {
         match workspace_id {
             Some(workspace_id) => {
                 if !selected_skill_ids.is_empty() {
@@ -250,7 +254,11 @@ impl TaskService {
                     .list_for_workspace(workspace_id)
                     .await
                     .map_err(|_| AppError::TaskDatabaseFailed)?;
-                Ok((Some(workspace.source_path), skills, "workspace_mount"))
+                Ok(TaskSources {
+                    workspace_source: Some(workspace.source_path),
+                    library_skills: skills,
+                    skill_origin: "workspace_mount",
+                })
             }
             None => {
                 let selected = selected_skill_ids.iter().collect::<HashSet<_>>();
@@ -268,7 +276,11 @@ impl TaskService {
                 if skills.len() != selected.len() {
                     return Err(AppError::InvalidSkill);
                 }
-                Ok((None, skills, "task_selection"))
+                Ok(TaskSources {
+                    workspace_source: None,
+                    library_skills: skills,
+                    skill_origin: "task_selection",
+                })
             }
         }
     }
