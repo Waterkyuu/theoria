@@ -99,14 +99,13 @@ impl TaskExecutionService {
 
     /// Stops every active Agent and waits until no child process can write into Task files.
     pub(crate) async fn stop_task_and_wait(&self, task_id: &str) -> Result<(), AppError> {
-        let detail = match self
+        let Some(detail) = self
             .repository
             .get(task_id)
             .await
             .map_err(|_| AppError::TaskDatabaseFailed)?
-        {
-            Some(detail) => detail,
-            None => return Ok(()),
+        else {
+            return Ok(());
         };
         for agent in &detail.agents {
             self.active_executions.stop(&agent.id);
@@ -219,69 +218,9 @@ impl TaskExecutionService {
         for (agent, cancellation, handle) in executions {
             let output = handle.await.map_err(|_| AppError::WorkerFailed)?;
             self.active_executions.remove(&agent.id);
-            let updated_at_ms = current_time_ms()?;
-            let changes = self
-                .result_collector
-                .collect(
-                    task_id,
-                    &agent.id,
-                    Path::new(&detail.task.baseline_relative_path),
-                    Path::new(&agent.execution_relative_path),
-                )
-                .await;
-            if !cancellation.load(Ordering::Acquire) {
-                if let Ok(run) = &output {
-                    if run.outcome == AgentTurnOutcome::Waiting {
-                        if let Some(session_id) = run.session_id.as_deref() {
-                            self.repository
-                                .wait_agent_turn(
-                                    &agent.id,
-                                    &detail.task.prompt,
-                                    non_empty_response(&run.output.response),
-                                    &metrics_json(&run.output.metrics, changes.as_ref().ok(), None),
-                                    session_id,
-                                    updated_at_ms,
-                                )
-                                .await
-                                .map_err(|_| AppError::TaskDatabaseFailed)?;
-                            final_statuses.push(TaskStatus::Waiting);
-                            continue;
-                        }
-                    }
-                }
-            }
-            let (status, response_text, metrics_json) = if cancellation.load(Ordering::Acquire) {
-                (
-                    TaskStatus::Stopped,
-                    Some("Execution stopped by user.".to_string()),
-                    serde_json::json!({"files": changes.as_ref().ok().map(changes_json)})
-                        .to_string(),
-                )
-            } else if waiting_without_session(&output) {
-                missing_session_payload(changes.as_ref())
-            } else {
-                result_payload(output.as_ref().map(|run| &run.output), changes.as_ref())
-            };
-            self.repository
-                .finish_agent_turn(
-                    TaskAgentResult {
-                        task_agent_id: agent.id.clone(),
-                        final_status: status,
-                        response_text,
-                        changes_relative_path: changes
-                            .ok()
-                            .map(|changes| changes.changes_relative_path),
-                        metrics_json,
-                    },
-                    &detail.task.prompt,
-                    output
-                        .as_ref()
-                        .ok()
-                        .and_then(|run| run.session_id.as_deref()),
-                    updated_at_ms,
-                )
-                .await
-                .map_err(|_| AppError::TaskDatabaseFailed)?;
+            let status = self
+                .persist_agent_turn(&detail, &agent, &detail.task.prompt, &cancellation, &output)
+                .await?;
             final_statuses.push(status);
         }
         let task_status = aggregate_status(&final_statuses);
@@ -365,68 +304,8 @@ impl TaskExecutionService {
         for (agent, cancellation, handle) in executions {
             let output = handle.await.map_err(|_| AppError::WorkerFailed)?;
             self.active_executions.remove(&agent.id);
-            let updated_at_ms = current_time_ms()?;
-            let changes = self
-                .result_collector
-                .collect(
-                    task_id,
-                    &agent.id,
-                    Path::new(&detail.task.baseline_relative_path),
-                    Path::new(&agent.execution_relative_path),
-                )
-                .await;
-            if !cancellation.load(Ordering::Acquire) {
-                if let Ok(run) = &output {
-                    if run.outcome == AgentTurnOutcome::Waiting {
-                        if let Some(session_id) = run.session_id.as_deref() {
-                            self.repository
-                                .wait_agent_turn(
-                                    &agent.id,
-                                    &prompt,
-                                    non_empty_response(&run.output.response),
-                                    &metrics_json(&run.output.metrics, changes.as_ref().ok(), None),
-                                    session_id,
-                                    updated_at_ms,
-                                )
-                                .await
-                                .map_err(|_| AppError::TaskDatabaseFailed)?;
-                            continue;
-                        }
-                    }
-                }
-            }
-            let (status, response_text, metrics_json) = if cancellation.load(Ordering::Acquire) {
-                (
-                    TaskStatus::Stopped,
-                    Some("Execution stopped by user.".to_string()),
-                    serde_json::json!({"files": changes.as_ref().ok().map(changes_json)})
-                        .to_string(),
-                )
-            } else if waiting_without_session(&output) {
-                missing_session_payload(changes.as_ref())
-            } else {
-                result_payload(output.as_ref().map(|run| &run.output), changes.as_ref())
-            };
-            self.repository
-                .finish_agent_turn(
-                    TaskAgentResult {
-                        task_agent_id: agent.id.clone(),
-                        final_status: status,
-                        response_text,
-                        changes_relative_path: changes
-                            .ok()
-                            .map(|changes| changes.changes_relative_path),
-                        metrics_json,
-                    },
-                    &prompt,
-                    output
-                        .as_ref()
-                        .ok()
-                        .and_then(|run| run.session_id.as_deref()),
-                    updated_at_ms,
-                )
-                .await
-                .map_err(|_| AppError::TaskDatabaseFailed)?;
+            self.persist_agent_turn(&detail, &agent, &prompt, &cancellation, &output)
+                .await?;
         }
         self.repository
             .refresh_task_status(task_id, current_time_ms()?)
@@ -437,6 +316,84 @@ impl TaskExecutionService {
             .await
             .map_err(|_| AppError::TaskDatabaseFailed)?
             .ok_or(AppError::TaskNotFound)
+    }
+
+    /// Collects file changes and persists the Waiting or terminal result of one Agent turn.
+    async fn persist_agent_turn(
+        &self,
+        detail: &TaskDetail,
+        agent: &TaskAgent,
+        prompt: &str,
+        cancellation: &AtomicBool,
+        output: &Result<AgentSessionRunOutput, AppError>,
+    ) -> Result<TaskStatus, AppError> {
+        let updated_at_ms = current_time_ms()?;
+        let changes = self
+            .result_collector
+            .collect(
+                &detail.task.id,
+                &agent.id,
+                Path::new(&detail.task.baseline_relative_path),
+                Path::new(&agent.execution_relative_path),
+            )
+            .await;
+        let waiting_session = output
+            .as_ref()
+            .ok()
+            .filter(|run| run.outcome == AgentTurnOutcome::Waiting)
+            .and_then(|run| {
+                run.session_id
+                    .as_deref()
+                    .map(|session_id| (run, session_id))
+            });
+        if !cancellation.load(Ordering::Acquire) {
+            if let Some((run, session_id)) = waiting_session {
+                self.repository
+                    .wait_agent_turn(
+                        &agent.id,
+                        prompt,
+                        non_empty_response(&run.output.response),
+                        &metrics_json(&run.output.metrics, changes.as_ref().ok(), None),
+                        session_id,
+                        updated_at_ms,
+                    )
+                    .await
+                    .map_err(|_| AppError::TaskDatabaseFailed)?;
+                return Ok(TaskStatus::Waiting);
+            }
+        }
+        let (status, response_text, metrics_json) = if cancellation.load(Ordering::Acquire) {
+            (
+                TaskStatus::Stopped,
+                Some("Execution stopped by user.".to_string()),
+                serde_json::json!({"files": changes.as_ref().ok().map(changes_json)}).to_string(),
+            )
+        } else if waiting_without_session(output) {
+            missing_session_payload(changes.as_ref())
+        } else {
+            result_payload(output.as_ref().map(|run| &run.output), changes.as_ref())
+        };
+        self.repository
+            .finish_agent_turn(
+                TaskAgentResult {
+                    task_agent_id: agent.id.clone(),
+                    final_status: status,
+                    response_text,
+                    changes_relative_path: changes
+                        .ok()
+                        .map(|changes| changes.changes_relative_path),
+                    metrics_json,
+                },
+                prompt,
+                output
+                    .as_ref()
+                    .ok()
+                    .and_then(|run| run.session_id.as_deref()),
+                updated_at_ms,
+            )
+            .await
+            .map_err(|_| AppError::TaskDatabaseFailed)?;
+        Ok(status)
     }
 }
 
