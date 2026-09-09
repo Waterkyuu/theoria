@@ -24,9 +24,9 @@ Before generating tests, first determine whether the logic has meaningful testin
 
 If this test were removed:
 
-* Could user behavior break?
-* Could business logic regress?
-* Could a core product flow be affected?
+- Could user behavior break?
+- Could business logic regress?
+- Could a core product flow be affected?
 
 If the answer to all questions is **no**, do not generate the test.
 
@@ -38,15 +38,15 @@ Use the Testing Library approach.
 
 Must use:
 
-* `screen.getByRole`
-* `screen.getByText`
-* `userEvent`
+- `screen.getByRole`
+- `screen.getByText`
+- `userEvent`
 
 Do not use:
 
-* Querying by `className`
-* Testing internal DOM structure
-* Testing component hierarchy
+- Querying by `className`
+- Testing internal DOM structure
+- Testing component hierarchy
 
 ## Async Logic Testing Constraints
 
@@ -60,9 +60,9 @@ Must cover:
 
 Do not test:
 
-* Promise resolution order
-* Exact `setTimeout` timing
-* Internal retry counts (unless required by business logic)
+- Promise resolution order
+- Exact `setTimeout` timing
+- Internal retry counts (unless required by business logic)
 
 ## Avoid Implementation Detail Testing
 
@@ -90,9 +90,9 @@ Tests must verify behavior through user-observable outcomes.
 
 Examples:
 
-* User clicks a button → the displayed count increases
-* User submits a form → a success message appears
-* User enters invalid input → an error message is displayed
+- User clicks a button → the displayed count increases
+- User submits a form → a success message appears
+- User enters invalid input → an error message is displayed
 
 ## Limit the Number of Tests
 
@@ -100,7 +100,7 @@ Generate no more than 3–5 core tests per component.
 
 Only add more tests when at least one of the following applies:
 
-* There are obvious business branches
-* There is high-risk logic
-* The behavior has caused regressions before
-* There is a complex asynchronous workflow
+- There are obvious business branches
+- There is high-risk logic
+- The behavior has caused regressions before
+- There is a complex asynchronous workflow

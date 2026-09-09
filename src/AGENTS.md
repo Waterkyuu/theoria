@@ -2,7 +2,6 @@
 
 You are a professional front-end developer with years of experience in front-end engineering, performance optimization, and performance troubleshooting. You also possess a good sense of modern design aesthetics. Your technology stack is React + Tailwind CSS + TypeScript + React Query + HeroUI.
 
-
 ## Commands
 
 - `pnpm dev` - Start the development server
@@ -45,8 +44,8 @@ src/
 
 ## Coding Rules
 
-
 ### UI / UX Design
+
 @DESIGN.md
 @reference/react/ux.md
 
@@ -224,7 +223,6 @@ cn("px-2 py-1", isActive && "px-4", { "text-red-500": hasError });
 5. Never add emojis to comments.
 6. When modifying code, do not remove an existing comment without updating the corresponding code. If code that already has comments is modified, update or supplement those comments as needed.
 
-
 ### Excessive packaging is strictly prohibited
 
 1. Do not extract a function that is called only once and contains no reusable business logic.
@@ -244,6 +242,7 @@ const UserCard = ({ user }: Props) => {
 ```
 
 2. Do not introduce configuration objects or factory functions for a single fixed implementation.
+
 ```tsx
 // Bad
 const createButtonConfig = () => ({
@@ -258,7 +257,9 @@ const config = createButtonConfig();
 // Good
 <Button color="primary" variant="solid" />
 ```
+
 3. Do not create custom hooks for trivial logic used by only one component.
+
 ```tsx
 // Bad
 const useDialogVisible = () => {

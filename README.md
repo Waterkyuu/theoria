@@ -82,14 +82,14 @@ It supports everyday multi-agent development workflows and provides consistent e
 
 ## Highlights
 
-| Capability | Description |
-| --- | --- |
-| Parallel agents | Run up to six agents on one task, including Codex, Claude Code, OpenCode, and WorkBuddy |
-| Isolated execution | Start from an immutable workspace snapshot and give each agent its own working directory |
-| Observable progress | Follow status, streaming output, tool calls, token usage, and duration; stop one agent or all of them |
-| Continued collaboration | Preserve agent sessions and send follow-up prompts to every agent or a selected subset |
-| Result comparison | Collect final responses and file changes, then persist run history for later review |
-| Skill management | Manage skills from local or Git sources and mount them into one or more workspaces |
-| Benchmark workflows | Organize reproducible comparisons around fixed snapshots, test cases, and selected agents |
-| Local-first data | Keep workspaces on the local file system and persist application records in SQLite |
-| Internationalization | Use the built-in Simplified Chinese and English interfaces with localized frontend and backend errors |
+| Capability              | Description                                                                                           |
+| ----------------------- | ----------------------------------------------------------------------------------------------------- |
+| Parallel agents         | Run up to six agents on one task, including Codex, Claude Code, OpenCode, and WorkBuddy               |
+| Isolated execution      | Start from an immutable workspace snapshot and give each agent its own working directory              |
+| Observable progress     | Follow status, streaming output, tool calls, token usage, and duration; stop one agent or all of them |
+| Continued collaboration | Preserve agent sessions and send follow-up prompts to every agent or a selected subset                |
+| Result comparison       | Collect final responses and file changes, then persist run history for later review                   |
+| Skill management        | Manage skills from local or Git sources and mount them into one or more workspaces                    |
+| Benchmark workflows     | Organize reproducible comparisons around fixed snapshots, test cases, and selected agents             |
+| Local-first data        | Keep workspaces on the local file system and persist application records in SQLite                    |
+| Internationalization    | Use the built-in Simplified Chinese and English interfaces with localized frontend and backend errors |
