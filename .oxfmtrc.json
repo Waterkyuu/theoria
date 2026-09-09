@@ -1,0 +1,58 @@
+{
+	"$schema": "./node_modules/oxfmt/configuration_schema.json",
+	"useTabs": true,
+	"tabWidth": 2,
+	"printWidth": 80,
+	"singleQuote": false,
+	"jsxSingleQuote": false,
+	"quoteProps": "as-needed",
+	"trailingComma": "all",
+	"semi": true,
+	"arrowParens": "always",
+	"bracketSameLine": false,
+	"bracketSpacing": true,
+	"ignorePatterns": [
+		"**/*.md",
+		"**/*.mdx",
+		"**/*.yml",
+		"**/*.yaml",
+		"**/*.toml",
+		"**/*.html",
+		"src-tauri/target/**",
+		"src-tauri/gen/**"
+	],
+	"sortPackageJson": false,
+	"sortImports": {
+		"customGroups": [
+			{
+				"groupName": "react",
+				"elementNamePattern": ["react", "react/**"]
+			},
+			{
+				"groupName": "components",
+				"elementNamePattern": ["@/components/**"]
+			},
+			{
+				"groupName": "hooks",
+				"elementNamePattern": ["@/hooks/**"]
+			},
+			{
+				"groupName": "utils",
+				"elementNamePattern": ["@/utils/**"]
+			}
+		],
+		"groups": [
+			"react",
+			["builtin", "external"],
+			"components",
+			"hooks",
+			"utils",
+			["internal", "subpath"],
+			["parent", "sibling", "index"],
+			"style",
+			"unknown"
+		],
+		"newlinesBetween": false,
+		"sortSideEffects": true
+	}
+}

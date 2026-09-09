@@ -1,0 +1,17 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"plugins": ["unicorn", "typescript", "oxc", "react", "jsx-a11y"],
+	"categories": {
+		"correctness": "error"
+	},
+	"rules": {
+		"no-dupe-keys": "error",
+		// Preserve valid custom ARIA widgets and deliberate editor focus behavior.
+		// These Oxlint rules are stricter than the previous Biome configuration.
+		"jsx-a11y/prefer-tag-over-role": "off",
+		"jsx-a11y/no-autofocus": "off",
+		// Preallocated result arrays are intentional in the promise pool.
+		"unicorn/no-new-array": "off"
+	},
+	"ignorePatterns": ["src-tauri/target/**", "src-tauri/gen/**"]
+}
