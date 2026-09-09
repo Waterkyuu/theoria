@@ -11,15 +11,14 @@
 	"arrowParens": "always",
 	"bracketSameLine": false,
 	"bracketSpacing": true,
-	"ignorePatterns": [
-		"**/*.md",
-		"**/*.mdx",
-		"**/*.yml",
-		"**/*.yaml",
-		"**/*.toml",
-		"**/*.html",
-		"src-tauri/target/**",
-		"src-tauri/gen/**"
+	"ignorePatterns": ["**/*.html", "src-tauri/target/**", "src-tauri/gen/**"],
+	"overrides": [
+		{
+			"files": ["**/*.md", "**/*.mdx"],
+			"options": {
+				"embeddedLanguageFormatting": "off"
+			}
+		}
 	],
 	"sortPackageJson": false,
 	"sortImports": {

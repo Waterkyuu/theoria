@@ -12,7 +12,7 @@
 		"format": "oxfmt --check .",
 		"format:fix": "oxfmt --write .",
 		"lint": "oxlint .",
-		"lint:staged": "lint-staged",
+		"lint:staged": "lint-staged --concurrent false",
 		"prepare": "husky",
 		"preview": "vite preview",
 		"tauri": "tauri",

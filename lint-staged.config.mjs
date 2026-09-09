@@ -4,7 +4,8 @@ const config = {
 		"oxlint --fix --no-error-on-unmatched-pattern",
 		"oxfmt --write --no-error-on-unmatched-pattern",
 	],
-	"*.{json,jsonc,css}": "oxfmt --write --no-error-on-unmatched-pattern",
+	"*.{json,jsonc,css,md,mdx,yml,yaml,toml}":
+		"oxfmt --write --no-error-on-unmatched-pattern",
 	"src-tauri/**/*.rs": [
 		() => "cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check",
 		() =>
