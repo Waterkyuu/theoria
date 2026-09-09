@@ -1,6 +1,6 @@
 import react from "@vitejs/plugin-react";
-import { configDefaults, defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
+import { configDefaults, defineConfig } from "vitest/config";
 
 export default defineConfig({
 	plugins: [

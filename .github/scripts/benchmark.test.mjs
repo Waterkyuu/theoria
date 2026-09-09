@@ -1,6 +1,6 @@
-import { compareMetrics } from "./benchmark.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
+import { compareMetrics } from "./benchmark.mjs";
 
 test("values exactly at the limits pass", () => {
 	const result = compareMetrics(

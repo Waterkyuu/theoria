@@ -1,7 +1,7 @@
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig, type ESBuildOptions } from "vite";
 import { fileURLToPath } from "node:url";
+import { defineConfig, type ESBuildOptions } from "vite";
 
 const host = process.env.TAURI_DEV_HOST;
 

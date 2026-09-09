@@ -105,7 +105,7 @@ const WorkspaceSidebarItem = ({
 				</div>
 			</div>
 
-			{/* biome-ignore lint/a11y/useSemanticElements: WAI-ARIA trees use group to own child treeitems. */}
+			{/* WAI-ARIA trees use group to own child treeitems. */}
 			<div
 				aria-hidden={!isWorkspaceExpanded}
 				className={cn(
