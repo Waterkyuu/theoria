@@ -8,6 +8,52 @@ const BenchmarkFileSchema = z.object({
 	assetId: z.string(),
 });
 
+const BenchmarkAssetPreviewSchema = z.object({
+	/** Opaque managed identifier requested by the caller. */
+	assetId: z.string().min(1),
+	/** Complete file size before preview truncation. */
+	sizeBytes: z.number().int().nonnegative(),
+	/** UTF-8 prefix, or null for binary content. */
+	text: z.string().nullable(),
+	/** Whether trailing bytes were omitted. */
+	truncated: z.boolean(),
+});
+
+const BenchmarkCheckKindSchema = z.literal([
+	"answer",
+	"file_exists",
+	"file_text",
+	"file_json",
+	"python",
+]);
+
+const BenchmarkImportPreviewSchema = z.object({
+	/** Proposed catalog name. */
+	name: z.string(),
+	/** Proposed catalog description. */
+	description: z.string(),
+	/** Optional external attribution. */
+	source: z.string().nullable(),
+	/** Bounded Case summaries in template order. */
+	cases: z.array(
+		z.object({
+			name: z.string(),
+			timeoutMinutes: z.number().int(),
+			inputFileCount: z.number().int().nonnegative(),
+			checkKinds: z.array(BenchmarkCheckKindSchema),
+		}),
+	),
+	/** Total public inputs and private verifier files. */
+	fileCount: z.number().int().nonnegative(),
+	/** Field-addressable problems retained for draft repair. */
+	issues: z.array(
+		z.object({
+			field: z.string(),
+			code: z.string(),
+		}),
+	),
+});
+
 const BenchmarkCheckSchema = z.discriminatedUnion("kind", [
 	z.object({
 		/** Exact final answer check. */
@@ -299,6 +345,14 @@ const EmptyBenchmarkResponseSchema = z.null();
 
 type BenchmarkDocument = z.infer<typeof BenchmarkDocumentSchema>;
 
+type BenchmarkFile = z.infer<typeof BenchmarkFileSchema>;
+
+type BenchmarkCheck = z.infer<typeof BenchmarkCheckSchema>;
+
+type BenchmarkAssetPreview = z.infer<typeof BenchmarkAssetPreviewSchema>;
+
+type BenchmarkImportPreview = z.infer<typeof BenchmarkImportPreviewSchema>;
+
 type BenchmarkDetail = z.infer<typeof BenchmarkDetailSchema>;
 
 type BenchmarkSummary = z.infer<typeof BenchmarkSummarySchema>;
@@ -360,6 +414,10 @@ type RerunBenchmarkTaskInput = Pick<
 
 export type {
 	BenchmarkDocument,
+	BenchmarkFile,
+	BenchmarkCheck,
+	BenchmarkAssetPreview,
+	BenchmarkImportPreview,
 	BenchmarkDetail,
 	BenchmarkSummary,
 	BenchmarkDraft,
@@ -376,6 +434,9 @@ export type {
 };
 
 export {
+	BenchmarkFileSchema,
+	BenchmarkAssetPreviewSchema,
+	BenchmarkImportPreviewSchema,
 	BenchmarkSummarySchema,
 	BenchmarkDetailSchema,
 	BenchmarkDraftSchema,
