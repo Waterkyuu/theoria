@@ -13,7 +13,7 @@ import { Popover } from "@/components/ui/popover";
 import type { BenchmarkFilters, BenchmarkTag } from "@/types/benchmark";
 
 const TAG_DOT_COLORS = [
-	"bg-[#3b82f6]",
+	"bg-[#1d4ed8]",
 	"bg-[#8b5cf6]",
 	"bg-[#10b981]",
 	"bg-[#ef4444]",
