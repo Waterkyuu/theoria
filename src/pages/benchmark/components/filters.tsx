@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Popover } from "@/components/ui/popover";
 import type { BenchmarkFilters, BenchmarkTag } from "@/types/benchmark";
 import { TagIcon } from "./tag-icon";
+
 type FiltersProps = {
 	/** Query values reset catalog pagination when changed. */
 	value: BenchmarkFilters;
@@ -14,6 +15,7 @@ type FiltersProps = {
 	/** Replaces the selected filters. */
 	onChange: (filters: BenchmarkFilters) => void;
 };
+
 /**
  * Matches the Figma pills while keeping filtering on the full database.
  *
@@ -197,4 +199,5 @@ const BenchmarkFiltersBar = ({ value, tags, onChange }: FiltersProps) => {
 		</div>
 	);
 };
+
 export { BenchmarkFiltersBar };

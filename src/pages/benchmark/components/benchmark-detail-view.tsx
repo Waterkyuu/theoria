@@ -12,12 +12,14 @@ import type { BenchmarkMount } from "@/types/benchmark";
 import { BenchmarkConfiguration } from "./configuration";
 import { BenchmarkFeedback } from "./feedback";
 import { BenchmarkMountModal } from "./mount-modal";
+
 type DetailProps = {
 	/** Definition selected by catalog or workspace mount. */
 	benchmarkId: string;
 	/** Workspace context pins the content and enables configuration. */
 	mount?: BenchmarkMount;
 };
+
 /**
  * Shares catalog and workspace details while preserving the mounted version.
  *
@@ -31,6 +33,7 @@ const BenchmarkDetailView = ({ benchmarkId, mount }: DetailProps) => {
 	const [pending, setPending] = useState(false);
 	const navigate = useNavigate();
 	const client = useQueryClient();
+
 	/** Copies immutable case content into a separate personal draft. */
 	const duplicate = async () => {
 		if (!query.data || pending) return;
@@ -46,6 +49,7 @@ const BenchmarkDetailView = ({ benchmarkId, mount }: DetailProps) => {
 			setPending(false);
 		}
 	};
+
 	/** Removes only this mount; published versions and results remain intact. */
 	const unmount = async () => {
 		if (!mount || pending) return;
@@ -207,4 +211,5 @@ const BenchmarkDetailView = ({ benchmarkId, mount }: DetailProps) => {
 		</main>
 	);
 };
+
 export { BenchmarkDetailView };

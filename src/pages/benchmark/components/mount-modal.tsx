@@ -10,12 +10,14 @@ import { mountBenchmark } from "@/api/benchmark";
 import { useWorkspaces } from "@/queries/workspace";
 import type { BenchmarkSummary } from "@/types/benchmark";
 import { BenchmarkFeedback } from "./feedback";
+
 type MountProps = {
 	/** Card whose displayed version is being mounted. */
 	benchmark: BenchmarkSummary;
 	/** Closes the externally selected card modal. */
 	onClose: () => void;
 };
+
 /**
  * Pins the version shown on the card and opens the persisted mount, including an existing older one.
  *
@@ -29,6 +31,7 @@ const BenchmarkMountModal = ({ benchmark, onClose }: MountProps) => {
 	const navigate = useNavigate();
 	const [workspaceId, setWorkspaceId] = useState<string | null>(null);
 	const [pending, setPending] = useState(false);
+
 	/** Uses the returned relationship so repeated Mount cannot silently change versions. */
 	const mount = async () => {
 		if (!workspaceId || pending) return;
@@ -92,4 +95,5 @@ const BenchmarkMountModal = ({ benchmark, onClose }: MountProps) => {
 		</ModalProvider>
 	);
 };
+
 export { BenchmarkMountModal };

@@ -11,16 +11,19 @@ import type {
 	BenchmarkPreview,
 	BenchmarkPreviewInput,
 } from "@/types/benchmark";
+
 type ConfigurationProps = {
 	/** Fixed workspace version used for every check. */
 	mount: BenchmarkMount;
 };
+
 const AGENTS = {
 	codex: "Codex",
 	claude: "Claude Code",
 	opencode: "OpenCode",
 	workbuddy: "WorkBuddy",
 } as const;
+
 /**
  * Explicit permissions and local product choices never include a model override.
  *
@@ -36,6 +39,7 @@ const BenchmarkConfiguration = ({ mount }: ConfigurationProps) => {
 		useState<BenchmarkPreviewInput["commandExecution"]>("allow");
 	const [preview, setPreview] = useState<BenchmarkPreview | null>(null);
 	const [pending, setPending] = useState(false);
+
 	/** Shows the exact checked configuration and does not pretend that execution has started. */
 	const check = async () => {
 		if (!agents.length || pending) return;
@@ -153,4 +157,5 @@ const BenchmarkConfiguration = ({ mount }: ConfigurationProps) => {
 		</ModalProvider>
 	);
 };
+
 export { BenchmarkConfiguration };
