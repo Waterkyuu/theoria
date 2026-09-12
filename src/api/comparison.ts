@@ -1,9 +1,9 @@
 import { invokeWithResponseSchema } from "@/api/ipc";
 import {
 	type ComparisonCursor,
-	CompiledComparisonHistoryDetailSchema,
-	CompiledComparisonHistoryPageSchema,
-	CompiledSaveComparisonHistoryResponseSchema,
+	ComparisonHistoryDetailSchema,
+	ComparisonHistoryPageSchema,
+	SaveComparisonHistoryResponseSchema,
 	type SaveComparisonHistoryRequest,
 } from "@/types/comparison";
 
@@ -14,7 +14,7 @@ import {
 const saveComparisonHistory = (request: SaveComparisonHistoryRequest) =>
 	invokeWithResponseSchema(
 		"save_comparison_history",
-		CompiledSaveComparisonHistoryResponseSchema,
+		SaveComparisonHistoryResponseSchema,
 		{ request },
 	);
 
@@ -28,7 +28,7 @@ const listComparisonHistory = (
 ) =>
 	invokeWithResponseSchema(
 		"list_comparison_history",
-		CompiledComparisonHistoryPageSchema,
+		ComparisonHistoryPageSchema,
 		{ request: { cursor, limit } },
 	);
 
@@ -39,7 +39,7 @@ const listComparisonHistory = (
 const getComparisonHistory = (id: number) =>
 	invokeWithResponseSchema(
 		"get_comparison_history",
-		CompiledComparisonHistoryDetailSchema,
+		ComparisonHistoryDetailSchema,
 		{ request: { id } },
 	);
 

@@ -39,9 +39,6 @@ const SaveComparisonHistoryResponseSchema = z.object({
 	/** Newly persisted comparison identifier. */
 	id: z.int().positive(),
 });
-const CompiledSaveComparisonHistoryResponseSchema = z.compile(
-	SaveComparisonHistoryResponseSchema,
-);
 
 const ComparisonCursorSchema = z.object({
 	/** UTC timestamp of the final item in the prior page. */
@@ -78,9 +75,6 @@ const ComparisonHistoryPageSchema = z.object({
 	/** Cursor for the next page. */
 	nextCursor: ComparisonCursorSchema.nullable(),
 });
-const CompiledComparisonHistoryPageSchema = z.compile(
-	ComparisonHistoryPageSchema,
-);
 
 const ComparisonResultDetailSchema = z.object({
 	/** Agent product represented by this result. */
@@ -111,9 +105,6 @@ const ComparisonHistoryDetailSchema = z.object({
 	/** Complete outcomes for every selected Agent. */
 	results: z.array(ComparisonResultDetailSchema),
 });
-const CompiledComparisonHistoryDetailSchema = z.compile(
-	ComparisonHistoryDetailSchema,
-);
 
 type ComparisonCursor = z.infer<typeof ComparisonCursorSchema>;
 type ComparisonAgentSummary = z.infer<typeof ComparisonAgentSummarySchema>;
@@ -133,7 +124,7 @@ export type {
 	SaveComparisonHistoryRequest,
 };
 export {
-	CompiledComparisonHistoryDetailSchema,
-	CompiledComparisonHistoryPageSchema,
-	CompiledSaveComparisonHistoryResponseSchema,
+	ComparisonHistoryDetailSchema,
+	ComparisonHistoryPageSchema,
+	SaveComparisonHistoryResponseSchema,
 };
