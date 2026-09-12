@@ -13,7 +13,6 @@ vi.mock("@/queries/skill", () => ({
 	useWorkspaceSkills: () => ({ data: [], isLoading: false, error: null }),
 }));
 
-vi.mock("@/pages/comparison", () => new Promise(() => {}));
 vi.mock("@/pages/workspace", () => ({
 	default: ({
 		workspaceId,
