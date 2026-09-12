@@ -1,7 +1,8 @@
 use crate::domain::agent_kind::AgentKind;
 use crate::domain::benchmark_task::{
-    BenchmarkPreflightIssueKind, BenchmarkRerunConfiguration, BenchmarkTaskConfiguration,
-    BenchmarkTaskDetail, BenchmarkTaskPreview,
+    BenchmarkArtifactFile, BenchmarkArtifactPreview, BenchmarkPreflightIssueKind,
+    BenchmarkRerunConfiguration, BenchmarkTaskConfiguration, BenchmarkTaskDetail,
+    BenchmarkTaskPreview,
 };
 use crate::domain::task::TaskPermissions;
 use crate::dto::task::TaskResponse;
@@ -111,6 +112,23 @@ impl TryFrom<&StartBenchmarkTaskRequest> for BenchmarkTaskConfiguration {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct GetBenchmarkTaskRequest {
     pub(crate) task_id: String,
+}
+
+/// Selects one execution whose files belong to the requested Benchmark Task.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct ListBenchmarkExecutionArtifactsRequest {
+    pub(crate) task_id: String,
+    pub(crate) execution_id: String,
+}
+
+/// Selects one safe relative final-artifact path for bounded preview.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct PreviewBenchmarkExecutionArtifactRequest {
+    pub(crate) task_id: String,
+    pub(crate) execution_id: String,
+    pub(crate) path: String,
 }
 
 /// Rerun request changes only products and permissions while preserving the source version.
@@ -266,6 +284,46 @@ pub(crate) struct BenchmarkTaskDetailResponse {
     agents: Vec<BenchmarkTaskAgentResponse>,
     cases: Vec<BenchmarkTaskCaseResponse>,
     executions: Vec<BenchmarkCaseExecutionResponse>,
+}
+
+/// One final artifact with its comparison against the Case baseline.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct BenchmarkArtifactFileResponse {
+    path: String,
+    size_bytes: u64,
+    change: String,
+}
+
+impl From<BenchmarkArtifactFile> for BenchmarkArtifactFileResponse {
+    fn from(file: BenchmarkArtifactFile) -> Self {
+        Self {
+            path: file.path,
+            size_bytes: file.size_bytes,
+            change: file.change,
+        }
+    }
+}
+
+/// Bounded text preview that never exposes a native file path.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct BenchmarkArtifactPreviewResponse {
+    path: String,
+    size_bytes: u64,
+    text: Option<String>,
+    truncated: bool,
+}
+
+impl From<BenchmarkArtifactPreview> for BenchmarkArtifactPreviewResponse {
+    fn from(preview: BenchmarkArtifactPreview) -> Self {
+        Self {
+            path: preview.path,
+            size_bytes: preview.size_bytes,
+            text: preview.text,
+            truncated: preview.truncated,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
