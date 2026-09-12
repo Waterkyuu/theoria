@@ -191,7 +191,7 @@ impl TaskExecutionService {
             .map_err(|_| AppError::TaskDatabaseFailed)?;
         let mut executions = Vec::with_capacity(detail.agents.len());
         for agent in detail.agents.clone() {
-            let prompt = detail.task.prompt.clone();
+            let prompt = detail.prompt.clone();
             let execution_directory = self.app_data_directory.join(&agent.execution_relative_path);
             let model_snapshot = agent.model_snapshot.clone();
             let mode_snapshot = agent.mode_snapshot.clone();
@@ -227,7 +227,7 @@ impl TaskExecutionService {
             });
         }
         let final_statuses = self
-            .collect_executions(&detail, &detail.task.prompt, executions)
+            .collect_executions(&detail, &detail.prompt, executions)
             .await?;
         let task_status = aggregate_status(&final_statuses);
         self.repository
@@ -394,7 +394,7 @@ impl TaskExecutionService {
             .collect(
                 &detail.task.id,
                 &agent.id,
-                Path::new(&detail.task.baseline_relative_path),
+                Path::new(&detail.baseline_relative_path),
                 Path::new(&agent.execution_relative_path),
             )
             .await;
@@ -472,7 +472,7 @@ fn validate_frozen_paths(detail: &TaskDetail) -> Result<(), AppError> {
     let expected_baseline = PathBuf::from("task-runs")
         .join(&detail.task.id)
         .join("baseline");
-    if Path::new(&detail.task.baseline_relative_path) != expected_baseline {
+    if Path::new(&detail.baseline_relative_path) != expected_baseline {
         return Err(AppError::TaskPreparationFailed);
     }
     for agent in &detail.agents {
@@ -761,7 +761,7 @@ mod tests {
                 std::fs::create_dir_all(root.join(&agent.execution_relative_path))
                     .expect("create workspace");
             }
-            std::fs::create_dir_all(root.join(&detail.task.baseline_relative_path))
+            std::fs::create_dir_all(root.join(&detail.baseline_relative_path))
                 .expect("create baseline");
             let detail = repository.create(detail).await.expect("save task");
             let service = TaskExecutionService::new(
@@ -1023,7 +1023,7 @@ mod tests {
 
         detail.agents[0].execution_relative_path =
             "task-runs/task-1/executions/agent-1/workspace".to_string();
-        detail.task.baseline_relative_path = "task-runs/task-2/baseline".to_string();
+        detail.baseline_relative_path = "task-runs/task-2/baseline".to_string();
         assert_eq!(
             validate_frozen_paths(&detail),
             Err(AppError::TaskPreparationFailed)
@@ -1033,12 +1033,13 @@ mod tests {
     /// Builds a terminal Task with one resumable and two ineligible sessions.
     fn resumable_task_detail() -> TaskDetail {
         TaskDetail {
+            prompt: "Initial".to_string(),
+            baseline_relative_path: "task-runs/task-1/baseline".to_string(),
             task: Task {
+                kind: crate::domain::task::TaskKind::Work,
                 id: "task-1".to_string(),
                 workspace_id: None,
                 title: "Task".to_string(),
-                prompt: "Initial".to_string(),
-                baseline_relative_path: "task-runs/task-1/baseline".to_string(),
                 status: TaskStatus::Failed,
                 configuration_locked_at_ms: Some(1),
                 pinned_at_ms: None,

@@ -38,6 +38,31 @@ impl TaskStatus {
     }
 }
 
+/// Determines which business owns a task's inputs and execution lifecycle.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TaskKind {
+    Work,
+    Benchmark,
+}
+
+impl TaskKind {
+    /// Stable identifier shared by storage and IPC.
+    pub(crate) const fn as_str(self) -> &'static str {
+        match self {
+            Self::Work => "work",
+            Self::Benchmark => "benchmark",
+        }
+    }
+    /// Rejects unknown business types at the storage boundary.
+    pub(crate) fn parse(value: &str) -> Option<Self> {
+        match value {
+            "work" => Some(Self::Work),
+            "benchmark" => Some(Self::Benchmark),
+            _ => None,
+        }
+    }
+}
+
 /// Immutable Task configuration and current aggregate status.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Task {
@@ -47,10 +72,8 @@ pub(crate) struct Task {
     pub(crate) workspace_id: Option<String>,
     /// User-visible task title.
     pub(crate) title: String,
-    /// Initial natural-language request.
-    pub(crate) prompt: String,
-    /// Frozen Baseline path relative to application data.
-    pub(crate) baseline_relative_path: String,
+    /// Business type selecting the task body and orchestrator.
+    pub(crate) kind: TaskKind,
     /// Aggregate execution lifecycle.
     pub(crate) status: TaskStatus,
     /// Time after which execution configuration cannot change.
@@ -149,6 +172,10 @@ pub(crate) struct TaskAgentTurn {
 /// Complete persisted Task view restored from direct Task navigation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TaskDetail {
+    /// Frozen request owned by this work task.
+    pub(crate) prompt: String,
+    /// Frozen work task input path relative to application data.
+    pub(crate) baseline_relative_path: String,
     /// Immutable Task metadata.
     pub(crate) task: Task,
     /// Agent Executions in stable layout order.

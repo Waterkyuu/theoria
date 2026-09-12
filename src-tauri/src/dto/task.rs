@@ -107,8 +107,8 @@ pub(crate) struct TaskResponse {
     workspace_id: Option<String>,
     /// User-visible title.
     title: String,
-    /// Frozen initial prompt.
-    prompt: String,
+    /// Business type selecting the task body.
+    kind: &'static str,
     /// Aggregate lifecycle identifier.
     status: &'static str,
     /// Time after which configuration cannot change.
@@ -127,7 +127,7 @@ impl From<Task> for TaskResponse {
             id: task.id,
             workspace_id: task.workspace_id,
             title: task.title,
-            prompt: task.prompt,
+            kind: task.kind.as_str(),
             status: task.status.as_str(),
             configuration_locked_at_ms: task.configuration_locked_at_ms,
             pinned_at_ms: task.pinned_at_ms,
@@ -261,6 +261,8 @@ impl From<TaskAgentTurn> for TaskAgentTurnResponse {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct TaskDetailResponse {
+    /// Initial request belonging exclusively to the work task.
+    prompt: String,
     /// Immutable Task metadata.
     task: TaskResponse,
     /// Agent Executions in layout order.
@@ -280,6 +282,7 @@ pub(crate) struct TaskDetailResponse {
 impl From<TaskDetail> for TaskDetailResponse {
     fn from(detail: TaskDetail) -> Self {
         Self {
+            prompt: detail.prompt,
             task: detail.task.into(),
             agents: detail.agents.into_iter().map(Into::into).collect(),
             file_access: detail.permissions.file_access,
