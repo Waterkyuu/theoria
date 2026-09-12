@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { Button, Toast } from "@heroui/react";
+import { Button, Label, NumberField, Toast } from "@heroui/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
@@ -331,30 +331,39 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 											{t("benchmark.structuredCase")}
 										</p>
 									)}
-									<label className="flex max-w-60 flex-col gap-sm text-body-sm">
-										{t("benchmark.timeout")}
-										<input
-											required
-											type="number"
-											min={1}
-											max={60}
-											className={FIELD}
-											value={item.timeoutMinutes}
-											onChange={(event) =>
-												setDocument({
-													...document,
-													cases: document.cases.map((value, position) =>
-														position === index
-															? {
-																	...value,
-																	timeoutMinutes: Number(event.target.value),
-																}
-															: value,
-													),
-												})
-											}
-										/>
-									</label>
+									<NumberField
+										className="max-w-60"
+										fullWidth
+										isRequired
+										minValue={1}
+										maxValue={60}
+										value={item.timeoutMinutes}
+										onChange={(nextValue) =>
+											setDocument({
+												...document,
+												cases: document.cases.map((value, position) =>
+													position === index
+														? {
+																...value,
+																timeoutMinutes: Number.isNaN(nextValue)
+																	? 1
+																	: nextValue,
+															}
+														: value,
+												),
+											})
+										}
+									>
+										<Label>{t("benchmark.timeout")}</Label>
+										<NumberField.Group>
+											<NumberField.DecrementButton />
+											<NumberField.Input
+												className="bg-canvas"
+												name={`cases.${index}.timeoutMinutes`}
+											/>
+											<NumberField.IncrementButton />
+										</NumberField.Group>
+									</NumberField>
 								</div>
 							</section>
 						))}
