@@ -179,7 +179,7 @@ impl BenchmarkTaskService {
             .map_err(|_| AppError::BenchmarkDatabaseFailed)?;
         let restored_mount = if current_mount.is_none() {
             if !configuration.restore_mount {
-                return Err(AppError::BenchmarkConflict);
+                return Err(AppError::BenchmarkMountRequired);
             }
             Some(crate::domain::benchmark::BenchmarkMount {
                 id: next_id("mount")?,
@@ -1358,7 +1358,7 @@ mod tests {
                 service
                     .rerun(rerun_configuration.clone(), "rerun-request")
                     .await,
-                Err(AppError::BenchmarkConflict)
+                Err(AppError::BenchmarkMountRequired)
             );
             let rerun = service
                 .rerun(

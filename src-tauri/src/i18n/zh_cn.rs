@@ -42,6 +42,7 @@ pub(super) fn message(key: ErrorMessageKey) -> &'static str {
         ErrorMessageKey::BenchmarkDatabaseFailed => "无法访问本地 Benchmark 数据库",
         ErrorMessageKey::BenchmarkNotFound => "未找到对应的 Benchmark 内容",
         ErrorMessageKey::BenchmarkConflict => "Benchmark 已变更，请重新加载后再保存或发布",
+        ErrorMessageKey::BenchmarkMountRequired => "重新评测前需要先挂载这个历史 Benchmark",
         ErrorMessageKey::BenchmarkReadOnly => "此 Benchmark 为只读或已归档",
         ErrorMessageKey::BenchmarkAssetUnavailable => "Benchmark 材料文件不可用",
         ErrorMessageKey::BenchmarkVerifierUnavailable => "所需的 Benchmark 验证环境不可用",
