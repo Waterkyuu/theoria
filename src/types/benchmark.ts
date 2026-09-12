@@ -271,6 +271,24 @@ const BenchmarkEvaluationReportSchema = z.object({
 	),
 });
 
+const BenchmarkArtifactFileSchema = z.object({
+	/** Portable path within the final execution workspace. */
+	path: z.string().min(1),
+	/** Final size, or baseline size for a deleted file. */
+	sizeBytes: z.number().int().nonnegative(),
+	/** Exact comparison against the immutable Case baseline. */
+	change: z.enum(["added", "modified", "deleted", "unchanged"]),
+});
+
+const BenchmarkArtifactPreviewSchema = z.object({
+	path: z.string().min(1),
+	sizeBytes: z.number().int().nonnegative(),
+	text: z.string().nullable(),
+	truncated: z.boolean(),
+});
+
+const BenchmarkArtifactFilesSchema = z.array(BenchmarkArtifactFileSchema);
+
 const BenchmarkTaskDetailSchema = z.object({
 	task: z.object({
 		id: z.string().min(1),
@@ -381,6 +399,10 @@ type BenchmarkPreview = z.infer<typeof BenchmarkPreviewSchema>;
 
 type BenchmarkTaskDetail = z.infer<typeof BenchmarkTaskDetailSchema>;
 
+type BenchmarkArtifactFile = z.infer<typeof BenchmarkArtifactFileSchema>;
+
+type BenchmarkArtifactPreview = z.infer<typeof BenchmarkArtifactPreviewSchema>;
+
 type BenchmarkValidationIssue = z.infer<typeof BenchmarkValidationIssueSchema>;
 
 type BenchmarkTagUsage = z.infer<typeof BenchmarkTagUsageSchema>;
@@ -441,6 +463,8 @@ export type {
 	BenchmarkFilters,
 	BenchmarkPreviewInput,
 	BenchmarkTaskDetail,
+	BenchmarkArtifactFile,
+	BenchmarkArtifactPreview,
 	BenchmarkValidationIssue,
 	BenchmarkTagUsage,
 	RerunBenchmarkTaskInput,
@@ -458,6 +482,8 @@ export {
 	BenchmarkTagSchema,
 	BenchmarkPreviewSchema,
 	BenchmarkTaskDetailSchema,
+	BenchmarkArtifactFilesSchema,
+	BenchmarkArtifactPreviewSchema,
 	BenchmarkValidationErrorSchema,
 	BenchmarkTagUsageSchema,
 	BenchmarkSummariesSchema,

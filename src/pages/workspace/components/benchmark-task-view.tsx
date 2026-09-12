@@ -13,6 +13,8 @@ import { AGENT_KINDS } from "@/constants/agent";
 import { BenchmarkFeedback } from "@/pages/benchmark/components/feedback";
 import {
 	useBenchmarkTask,
+	useBenchmarkExecutionArtifacts,
+	useBenchmarkExecutionArtifactPreview,
 	useCancelBenchmarkTask,
 	useRerunBenchmarkTask,
 } from "@/queries/benchmark";
@@ -187,6 +189,15 @@ const BenchmarkTaskView = ({ taskId }: BenchmarkTaskViewProps) => {
 	const [selectedExecutionId, setSelectedExecutionId] = useState<string | null>(
 		null,
 	);
+	const [selectedArtifactPath, setSelectedArtifactPath] = useState<
+		string | null
+	>(null);
+	const artifacts = useBenchmarkExecutionArtifacts(taskId, selectedExecutionId);
+	const artifactPreview = useBenchmarkExecutionArtifactPreview(
+		taskId,
+		selectedExecutionId,
+		selectedArtifactPath,
+	);
 	if (!query.data) {
 		return (
 			<main className="h-dvh min-w-0 flex-1 overflow-y-auto bg-canvas p-xl">
@@ -319,7 +330,10 @@ const BenchmarkTaskView = ({ taskId }: BenchmarkTaskViewProps) => {
 															"rounded-md px-sm py-xs text-caption-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
 															resultClass(execution.result),
 														)}
-														onClick={() => setSelectedExecutionId(execution.id)}
+														onClick={() => {
+															setSelectedExecutionId(execution.id);
+															setSelectedArtifactPath(null);
+														}}
 														type="button"
 													>
 														{t(`benchmark.results.state.${execution.result}`, {
@@ -421,6 +435,53 @@ const BenchmarkTaskView = ({ taskId }: BenchmarkTaskViewProps) => {
 								</ul>
 							</section>
 						) : null}
+						<section className="mt-lg">
+							<h3 className="text-caption-sm font-medium text-mute">
+								{t("benchmark.results.artifacts")}
+							</h3>
+							<BenchmarkFeedback
+								failed={artifacts.isError}
+								loading={artifacts.isLoading}
+								retry={() => artifacts.refetch()}
+							/>
+							{artifacts.data?.length === 0 ? (
+								<p className="mt-sm text-body-sm text-mute">
+									{t("benchmark.results.noArtifacts")}
+								</p>
+							) : null}
+							<div className="mt-sm flex flex-wrap gap-sm">
+								{artifacts.data?.map((artifact) => (
+									<button
+										className="rounded-md border border-hairline px-sm py-xs text-left text-body-sm outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:opacity-50"
+										disabled={artifact.change === "deleted"}
+										key={artifact.path}
+										onClick={() => setSelectedArtifactPath(artifact.path)}
+										type="button"
+									>
+										{artifact.path}{" "}
+										<span className="text-caption-sm text-mute">
+											{t(`benchmark.results.change.${artifact.change}`)} ·{" "}
+											{artifact.sizeBytes} B
+										</span>
+									</button>
+								))}
+							</div>
+							{selectedArtifactPath ? (
+								<div className="mt-md rounded-md bg-surface-soft p-md">
+									<BenchmarkFeedback
+										failed={artifactPreview.isError}
+										loading={artifactPreview.isLoading}
+										retry={() => artifactPreview.refetch()}
+									/>
+									{artifactPreview.data ? (
+										<pre className="max-h-96 overflow-auto whitespace-pre-wrap text-body-sm text-body">
+											{artifactPreview.data.text ??
+												t("benchmark.assetPreview.binary")}
+										</pre>
+									) : null}
+								</div>
+							) : null}
+						</section>
 					</article>
 				) : null}
 			</section>

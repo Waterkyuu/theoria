@@ -193,6 +193,17 @@ it("shows the selected case requirements and every public validation check", asy
 	];
 	invoke.mockImplementation(async (command: string) => {
 		if (command === "get_benchmark_task") return completed;
+		if (command === "list_benchmark_execution_artifacts") {
+			return [{ path: "result.txt", sizeBytes: 13, change: "added" }];
+		}
+		if (command === "preview_benchmark_execution_artifact") {
+			return {
+				path: "result.txt",
+				sizeBytes: 13,
+				text: "artifact body",
+				truncated: false,
+			};
+		}
 		throw new Error(`Unexpected command: ${command}`);
 	});
 	const user = userEvent.setup();
@@ -204,4 +215,6 @@ it("shows the selected case requirements and every public validation check", asy
 	expect(screen.getByText("42")).toBeInTheDocument();
 	expect(screen.getByText("Exact answer matched")).toBeInTheDocument();
 	expect(screen.getByText(/Execution duration.*10 ms/)).toBeInTheDocument();
+	await user.click(await screen.findByRole("button", { name: /result.txt/ }));
+	expect(await screen.findByText("artifact body")).toBeInTheDocument();
 });
