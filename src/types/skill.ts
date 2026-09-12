@@ -20,8 +20,7 @@ const SkillSchema = z.object({
 	updatedAtMs: z.int().nonnegative(),
 });
 
-const CompiledSkillSchema = z.compile(SkillSchema);
-const CompiledSkillsSchema = z.compile(z.array(SkillSchema));
+const SkillsSchema = z.array(SkillSchema);
 
 const EditorSkillFilesSchema = z.object({
 	/** Editable UTF-8 files, keyed by relative path. */
@@ -31,14 +30,17 @@ const EditorSkillFilesSchema = z.object({
 	/** Destination-to-original paths for files that stay on disk. */
 	retainedFiles: z.record(z.string(), z.string()),
 });
-const CompiledEditorSkillFilesSchema = z.compile(EditorSkillFilesSchema);
+const EmptySkillResponseSchema = z.null();
+const OptionalSkillPathSchema = z.string().nullable();
 type EditorSkillFiles = z.infer<typeof EditorSkillFilesSchema>;
 
 type Skill = z.infer<typeof SkillSchema>;
 
 export type { EditorSkillFiles, Skill };
 export {
-	CompiledEditorSkillFilesSchema,
-	CompiledSkillSchema,
-	CompiledSkillsSchema,
+	EditorSkillFilesSchema,
+	EmptySkillResponseSchema,
+	OptionalSkillPathSchema,
+	SkillSchema,
+	SkillsSchema,
 };
