@@ -8,7 +8,12 @@ import {
 	listWorkspaceBenchmarks,
 } from "@/api/benchmark";
 import type { BenchmarkFilters } from "@/types/benchmark";
-/** Fetches catalog pages without client-side sorting of partial results. @example useBenchmarks(filters); */
+/**
+ * Fetches catalog pages without client-side sorting of partial results.
+ *
+ * @example
+ * useBenchmarks(filters);
+ */
 const useBenchmarks = (filters: BenchmarkFilters) =>
 	useInfiniteQuery({
 		queryKey: ["benchmarks", "catalog", filters],
@@ -20,14 +25,24 @@ const useBenchmarks = (filters: BenchmarkFilters) =>
 /** Shares the tag picker cache with cards and editors. */
 const useBenchmarkTags = () =>
 	useQuery({ queryKey: ["benchmarks", "tags"], queryFn: listBenchmarkTags });
-/** Keys workspace details by immutable version. @example useBenchmark("suite", "v1"); */
+/**
+ * Keys workspace details by immutable version.
+ *
+ * @example
+ * useBenchmark("suite", "v1");
+ */
 const useBenchmark = (id: string, versionId: string | null = null) =>
 	useQuery({
 		queryKey: ["benchmarks", "detail", id, versionId],
 		queryFn: () => getBenchmark(id, versionId),
 		enabled: Boolean(id),
 	});
-/** Restores exactly one saved revision. @example useBenchmarkDraft("draft"); */
+/**
+ * Restores exactly one saved revision.
+ *
+ * @example
+ * useBenchmarkDraft("draft");
+ */
 const useBenchmarkDraft = (id: string) =>
 	useQuery({
 		queryKey: ["benchmarks", "draft", id],
@@ -43,7 +58,12 @@ const useBenchmarkDrafts = () =>
 		getNextPageParam: (last, pages) =>
 			last.length === 30 ? pages.length : undefined,
 	});
-/** Sidebar and workspace detail share pinned relationships. @example useWorkspaceBenchmarks("workspace"); */
+/**
+ * Sidebar and workspace detail share pinned relationships.
+ *
+ * @example
+ * useWorkspaceBenchmarks("workspace");
+ */
 const useWorkspaceBenchmarks = (workspaceId: string) =>
 	useInfiniteQuery({
 		queryKey: ["benchmarks", "mounts", workspaceId],
