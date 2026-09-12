@@ -54,7 +54,7 @@ const SkillAddDropdown = ({ isDisabled, onAction }: SkillAddDropdownProps) => {
 			placement="bottom end"
 			trigger={
 				<Button
-					className="h-9 w-full shrink-0 gap-sm rounded-md bg-surface-dark px-[10px] py-[9px] text-body-sm font-medium text-on-dark shadow-none outline-none hover:bg-ink-deep focus-visible:ring-2 focus-visible:ring-focus-ring sm:w-auto sm:min-w-34"
+					className="h-9 w-[107px] shrink-0 justify-center gap-sm rounded-md bg-surface-dark px-[10px] py-[9px] text-body-sm font-medium text-on-dark shadow-none outline-none hover:bg-ink-deep focus-visible:ring-2 focus-visible:ring-focus-ring"
 					isDisabled={isDisabled}
 				>
 					<Plus className="size-4" />

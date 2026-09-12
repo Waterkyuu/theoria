@@ -19,6 +19,7 @@ it("renders the add skill trigger with the Figma dark action treatment", () => {
 	render(<SkillAddDropdown isDisabled={false} onAction={onAction} />);
 	const addButton = screen.getByRole("button", { name: "添加技能" });
 	expect(addButton).toHaveClass("h-9");
+	expect(addButton).toHaveClass("w-[107px]");
 	expect(addButton).toHaveClass("gap-sm");
 	expect(addButton).toHaveClass("rounded-md");
 	expect(addButton).toHaveClass("bg-surface-dark");

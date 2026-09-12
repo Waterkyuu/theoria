@@ -81,6 +81,7 @@ it("styles the new benchmark trigger as the dark primary action", async () => {
 	);
 	const addButton = await screen.findByRole("button", { name: "Add new" });
 	expect(addButton).toHaveClass("h-9");
+	expect(addButton).toHaveClass("w-[107px]");
 	expect(addButton).toHaveClass("rounded-md");
 	expect(addButton).toHaveClass("bg-surface-dark");
 	expect(addButton).toHaveClass("px-[10px]");
