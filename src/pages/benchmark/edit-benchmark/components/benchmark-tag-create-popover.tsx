@@ -62,7 +62,7 @@ const BenchmarkTagCreatePopover = ({
 			}
 		>
 			<form onSubmit={submit} className="flex max-w-72 flex-col gap-md pt-md">
-				<label className="text-body-sm">
+				<label className="flex flex-col gap-sm text-body-sm">
 					{t("benchmark.tagName")}
 					<input
 						name="tagName"
