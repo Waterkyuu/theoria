@@ -18,6 +18,8 @@ import { handleError } from "@/utils/error";
 import { useDeleteTask, useRenameTask, useSetTaskPin } from "@/queries/task";
 
 type TaskActionDropdownProps = {
+	/** Whether the Task kind supports permanent deletion. */
+	canDelete?: boolean;
 	/** Called after deletion so an active route can return to its Composer. */
 	onDeleted?: () => void;
 	/** Persisted timestamp that controls pin state within the Task's sidebar scope. */
@@ -37,6 +39,7 @@ type TaskMenuAction = "delete" | "pin" | "rename";
  * <TaskActionDropdown taskId="task-1" taskName="Current task" />
  */
 const TaskActionDropdown = ({
+	canDelete = true,
 	onDeleted,
 	pinnedAtMs,
 	taskId,
@@ -132,7 +135,10 @@ const TaskActionDropdown = ({
 			id: "rename",
 			labelKey: "workspaceSidebar.renameConversation",
 		},
-		{
+	];
+
+	if (canDelete) {
+		menuItems.push({
 			danger: true,
 			icon: (
 				<TrashBin aria-hidden="true" className="size-4 shrink-0 text-danger" />
@@ -140,8 +146,8 @@ const TaskActionDropdown = ({
 			id: "delete",
 			labelKey: "workspaceSidebar.deleteConversation",
 			separated: true,
-		},
-	];
+		});
+	}
 
 	if (supportsPinning) {
 		menuItems.unshift({
@@ -218,23 +224,25 @@ const TaskActionDropdown = ({
 				saveText={t("workspaceSidebar.taskRename.save")}
 				title={t("workspaceSidebar.taskRename.title")}
 			/>
-			<AlertDialog
-				confirmText={t("workspaceSidebar.taskDelete.confirm")}
-				description={t("workspaceSidebar.taskDelete.description", {
-					task: taskName,
-				})}
-				isConfirmDisabled={deleteTaskMutation.isPending}
-				isOpen={isDeleteOpen}
-				onConfirm={() => confirmDelete()}
-				onOpenChange={setIsDeleteOpen}
-				title={t("workspaceSidebar.taskDelete.title")}
-			>
-				{deleteTaskMutation.error ? (
-					<p className="text-body-sm text-danger" role="alert">
-						{t("workspaceSidebar.taskDelete.failed")}
-					</p>
-				) : null}
-			</AlertDialog>
+			{canDelete ? (
+				<AlertDialog
+					confirmText={t("workspaceSidebar.taskDelete.confirm")}
+					description={t("workspaceSidebar.taskDelete.description", {
+						task: taskName,
+					})}
+					isConfirmDisabled={deleteTaskMutation.isPending}
+					isOpen={isDeleteOpen}
+					onConfirm={() => confirmDelete()}
+					onOpenChange={setIsDeleteOpen}
+					title={t("workspaceSidebar.taskDelete.title")}
+				>
+					{deleteTaskMutation.error ? (
+						<p className="text-body-sm text-danger" role="alert">
+							{t("workspaceSidebar.taskDelete.failed")}
+						</p>
+					) : null}
+				</AlertDialog>
+			) : null}
 		</>
 	);
 };
