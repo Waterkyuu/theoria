@@ -13,16 +13,27 @@ import type {
 	BenchmarkFilters,
 	BenchmarkPreviewInput,
 } from "@/types/benchmark";
+
 const summaries = z.compile(z.array(BenchmarkSummarySchema));
+
 const detail = z.compile(BenchmarkDetailSchema);
+
 const draft = z.compile(BenchmarkDraftSchema);
+
 const mounts = z.compile(z.array(BenchmarkMountSchema));
+
 const mount = z.compile(BenchmarkMountSchema);
+
 const tags = z.compile(z.array(BenchmarkTagSchema));
+
 const tag = z.compile(BenchmarkTagSchema);
+
 const ids = z.compile(z.array(z.string()));
+
 const empty = z.compile(z.null());
+
 const preview = z.compile(BenchmarkPreviewSchema);
+
 /**
  * Keeps sorting and filtering ahead of native pagination.
  *
@@ -33,6 +44,7 @@ const listBenchmarks = (filters: BenchmarkFilters, page: number) =>
 	invokeWithResponseSchema("list_benchmarks", summaries, {
 		request: { ...filters, page },
 	});
+
 /**
  * Loads the pinned version when supplied.
  *
@@ -43,9 +55,11 @@ const getBenchmark = (benchmarkId: string, versionId: string | null = null) =>
 	invokeWithResponseSchema("get_benchmark", detail, {
 		request: { benchmarkId, versionId },
 	});
+
 /** Loads available classifications. */
 const listBenchmarkTags = () =>
 	invokeWithResponseSchema("list_benchmark_tags", tags);
+
 /**
  * Stores an allowed Gravity selection.
  *
@@ -56,6 +70,7 @@ const createBenchmarkTag = (name: string, icon: string) =>
 	invokeWithResponseSchema("create_benchmark_tag", tag, {
 		request: { name, icon },
 	});
+
 /**
  * Saves with optimistic concurrency.
  *
@@ -70,6 +85,7 @@ const saveBenchmarkDraft = (
 	invokeWithResponseSchema("save_benchmark_draft", draft, {
 		request: { document, draftId, expectedRevision },
 	});
+
 /**
  * Publishes the reviewed saved revision.
  *
@@ -80,6 +96,7 @@ const publishBenchmark = (draftId: string, expectedRevision: number) =>
 	invokeWithResponseSchema("publish_benchmark", detail, {
 		request: { draftId, expectedRevision },
 	});
+
 /**
  * Restores an unfinished editor.
  *
@@ -90,6 +107,7 @@ const getBenchmarkDraft = (draftId: string) =>
 	invokeWithResponseSchema("get_benchmark_draft", draft, {
 		request: { draftId },
 	});
+
 /**
  * Lists saved editor IDs without loading every document.
  *
@@ -98,6 +116,7 @@ const getBenchmarkDraft = (draftId: string) =>
  */
 const listBenchmarkDrafts = (page: number) =>
 	invokeWithResponseSchema("list_benchmark_drafts", ids, { request: { page } });
+
 /**
  * Reads fixed workspace relationships.
  *
@@ -108,6 +127,7 @@ const listWorkspaceBenchmarks = (workspaceId: string, page: number) =>
 	invokeWithResponseSchema("list_workspace_benchmarks", mounts, {
 		request: { workspaceId, page },
 	});
+
 /**
  * Never silently upgrades an existing mount.
  *
@@ -122,6 +142,7 @@ const mountBenchmark = (
 	invokeWithResponseSchema("mount_benchmark", mount, {
 		request: { workspaceId, benchmarkId, versionId },
 	});
+
 /**
  * Removes only the relationship.
  *
@@ -132,6 +153,7 @@ const unmountBenchmark = (workspaceId: string, mountId: string) =>
 	invokeWithResponseSchema("unmount_benchmark", empty, {
 		request: { workspaceId, mountId },
 	});
+
 /**
  * Checks the whole suite without model overrides or Task creation.
  *
@@ -140,6 +162,7 @@ const unmountBenchmark = (workspaceId: string, mountId: string) =>
  */
 const previewBenchmarkTask = (request: BenchmarkPreviewInput) =>
 	invokeWithResponseSchema("preview_benchmark_task", preview, { request });
+
 export {
 	listBenchmarks,
 	getBenchmark,

@@ -8,6 +8,7 @@ import {
 	listWorkspaceBenchmarks,
 } from "@/api/benchmark";
 import type { BenchmarkFilters } from "@/types/benchmark";
+
 /**
  * Fetches catalog pages without client-side sorting of partial results.
  *
@@ -22,9 +23,11 @@ const useBenchmarks = (filters: BenchmarkFilters) =>
 		getNextPageParam: (last, pages) =>
 			last.length === 30 ? pages.length : undefined,
 	});
+
 /** Shares the tag picker cache with cards and editors. */
 const useBenchmarkTags = () =>
 	useQuery({ queryKey: ["benchmarks", "tags"], queryFn: listBenchmarkTags });
+
 /**
  * Keys workspace details by immutable version.
  *
@@ -37,6 +40,7 @@ const useBenchmark = (id: string, versionId: string | null = null) =>
 		queryFn: () => getBenchmark(id, versionId),
 		enabled: Boolean(id),
 	});
+
 /**
  * Restores exactly one saved revision.
  *
@@ -49,6 +53,7 @@ const useBenchmarkDraft = (id: string) =>
 		queryFn: () => getBenchmarkDraft(id),
 		enabled: Boolean(id),
 	});
+
 /** Pages saved drafts independently of the public catalog. */
 const useBenchmarkDrafts = () =>
 	useInfiniteQuery({
@@ -58,6 +63,7 @@ const useBenchmarkDrafts = () =>
 		getNextPageParam: (last, pages) =>
 			last.length === 30 ? pages.length : undefined,
 	});
+
 /**
  * Sidebar and workspace detail share pinned relationships.
  *
@@ -73,6 +79,7 @@ const useWorkspaceBenchmarks = (workspaceId: string) =>
 		getNextPageParam: (last, pages) =>
 			last.length === 30 ? pages.length : undefined,
 	});
+
 export {
 	useBenchmarks,
 	useBenchmarkTags,

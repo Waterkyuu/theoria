@@ -7,6 +7,7 @@ const BenchmarkFileSchema = z.object({
 	/** App-owned immutable resource. */
 	assetId: z.string(),
 });
+
 const BenchmarkCheckSchema = z.discriminatedUnion("kind", [
 	z.object({
 		/** Exact final answer check. */
@@ -43,6 +44,7 @@ const BenchmarkCheckSchema = z.discriminatedUnion("kind", [
 		script: BenchmarkFileSchema,
 	}),
 ]);
+
 const BenchmarkCaseSchema = z.object({
 	/** Unique name in this suite. */
 	name: z.string(),
@@ -55,6 +57,7 @@ const BenchmarkCaseSchema = z.object({
 	/** Automatic scoring criteria. */
 	checks: z.array(BenchmarkCheckSchema),
 });
+
 const BenchmarkDocumentSchema = z.object({
 	/** Portable document format. */
 	schemaVersion: z.number().int(),
@@ -69,6 +72,7 @@ const BenchmarkDocumentSchema = z.object({
 	/** Complete ordered suite. */
 	cases: z.array(BenchmarkCaseSchema),
 });
+
 const BenchmarkTagSchema = z.object({
 	/** Stable classification ID. */
 	id: z.string(),
@@ -79,6 +83,7 @@ const BenchmarkTagSchema = z.object({
 	/** Protected fallback tag. */
 	isSystem: z.boolean(),
 });
+
 const BenchmarkSummarySchema = z.object({
 	/** Definition route ID. */
 	id: z.string(),
@@ -103,6 +108,7 @@ const BenchmarkSummarySchema = z.object({
 	/** Creation timestamp. */
 	createdAtMs: z.number().int(),
 });
+
 const BenchmarkDetailSchema = z.object({
 	/** Current display metadata. */
 	summary: BenchmarkSummarySchema,
@@ -113,6 +119,7 @@ const BenchmarkDetailSchema = z.object({
 	/** All selected cases and resources. */
 	document: BenchmarkDocumentSchema,
 });
+
 const BenchmarkDraftSchema = z.object({
 	/** Editor route ID. */
 	id: z.string(),
@@ -125,6 +132,7 @@ const BenchmarkDraftSchema = z.object({
 	/** Last successful save. */
 	updatedAtMs: z.number().int(),
 });
+
 const BenchmarkMountSchema = z.object({
 	/** Relationship route ID. */
 	id: z.string(),
@@ -137,6 +145,7 @@ const BenchmarkMountSchema = z.object({
 	/** Mount timestamp. */
 	createdAtMs: z.number().int(),
 });
+
 const BenchmarkPreviewSchema = z.object({
 	/** Checked version. */
 	versionId: z.string(),
@@ -181,13 +190,21 @@ const BenchmarkPreviewSchema = z.object({
 		}),
 	),
 });
+
 type BenchmarkDocument = z.infer<typeof BenchmarkDocumentSchema>;
+
 type BenchmarkDetail = z.infer<typeof BenchmarkDetailSchema>;
+
 type BenchmarkSummary = z.infer<typeof BenchmarkSummarySchema>;
+
 type BenchmarkDraft = z.infer<typeof BenchmarkDraftSchema>;
+
 type BenchmarkMount = z.infer<typeof BenchmarkMountSchema>;
+
 type BenchmarkTag = z.infer<typeof BenchmarkTagSchema>;
+
 type BenchmarkPreview = z.infer<typeof BenchmarkPreviewSchema>;
+
 type BenchmarkFilters = {
 	/** Literal name/description query. */
 	search: string;
@@ -198,6 +215,7 @@ type BenchmarkFilters = {
 	/** Ordering applies before pagination. */
 	sort: "newest" | "updated" | "oldest" | "alphabetical";
 };
+
 type BenchmarkPreviewInput = Pick<
 	BenchmarkPreview,
 	"agentKinds" | "fileAccess" | "commandExecution"
@@ -209,6 +227,7 @@ type BenchmarkPreviewInput = Pick<
 	/** Version shown before the check. */
 	expectedVersionId: string;
 };
+
 export type {
 	BenchmarkDocument,
 	BenchmarkDetail,
@@ -220,6 +239,7 @@ export type {
 	BenchmarkFilters,
 	BenchmarkPreviewInput,
 };
+
 export {
 	BenchmarkSummarySchema,
 	BenchmarkDetailSchema,
