@@ -66,6 +66,7 @@ mod models {
 }
 mod repositories {
     pub(crate) mod benchmark;
+    pub(crate) mod benchmark_task;
     pub(crate) mod comparison;
     pub(crate) mod skill;
     pub(crate) mod task;
@@ -113,6 +114,7 @@ use crate::platform::opencode_config::{
 };
 use crate::platform::workbuddy_config::WorkBuddyConfigWatcherState;
 use crate::repositories::benchmark::BenchmarkRepository;
+use crate::repositories::benchmark_task::BenchmarkTaskRepository;
 use crate::repositories::comparison::ComparisonRepository;
 use crate::repositories::skill::SkillRepository;
 use crate::repositories::task::TaskRepository;
@@ -165,6 +167,7 @@ pub fn run() {
             })?;
             app.manage(BenchmarkTaskService::new(
                 BenchmarkRepository::new(comparison_database.clone()),
+                BenchmarkTaskRepository::new(comparison_database.clone()),
                 app_data_directory.clone(),
             ));
             app.manage(BenchmarkService::new(
@@ -344,7 +347,9 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::benchmark_task::get_benchmark_task,
             commands::benchmark_task::preview_benchmark_task,
+            commands::benchmark_task::start_benchmark_task,
             commands::benchmark::list_benchmark_tags,
             commands::benchmark::create_benchmark_tag,
             commands::benchmark::save_benchmark_draft,
