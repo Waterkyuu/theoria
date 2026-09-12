@@ -191,6 +191,21 @@ const BenchmarkPreviewSchema = z.object({
 	),
 });
 
+const BenchmarkValidationIssueSchema = z.object({
+	/** Field path such as cases.0.prompt. */
+	field: z.string(),
+	/** Stable publication rule identifier. */
+	code: z.string(),
+});
+
+const BenchmarkValidationErrorSchema = z.object({
+	code: z.literal("BENCHMARK_VALIDATION_FAILED"),
+	details: z.object({
+		kind: z.literal("benchmarkValidation"),
+		issues: z.array(BenchmarkValidationIssueSchema),
+	}),
+});
+
 const BenchmarkTaskDetailSchema = z.object({
 	task: z.object({
 		id: z.string().min(1),
@@ -293,6 +308,8 @@ type BenchmarkPreview = z.infer<typeof BenchmarkPreviewSchema>;
 
 type BenchmarkTaskDetail = z.infer<typeof BenchmarkTaskDetailSchema>;
 
+type BenchmarkValidationIssue = z.infer<typeof BenchmarkValidationIssueSchema>;
+
 type BenchmarkFilters = {
 	/** Literal name/description query. */
 	search: string;
@@ -331,6 +348,7 @@ export type {
 	BenchmarkFilters,
 	BenchmarkPreviewInput,
 	BenchmarkTaskDetail,
+	BenchmarkValidationIssue,
 	StartBenchmarkTaskInput,
 };
 
@@ -342,6 +360,7 @@ export {
 	BenchmarkTagSchema,
 	BenchmarkPreviewSchema,
 	BenchmarkTaskDetailSchema,
+	BenchmarkValidationErrorSchema,
 	BenchmarkSummariesSchema,
 	BenchmarkMountsSchema,
 	BenchmarkTagsSchema,

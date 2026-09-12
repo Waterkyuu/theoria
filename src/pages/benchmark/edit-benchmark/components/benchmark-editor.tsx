@@ -10,7 +10,12 @@ import { Select } from "@/components/ui/select";
 import { handleError } from "@/utils/error";
 import { saveBenchmarkDraft, publishBenchmark } from "@/api/benchmark";
 import { useBenchmarkTags } from "@/queries/benchmark";
-import type { BenchmarkDocument, BenchmarkDraft } from "@/types/benchmark";
+import {
+	BenchmarkValidationErrorSchema,
+	type BenchmarkDocument,
+	type BenchmarkDraft,
+	type BenchmarkValidationIssue,
+} from "@/types/benchmark";
 import { BenchmarkFeedback } from "../../components/feedback";
 import { BenchmarkTagCreatePopover } from "./benchmark-tag-create-popover";
 
@@ -53,6 +58,9 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 		},
 	);
 	const [pending, setPending] = useState(false);
+	const [validationIssues, setValidationIssues] = useState<
+		BenchmarkValidationIssue[]
+	>([]);
 
 	/**
 	 * Saves before publication and retains recoverable editor content on failure.
@@ -67,6 +75,7 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 			(event.nativeEvent as SubmitEvent).submitter?.getAttribute("value") ===
 			"publish";
 		setPending(true);
+		setValidationIssues([]);
 		try {
 			const draft = await saveBenchmarkDraft(
 				document,
@@ -88,6 +97,10 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 				});
 			}
 		} catch (error) {
+			const validation = BenchmarkValidationErrorSchema.safeParse(error);
+			if (validation.success) {
+				setValidationIssues(validation.data.details.issues);
+			}
 			handleError(error, "Benchmark draft save or publication failed", true);
 		} finally {
 			setPending(false);
@@ -115,6 +128,22 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 					/>
 				</div>
 				<form onSubmit={submit} className="flex flex-col gap-xl">
+					{validationIssues.length > 0 && (
+						<div
+							role="alert"
+							className="rounded-md border border-terminal-red p-md text-body-sm"
+						>
+							<p className="font-medium">{t("benchmark.validation.title")}</p>
+							<ul className="mt-sm list-inside list-disc space-y-xs">
+								{validationIssues.map((issue, index) => (
+									<li key={`${issue.field}-${issue.code}-${index}`}>
+										<code>{issue.field}</code>:{" "}
+										{t(`benchmark.validation.${issue.code}`)}
+									</li>
+								))}
+							</ul>
+						</div>
+					)}
 					<fieldset disabled={pending} className="contents">
 						<label className="flex flex-col gap-sm text-body-sm">
 							{t("benchmark.name")}

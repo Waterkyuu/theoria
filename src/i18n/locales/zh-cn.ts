@@ -117,6 +117,23 @@ const zhCN = {
 			answerHelp:
 				"新建 Case 使用最终答案验证。此编辑器暂不支持导入起始文件和自定义验证器。",
 			invalid: "发布前请填写名称、描述、标签及每个 Case。",
+			validation: {
+				title: "请先修正以下字段再发布",
+				unsupported_schema: "不支持此文档格式",
+				invalid_name: "请填写符合长度要求的名称",
+				invalid_description: "请填写符合长度要求的描述",
+				tag_required: "请选择标签",
+				invalid_case_count: "请添加 1 至 100 个 Case",
+				duplicate_case: "Case 名称不能重复",
+				invalid_prompt: "请填写完整的任务要求",
+				invalid_timeout: "限时必须为 1 至 60 分钟",
+				checks_required: "请至少添加一条有效验证规则",
+				too_many_files: "起始文件不能超过 256 个",
+				unsafe_path: "请使用安全的相对文件路径",
+				duplicate_path: "文件路径不能重复",
+				invalid_expected: "请填写有效的预期值",
+				invalid_json: "请填写有效 JSON",
+			},
 			sort: {
 				newest: "最新创建",
 				updated: "最近更新",
