@@ -190,3 +190,40 @@ it("offers an explicit update when a workspace mount is behind the latest versio
 		});
 	});
 });
+
+it("previews immutable starting files from published details", async () => {
+	invoke.mockImplementation(async (command: string) => {
+		if (command === "get_benchmark")
+			return {
+				...detail(),
+				document: {
+					...document,
+					cases: [
+						{
+							...document.cases[0],
+							inputFiles: [{ path: "input.txt", assetId: "asset-1" }],
+						},
+					],
+				},
+			};
+		if (command === "preview_benchmark_asset")
+			return {
+				assetId: "asset-1",
+				sizeBytes: 7,
+				text: "fixture",
+				truncated: false,
+			};
+		throw new Error(`Unexpected command: ${command}`);
+	});
+	const user = userEvent.setup();
+	render(
+		<QueryClientProvider client={new QueryClient()}>
+			<MemoryRouter>
+				<BenchmarkDetailView benchmarkId="benchmark-1" />
+			</MemoryRouter>
+		</QueryClientProvider>,
+	);
+
+	await user.click(await screen.findByRole("button", { name: "Preview" }));
+	expect(await screen.findByText("fixture")).toBeInTheDocument();
+});
