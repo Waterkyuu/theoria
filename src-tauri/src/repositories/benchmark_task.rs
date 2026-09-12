@@ -14,7 +14,7 @@ use crate::models::task::{self as task, permissions};
 use sea_orm::sea_query::{Expr, OnConflict, Query};
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, DbErr, EntityTrait,
-    QueryFilter, QueryOrder, TransactionTrait,
+    QueryFilter, QueryOrder, QuerySelect, TransactionTrait,
 };
 use std::collections::HashMap;
 
@@ -330,6 +330,53 @@ impl BenchmarkTaskRepository {
             cases,
             executions,
         }))
+    }
+
+    /// Finalizes process-owned work left active by a previous application instance.
+    pub(crate) async fn recover_interrupted(&self, now: i64) -> Result<u64, DbErr> {
+        let task_ids = task::Entity::find()
+            .select_only()
+            .column(task::Column::Id)
+            .filter(task::Column::Kind.eq("benchmark"))
+            .filter(task::Column::Status.is_in(["preparing", "running", "waiting"]))
+            .into_tuple::<String>()
+            .all(&self.database)
+            .await?;
+        if task_ids.is_empty() {
+            return Ok(0);
+        }
+        let transaction = self.database.begin().await?;
+        benchmark_execution::Entity::update_many()
+            .col_expr(benchmark_execution::Column::Phase, Expr::value("finished"))
+            .col_expr(
+                benchmark_execution::Column::TerminationReason,
+                Expr::value("interrupted"),
+            )
+            .col_expr(benchmark_execution::Column::FinishedAtMs, Expr::value(now))
+            .filter(benchmark_execution::Column::TaskId.is_in(task_ids.clone()))
+            .filter(benchmark_execution::Column::Phase.ne("finished"))
+            .exec(&transaction)
+            .await?;
+        benchmark_task::Entity::update_many()
+            .col_expr(
+                benchmark_task::Column::ResultCompleteness,
+                Expr::value("incomplete"),
+            )
+            .col_expr(
+                benchmark_task::Column::CompletionReason,
+                Expr::value("interrupted"),
+            )
+            .filter(benchmark_task::Column::TaskId.is_in(task_ids.clone()))
+            .exec(&transaction)
+            .await?;
+        task::Entity::update_many()
+            .col_expr(task::Column::Status, Expr::value("failed"))
+            .col_expr(task::Column::UpdatedAtMs, Expr::value(now))
+            .filter(task::Column::Id.is_in(task_ids.clone()))
+            .exec(&transaction)
+            .await?;
+        transaction.commit().await?;
+        Ok(task_ids.len() as u64)
     }
 
     /// Marks a newly created task as runnable after its complete plan is visible.

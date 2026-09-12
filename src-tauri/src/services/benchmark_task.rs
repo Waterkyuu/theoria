@@ -139,6 +139,14 @@ impl BenchmarkTaskService {
             .ok_or(AppError::TaskNotFound)
     }
 
+    /// Preserves completed cells and marks abandoned process-owned work as interrupted.
+    pub(crate) async fn recover_interrupted(&self) -> Result<u64, AppError> {
+        self.task_repository
+            .recover_interrupted(now_ms()?)
+            .await
+            .map_err(|_| AppError::BenchmarkDatabaseFailed)
+    }
+
     /// Creates a new complete Task from a terminal Task's immutable published version.
     pub(crate) async fn rerun(
         &self,
@@ -1240,6 +1248,18 @@ mod tests {
                 .await
                 .expect("task count");
             assert_eq!(rows, 1);
+            service
+                .recover_interrupted()
+                .await
+                .expect("restart recovery");
+            let recovered = service.get(&first.task.id).await.expect("recovered task");
+            assert_eq!(recovered.task.status, TaskStatus::Failed);
+            assert_eq!(recovered.result_completeness, "incomplete");
+            assert_eq!(recovered.completion_reason.as_deref(), Some("interrupted"));
+            assert!(recovered.executions.iter().all(|execution| {
+                execution.phase == "finished"
+                    && execution.termination_reason.as_deref() == Some("interrupted")
+            }));
             database.close().await.expect("close database");
         });
     }

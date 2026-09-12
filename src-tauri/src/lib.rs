@@ -169,12 +169,15 @@ pub fn run() {
                 Ok::<_, std::io::Error>(database)
             })?;
             let benchmark_verifier: Arc<dyn BenchmarkVerifier> = Arc::new(SystemBenchmarkVerifier);
-            app.manage(BenchmarkTaskService::new(
+            let benchmark_task_service = BenchmarkTaskService::new(
                 BenchmarkRepository::new(comparison_database.clone()),
                 BenchmarkTaskRepository::new(comparison_database.clone()),
                 app_data_directory.clone(),
                 benchmark_verifier.clone(),
-            ));
+            );
+            tauri::async_runtime::block_on(benchmark_task_service.recover_interrupted())
+                .map_err(|_| std::io::Error::other("Benchmark recovery failed"))?;
+            app.manage(benchmark_task_service);
             app.manage(BenchmarkService::new(
                 BenchmarkRepository::new(comparison_database.clone()),
                 app_data_directory.clone(),
