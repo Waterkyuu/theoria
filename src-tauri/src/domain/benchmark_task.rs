@@ -1,5 +1,5 @@
 use crate::domain::agent_kind::AgentKind;
-use crate::domain::benchmark::{BenchmarkCase, BenchmarkDetail};
+use crate::domain::benchmark::{BenchmarkCase, BenchmarkDetail, BenchmarkMount};
 use crate::domain::task::{Task, TaskPermissions};
 use serde::{Deserialize, Serialize};
 
@@ -16,6 +16,40 @@ pub(crate) struct BenchmarkTaskConfiguration {
     pub(crate) agent_kinds: Vec<AgentKind>,
     /// Explicit file and command choices, with no backend default substitution.
     pub(crate) permissions: TaskPermissions,
+}
+
+/// User-editable Rerun choices combined with the immutable source Task identifier.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BenchmarkRerunConfiguration {
+    /// Terminal Benchmark Task whose version and complete Case set are reused.
+    pub(crate) source_task_id: String,
+    /// Unique local products selected for the new Task.
+    pub(crate) agent_kinds: Vec<AgentKind>,
+    /// Explicit permissions for the new Task.
+    pub(crate) permissions: TaskPermissions,
+    /// Whether a missing historical mount may be restored.
+    pub(crate) restore_mount: bool,
+}
+
+/// Complete aggregate written atomically before a Benchmark worker is scheduled.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct NewBenchmarkTaskPlan {
+    /// Common Task identity and lifecycle.
+    pub(crate) task: Task,
+    /// Immutable published version and Case content.
+    pub(crate) benchmark: BenchmarkDetail,
+    /// Ordered local products participating in every Case.
+    pub(crate) agent_kinds: Vec<AgentKind>,
+    /// Frozen file and command permissions.
+    pub(crate) permissions: TaskPermissions,
+    /// Client-generated retry identity.
+    pub(crate) idempotency_key: String,
+    /// Canonical request snapshot used to detect key conflicts.
+    pub(crate) request_json: String,
+    /// Historical Task that initiated this run, when applicable.
+    pub(crate) rerun_of_task_id: Option<String>,
+    /// Historical mount restored in the same transaction, when confirmed.
+    pub(crate) restored_mount: Option<BenchmarkMount>,
 }
 
 /// Missing prerequisite reported without exposing local paths or adapter errors.

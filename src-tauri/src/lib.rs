@@ -349,6 +349,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::benchmark_task::get_benchmark_task,
             commands::benchmark_task::preview_benchmark_task,
+            commands::benchmark_task::rerun_benchmark_task,
             commands::benchmark_task::start_benchmark_task,
             commands::task::cancel_task,
             commands::benchmark::list_benchmark_tags,

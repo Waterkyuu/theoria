@@ -4,7 +4,7 @@ use crate::domain::agent_status::AgentLoginStatus;
 use crate::domain::benchmark::{safe_asset_id, safe_relative_path, BenchmarkCheck};
 use crate::domain::benchmark_task::{
     BenchmarkEvaluationCheck, BenchmarkEvaluationReport, BenchmarkExecutionResult,
-    BenchmarkTaskDetail,
+    BenchmarkRerunConfiguration, BenchmarkTaskDetail, NewBenchmarkTaskPlan,
 };
 use crate::domain::benchmark_task::{
     BenchmarkPreflightIssue, BenchmarkPreflightIssueKind, BenchmarkTaskConfiguration,
@@ -105,13 +105,16 @@ impl BenchmarkTaskService {
             updated_at_ms: now,
         };
         self.task_repository
-            .create(
+            .create(NewBenchmarkTaskPlan {
                 task,
-                &configuration,
-                &benchmark,
-                idempotency_key,
-                &request_json,
-            )
+                benchmark,
+                agent_kinds: configuration.agent_kinds,
+                permissions: configuration.permissions,
+                idempotency_key: idempotency_key.to_string(),
+                request_json,
+                rerun_of_task_id: None,
+                restored_mount: None,
+            })
             .await
             .map_err(|error| {
                 if error.to_string().contains("idempotency") {
@@ -129,6 +132,96 @@ impl BenchmarkTaskService {
             .await
             .map_err(|_| AppError::BenchmarkDatabaseFailed)?
             .ok_or(AppError::TaskNotFound)
+    }
+
+    /// Creates a new complete Task from a terminal Task's immutable published version.
+    pub(crate) async fn rerun(
+        &self,
+        configuration: BenchmarkRerunConfiguration,
+        idempotency_key: &str,
+    ) -> Result<BenchmarkTaskDetail, AppError> {
+        validate_rerun_configuration(&configuration)?;
+        if idempotency_key.is_empty() || idempotency_key.len() > 200 {
+            return Err(AppError::InvalidBenchmark);
+        }
+        let request_json = rerun_configuration_json(&configuration)?;
+        match self
+            .task_repository
+            .by_idempotency_key(idempotency_key, &request_json)
+            .await
+        {
+            Ok(Some(detail)) => return Ok(detail),
+            Ok(None) => {}
+            Err(_) => return Err(AppError::BenchmarkConflict),
+        }
+        let source = self.get(&configuration.source_task_id).await?;
+        if !matches!(
+            source.task.status,
+            TaskStatus::Completed | TaskStatus::Failed | TaskStatus::Stopped
+        ) {
+            return Err(AppError::InvalidTask);
+        }
+        let workspace_id = source
+            .task
+            .workspace_id
+            .clone()
+            .ok_or(AppError::InvalidTask)?;
+        let benchmark = self
+            .repository
+            .detail(&source.benchmark_id, Some(&source.version_id))
+            .await
+            .map_err(|_| AppError::BenchmarkDatabaseFailed)?
+            .ok_or(AppError::BenchmarkNotFound)?;
+        let current_mount = self
+            .task_repository
+            .mount_for_benchmark(&workspace_id, &source.benchmark_id)
+            .await
+            .map_err(|_| AppError::BenchmarkDatabaseFailed)?;
+        let restored_mount = if current_mount.is_none() {
+            if !configuration.restore_mount {
+                return Err(AppError::BenchmarkConflict);
+            }
+            Some(crate::domain::benchmark::BenchmarkMount {
+                id: next_id("mount")?,
+                workspace_id: workspace_id.clone(),
+                benchmark_id: source.benchmark_id.clone(),
+                version_id: source.version_id.clone(),
+                created_at_ms: now_ms()?,
+            })
+        } else {
+            None
+        };
+        let now = now_ms()?;
+        let task = Task {
+            id: next_id("benchmark-task")?,
+            workspace_id: Some(workspace_id),
+            title: format!("{} · {now}", benchmark.document.name),
+            kind: TaskKind::Benchmark,
+            status: TaskStatus::Preparing,
+            configuration_locked_at_ms: Some(now),
+            pinned_at_ms: None,
+            created_at_ms: now,
+            updated_at_ms: now,
+        };
+        self.task_repository
+            .create(NewBenchmarkTaskPlan {
+                task,
+                benchmark,
+                agent_kinds: configuration.agent_kinds,
+                permissions: configuration.permissions,
+                idempotency_key: idempotency_key.to_string(),
+                request_json,
+                rerun_of_task_id: Some(configuration.source_task_id),
+                restored_mount,
+            })
+            .await
+            .map_err(|error| {
+                if error.to_string().contains("idempotency") {
+                    AppError::BenchmarkConflict
+                } else {
+                    AppError::BenchmarkDatabaseFailed
+                }
+            })
     }
 
     /// Stops new matrix claims and signals the one active Agent owned by this Task.
@@ -535,6 +628,34 @@ fn validate_configuration(configuration: &BenchmarkTaskConfiguration) -> Result<
     }
 }
 
+fn validate_rerun_configuration(
+    configuration: &BenchmarkRerunConfiguration,
+) -> Result<(), AppError> {
+    if configuration.source_task_id.is_empty()
+        || configuration.source_task_id.len() > 200
+        || configuration.agent_kinds.is_empty()
+        || configuration.agent_kinds.len() > 4
+        || configuration
+            .agent_kinds
+            .iter()
+            .collect::<HashSet<_>>()
+            .len()
+            != configuration.agent_kinds.len()
+        || !matches!(
+            configuration.permissions.file_access.as_str(),
+            "read_only" | "allow_edits"
+        )
+        || !matches!(
+            configuration.permissions.command_execution.as_str(),
+            "deny" | "ask" | "allow"
+        )
+    {
+        Err(AppError::InvalidBenchmark)
+    } else {
+        Ok(())
+    }
+}
+
 /// Keeps a Case deadline distinct from a user-requested Task cancellation.
 fn agent_timed_out(error: &AppError) -> bool {
     matches!(
@@ -554,6 +675,19 @@ fn configuration_json(configuration: &BenchmarkTaskConfiguration) -> Result<Stri
         "agentKinds": configuration.agent_kinds.iter().map(|kind| kind.as_str()).collect::<Vec<_>>(),
         "fileAccess": configuration.permissions.file_access,
         "commandExecution": configuration.permissions.command_execution,
+    }))
+    .map_err(|_| AppError::InvalidBenchmark)
+}
+
+fn rerun_configuration_json(
+    configuration: &BenchmarkRerunConfiguration,
+) -> Result<String, AppError> {
+    serde_json::to_string(&serde_json::json!({
+        "sourceTaskId": configuration.source_task_id,
+        "agentKinds": configuration.agent_kinds.iter().map(|kind| kind.as_str()).collect::<Vec<_>>(),
+        "fileAccess": configuration.permissions.file_access,
+        "commandExecution": configuration.permissions.command_execution,
+        "restoreMount": configuration.restore_mount,
     }))
     .map_err(|_| AppError::InvalidBenchmark)
 }
@@ -784,8 +918,10 @@ mod tests {
     };
     use crate::domain::task::TaskPermissions;
     use crate::domain::workspace::{NewWorkspace, WorkspaceSourceKind};
+    use crate::models::{benchmark::evaluation as benchmark_evaluation, task as task_model};
     use crate::repositories::{task::TaskRepository, workspace::WorkspaceRepository};
     use crate::services::benchmark::BenchmarkService;
+    use sea_orm::{EntityTrait, PaginatorTrait};
     use sea_orm_migration::MigratorTrait;
 
     #[test]
@@ -965,8 +1101,6 @@ mod tests {
     #[test]
     fn start_atomically_creates_one_task_and_the_complete_execution_matrix() {
         tauri::async_runtime::block_on(async {
-            use sea_orm::{ConnectionTrait, Statement};
-
             let database = connect_sqlite("sqlite::memory:").await.expect("database");
             Migrator::up(&database, None).await.expect("schema");
             WorkspaceRepository::new(database.clone())
@@ -1047,16 +1181,10 @@ mod tests {
             assert_eq!(first.agents.len(), 2);
             assert_eq!(first.cases.len(), 2);
             assert_eq!(first.executions.len(), 4);
-            let rows = database
-                .query_one_raw(Statement::from_string(
-                    sea_orm::DatabaseBackend::Sqlite,
-                    "SELECT COUNT(*) AS count FROM tasks".to_string(),
-                ))
+            let rows = task_model::Entity::find()
+                .count(&database)
                 .await
-                .expect("task count")
-                .expect("count row")
-                .try_get::<i64>("", "count")
-                .expect("count");
+                .expect("task count");
             assert_eq!(rows, 1);
             database.close().await.expect("close database");
         });
@@ -1104,7 +1232,6 @@ mod tests {
         tauri::async_runtime::block_on(async {
             use crate::adapters::agent::{AgentSessionRunOutput, AgentTurnOutcome};
             use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput};
-            use sea_orm::{ConnectionTrait, Statement};
             use std::time::Duration;
 
             let database = connect_sqlite("sqlite::memory:").await.expect("database");
@@ -1172,7 +1299,7 @@ mod tests {
                 .start(
                     BenchmarkTaskConfiguration {
                         workspace_id: "workspace".into(),
-                        mount_id: mount.id,
+                        mount_id: mount.id.clone(),
                         expected_version_id: published.version_id,
                         agent_kinds: vec![AgentKind::Claude, AgentKind::Codex],
                         permissions: TaskPermissions {
@@ -1214,16 +1341,52 @@ mod tests {
                 .executions
                 .iter()
                 .all(|execution| execution.verdict.as_deref() == Some("passed")));
-            let count = database
-                .query_one_raw(Statement::from_string(
-                    sea_orm::DatabaseBackend::Sqlite,
-                    "SELECT COUNT(*) AS count FROM benchmark_evaluations",
-                ))
+            catalog
+                .unmount("workspace", &mount.id)
                 .await
-                .expect("query")
-                .expect("row")
-                .try_get::<i64>("", "count")
-                .expect("count");
+                .expect("remove source mount");
+            let rerun_configuration = BenchmarkRerunConfiguration {
+                source_task_id: completed.task.id.clone(),
+                agent_kinds: vec![AgentKind::Codex],
+                permissions: TaskPermissions {
+                    file_access: "allow_edits".into(),
+                    command_execution: "ask".into(),
+                },
+                restore_mount: false,
+            };
+            assert_eq!(
+                service
+                    .rerun(rerun_configuration.clone(), "rerun-request")
+                    .await,
+                Err(AppError::BenchmarkConflict)
+            );
+            let rerun = service
+                .rerun(
+                    BenchmarkRerunConfiguration {
+                        restore_mount: true,
+                        ..rerun_configuration
+                    },
+                    "rerun-request",
+                )
+                .await
+                .expect("confirmed rerun");
+            assert_ne!(rerun.task.id, completed.task.id);
+            assert_eq!(rerun.rerun_of_task_id, Some(completed.task.id));
+            assert_eq!(rerun.version_id, completed.version_id);
+            assert_eq!(rerun.cases.len(), completed.cases.len());
+            assert_eq!(rerun.executions.len(), completed.cases.len());
+            assert_eq!(
+                catalog
+                    .mounts("workspace", 0)
+                    .await
+                    .expect("restored mount")[0]
+                    .version_id,
+                completed.version_id
+            );
+            let count = benchmark_evaluation::Entity::find()
+                .count(&database)
+                .await
+                .expect("evaluation count");
             assert_eq!(count, 4);
             database.close().await.expect("close");
             std::fs::remove_dir_all(root).expect("cleanup");
