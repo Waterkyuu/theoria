@@ -80,11 +80,11 @@ const BenchmarkFiltersBar = ({ value, tags, onChange }: FiltersProps) => {
 					</Button>
 				}
 			>
-				<div className="flex flex-wrap items-center gap-1.5 rounded-md border border-hairline p-2">
+				<div className="flex h-12 flex-nowrap items-center gap-1.5 overflow-x-auto overflow-y-hidden rounded-md border border-hairline p-2">
 					{selectedTags.map(({ tag }) => (
 						<span
 							key={tag.id}
-							className="rounded-full border border-hairline px-2.5 py-1.75 text-caption-sm text-charcoal"
+							className="shrink-0 rounded-full border border-hairline px-2.5 py-1.75 text-caption-sm text-charcoal"
 						>
 							{tag.name}
 						</span>
@@ -100,7 +100,7 @@ const BenchmarkFiltersBar = ({ value, tags, onChange }: FiltersProps) => {
 						placeholder={t("benchmark.searchTags")}
 						value={tagSearch}
 						onChange={(event) => setTagSearch(event.target.value)}
-						className="min-w-24 flex-1 bg-transparent text-body-sm outline-none"
+						className="min-w-24 flex-1 shrink-0 bg-transparent text-body-sm outline-none"
 					/>
 				</div>
 				<div

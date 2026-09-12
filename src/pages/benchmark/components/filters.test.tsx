@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 import type { BenchmarkFilters, BenchmarkTag } from "@/types/benchmark";
@@ -85,6 +85,30 @@ it("hides the tag search icon after selected tag chips", async () => {
 	const tagSearch = screen.getByLabelText("搜索标签…");
 	expect(tagSearch.previousElementSibling).toHaveTextContent("Coding");
 	expect(tagSearch.previousElementSibling).not.toHaveClass("size-4");
+});
+
+it("keeps selected tag chips on one fixed-height search row", async () => {
+	const user = userEvent.setup();
+	const value: BenchmarkFilters = {
+		search: "",
+		tagIds: paletteTags.map((tag) => tag.id),
+		author: null,
+		sort: "newest",
+	};
+	render(
+		<BenchmarkFiltersBar value={value} tags={paletteTags} onChange={vi.fn()} />,
+	);
+
+	await user.click(screen.getByRole("button", { name: "标签 (7)" }));
+
+	const tagSearch = screen.getByLabelText("搜索标签…");
+	expect(tagSearch.parentElement).toHaveClass("h-12");
+	expect(tagSearch.parentElement).toHaveClass("flex-nowrap");
+	expect(tagSearch.parentElement).toHaveClass("overflow-x-auto");
+	expect(tagSearch.parentElement).toHaveClass("overflow-y-hidden");
+	expect(within(tagSearch.parentElement!).getByText("Coding")).toHaveClass(
+		"shrink-0",
+	);
 });
 
 it("uses fixed color dots instead of tag icons in the tag dropdown", async () => {
