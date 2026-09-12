@@ -50,6 +50,7 @@ const BenchmarkTagCreatePopover = ({
 
 	return (
 		<Popover
+			className="w-[298px]"
 			title={t("benchmark.newTag")}
 			trigger={
 				<Button
@@ -61,7 +62,7 @@ const BenchmarkTagCreatePopover = ({
 				</Button>
 			}
 		>
-			<form onSubmit={submit} className="flex max-w-72 flex-col gap-md pt-md">
+			<form onSubmit={submit} className="flex w-full flex-col gap-md pt-md">
 				<label className="flex flex-col gap-sm text-body-sm">
 					{t("benchmark.tagName")}
 					<input
