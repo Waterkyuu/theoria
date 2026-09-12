@@ -1,7 +1,7 @@
 use crate::domain::agent_kind::AgentKind;
 use crate::domain::benchmark_task::{
-    BenchmarkPreflightIssueKind, BenchmarkTaskConfiguration, BenchmarkTaskDetail,
-    BenchmarkTaskPreview,
+    BenchmarkPreflightIssueKind, BenchmarkRerunConfiguration, BenchmarkTaskConfiguration,
+    BenchmarkTaskDetail, BenchmarkTaskPreview,
 };
 use crate::domain::task::TaskPermissions;
 use crate::dto::task::TaskResponse;
@@ -111,6 +111,45 @@ impl TryFrom<&StartBenchmarkTaskRequest> for BenchmarkTaskConfiguration {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct GetBenchmarkTaskRequest {
     pub(crate) task_id: String,
+}
+
+/// Rerun request changes only products and permissions while preserving the source version.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct RerunBenchmarkTaskRequest {
+    /// Terminal Benchmark Task used as the immutable source.
+    pub(crate) source_task_id: String,
+    /// Ordered unique local product identifiers.
+    pub(crate) agent_kinds: Vec<String>,
+    /// Explicit file permission for the new Task.
+    pub(crate) file_access: String,
+    /// Explicit command permission for the new Task.
+    pub(crate) command_execution: String,
+    /// User confirmation to restore an absent historical mount.
+    pub(crate) restore_mount: bool,
+    /// Retry identity for exactly this Rerun submission.
+    pub(crate) idempotency_key: String,
+}
+
+impl TryFrom<&RerunBenchmarkTaskRequest> for BenchmarkRerunConfiguration {
+    type Error = AppError;
+
+    fn try_from(request: &RerunBenchmarkTaskRequest) -> Result<Self, Self::Error> {
+        let agent_kinds = request
+            .agent_kinds
+            .iter()
+            .map(|kind| AgentKind::parse(kind).ok_or(AppError::InvalidBenchmark))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Self {
+            source_task_id: request.source_task_id.clone(),
+            agent_kinds,
+            permissions: TaskPermissions {
+                file_access: request.file_access.clone(),
+                command_execution: request.command_execution.clone(),
+            },
+            restore_mount: request.restore_mount,
+        })
+    }
 }
 
 /// Lightweight launch configuration preview, without prompts, expected answers or asset paths.

@@ -1,16 +1,17 @@
 use crate::domain::agent_kind::AgentKind;
-use crate::domain::benchmark::BenchmarkDetail;
+use crate::domain::benchmark::BenchmarkMount;
 use crate::domain::benchmark_task::{
     BenchmarkCaseExecution, BenchmarkExecutionResult, BenchmarkTaskAgent, BenchmarkTaskCase,
-    BenchmarkTaskConfiguration, BenchmarkTaskDetail,
+    BenchmarkTaskDetail, NewBenchmarkTaskPlan,
 };
 use crate::domain::task::{Task, TaskKind, TaskPermissions, TaskStatus};
 use crate::models::benchmark::{
     self as benchmark, case as benchmark_case, evaluation as benchmark_evaluation,
-    execution as benchmark_execution, task as benchmark_task, task_agent, task_case, version,
+    execution as benchmark_execution, mount, task as benchmark_task, task_agent, task_case,
+    version,
 };
 use crate::models::task::{self as task, permissions};
-use sea_orm::sea_query::{Expr, Query};
+use sea_orm::sea_query::{Expr, OnConflict, Query};
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, DbErr, EntityTrait,
     QueryFilter, QueryOrder, TransactionTrait,
@@ -50,13 +51,35 @@ impl BenchmarkTaskRepository {
     /// Writes the common Task identity and all N×M execution rows in one transaction.
     pub(crate) async fn create(
         &self,
-        task: Task,
-        configuration: &BenchmarkTaskConfiguration,
-        benchmark: &BenchmarkDetail,
-        idempotency_key: &str,
-        request_json: &str,
+        plan: NewBenchmarkTaskPlan,
     ) -> Result<BenchmarkTaskDetail, DbErr> {
+        let NewBenchmarkTaskPlan {
+            task,
+            benchmark,
+            agent_kinds,
+            permissions: task_permissions,
+            idempotency_key,
+            request_json,
+            rerun_of_task_id,
+            restored_mount,
+        } = plan;
         let transaction = self.database.begin().await?;
+        if let Some(value) = restored_mount {
+            mount::Entity::insert(mount::ActiveModel {
+                id: Set(value.id),
+                workspace_id: Set(value.workspace_id),
+                benchmark_id: Set(value.benchmark_id),
+                version_id: Set(value.version_id),
+                created_at_ms: Set(value.created_at_ms),
+            })
+            .on_conflict(
+                OnConflict::columns([mount::Column::WorkspaceId, mount::Column::BenchmarkId])
+                    .do_nothing()
+                    .to_owned(),
+            )
+            .exec_without_returning(&transaction)
+            .await?;
+        }
         task::ActiveModel {
             id: Set(task.id.clone()),
             workspace_id: Set(task.workspace_id.clone()),
@@ -72,8 +95,8 @@ impl BenchmarkTaskRepository {
         .await?;
         permissions::ActiveModel {
             task_id: Set(task.id.clone()),
-            file_access: Set(configuration.permissions.file_access.clone()),
-            command_execution: Set(configuration.permissions.command_execution.clone()),
+            file_access: Set(task_permissions.file_access),
+            command_execution: Set(task_permissions.command_execution),
             created_at_ms: Set(task.created_at_ms),
         }
         .insert(&transaction)
@@ -81,9 +104,9 @@ impl BenchmarkTaskRepository {
         benchmark_task::ActiveModel {
             task_id: Set(task.id.clone()),
             version_id: Set(benchmark.version_id.clone()),
-            idempotency_key: Set(idempotency_key.to_string()),
-            request_json: Set(request_json.to_string()),
-            rerun_of_task_id: Set(None),
+            idempotency_key: Set(idempotency_key),
+            request_json: Set(request_json),
+            rerun_of_task_id: Set(rerun_of_task_id),
             result_completeness: Set("incomplete".to_string()),
             completion_reason: Set(None),
             cancel_requested: Set(false),
@@ -91,7 +114,7 @@ impl BenchmarkTaskRepository {
         .insert(&transaction)
         .await?;
 
-        for (position, agent_kind) in configuration.agent_kinds.iter().enumerate() {
+        for (position, agent_kind) in agent_kinds.iter().enumerate() {
             task_agent::ActiveModel {
                 id: Set(format!("{}-agent-{position}", task.id)),
                 task_id: Set(task.id.clone()),
@@ -112,7 +135,7 @@ impl BenchmarkTaskRepository {
             }
             .insert(&transaction)
             .await?;
-            for agent_position in 0..configuration.agent_kinds.len() {
+            for agent_position in 0..agent_kinds.len() {
                 benchmark_execution::ActiveModel {
                     id: Set(format!("{}-execution-{position}-{agent_position}", task.id)),
                     task_id: Set(task.id.clone()),
@@ -134,6 +157,26 @@ impl BenchmarkTaskRepository {
         self.get(&task.id)
             .await?
             .ok_or_else(|| DbErr::Custom("Created benchmark task is missing".into()))
+    }
+
+    /// Finds the one mount allowed for a Workspace and Benchmark definition.
+    pub(crate) async fn mount_for_benchmark(
+        &self,
+        workspace_id: &str,
+        benchmark_id: &str,
+    ) -> Result<Option<BenchmarkMount>, DbErr> {
+        Ok(mount::Entity::find()
+            .filter(mount::Column::WorkspaceId.eq(workspace_id))
+            .filter(mount::Column::BenchmarkId.eq(benchmark_id))
+            .one(&self.database)
+            .await?
+            .map(|row| BenchmarkMount {
+                id: row.id,
+                workspace_id: row.workspace_id,
+                benchmark_id: row.benchmark_id,
+                version_id: row.version_id,
+                created_at_ms: row.created_at_ms,
+            }))
     }
 
     /// Restores a Benchmark Task without loading work-task inputs.
