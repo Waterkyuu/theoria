@@ -174,6 +174,14 @@ const zhCN = {
 				noResponse: "没有保存到回答。",
 				duration: "执行耗时",
 				checks: "验证结果",
+				artifacts: "最终文件",
+				noArtifacts: "没有记录到最终文件。",
+				change: {
+					added: "新增",
+					modified: "已修改",
+					deleted: "已删除",
+					unchanged: "未修改",
+				},
 				state: {
 					passed: "通过",
 					failed: "未通过",

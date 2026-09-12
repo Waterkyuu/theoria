@@ -475,8 +475,7 @@ const BenchmarkTaskView = ({ taskId }: BenchmarkTaskViewProps) => {
 									/>
 									{artifactPreview.data ? (
 										<pre className="max-h-96 overflow-auto whitespace-pre-wrap text-body-sm text-body">
-											{artifactPreview.data.text ??
-												t("benchmark.assetPreview.binary")}
+											{artifactPreview.data.text ?? t("benchmark.file.binary")}
 										</pre>
 									) : null}
 								</div>
