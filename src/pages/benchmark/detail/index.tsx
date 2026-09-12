@@ -5,5 +5,7 @@ const BenchmarkDetailPage = () => {
 	const { benchmarkId = "" } = useParams();
 	return <BenchmarkDetailView benchmarkId={benchmarkId} />;
 };
+
 export { BenchmarkDetailPage };
+
 export default BenchmarkDetailPage;

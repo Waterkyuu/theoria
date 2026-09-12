@@ -18,12 +18,15 @@ import { useBenchmarkTags } from "@/queries/benchmark";
 import type { BenchmarkDocument, BenchmarkDraft } from "@/types/benchmark";
 import { BenchmarkFeedback } from "../../components/feedback";
 import { BENCHMARK_ICONS, TagIcon } from "../../components/tag-icon";
+
 const FIELD =
 	"w-full rounded-md border border-hairline bg-canvas px-md py-sm text-body-sm outline-none focus-visible:ring-2 focus-visible:ring-focus-ring";
+
 type EditorProps = {
 	/** Latest saved document, absent for a blank draft. */
 	initial?: BenchmarkDraft;
 };
+
 /**
  * Keeps the saved revision after a failed publish, so retries cannot overwrite another editor.
  *
@@ -57,6 +60,7 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 	const [pending, setPending] = useState(false);
 	const [tagPending, setTagPending] = useState(false);
 	const [icon, setIcon] = useState("Code");
+
 	/**
 	 * Saves before publication and retains recoverable editor content on failure.
 	 *
@@ -96,6 +100,7 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 			setPending(false);
 		}
 	};
+
 	/**
 	 * Creates the selected icon/tag through the shared native catalog.
 	 *
@@ -398,4 +403,5 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 		</main>
 	);
 };
+
 export { BenchmarkEditor };

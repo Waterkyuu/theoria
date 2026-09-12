@@ -16,5 +16,7 @@ const BenchmarkEditorPage = () => {
 		);
 	return <BenchmarkEditor key={draftId || "new"} initial={query.data} />;
 };
+
 export { BenchmarkEditorPage };
+
 export default BenchmarkEditorPage;

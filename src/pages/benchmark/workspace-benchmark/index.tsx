@@ -28,5 +28,7 @@ const WorkspaceBenchmarkPage = () => {
 		/>
 	);
 };
+
 export { WorkspaceBenchmarkPage };
+
 export default WorkspaceBenchmarkPage;

@@ -7,6 +7,7 @@ type DraftRowProps = {
 	/** Lazily loaded draft ID. */
 	id: string;
 };
+
 /**
  * Loads only visible draft metadata for the saved-editor list.
  *
@@ -34,4 +35,5 @@ const DraftRow = ({ id }: DraftRowProps) => {
 		</div>
 	);
 };
+
 export { DraftRow };
