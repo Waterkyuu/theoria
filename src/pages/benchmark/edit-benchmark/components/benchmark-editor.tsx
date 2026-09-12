@@ -163,7 +163,7 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 								/>
 							</label>
 							<div
-								className="grid grid-cols-4 gap-sm"
+								className="grid grid-cols-5 gap-sm"
 								aria-label={t("benchmark.icon")}
 							>
 								{Object.keys(BENCHMARK_ICONS).map((name) => (
@@ -179,9 +179,11 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 									</Button>
 								))}
 							</div>
-							<Button type="submit" isPending={tagPending}>
-								{t("benchmark.newTag")}
-							</Button>
+							<div className="flex justify-end">
+								<Button type="submit" isPending={tagPending}>
+									{t("common.confirm")}
+								</Button>
+							</div>
 						</form>
 					</Popover>
 				</div>
