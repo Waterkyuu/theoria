@@ -1,4 +1,4 @@
-import { BarsDescendingAlignCenter, Check } from "@gravity-ui/icons";
+import { BarsDescendingAlignCenter, Check, Plus } from "@gravity-ui/icons";
 import { Button } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
@@ -54,9 +54,10 @@ const SkillAddDropdown = ({ isDisabled, onAction }: SkillAddDropdownProps) => {
 			placement="bottom end"
 			trigger={
 				<Button
-					className="h-9 w-full shrink-0 rounded-md bg-surface-dark px-lg text-body-sm font-medium text-on-dark outline-none hover:bg-ink-deep focus-visible:ring-2 focus-visible:ring-focus-ring sm:w-auto sm:min-w-34"
+					className="h-9 w-full shrink-0 gap-sm rounded-md bg-surface-dark px-[10px] py-[9px] text-body-sm font-medium text-on-dark shadow-none outline-none hover:bg-ink-deep focus-visible:ring-2 focus-visible:ring-focus-ring sm:w-auto sm:min-w-34"
 					isDisabled={isDisabled}
 				>
+					<Plus className="size-4" />
 					{t("skills.addSkill")}
 				</Button>
 			}
