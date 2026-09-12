@@ -256,7 +256,7 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 										}
 									/>
 								</div>
-								<div className="mt-lg space-y-xl">
+								<div className="mt-xl flex flex-col gap-xl">
 									<label className="flex flex-col gap-sm text-body-sm">
 										{t("benchmark.caseName")}
 										<input
