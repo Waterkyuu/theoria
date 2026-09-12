@@ -6,8 +6,8 @@ use crate::dto::benchmark::{
     GetBenchmarkRequest, ImportBenchmarkAssetRequest, ImportBenchmarkFolderRequest,
     ListBenchmarkDraftsRequest, ListBenchmarksRequest, ListWorkspaceBenchmarksRequest,
     MountBenchmarkRequest, PreviewBenchmarkAssetRequest, PreviewBenchmarkImportRequest,
-    PublishBenchmarkRequest, SaveBenchmarkDraftRequest, UnmountBenchmarkRequest,
-    UpdateBenchmarkMountRequest, UpdateBenchmarkTagRequest,
+    PublishBenchmarkRequest, SaveBenchmarkDraftRequest, SaveBenchmarkTextAssetRequest,
+    UnmountBenchmarkRequest, UpdateBenchmarkMountRequest, UpdateBenchmarkTagRequest,
 };
 use crate::error::IpcError;
 use crate::services::benchmark::BenchmarkService;
@@ -110,6 +110,19 @@ pub(crate) async fn import_benchmark_asset(
 ) -> Result<BenchmarkFileResponse, IpcError> {
     service
         .import_asset(request.source_path, &request.path)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
+/// Persists an editor buffer as a new immutable managed asset.
+#[tauri::command]
+pub(crate) async fn save_benchmark_text_asset(
+    request: SaveBenchmarkTextAssetRequest,
+    service: State<'_, BenchmarkService>,
+) -> Result<BenchmarkFileResponse, IpcError> {
+    service
+        .save_text_asset(&request.path, &request.text)
         .await
         .map(Into::into)
         .map_err(Into::into)
