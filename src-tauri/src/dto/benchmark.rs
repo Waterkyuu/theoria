@@ -157,6 +157,8 @@ impl From<BenchmarkMount> for BenchmarkMountResponse {
 pub(crate) struct SaveBenchmarkDraftRequest {
     /// Existing draft or absent for a new document.
     pub(crate) draft_id: Option<String>,
+    /// Personal published definition to update, only when creating a new draft.
+    pub(crate) benchmark_id: Option<String>,
     /// Revision currently displayed by the editor.
     pub(crate) expected_revision: Option<i64>,
     /// Complete editable template.

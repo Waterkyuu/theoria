@@ -65,6 +65,7 @@ impl BenchmarkService {
         &self,
         id: Option<String>,
         expected: Option<i64>,
+        benchmark_id: Option<String>,
         document: BenchmarkDocument,
     ) -> Result<BenchmarkDraft, AppError> {
         if id.is_some() != expected.is_some()
@@ -85,12 +86,33 @@ impl BenchmarkService {
             Some(id) => Some(self.draft(id).await?),
             None => None,
         };
+        let benchmark_id = match previous {
+            Some(previous) => {
+                if benchmark_id
+                    .as_ref()
+                    .is_some_and(|id| Some(id) != previous.benchmark_id.as_ref())
+                {
+                    return Err(AppError::InvalidBenchmark);
+                }
+                previous.benchmark_id
+            }
+            None => match benchmark_id {
+                Some(benchmark_id) => {
+                    let definition = self.detail(&benchmark_id, None).await?;
+                    if definition.summary.author != "myself" || definition.summary.archived {
+                        return Err(AppError::BenchmarkReadOnly);
+                    }
+                    Some(benchmark_id)
+                }
+                None => None,
+            },
+        };
         let draft = BenchmarkDraft {
             id: match id {
                 Some(id) => id,
                 None => new_id("draft")?,
             },
-            benchmark_id: previous.and_then(|draft| draft.benchmark_id),
+            benchmark_id,
             revision: expected.map_or(1, |n| n + 1),
             document,
             updated_at_ms: now_ms()?,
@@ -283,6 +305,7 @@ mod tests {
                 .save_draft(
                     None,
                     None,
+                    None,
                     BenchmarkDocument {
                         schema_version: 1,
                         name: String::new(),
@@ -358,17 +381,17 @@ mod tests {
                     .collect(),
             };
             let draft = service
-                .save_draft(None, None, document.clone())
+                .save_draft(None, None, None, document.clone())
                 .await
                 .expect("draft should save");
             let saved = service
-                .save_draft(Some(draft.id.clone()), Some(1), document.clone())
+                .save_draft(Some(draft.id.clone()), Some(1), None, document.clone())
                 .await
                 .expect("current revision should save");
             assert_eq!(saved.revision, 2);
             assert_eq!(
                 service
-                    .save_draft(Some(draft.id.clone()), Some(1), document.clone())
+                    .save_draft(Some(draft.id.clone()), Some(1), None, document.clone())
                     .await,
                 Err(AppError::BenchmarkConflict)
             );
@@ -389,10 +412,32 @@ mod tests {
                 service.draft(&draft.id).await,
                 Err(AppError::BenchmarkNotFound)
             );
+            let mut updated_document = document.clone();
+            updated_document.cases[0].prompt = "Return forty-two".to_string();
+            let update_draft = service
+                .save_draft(
+                    None,
+                    None,
+                    Some(published.summary.id.clone()),
+                    updated_document.clone(),
+                )
+                .await
+                .expect("personal definition should be editable");
+            assert_eq!(
+                update_draft.benchmark_id.as_deref(),
+                Some(published.summary.id.as_str())
+            );
+            let updated = service
+                .publish(&update_draft.id, update_draft.revision)
+                .await
+                .expect("edit should publish a new version");
+            assert_eq!(updated.summary.id, published.summary.id);
+            assert_eq!(updated.version_number, 2);
+            assert_eq!(updated.document, updated_document);
             let mut plain = document;
             plain.name = "Plain suite".to_string();
             let other = service
-                .save_draft(None, None, plain)
+                .save_draft(None, None, None, plain)
                 .await
                 .expect("second draft should save");
             service
@@ -450,13 +495,13 @@ mod tests {
                 .await
                 .expect("mounts should list")
                 .is_empty());
-            assert_eq!(
-                service
-                    .detail(&published.summary.id, Some(&published.version_id))
-                    .await
-                    .expect("published version must remain"),
-                published
-            );
+            let historical = service
+                .detail(&published.summary.id, Some(&published.version_id))
+                .await
+                .expect("published version must remain");
+            assert_eq!(historical.version_id, published.version_id);
+            assert_eq!(historical.version_number, published.version_number);
+            assert_eq!(historical.document.cases, published.document.cases);
             database.close().await.expect("database should close");
         });
     }
