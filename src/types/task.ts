@@ -18,8 +18,8 @@ const TaskSchema = z.object({
 	workspaceId: z.string().nullable(),
 	/** User-visible title derived from the initial prompt. */
 	title: z.string().min(1),
-	/** Frozen initial user request. */
-	prompt: z.string().min(1),
+	/** Business type selecting work or Benchmark details. */
+	kind: z.literal(["work", "benchmark"]),
 	/** Aggregate Task lifecycle. */
 	status: TaskStatusSchema,
 	/** Time after which execution configuration is immutable. */
@@ -85,8 +85,13 @@ const TaskAgentTurnSchema = z.object({
 });
 
 const TaskDetailSchema = z.object({
+	/** Frozen initial request belonging to this work task. */
+	prompt: z.string().min(1),
 	/** Immutable Task metadata. */
-	task: TaskSchema,
+	task: TaskSchema.extend({
+		/** Work detail cannot accept a Benchmark task. */
+		kind: z.literal("work"),
+	}),
 	/** Agent panels in stable slot order. */
 	agents: z.array(TaskAgentSchema).min(1).max(6),
 	/** Frozen file access policy. */

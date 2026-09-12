@@ -13,11 +13,12 @@ import type { CreateTaskRequest } from "@/types/task";
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
 const TASK_DETAIL = {
+	prompt: "Inspect repository",
 	task: {
 		id: "task-1",
 		workspaceId: null,
 		title: "Inspect repository",
-		prompt: "Inspect repository",
+		kind: "work",
 		status: "preparing",
 		configurationLockedAtMs: 1,
 		pinnedAtMs: null,

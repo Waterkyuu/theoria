@@ -161,10 +161,7 @@ const useRenameTask = () => {
 		mutationFn: ({ taskId, title }: RenameTaskInput) =>
 			renameTask(taskId, title),
 		onSuccess: (task) => {
-			queryClient.setQueryData<TaskDetail>(
-				taskKeys.detail(task.id),
-				(detail) => (detail ? { ...detail, task } : detail),
-			);
+			queryClient.invalidateQueries({ queryKey: taskKeys.detail(task.id) });
 			queryClient.invalidateQueries({
 				queryKey: taskKeys.list(task.workspaceId),
 			});
@@ -179,10 +176,7 @@ const useSetTaskPin = () => {
 		mutationFn: ({ isPinned, taskId }: SetTaskPinInput) =>
 			setTaskPin(taskId, isPinned),
 		onSuccess: (task) => {
-			queryClient.setQueryData<TaskDetail>(
-				taskKeys.detail(task.id),
-				(detail) => (detail ? { ...detail, task } : detail),
-			);
+			queryClient.invalidateQueries({ queryKey: taskKeys.detail(task.id) });
 			queryClient.invalidateQueries({
 				queryKey: taskKeys.list(task.workspaceId),
 			});

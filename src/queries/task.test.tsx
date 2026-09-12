@@ -25,7 +25,7 @@ describe("Task queries", () => {
 			id: "task-1",
 			workspaceId: "workspace-1",
 			title: "Inspect repository",
-			prompt: "Inspect repository",
+			kind: "work",
 			status: "completed",
 			configurationLockedAtMs: 1,
 			pinnedAtMs: 2,

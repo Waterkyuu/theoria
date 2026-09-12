@@ -6,11 +6,12 @@ import type { TaskDetail } from "@/types/task";
 import { TaskResultSummary } from "./task-result-summary";
 
 const COMPLETE_TASK: TaskDetail = {
+	prompt: "Inspect repository",
 	task: {
 		id: "task-42",
 		workspaceId: null,
 		title: "Inspect repository",
-		prompt: "Inspect repository",
+		kind: "work",
 		status: "completed",
 		configurationLockedAtMs: 1,
 		pinnedAtMs: null,
