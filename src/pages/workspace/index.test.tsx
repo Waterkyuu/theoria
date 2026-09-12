@@ -205,7 +205,9 @@ describe("WorkspacePage", () => {
 		expect(
 			screen.getByRole("button", { name: "0 个技能" }),
 		).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "发送任务" })).toBeDisabled();
+		const sendButton = screen.getByRole("button", { name: "发送任务" });
+		expect(sendButton).toBeDisabled();
+		expect(sendButton).toHaveClass("rounded-full");
 		expect(screen.queryByText("agent-gauge / 新会话")).not.toBeInTheDocument();
 		expect(screen.queryByText("agent-gauge · main")).not.toBeInTheDocument();
 	});
