@@ -7,13 +7,19 @@ import { Popover } from "@/components/ui/popover";
 import type { BenchmarkFilters, BenchmarkTag } from "@/types/benchmark";
 import { TagIcon } from "./tag-icon";
 type FiltersProps = {
-	/** Query values reset catalog pagination when changed. */ value: BenchmarkFilters;
-	/** Available local tags. */ tags: BenchmarkTag[];
-	/** Replaces the selected filters. */ onChange: (
-		filters: BenchmarkFilters,
-	) => void;
+	/** Query values reset catalog pagination when changed. */
+	value: BenchmarkFilters;
+	/** Available local tags. */
+	tags: BenchmarkTag[];
+	/** Replaces the selected filters. */
+	onChange: (filters: BenchmarkFilters) => void;
 };
-/** Matches the Figma pills while keeping filtering on the full database. @example <BenchmarkFiltersBar value={filters} tags={tags} onChange={setFilters} /> */
+/**
+ * Matches the Figma pills while keeping filtering on the full database.
+ *
+ * @example
+ * <BenchmarkFiltersBar value={filters} tags={tags} onChange={setFilters} />
+ */
 const BenchmarkFiltersBar = ({ value, tags, onChange }: FiltersProps) => {
 	const { t } = useTranslation();
 	const [tagSearch, setTagSearch] = useState("");

@@ -11,10 +11,17 @@ import { useWorkspaces } from "@/queries/workspace";
 import type { BenchmarkSummary } from "@/types/benchmark";
 import { BenchmarkFeedback } from "./feedback";
 type MountProps = {
-	/** Card whose displayed version is being mounted. */ benchmark: BenchmarkSummary;
-	/** Closes the externally selected card modal. */ onClose: () => void;
+	/** Card whose displayed version is being mounted. */
+	benchmark: BenchmarkSummary;
+	/** Closes the externally selected card modal. */
+	onClose: () => void;
 };
-/** Pins the version shown on the card and opens the persisted mount, including an existing older one. @example <BenchmarkMountModal benchmark={suite} onClose={close} /> */
+/**
+ * Pins the version shown on the card and opens the persisted mount, including an existing older one.
+ *
+ * @example
+ * <BenchmarkMountModal benchmark={suite} onClose={close} />
+ */
 const BenchmarkMountModal = ({ benchmark, onClose }: MountProps) => {
 	const { t } = useTranslation();
 	const query = useWorkspaces();

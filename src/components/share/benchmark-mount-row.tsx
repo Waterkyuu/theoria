@@ -2,12 +2,17 @@ import { useTranslation } from "react-i18next";
 import { useBenchmark } from "@/queries/benchmark";
 import type { BenchmarkMount } from "@/types/benchmark";
 type BenchmarkMountRowProps = {
-	/** Persisted relationship with a pinned version. */ mount: BenchmarkMount;
-	/** Preserves the desktop navigation shell. */ onNavigate: (
-		path: string,
-	) => void;
+	/** Persisted relationship with a pinned version. */
+	mount: BenchmarkMount;
+	/** Preserves the desktop navigation shell. */
+	onNavigate: (path: string) => void;
 };
-/** Reads the pinned title instead of looking up the latest catalog card. @example <BenchmarkMountRow mount={mount} onNavigate={navigate} /> */
+/**
+ * Reads the pinned title instead of looking up the latest catalog card.
+ *
+ * @example
+ * <BenchmarkMountRow mount={mount} onNavigate={navigate} />
+ */
 const BenchmarkMountRow = ({ mount, onNavigate }: BenchmarkMountRowProps) => {
 	const { t } = useTranslation();
 	const query = useBenchmark(mount.benchmarkId, mount.versionId);

@@ -12,7 +12,8 @@ import type {
 	BenchmarkPreviewInput,
 } from "@/types/benchmark";
 type ConfigurationProps = {
-	/** Fixed workspace version used for every check. */ mount: BenchmarkMount;
+	/** Fixed workspace version used for every check. */
+	mount: BenchmarkMount;
 };
 const AGENTS = {
 	codex: "Codex",
@@ -20,7 +21,12 @@ const AGENTS = {
 	opencode: "OpenCode",
 	workbuddy: "WorkBuddy",
 } as const;
-/** Explicit permissions and local product choices never include a model override. @example <BenchmarkConfiguration mount={mount} /> */
+/**
+ * Explicit permissions and local product choices never include a model override.
+ *
+ * @example
+ * <BenchmarkConfiguration mount={mount} />
+ */
 const BenchmarkConfiguration = ({ mount }: ConfigurationProps) => {
 	const { t } = useTranslation();
 	const [agents, setAgents] = useState<BenchmarkPreviewInput["agentKinds"]>([]);

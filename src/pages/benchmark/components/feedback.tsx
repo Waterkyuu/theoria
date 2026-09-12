@@ -2,12 +2,21 @@ import { Button } from "@heroui/react";
 import { useTranslation } from "react-i18next";
 import { Loading } from "@/components/ui/loading";
 type FeedbackProps = {
-	/** Loading precedes empty state. */ loading?: boolean;
-	/** Whether the request failed. */ failed?: boolean;
-	/** Reloads the affected request. */ retry?: () => void;
-	/** Whether the successfully loaded list is empty. */ empty?: boolean;
+	/** Loading precedes empty state. */
+	loading?: boolean;
+	/** Whether the request failed. */
+	failed?: boolean;
+	/** Reloads the affected request. */
+	retry?: () => void;
+	/** Whether the successfully loaded list is empty. */
+	empty?: boolean;
 };
-/** Keeps read errors visible instead of disguising them as an empty library. @example <BenchmarkFeedback failed retry={reload} /> */
+/**
+ * Keeps read errors visible instead of disguising them as an empty library.
+ *
+ * @example
+ * <BenchmarkFeedback failed retry={reload} />
+ */
 const BenchmarkFeedback = ({
 	loading,
 	failed,
