@@ -842,7 +842,7 @@ mod tests {
                     .collect(),
             };
             let draft = catalog
-                .save_draft(None, None, document.clone())
+                .save_draft(None, None, None, document.clone())
                 .await
                 .expect("draft");
             let detail = catalog
@@ -1002,7 +1002,7 @@ mod tests {
                     .collect(),
             };
             let draft = catalog
-                .save_draft(None, None, document)
+                .save_draft(None, None, None, document)
                 .await
                 .expect("draft");
             let detail = catalog
@@ -1126,6 +1126,7 @@ mod tests {
             let tag = catalog.create_tag("Coding", "Code").await.expect("tag");
             let draft = catalog
                 .save_draft(
+                    None,
                     None,
                     None,
                     BenchmarkDocument {
@@ -1256,6 +1257,7 @@ mod tests {
             let tag = catalog.create_tag("Coding", "Code").await.expect("tag");
             let draft = catalog
                 .save_draft(
+                    None,
                     None,
                     None,
                     BenchmarkDocument {

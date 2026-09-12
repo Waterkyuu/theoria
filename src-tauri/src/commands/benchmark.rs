@@ -44,6 +44,7 @@ pub(crate) async fn save_benchmark_draft(
         .save_draft(
             request.draft_id,
             request.expected_revision,
+            request.benchmark_id,
             request.document,
         )
         .await
