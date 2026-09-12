@@ -53,6 +53,7 @@ pub(crate) enum ErrorMessageKey {
     BenchmarkReadOnly,
     BenchmarkAssetUnavailable,
     BenchmarkVerifierUnavailable,
+    BenchmarkHistoryProtected,
 
     TaskNotFound,
     TaskPreparationFailed,
