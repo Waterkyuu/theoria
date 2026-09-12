@@ -87,7 +87,7 @@ it("hides the tag search icon after selected tag chips", async () => {
 	expect(tagSearch.previousElementSibling).not.toHaveClass("size-4");
 });
 
-it("keeps selected tag chips on one fixed-height search row", async () => {
+it("keeps selected tag chips on one compact fixed-height search row", async () => {
 	const user = userEvent.setup();
 	const value: BenchmarkFilters = {
 		search: "",
@@ -102,12 +102,17 @@ it("keeps selected tag chips on one fixed-height search row", async () => {
 	await user.click(screen.getByRole("button", { name: "标签 (7)" }));
 
 	const tagSearch = screen.getByLabelText("搜索标签…");
-	expect(tagSearch.parentElement).toHaveClass("h-12");
+	expect(tagSearch.parentElement).toHaveClass("h-10");
 	expect(tagSearch.parentElement).toHaveClass("flex-nowrap");
 	expect(tagSearch.parentElement).toHaveClass("overflow-x-auto");
 	expect(tagSearch.parentElement).toHaveClass("overflow-y-hidden");
-	expect(within(tagSearch.parentElement!).getByText("Coding")).toHaveClass(
+	const chip = within(tagSearch.parentElement!).getByText("Coding");
+	expect(chip).toHaveClass(
+		"h-7",
 		"shrink-0",
+		"px-2",
+		"py-1",
+		"text-caption-sm",
 	);
 });
 

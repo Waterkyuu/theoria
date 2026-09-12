@@ -80,11 +80,11 @@ const BenchmarkFiltersBar = ({ value, tags, onChange }: FiltersProps) => {
 					</Button>
 				}
 			>
-				<div className="flex h-12 flex-nowrap items-center gap-1.5 overflow-x-auto overflow-y-hidden rounded-md border border-hairline p-2">
+				<div className="flex h-10 flex-nowrap items-center gap-1.5 overflow-x-auto overflow-y-hidden rounded-md border border-hairline p-1.5">
 					{selectedTags.map(({ tag }) => (
 						<span
 							key={tag.id}
-							className="shrink-0 rounded-full border border-hairline px-2.5 py-1.75 text-caption-sm text-charcoal"
+							className="h-7 shrink-0 rounded-full border border-hairline px-2 py-1 text-caption-sm text-charcoal"
 						>
 							{tag.name}
 						</span>
