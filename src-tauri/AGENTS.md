@@ -124,6 +124,56 @@ application runtime.
 - Add rustdoc to public domain types, public traits, reusable APIs, and non-obvious command contracts.
   Include examples when they clarify intended usage.
 
+### Readability
+
+- When only one pattern needs handling and every other case can be ignored, prefer `if let` over a
+  `match` with an empty fallback arm.
+
+```rust
+// Avoid
+match value {
+    Some(item) => println!("{item}"),
+    _ => {}
+}
+
+// Prefer
+if let Some(item) = value {
+    println!("{item}");
+}
+```
+
+- When iterating over a collection and its index is needed, prefer `.iter().enumerate()` over an
+  index range or a manually maintained counter.
+
+```rust
+let values = ["f", "o", "o"];
+
+// Avoid
+for index in 0..values.len() {
+    println!("The character at {index} is {}", values[index]);
+}
+
+// Prefer
+for (index, value) in values.iter().enumerate() {
+    println!("The character at {index} is {value}");
+}
+```
+
+- Inside an `impl` block, use `Self` for the implementing type in return types, constructors, and
+  struct expressions unless the concrete type name is required for clarity or disambiguation.
+
+```rust
+struct User {
+    name: String,
+}
+
+impl User {
+    fn new(name: String) -> Self {
+        Self { name }
+    }
+}
+```
+
 ## Error Handling
 
 - Recoverable failures return `Result<T, E>`. Reserve `panic!` for broken internal invariants that
