@@ -4,7 +4,7 @@ use crate::error::AppError;
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
 
-/// Immutable model settings captured when a Task is created.
+/// Optional Task overrides; an empty config leaves settings with the local product.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(crate) struct AgentExecutionConfig<'a> {
     /// Exact model identifier selected for this Agent Execution.
@@ -52,16 +52,23 @@ pub(crate) trait AgentAdapter {
         query: &str,
         execution_directory: &Path,
     ) -> Result<AgentRunOutput, AppError> {
-        self.run_task_with_config_cancellable(
-            query,
-            execution_directory,
-            AgentExecutionConfig::default(),
-            &AtomicBool::new(false),
-        )
+        self.run_native_task_cancellable(query, execution_directory, &AtomicBool::new(false))
     }
 
     /// Runs one task while allowing the owning Task Agent to request cooperative termination.
     fn run_task_cancellable(
+        &self,
+        query: &str,
+        execution_directory: &Path,
+        cancelled: &AtomicBool,
+    ) -> Result<AgentRunOutput, AppError> {
+        self.run_native_task_cancellable(query, execution_directory, cancelled)
+    }
+
+    /// Starts a fresh local-product task without replaying model or permission observations.
+    ///
+    /// Benchmark callers supply only the prepared directory, prompt, and owned cancellation signal.
+    fn run_native_task_cancellable(
         &self,
         query: &str,
         execution_directory: &Path,
