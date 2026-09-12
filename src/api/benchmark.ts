@@ -7,11 +7,13 @@ import {
 	BenchmarkMountSchema,
 	BenchmarkTagSchema,
 	BenchmarkPreviewSchema,
+	BenchmarkTaskDetailSchema,
 } from "@/types/benchmark";
 import type {
 	BenchmarkDocument,
 	BenchmarkFilters,
 	BenchmarkPreviewInput,
+	StartBenchmarkTaskInput,
 } from "@/types/benchmark";
 
 const summaries = z.compile(z.array(BenchmarkSummarySchema));
@@ -33,6 +35,8 @@ const ids = z.compile(z.array(z.string()));
 const empty = z.compile(z.null());
 
 const preview = z.compile(BenchmarkPreviewSchema);
+
+const benchmarkTask = z.compile(BenchmarkTaskDetailSchema);
 
 /**
  * Keeps sorting and filtering ahead of native pagination.
@@ -163,6 +167,16 @@ const unmountBenchmark = (workspaceId: string, mountId: string) =>
 const previewBenchmarkTask = (request: BenchmarkPreviewInput) =>
 	invokeWithResponseSchema("preview_benchmark_task", preview, { request });
 
+/** Creates one immutable task plan and starts its background execution. */
+const startBenchmarkTask = (request: StartBenchmarkTaskInput) =>
+	invokeWithResponseSchema("start_benchmark_task", benchmarkTask, { request });
+
+/** Restores the latest persisted matrix state for one Benchmark Task. */
+const getBenchmarkTask = (taskId: string) =>
+	invokeWithResponseSchema("get_benchmark_task", benchmarkTask, {
+		request: { taskId },
+	});
+
 export {
 	listBenchmarks,
 	getBenchmark,
@@ -176,4 +190,6 @@ export {
 	mountBenchmark,
 	unmountBenchmark,
 	previewBenchmarkTask,
+	startBenchmarkTask,
+	getBenchmarkTask,
 };
