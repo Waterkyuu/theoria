@@ -17,6 +17,8 @@ const apiMocks = vi.hoisted(() => ({
 	runTask: vi.fn(),
 	stopTaskAgent: vi.fn(),
 	useTask: vi.fn(),
+	useTaskHeader: vi.fn(),
+	useBenchmarkTask: vi.fn(),
 }));
 
 const RESTORED_TASK = {
@@ -108,6 +110,10 @@ vi.mock("@/queries/task", () => ({
 		isPending: false,
 	}),
 	useTask: apiMocks.useTask,
+	useTaskHeader: apiMocks.useTaskHeader,
+}));
+vi.mock("@/queries/benchmark", () => ({
+	useBenchmarkTask: apiMocks.useBenchmarkTask,
 }));
 vi.mock("@/queries/skill", () => ({
 	useSkills: () => ({ data: [], isLoading: false }),
@@ -178,6 +184,89 @@ describe("WorkspacePage", () => {
 			results: [],
 		});
 		apiMocks.useTask.mockReturnValue({ data: undefined, isLoading: false });
+		apiMocks.useTaskHeader.mockImplementation((taskId: string | null) => ({
+			data: taskId ? RESTORED_TASK.task : undefined,
+			isLoading: false,
+			isError: false,
+		}));
+		apiMocks.useBenchmarkTask.mockReturnValue({
+			data: undefined,
+			isLoading: false,
+			isError: false,
+		});
+	});
+
+	it("dispatches Benchmark task routes without requesting work-task details", () => {
+		apiMocks.useTaskHeader.mockReturnValue({
+			data: { ...RESTORED_TASK.task, kind: "benchmark" },
+			isLoading: false,
+			isError: false,
+		});
+		apiMocks.useBenchmarkTask.mockReturnValue({
+			data: {
+				task: { ...RESTORED_TASK.task, kind: "benchmark" },
+				benchmarkId: "benchmark-1",
+				benchmarkName: "Repository suite",
+				versionId: "version-1",
+				versionNumber: 1,
+				rerunOfTaskId: null,
+				resultCompleteness: "complete",
+				completionReason: "normal",
+				cancelRequested: false,
+				fileAccess: "allow_edits",
+				commandExecution: "allow",
+				progress: { total: 1, finished: 1, passed: 1, failed: 0, errors: 0 },
+				agents: [
+					{
+						id: "benchmark-agent-1",
+						agentKind: "codex",
+						position: 0,
+						passed: 1,
+						failed: 0,
+						total: 1,
+						passRate: 1,
+						totalDurationMs: 100,
+						durationCoverage: 1,
+						totalTokens: 20,
+						tokenCoverage: 1,
+						toolCallCount: 1,
+					},
+				],
+				cases: [
+					{
+						id: "benchmark-case-1",
+						caseId: "case-1",
+						position: 0,
+						name: "Inspect",
+						prompt: "Inspect repository",
+						timeoutMinutes: 10,
+					},
+				],
+				executions: [
+					{
+						id: "execution-1",
+						taskCaseId: "benchmark-case-1",
+						taskAgentId: "benchmark-agent-1",
+						phase: "finished",
+						result: "passed",
+						terminationReason: null,
+						responseText: "done",
+						metrics: null,
+						startedAtMs: 1,
+						finishedAtMs: 2,
+						verdict: "passed",
+						report: null,
+					},
+				],
+			},
+			isLoading: false,
+			isError: false,
+		});
+
+		render(<WorkspacePage taskId="task-42" />);
+
+		expect(screen.getByText("Repository suite")).toBeInTheDocument();
+		expect(apiMocks.useTask).not.toHaveBeenCalled();
 	});
 
 	it("renders the composer without the welcome empty state", () => {

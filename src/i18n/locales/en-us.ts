@@ -84,6 +84,36 @@ const enUS = {
 			checkPassed: "No missing prerequisites found.",
 			executionPending:
 				"Evaluation execution is not available yet. This check does not start a Task.",
+			taskStatus: {
+				preparing: "Preparing",
+				running: "Running",
+				waiting: "Waiting",
+				completed: "Completed",
+				failed: "Failed",
+				stopped: "Stopped",
+			},
+			results: {
+				progress: "Progress",
+				passed: "Passed",
+				failed: "Failed",
+				errors: "Errors",
+				case: "Case",
+				passRate: "{{rate}}% pass rate",
+				incompleteCoverage: "Incomplete result coverage",
+				metrics: "{{duration}} ms · {{tokens}} tokens · {{tools}} tools",
+				executionDetail: "Execution detail",
+				state: {
+					passed: "Passed",
+					failed: "Failed",
+					queued: "Queued",
+					preparing: "Preparing",
+					running: "Running",
+					timed_out: "Timed out",
+					agent_error: "Agent error",
+					evaluation_error: "Evaluation error",
+					interaction_required: "Input required",
+				},
+			},
 			structuredCase:
 				"This case includes file or script checks. Its published content is preserved.",
 			answerHelp:
