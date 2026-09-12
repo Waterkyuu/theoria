@@ -8,6 +8,7 @@ import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { SearchBox } from "@/components/ui/search-box";
 import { useBenchmarks, useBenchmarkTags } from "@/queries/benchmark";
 import type { BenchmarkFilters, BenchmarkSummary } from "@/types/benchmark";
+import { BenchmarkTagManager } from "./components/benchmark-tag-manager";
 import { BenchmarkFeedback } from "./components/feedback";
 import { BenchmarkFiltersBar } from "./components/filters";
 import { BenchmarkMountModal } from "./components/mount-modal";
@@ -43,19 +44,22 @@ const BenchmarkPage = () => {
 							{t("benchmark.description")}
 						</p>
 					</div>
-					<DropdownMenu
-						items={[
-							{ id: "new", labelKey: "benchmark.newTitle" },
-							{ id: "drafts", labelKey: "benchmark.drafts" },
-						]}
-						onAction={(action) => navigate(`/benchmark/${action}`)}
-						trigger={
-							<Button className="h-9 w-[107px] shrink-0 justify-center gap-sm rounded-md bg-surface-dark px-[10px] py-[9px] text-body-sm font-medium text-on-dark shadow-none outline-none hover:bg-ink-deep focus-visible:ring-2 focus-visible:ring-focus-ring">
-								<Plus className="size-4" />
-								{t("benchmark.add")}
-							</Button>
-						}
-					/>
+					<div className="flex items-center gap-sm">
+						<BenchmarkTagManager />
+						<DropdownMenu
+							items={[
+								{ id: "new", labelKey: "benchmark.newTitle" },
+								{ id: "drafts", labelKey: "benchmark.drafts" },
+							]}
+							onAction={(action) => navigate(`/benchmark/${action}`)}
+							trigger={
+								<Button className="h-9 w-[107px] shrink-0 justify-center gap-sm rounded-md bg-surface-dark px-[10px] py-[9px] text-body-sm font-medium text-on-dark shadow-none outline-none hover:bg-ink-deep focus-visible:ring-2 focus-visible:ring-focus-ring">
+									<Plus className="size-4" />
+									{t("benchmark.add")}
+								</Button>
+							}
+						/>
+					</div>
 				</div>
 				<div className="mb-xl max-w-160">
 					<SearchBox
