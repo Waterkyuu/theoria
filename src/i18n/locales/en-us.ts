@@ -88,6 +88,24 @@ const enUS = {
 			checks: "Checks",
 			files: "Starting files",
 			noFiles: "No starting files",
+			file: {
+				add: "Add input file",
+				replace: "Replace",
+				preview: "Preview",
+				save: "Save file",
+				size: "{{count}} bytes",
+				truncated: "Preview truncated",
+				binary: "Binary preview is not available.",
+				contents: "File contents",
+				chooseTitle: "Choose a Benchmark file",
+				outputPath: "Output path",
+				expectedContent: "Expected content",
+				checkKind: "Check type",
+				chooseCheck: "Choose a check",
+				addCheck: "Add check",
+				noValidator: "No validator uploaded",
+				uploadValidator: "Upload validator",
+			},
 			duplicate: "Duplicate",
 			edit: "Edit",
 			archive: "Archive",
@@ -168,7 +186,7 @@ const enUS = {
 			structuredCase:
 				"This case includes file or script checks. Its published content is preserved.",
 			answerHelp:
-				"New cases use an expected final answer. Starting-file import and custom validators are not available in this editor yet.",
+				"Add public starting files and one or more automatic checks. All checks must pass.",
 			invalid:
 				"Complete the name, description, tag and every case before publishing.",
 			validation: {
