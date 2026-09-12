@@ -213,6 +213,7 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 							/>
 						</label>
 						<Select
+							className="w-full max-w-96"
 							label={t("benchmark.tag")}
 							placeholder={t("benchmark.chooseTag")}
 							value={document.tagId}
