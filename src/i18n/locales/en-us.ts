@@ -176,6 +176,14 @@ const enUS = {
 				noResponse: "No response was recorded.",
 				duration: "Execution duration",
 				checks: "Validation checks",
+				artifacts: "Final files",
+				noArtifacts: "No final files were recorded.",
+				change: {
+					added: "Added",
+					modified: "Modified",
+					deleted: "Deleted",
+					unchanged: "Unchanged",
+				},
 				state: {
 					passed: "Passed",
 					failed: "Failed",
