@@ -10,6 +10,8 @@ BEGIN SELECT RAISE(ABORT, 'System tag is immutable'); END;
 CREATE TRIGGER benchmark_system_tag_delete BEFORE DELETE ON benchmark_tags
 WHEN OLD.is_system = 1
 BEGIN SELECT RAISE(ABORT, 'System tag is immutable'); END;
+INSERT INTO benchmark_tags (id, name, icon, is_system)
+VALUES ('uncategorized', 'Uncategorized', 'Tag', 1);
 
 CREATE TABLE benchmarks (
     id TEXT PRIMARY KEY,

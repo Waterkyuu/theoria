@@ -41,14 +41,7 @@ impl BenchmarkService {
         name: &str,
         icon: &str,
     ) -> Result<BenchmarkTag, AppError> {
-        if name.trim().is_empty()
-            || name.trim().chars().count() > 40
-            || icon.is_empty()
-            || icon.len() > 80
-            || !icon.bytes().all(|c| c.is_ascii_alphanumeric())
-        {
-            return Err(AppError::InvalidBenchmark);
-        }
+        validate_tag_fields(name, icon)?;
         self.repository
             .create_tag(BenchmarkTag {
                 id: new_id("tag")?,
@@ -58,6 +51,73 @@ impl BenchmarkService {
             })
             .await
             .map_err(|_| AppError::BenchmarkDatabaseFailed)
+    }
+
+    /// Reports the exact number shown before a destructive tag operation.
+    pub(crate) async fn tag_usage(&self, id: &str) -> Result<u64, AppError> {
+        validate_id(id)?;
+        let tag = self
+            .repository
+            .tag(id)
+            .await
+            .map_err(|_| AppError::BenchmarkDatabaseFailed)?
+            .ok_or(AppError::BenchmarkNotFound)?;
+        if tag.is_system {
+            return Err(AppError::BenchmarkReadOnly);
+        }
+        self.repository
+            .tag_usage(id)
+            .await
+            .map_err(|_| AppError::BenchmarkDatabaseFailed)
+    }
+
+    /// Renames or changes the Gravity icon for one user-owned tag.
+    pub(crate) async fn update_tag(
+        &self,
+        id: &str,
+        name: &str,
+        icon: &str,
+    ) -> Result<BenchmarkTag, AppError> {
+        validate_id(id)?;
+        validate_tag_fields(name, icon)?;
+        let current = self
+            .repository
+            .tag(id)
+            .await
+            .map_err(|_| AppError::BenchmarkDatabaseFailed)?
+            .ok_or(AppError::BenchmarkNotFound)?;
+        if current.is_system {
+            return Err(AppError::BenchmarkReadOnly);
+        }
+        self.repository
+            .update_tag(BenchmarkTag {
+                id: id.to_string(),
+                name: name.trim().to_string(),
+                icon: icon.to_string(),
+                is_system: false,
+            })
+            .await
+            .map_err(|_| AppError::BenchmarkDatabaseFailed)?
+            .ok_or(AppError::BenchmarkConflict)
+    }
+
+    /// Deletes one user tag after atomically reassigning its definitions to Uncategorized.
+    pub(crate) async fn delete_tag(&self, id: &str) -> Result<u64, AppError> {
+        validate_id(id)?;
+        let current = self
+            .repository
+            .tag(id)
+            .await
+            .map_err(|_| AppError::BenchmarkDatabaseFailed)?
+            .ok_or(AppError::BenchmarkNotFound)?;
+        if current.is_system {
+            return Err(AppError::BenchmarkReadOnly);
+        }
+        self.repository
+            .delete_tag(id, now_ms()?)
+            .await
+            .map_err(|_| AppError::BenchmarkDatabaseFailed)?
+            .ok_or(AppError::BenchmarkConflict)
     }
 
     /// Drafts may be incomplete but remain bounded and use the supported template format.
@@ -222,6 +282,25 @@ impl BenchmarkService {
             .map_err(|_| AppError::BenchmarkDatabaseFailed)?
             .ok_or(AppError::BenchmarkNotFound)
     }
+
+    /// Archives one personal definition without removing mounts, versions, or Task history.
+    pub(crate) async fn archive(&self, id: &str) -> Result<BenchmarkDetail, AppError> {
+        validate_id(id)?;
+        let current = self.detail(id, None).await?;
+        if current.summary.author != "myself" {
+            return Err(AppError::BenchmarkReadOnly);
+        }
+        if !current.summary.archived
+            && !self
+                .repository
+                .archive(id, now_ms()?)
+                .await
+                .map_err(|_| AppError::BenchmarkDatabaseFailed)?
+        {
+            return Err(AppError::BenchmarkConflict);
+        }
+        self.detail(id, None).await
+    }
     /// A workspace mount pins content without copying it into workspace source files.
     pub(crate) async fn mount(
         &self,
@@ -252,12 +331,50 @@ impl BenchmarkService {
             .await
             .map_err(|_| AppError::BenchmarkDatabaseFailed)
     }
+
+    /// Explicitly moves an existing mount to another version of the same definition.
+    pub(crate) async fn update_mount(
+        &self,
+        workspace: &str,
+        mount: &str,
+        version: &str,
+    ) -> Result<BenchmarkMount, AppError> {
+        validate_id(workspace)?;
+        validate_id(mount)?;
+        validate_id(version)?;
+        self.repository
+            .update_mount(workspace, mount, version)
+            .await
+            .map_err(|_| AppError::BenchmarkDatabaseFailed)?
+            .ok_or(AppError::BenchmarkNotFound)
+    }
     /// Unmount changes only the workspace relationship.
     pub(crate) async fn unmount(&self, workspace: &str, id: &str) -> Result<(), AppError> {
         self.repository
             .unmount(workspace, id)
             .await
             .map_err(|_| AppError::BenchmarkDatabaseFailed)
+    }
+}
+
+fn validate_tag_fields(name: &str, icon: &str) -> Result<(), AppError> {
+    if name.trim().is_empty()
+        || name.trim().chars().count() > 40
+        || icon.is_empty()
+        || icon.len() > 80
+        || !icon.bytes().all(|c| c.is_ascii_alphanumeric())
+    {
+        Err(AppError::InvalidBenchmark)
+    } else {
+        Ok(())
+    }
+}
+
+fn validate_id(id: &str) -> Result<(), AppError> {
+    if id.is_empty() || id.len() > 200 {
+        Err(AppError::InvalidBenchmark)
+    } else {
+        Ok(())
     }
 }
 
@@ -453,6 +570,13 @@ mod tests {
                 .publish(&other.id, 1)
                 .await
                 .expect("second suite should publish");
+            assert_eq!(service.tag_usage(&tag.id).await.expect("tag usage"), 2);
+            let renamed_tag = service
+                .update_tag(&tag.id, "Engineering", "Wrench")
+                .await
+                .expect("personal tag should update");
+            assert_eq!(renamed_tag.name, "Engineering");
+            assert_eq!(renamed_tag.icon, "Wrench");
             let filtered = service
                 .list(
                     "%",
@@ -470,6 +594,32 @@ mod tests {
                 .await
                 .expect("sort");
             assert_eq!(ordered[0].id, published.summary.id);
+            assert_eq!(
+                service
+                    .delete_tag(&tag.id)
+                    .await
+                    .expect("tag should delete"),
+                2
+            );
+            assert_eq!(
+                service
+                    .detail(&published.summary.id, None)
+                    .await
+                    .expect("retagged benchmark")
+                    .summary
+                    .tag_id,
+                "uncategorized"
+            );
+            assert!(service
+                .tags()
+                .await
+                .expect("tags")
+                .iter()
+                .any(|item| item.id == "uncategorized" && item.is_system));
+            assert_eq!(
+                service.delete_tag("uncategorized").await,
+                Err(AppError::BenchmarkReadOnly)
+            );
             let mounted = service
                 .mount(
                     "workspace-1".to_string(),
@@ -487,6 +637,11 @@ mod tests {
                 .await
                 .expect("repeated mount should succeed");
             assert_eq!(mounted, repeated);
+            let updated_mount = service
+                .update_mount("workspace-1", &mounted.id, &updated.version_id)
+                .await
+                .expect("mount should update explicitly");
+            assert_eq!(updated_mount.version_id, updated.version_id);
             assert_eq!(
                 service
                     .mounts("workspace-1", 0)
@@ -511,6 +666,27 @@ mod tests {
             assert_eq!(historical.version_id, published.version_id);
             assert_eq!(historical.version_number, published.version_number);
             assert_eq!(historical.document.cases, published.document.cases);
+            let archived = service
+                .archive(&published.summary.id)
+                .await
+                .expect("personal benchmark should archive");
+            assert!(archived.summary.archived);
+            assert!(service
+                .list("", &[], None, "newest", 0)
+                .await
+                .expect("catalog")
+                .iter()
+                .all(|item| item.id != published.summary.id));
+            assert_eq!(
+                service
+                    .mount(
+                        "workspace-1".to_string(),
+                        published.summary.id.clone(),
+                        updated.version_id,
+                    )
+                    .await,
+                Err(AppError::BenchmarkReadOnly)
+            );
             database.close().await.expect("database should close");
         });
     }
