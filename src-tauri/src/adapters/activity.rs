@@ -118,10 +118,7 @@ impl AgentActivityAdapter for SystemAgentActivityAdapter {
         }
 
         activities.sort_by(|left, right| {
-            right
-                .updated_at_ms
-                .cmp(&left.updated_at_ms)
-                .then_with(|| left.id.cmp(&right.id))
+            right.updated_at_ms.cmp(&left.updated_at_ms).then_with(|| left.id.cmp(&right.id))
         });
         activities.dedup_by(|left, right| left.id == right.id);
         activities.truncate(MAX_BOARD_ACTIVITIES);
@@ -320,16 +317,13 @@ fn codex_status_from_jsonl(contents: &str, process_running: bool) -> Option<Agen
     let mut status = None;
     let mut pending_user_input = None;
 
-    for event in contents
-        .lines()
-        .filter_map(|line| serde_json::from_str::<CodexRolloutEvent>(line).ok())
+    for event in
+        contents.lines().filter_map(|line| serde_json::from_str::<CodexRolloutEvent>(line).ok())
     {
         match event.method.as_deref() {
             Some("thread/status/changed") => {
-                if let Some(thread_status) = event
-                    .params
-                    .as_ref()
-                    .and_then(|params| params.status.as_ref())
+                if let Some(thread_status) =
+                    event.params.as_ref().and_then(|params| params.status.as_ref())
                 {
                     status = match thread_status.status_type.as_str() {
                         "active"
@@ -425,9 +419,8 @@ fn claude_status_from_jsonl(contents: &str, process_running: bool) -> Option<Age
     let mut status = None;
     let mut pending_question = None;
 
-    for event in contents
-        .lines()
-        .filter_map(|line| serde_json::from_str::<ClaudeTranscriptEvent>(line).ok())
+    for event in
+        contents.lines().filter_map(|line| serde_json::from_str::<ClaudeTranscriptEvent>(line).ok())
     {
         match event.hook_event_name.as_deref() {
             Some("PermissionRequest") => {
@@ -544,11 +537,8 @@ fn activity_from_transcript(
         }
         AgentKind::OpenCode => None,
     }?;
-    let updated_at_ms = fs::symlink_metadata(path)
-        .ok()?
-        .modified()
-        .ok()
-        .and_then(system_time_millis)?;
+    let updated_at_ms =
+        fs::symlink_metadata(path).ok()?.modified().ok().and_then(system_time_millis)?;
 
     Some(AgentActivity {
         id: opaque_activity_id(agent, &path.to_string_lossy()),
@@ -564,12 +554,7 @@ fn transcript_title_from_jsonl(contents: &str) -> Option<String> {
     contents
         .lines()
         .filter_map(|line| serde_json::from_str::<ClaudeTranscriptEvent>(line).ok())
-        .filter(|event| {
-            !event
-                .provider_data
-                .as_ref()
-                .is_some_and(|data| data.skip_run)
-        })
+        .filter(|event| !event.provider_data.as_ref().is_some_and(|data| data.skip_run))
         .find_map(|event| {
             let (role, content) = match event.message {
                 Some(message) => (Some(message.role), message.content),
@@ -718,9 +703,7 @@ fn opencode_first_user_title(database: &Connection, session_id: &str) -> Option<
         )
         .ok()?;
     let rows = statement
-        .query_map([session_id], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        })
+        .query_map([session_id], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))
         .ok()?;
     let parts: Vec<_> = rows.filter_map(Result::ok).collect();
     drop(statement);
@@ -756,9 +739,7 @@ fn codex_titles_by_rollout_path(
 
     for path in rollout_paths {
         let title = statement
-            .query_row([path.to_string_lossy().as_ref()], |row| {
-                row.get::<_, Option<String>>(0)
-            })
+            .query_row([path.to_string_lossy().as_ref()], |row| row.get::<_, Option<String>>(0))
             .optional();
         if let Ok(Some(Some(title))) = title {
             // A manual Codex rename takes precedence through the query's name/title ordering.
@@ -778,15 +759,10 @@ fn latest_workbuddy_snapshot(path: &Path) -> Option<(String, u64)> {
     let (_, value) = records
         .into_iter()
         .filter_map(|record| match record {
-            LocalStorageRecord::Data {
-                script_key,
-                value,
-                seq,
-                deleted: false,
-                ..
-            } if !script_key.lossy
-                && !value.lossy
-                && script_key.text == WORKBUDDY_STATUS_SNAPSHOT_KEY =>
+            LocalStorageRecord::Data { script_key, value, seq, deleted: false, .. }
+                if !script_key.lossy
+                    && !value.lossy
+                    && script_key.text == WORKBUDDY_STATUS_SNAPSHOT_KEY =>
             {
                 Some((seq, value.text))
             }
@@ -861,9 +837,7 @@ fn read_bounded_file_tail(path: &Path) -> Option<String> {
     let mut bytes = Vec::with_capacity(
         usize::try_from(metadata.len().saturating_sub(start)).unwrap_or_default(),
     );
-    file.take(MAX_TRANSCRIPT_BYTES)
-        .read_to_end(&mut bytes)
-        .ok()?;
+    file.take(MAX_TRANSCRIPT_BYTES).read_to_end(&mut bytes).ok()?;
     let mut contents = String::from_utf8(bytes).ok()?;
     if start > 0 {
         let first_newline = contents.find('\n')?;
@@ -882,12 +856,7 @@ fn directory_modified_millis(path: &Path) -> Option<u64> {
             if !file_type.is_file() || file_type.is_symlink() {
                 return None;
             }
-            entry
-                .metadata()
-                .ok()?
-                .modified()
-                .ok()
-                .and_then(system_time_millis)
+            entry.metadata().ok()?.modified().ok().and_then(system_time_millis)
         })
         .max()
 }
@@ -926,10 +895,8 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("test clock should be after the Unix epoch")
             .as_nanos();
-        let directory = std::env::temp_dir().join(format!(
-            "agent-gauge-activity-{}-{unique}",
-            std::process::id()
-        ));
+        let directory = std::env::temp_dir()
+            .join(format!("agent-gauge-activity-{}-{unique}", std::process::id()));
         fs::create_dir_all(&directory).expect("temporary activity directory should be writable");
         let path = directory.join(name);
         if let Some(parent) = path.parent() {
@@ -949,10 +916,7 @@ mod tests {
         let tail = r#"{"type":"response_item","payload":{"type":"reasoning"}}
 {"type":"event_msg","payload":{"type":"agent_message"}}"#;
 
-        assert_eq!(
-            codex_status_from_jsonl(tail, true),
-            Some(AgentActivityStatus::Running)
-        );
+        assert_eq!(codex_status_from_jsonl(tail, true), Some(AgentActivityStatus::Running));
     }
 
     #[test]
@@ -967,27 +931,13 @@ mod tests {
             "{waiting}\n{}",
             r#"{"type":"response_item","payload":{"type":"function_call_output","call_id":"call-1"}}"#
         );
-        let completed = format!(
-            "{resumed}\n{}",
-            r#"{"type":"event_msg","payload":{"type":"task_complete"}}"#
-        );
+        let completed =
+            format!("{resumed}\n{}", r#"{"type":"event_msg","payload":{"type":"task_complete"}}"#);
 
-        assert_eq!(
-            codex_status_from_jsonl(running, true),
-            Some(AgentActivityStatus::Running)
-        );
-        assert_eq!(
-            codex_status_from_jsonl(&waiting, true),
-            Some(AgentActivityStatus::Waiting)
-        );
-        assert_eq!(
-            codex_status_from_jsonl(&resumed, true),
-            Some(AgentActivityStatus::Running)
-        );
-        assert_eq!(
-            codex_status_from_jsonl(&completed, true),
-            Some(AgentActivityStatus::Finish)
-        );
+        assert_eq!(codex_status_from_jsonl(running, true), Some(AgentActivityStatus::Running));
+        assert_eq!(codex_status_from_jsonl(&waiting, true), Some(AgentActivityStatus::Waiting));
+        assert_eq!(codex_status_from_jsonl(&resumed, true), Some(AgentActivityStatus::Running));
+        assert_eq!(codex_status_from_jsonl(&completed, true), Some(AgentActivityStatus::Finish));
     }
 
     #[test]
@@ -1006,14 +956,8 @@ mod tests {
             codex_status_from_jsonl(waiting_for_answer, true),
             Some(AgentActivityStatus::Waiting)
         );
-        assert_eq!(
-            codex_status_from_jsonl(completed, true),
-            Some(AgentActivityStatus::Finish)
-        );
-        assert_eq!(
-            codex_status_from_jsonl(failed, true),
-            Some(AgentActivityStatus::Error)
-        );
+        assert_eq!(codex_status_from_jsonl(completed, true), Some(AgentActivityStatus::Finish));
+        assert_eq!(codex_status_from_jsonl(failed, true), Some(AgentActivityStatus::Error));
     }
 
     #[test]
@@ -1022,14 +966,8 @@ mod tests {
 {"type":"event_msg","payload":{"type":"turn_aborted"}}"#;
         let unfinished = r#"{"type":"event_msg","payload":{"type":"task_started"}}"#;
 
-        assert_eq!(
-            codex_status_from_jsonl(interrupted, true),
-            Some(AgentActivityStatus::Error)
-        );
-        assert_eq!(
-            codex_status_from_jsonl(unfinished, false),
-            Some(AgentActivityStatus::Error)
-        );
+        assert_eq!(codex_status_from_jsonl(interrupted, true), Some(AgentActivityStatus::Error));
+        assert_eq!(codex_status_from_jsonl(unfinished, false), Some(AgentActivityStatus::Error));
     }
 
     #[test]
@@ -1043,27 +981,12 @@ mod tests {
             "{running}\n{}",
             r#"{"type":"assistant","message":{"role":"assistant","stop_reason":"end_turn","content":[{"type":"text","text":"done"}]}}"#
         );
-        let failed = format!(
-            "{running}\n{}",
-            r#"{"type":"system","subtype":"api_error"}"#
-        );
+        let failed = format!("{running}\n{}", r#"{"type":"system","subtype":"api_error"}"#);
 
-        assert_eq!(
-            claude_status_from_jsonl(running, true),
-            Some(AgentActivityStatus::Running)
-        );
-        assert_eq!(
-            claude_status_from_jsonl(&waiting, true),
-            Some(AgentActivityStatus::Waiting)
-        );
-        assert_eq!(
-            claude_status_from_jsonl(&completed, true),
-            Some(AgentActivityStatus::Finish)
-        );
-        assert_eq!(
-            claude_status_from_jsonl(&failed, true),
-            Some(AgentActivityStatus::Error)
-        );
+        assert_eq!(claude_status_from_jsonl(running, true), Some(AgentActivityStatus::Running));
+        assert_eq!(claude_status_from_jsonl(&waiting, true), Some(AgentActivityStatus::Waiting));
+        assert_eq!(claude_status_from_jsonl(&completed, true), Some(AgentActivityStatus::Finish));
+        assert_eq!(claude_status_from_jsonl(&failed, true), Some(AgentActivityStatus::Error));
     }
 
     #[test]
@@ -1083,39 +1006,21 @@ mod tests {
             claude_status_from_jsonl(waiting_after_notification, true),
             Some(AgentActivityStatus::Waiting)
         );
-        assert_eq!(
-            claude_status_from_jsonl(completed, true),
-            Some(AgentActivityStatus::Finish)
-        );
-        assert_eq!(
-            claude_status_from_jsonl(failed, true),
-            Some(AgentActivityStatus::Error)
-        );
+        assert_eq!(claude_status_from_jsonl(completed, true), Some(AgentActivityStatus::Finish));
+        assert_eq!(claude_status_from_jsonl(failed, true), Some(AgentActivityStatus::Error));
     }
 
     #[test]
     fn workbuddy_maps_its_protocol_statuses_to_the_board() {
         for status in ["planning", "working", "running", "connecting"] {
-            assert_eq!(
-                workbuddy_status_from_protocol(status),
-                Some(AgentActivityStatus::Running)
-            );
+            assert_eq!(workbuddy_status_from_protocol(status), Some(AgentActivityStatus::Running));
         }
-        assert_eq!(
-            workbuddy_status_from_protocol("pending"),
-            Some(AgentActivityStatus::Waiting)
-        );
+        assert_eq!(workbuddy_status_from_protocol("pending"), Some(AgentActivityStatus::Waiting));
         for status in ["idle", "completed", "archived"] {
-            assert_eq!(
-                workbuddy_status_from_protocol(status),
-                Some(AgentActivityStatus::Finish)
-            );
+            assert_eq!(workbuddy_status_from_protocol(status), Some(AgentActivityStatus::Finish));
         }
         for status in ["failed", "error", "terminated", "cancelled", "canceled"] {
-            assert_eq!(
-                workbuddy_status_from_protocol(status),
-                Some(AgentActivityStatus::Error)
-            );
+            assert_eq!(workbuddy_status_from_protocol(status), Some(AgentActivityStatus::Error));
         }
         assert_eq!(workbuddy_status_from_protocol("deleted"), None);
     }
@@ -1149,10 +1054,7 @@ mod tests {
         let activity = activity_from_transcript(&path, AgentKind::Claude, true, None)
             .expect("Claude transcript should produce one activity");
 
-        assert_eq!(
-            activity.title.as_deref(),
-            Some("Review the authentication flow")
-        );
+        assert_eq!(activity.title.as_deref(), Some("Review the authentication flow"));
         fs::remove_dir_all(path.parent().expect("test file should have a parent"))
             .expect("temporary activity directory should be removable");
     }
@@ -1169,10 +1071,7 @@ mod tests {
         let activity = activity_from_transcript(&path, AgentKind::WorkBuddy, true, None)
             .expect("WorkBuddy transcript should produce one activity");
 
-        assert_eq!(
-            activity.title.as_deref(),
-            Some("Explain the repository architecture")
-        );
+        assert_eq!(activity.title.as_deref(), Some("Explain the repository architecture"));
         fs::remove_dir_all(path.parent().expect("test file should have a parent"))
             .expect("temporary activity directory should be removable");
     }
@@ -1183,9 +1082,7 @@ mod tests {
             "sessions/rollout-private-session-id.jsonl",
             r#"{"type":"event_msg","payload":{"type":"task_started"}}"#,
         );
-        let codex_root = path
-            .parent()
-            .expect("test transcript should have a sessions parent");
+        let codex_root = path.parent().expect("test transcript should have a sessions parent");
         let database_path = codex_root
             .parent()
             .expect("sessions should have a Codex data parent")
@@ -1211,17 +1108,13 @@ mod tests {
             },
         };
 
-        let activities = adapter.list_activities(AgentProcessStates {
-            codex: true,
-            ..AgentProcessStates::default()
-        });
+        let activities = adapter
+            .list_activities(AgentProcessStates { codex: true, ..AgentProcessStates::default() });
 
         // The title is user-facing metadata; the raw session identifier must remain private.
         assert_eq!(activities[0].title.as_deref(), Some("优化看板标题显示"));
         fs::remove_dir_all(
-            codex_root
-                .parent()
-                .expect("sessions should have a removable test parent"),
+            codex_root.parent().expect("sessions should have a removable test parent"),
         )
         .expect("temporary activity directory should be removable");
     }
@@ -1229,10 +1122,8 @@ mod tests {
     #[test]
     fn opencode_activity_uses_its_stored_session_title() {
         let path = temporary_test_file("placeholder", "unused");
-        let database_path = path
-            .parent()
-            .expect("test file should have a parent")
-            .join("opencode.db");
+        let database_path =
+            path.parent().expect("test file should have a parent").join("opencode.db");
         let database = Connection::open(&database_path).expect("test database should open");
         database
             .execute_batch(
@@ -1271,10 +1162,7 @@ mod tests {
 
         assert_eq!(activities.len(), 1);
         assert_eq!(activities[0].agent, AgentKind::OpenCode);
-        assert_eq!(
-            activities[0].title.as_deref(),
-            Some("Review the release plan")
-        );
+        assert_eq!(activities[0].title.as_deref(), Some("Review the release plan"));
         assert!(!activities[0].id.contains("session-private"));
         fs::remove_dir_all(path.parent().expect("test file should have a parent"))
             .expect("temporary activity directory should be removable");
@@ -1293,11 +1181,7 @@ mod tests {
         assert!(activities
             .iter()
             .any(|activity| activity.title.as_deref() == Some("Plan release")));
-        assert!(activities
-            .iter()
-            .all(|activity| activity.agent == AgentKind::WorkBuddy));
-        assert!(activities
-            .iter()
-            .all(|activity| !activity.id.contains("conversation-")));
+        assert!(activities.iter().all(|activity| activity.agent == AgentKind::WorkBuddy));
+        assert!(activities.iter().all(|activity| !activity.id.contains("conversation-")));
     }
 }

@@ -102,12 +102,13 @@ pub(crate) trait AgentAdapter {
         _session_id: Option<&str>,
         cancelled: &AtomicBool,
     ) -> Result<AgentSessionRunOutput, AppError> {
-        self.run_task_with_config_cancellable(query, execution_directory, config, cancelled)
-            .map(|output| AgentSessionRunOutput {
+        self.run_task_with_config_cancellable(query, execution_directory, config, cancelled).map(
+            |output| AgentSessionRunOutput {
                 output,
                 session_id: None,
                 outcome: AgentTurnOutcome::Completed,
-            })
+            },
+        )
     }
 }
 

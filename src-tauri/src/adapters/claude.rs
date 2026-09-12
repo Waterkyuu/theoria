@@ -44,9 +44,7 @@ pub(crate) struct SystemClaudeAdapter {
 
 impl SystemClaudeAdapter {
     pub(crate) fn new(runtime_settings_cache: ClaudeRuntimeSettingsCache) -> Self {
-        Self {
-            runtime_settings_cache,
-        }
+        Self { runtime_settings_cache }
     }
 }
 
@@ -79,12 +77,12 @@ impl AgentStatusAdapter for SystemClaudeAdapter {
     }
 
     fn load_runtime_config(&self) -> Result<AgentRuntimeConfig, AppError> {
-        self.runtime_settings_cache
-            .resolve(|| Ok(read_claude_runtime_settings()))
-            .map(|settings| AgentRuntimeConfig {
+        self.runtime_settings_cache.resolve(|| Ok(read_claude_runtime_settings())).map(|settings| {
+            AgentRuntimeConfig {
                 model: settings.model,
                 reasoning_effort: settings.reasoning_effort,
-            })
+            }
+        })
     }
 }
 
@@ -119,14 +117,7 @@ impl AgentAdapter for SystemClaudeAdapter {
     ) -> Result<AgentSessionRunOutput, AppError> {
         validate_execution_directory(execution_directory)?;
         let executable = resolve_claude_executable()?;
-        run_claude_task(
-            &executable,
-            query,
-            execution_directory,
-            config,
-            session_id,
-            cancelled,
-        )
+        run_claude_task(&executable, query, execution_directory, config, session_id, cancelled)
     }
 }
 
@@ -206,10 +197,8 @@ impl ClaudeRuntimeSettingsCache {
 
         for _ in 0..MAX_RUNTIME_SETTINGS_RESOLUTION_ATTEMPTS {
             let revision = self.state.revision.load(Ordering::Acquire);
-            if let Some(cached) = self
-                .lock_value()
-                .as_ref()
-                .filter(|cached| cached.revision == revision)
+            if let Some(cached) =
+                self.lock_value().as_ref().filter(|cached| cached.revision == revision)
             {
                 return Ok(cached.value.clone());
             }
@@ -217,10 +206,8 @@ impl ClaudeRuntimeSettingsCache {
             let resolved = resolver()?;
             let mut cached_value = self.lock_value();
             if self.state.revision.load(Ordering::Acquire) == revision {
-                *cached_value = Some(CachedClaudeRuntimeSettings {
-                    revision,
-                    value: resolved.clone(),
-                });
+                *cached_value =
+                    Some(CachedClaudeRuntimeSettings { revision, value: resolved.clone() });
                 return Ok(resolved);
             }
         }
@@ -341,11 +328,7 @@ impl From<StreamUsage> for TokenUsage {
 }
 
 fn logged_out_authentication() -> ClaudeAuthentication {
-    ClaudeAuthentication {
-        installed: true,
-        logged_in: false,
-        authentication_method: None,
-    }
+    ClaudeAuthentication { installed: true, logged_in: false, authentication_method: None }
 }
 
 fn authentication_from_status(status: &str) -> Result<ClaudeAuthentication, AppError> {
@@ -364,11 +347,7 @@ fn authentication_from_status(status: &str) -> Result<ClaudeAuthentication, AppE
             .unwrap_or_else(|| "authenticated credentials".to_string())
     });
 
-    Ok(ClaudeAuthentication {
-        installed: true,
-        logged_in: status.logged_in,
-        authentication_method,
-    })
+    Ok(ClaudeAuthentication { installed: true, logged_in: status.logged_in, authentication_method })
 }
 
 /// Reads only the bounded user-level fields needed for the runtime status card.
@@ -391,9 +370,7 @@ fn read_bounded_claude_settings(path: &Path) -> Result<Option<String>, ()> {
         Err(_) => return Err(()),
     };
     let mut bytes = Vec::new();
-    file.take(MAX_CLAUDE_SETTINGS_BYTES + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|_| ())?;
+    file.take(MAX_CLAUDE_SETTINGS_BYTES + 1).read_to_end(&mut bytes).map_err(|_| ())?;
     if bytes.len() as u64 > MAX_CLAUDE_SETTINGS_BYTES {
         return Err(());
     }
@@ -445,9 +422,7 @@ fn run_claude_task(
     let started_at = Instant::now();
     let mut command = build_claude_task_command(executable, query, config, session_id);
     command.current_dir(execution_directory);
-    let mut child = command
-        .spawn()
-        .map_err(|_| AppError::ClaudeProtocolFailed)?;
+    let mut child = command.spawn().map_err(|_| AppError::ClaudeProtocolFailed)?;
     let stdout = match child.stdout.take() {
         Some(stdout) => stdout,
         None => {
@@ -471,9 +446,7 @@ fn run_claude_task(
             return Err(AppError::ClaudeTaskFailed);
         }
     }
-    reader_handle
-        .join()
-        .map_err(|_| AppError::ClaudeProtocolFailed)?;
+    reader_handle.join().map_err(|_| AppError::ClaudeProtocolFailed)?;
 
     result
 }
@@ -545,9 +518,8 @@ fn collect_claude_events_cancellable(
     let mut session_id = None;
 
     loop {
-        let remaining = CLAUDE_RUN_TIMEOUT
-            .checked_sub(started_at.elapsed())
-            .ok_or(AppError::ClaudeTimedOut)?;
+        let remaining =
+            CLAUDE_RUN_TIMEOUT.checked_sub(started_at.elapsed()).ok_or(AppError::ClaudeTimedOut)?;
         let line = receive_cancellable_line(event_receiver, remaining, cancelled)?;
         let message: StreamMessage =
             serde_json::from_str(&line).map_err(|_| AppError::ClaudeProtocolFailed)?;
@@ -565,11 +537,7 @@ fn collect_claude_events_cancellable(
         if message.message_type == "assistant" {
             // Full assistant messages contain stable tool ids; partial stream events do not span
             // the actual execution, so they are unsuitable for tool-duration measurement.
-            for content in message
-                .message
-                .map(|message| message.content)
-                .unwrap_or_default()
-            {
+            for content in message.message.map(|message| message.content).unwrap_or_default() {
                 if content.content_type == "tool_use" {
                     if content.name.as_deref() == Some("AskUserQuestion") {
                         return Ok(waiting_output(response, collector, session_id, started_at));
@@ -584,11 +552,7 @@ fn collect_claude_events_cancellable(
 
         if message.message_type == "user" {
             // Claude returns tool results as user content with the originating tool_use id.
-            for content in message
-                .message
-                .map(|message| message.content)
-                .unwrap_or_default()
-            {
+            for content in message.message.map(|message| message.content).unwrap_or_default() {
                 if content.content_type == "tool_result" {
                     if let Some(id) = content.tool_use_id {
                         collector.record_tool_finished(&id, started_at.elapsed());
@@ -670,10 +634,7 @@ fn waiting_output(
     started_at: Instant,
 ) -> AgentSessionRunOutput {
     AgentSessionRunOutput {
-        output: AgentRunOutput {
-            response,
-            metrics: collector.finish(started_at.elapsed()),
-        },
+        output: AgentRunOutput { response, metrics: collector.finish(started_at.elapsed()) },
         session_id,
         outcome: AgentTurnOutcome::Waiting,
     }
@@ -690,9 +651,8 @@ fn receive_cancellable_line(
         if cancelled.load(Ordering::Acquire) {
             return Err(AppError::ClaudeTaskFailed);
         }
-        let remaining = timeout
-            .checked_sub(started_at.elapsed())
-            .ok_or(AppError::ClaudeTimedOut)?;
+        let remaining =
+            timeout.checked_sub(started_at.elapsed()).ok_or(AppError::ClaudeTimedOut)?;
         match event_receiver.recv_timeout(remaining.min(Duration::from_millis(100))) {
             Ok(result) => return result,
             Err(RecvTimeoutError::Timeout) => continue,
@@ -706,17 +666,11 @@ fn read_stream_events(stdout: impl io::Read, event_sender: SyncSender<Result<Str
 
     loop {
         let mut bytes = Vec::new();
-        let result = reader
-            .by_ref()
-            .take(MAX_EVENT_BYTES + 1)
-            .read_until(b'\n', &mut bytes);
+        let result = reader.by_ref().take(MAX_EVENT_BYTES + 1).read_until(b'\n', &mut bytes);
         match result {
             Ok(0) => break,
             Ok(_) if bytes.len() as u64 > MAX_EVENT_BYTES => {
-                if event_sender
-                    .send(Err(AppError::ClaudeProtocolFailed))
-                    .is_err()
-                {
+                if event_sender.send(Err(AppError::ClaudeProtocolFailed)).is_err() {
                     break;
                 }
             }
@@ -727,10 +681,7 @@ fn read_stream_events(stdout: impl io::Read, event_sender: SyncSender<Result<Str
                 }
             }
             Err(_) => {
-                if event_sender
-                    .send(Err(AppError::ClaudeProtocolFailed))
-                    .is_err()
-                {
+                if event_sender.send(Err(AppError::ClaudeProtocolFailed)).is_err() {
                     break;
                 }
             }
@@ -744,10 +695,7 @@ fn terminate_child(child: &mut Child) -> Result<(), AppError> {
         Err(error) if error.kind() == io::ErrorKind::InvalidInput => {}
         Err(_) => return Err(AppError::ClaudeProtocolFailed),
     }
-    child
-        .wait()
-        .map(|_| ())
-        .map_err(|_| AppError::ClaudeProtocolFailed)
+    child.wait().map(|_| ()).map_err(|_| AppError::ClaudeProtocolFailed)
 }
 
 fn claude_executable_candidates() -> Vec<OsString> {
@@ -787,14 +735,9 @@ mod tests {
         let args = command.get_args().collect::<Vec<_>>();
 
         for option in ["--model", "--effort", "--permission-mode", "--resume"] {
-            assert!(
-                !args.iter().any(|arg| *arg == option),
-                "unexpected override: {option}"
-            );
+            assert!(!args.iter().any(|arg| *arg == option), "unexpected override: {option}");
         }
-        assert!(args
-            .windows(2)
-            .any(|args| args == ["--output-format", "stream-json"]));
+        assert!(args.windows(2).any(|args| args == ["--output-format", "stream-json"]));
         assert_eq!(command.get_envs().count(), 0);
     }
 
@@ -811,18 +754,12 @@ mod tests {
             },
             None,
         );
-        let args = command
-            .get_args()
-            .map(|arg| arg.to_string_lossy().into_owned())
-            .collect::<Vec<_>>();
+        let args =
+            command.get_args().map(|arg| arg.to_string_lossy().into_owned()).collect::<Vec<_>>();
 
-        assert!(args
-            .windows(2)
-            .any(|args| args == ["--model", "claude-opus-4-1"]));
+        assert!(args.windows(2).any(|args| args == ["--model", "claude-opus-4-1"]));
         assert!(args.windows(2).any(|args| args == ["--effort", "high"]));
-        assert!(args
-            .windows(2)
-            .any(|args| args == ["--permission-mode", "bypassPermissions"]));
+        assert!(args.windows(2).any(|args| args == ["--permission-mode", "bypassPermissions"]));
         assert!(!args.iter().any(|arg| arg == "--no-session-persistence"));
     }
 
@@ -834,14 +771,10 @@ mod tests {
             AgentExecutionConfig::default(),
             Some("session-42"),
         );
-        let args = command
-            .get_args()
-            .map(|arg| arg.to_string_lossy().into_owned())
-            .collect::<Vec<_>>();
+        let args =
+            command.get_args().map(|arg| arg.to_string_lossy().into_owned()).collect::<Vec<_>>();
 
-        assert!(args
-            .windows(2)
-            .any(|args| args == ["--resume", "session-42"]));
+        assert!(args.windows(2).any(|args| args == ["--resume", "session-42"]));
     }
 
     #[test]
@@ -853,10 +786,7 @@ mod tests {
 
         assert!(authentication.installed);
         assert!(authentication.logged_in);
-        assert_eq!(
-            authentication.authentication_method.as_deref(),
-            Some("Claude account")
-        );
+        assert_eq!(authentication.authentication_method.as_deref(), Some("Claude account"));
     }
 
     #[test]
@@ -892,16 +822,12 @@ mod tests {
             })
         };
 
-        let first = cache
-            .resolve(&mut resolve)
-            .expect("initial Claude settings should resolve");
-        let cached = cache
-            .resolve(&mut resolve)
-            .expect("Claude settings should come from the cache");
+        let first = cache.resolve(&mut resolve).expect("initial Claude settings should resolve");
+        let cached =
+            cache.resolve(&mut resolve).expect("Claude settings should come from the cache");
         cache.invalidate();
-        let refreshed = cache
-            .resolve(&mut resolve)
-            .expect("invalidated Claude settings should resolve again");
+        let refreshed =
+            cache.resolve(&mut resolve).expect("invalidated Claude settings should resolve again");
 
         assert_eq!(first.model.as_deref(), Some("model-1"));
         assert_eq!(cached.model.as_deref(), Some("model-1"));
@@ -930,18 +856,14 @@ mod tests {
         let (sender, receiver) = mpsc::sync_channel(5);
         sender
             .send(Ok(
-                r#"{"type":"system","subtype":"init","model":"claude-sonnet-4-5"}"#.to_string(),
+                r#"{"type":"system","subtype":"init","model":"claude-sonnet-4-5"}"#.to_string()
             ))
             .expect("fixture should be queued");
         sender
-            .send(Ok(
-                r#"{"type":"system","subtype":"compact_boundary"}"#.to_string()
-            ))
+            .send(Ok(r#"{"type":"system","subtype":"compact_boundary"}"#.to_string()))
             .expect("fixture should be queued");
         sender
-            .send(Ok(
-                r#"{"type":"system","subtype":"compact_boundary"}"#.to_string()
-            ))
+            .send(Ok(r#"{"type":"system","subtype":"compact_boundary"}"#.to_string()))
             .expect("fixture should be queued");
         sender
             .send(Ok(r#"{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"OK"}}}"#.to_string()))
@@ -955,10 +877,7 @@ mod tests {
 
         assert_eq!(output.response, "OK");
         assert!(output.metrics.time_to_first_token.is_some());
-        assert_eq!(
-            output.metrics.token_usage.map(|usage| usage.total_tokens),
-            Some(22)
-        );
+        assert_eq!(output.metrics.token_usage.map(|usage| usage.total_tokens), Some(22));
         assert_eq!(output.metrics.compaction_count, Some(2));
     }
 
@@ -973,9 +892,7 @@ mod tests {
             r#"{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"OK"}}}"#,
             r#"{"type":"result","subtype":"success","is_error":false,"result":"OK"}"#,
         ] {
-            sender
-                .send(Ok(fixture.to_string()))
-                .expect("fixture should be queued");
+            sender.send(Ok(fixture.to_string())).expect("fixture should be queued");
         }
 
         let output = collect_claude_events(&receiver, Instant::now())
@@ -992,9 +909,7 @@ mod tests {
             r#"{"type":"system","session_id":"session-42"}"#,
             r#"{"type":"stream_event","event":{"type":"content_block_start","content_block":{"type":"tool_use","name":"AskUserQuestion"}}}"#,
         ] {
-            sender
-                .send(Ok(fixture.to_string()))
-                .expect("fixture should be queued");
+            sender.send(Ok(fixture.to_string())).expect("fixture should be queued");
         }
         drop(sender);
 

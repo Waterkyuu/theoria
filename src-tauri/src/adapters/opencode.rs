@@ -94,14 +94,7 @@ impl AgentAdapter for SystemOpenCodeAdapter {
     ) -> Result<AgentSessionRunOutput, AppError> {
         validate_execution_directory(execution_directory)?;
         let executable = find_usable_opencode_executable()?;
-        run_opencode_task(
-            &executable,
-            query,
-            execution_directory,
-            config,
-            session_id,
-            cancelled,
-        )
+        run_opencode_task(&executable, query, execution_directory, config, session_id, cancelled)
     }
 }
 
@@ -197,10 +190,8 @@ struct OpenCodeCacheTokens {
 
 impl From<OpenCodeTokens> for TokenUsage {
     fn from(tokens: OpenCodeTokens) -> Self {
-        let input_tokens = tokens
-            .input
-            .saturating_add(tokens.cache.read)
-            .saturating_add(tokens.cache.write);
+        let input_tokens =
+            tokens.input.saturating_add(tokens.cache.read).saturating_add(tokens.cache.write);
         Self {
             total_tokens: tokens
                 .total
@@ -224,11 +215,7 @@ fn login_from_auth_output(authentication_output: &str) -> AgentLoginStatus {
         (false, true) => Some("environment credential".to_string()),
         (false, false) => None,
     };
-    AgentLoginStatus {
-        installed: true,
-        logged_in,
-        authentication_method,
-    }
+    AgentLoginStatus { installed: true, logged_in, authentication_method }
 }
 
 fn runtime_config_from_json(configuration_output: &str) -> Result<AgentRuntimeConfig, AppError> {
@@ -249,11 +236,7 @@ fn summary_count(output: &str, suffix: &str) -> u64 {
         .find_map(|line| {
             let line = line.trim();
             let suffix_index = line.find(suffix)?;
-            line[..suffix_index]
-                .split_whitespace()
-                .next_back()?
-                .parse()
-                .ok()
+            line[..suffix_index].split_whitespace().next_back()?.parse().ok()
         })
         .unwrap_or_default()
 }
@@ -312,9 +295,7 @@ fn run_opencode_task(
     let started_at = Instant::now();
     let mut command = build_opencode_task_command(executable, query, config, session_id);
     command.current_dir(execution_directory);
-    let mut child = command
-        .spawn()
-        .map_err(|_| AppError::OpenCodeProtocolFailed)?;
+    let mut child = command.spawn().map_err(|_| AppError::OpenCodeProtocolFailed)?;
     let stdout = match child.stdout.take() {
         Some(stdout) => stdout,
         None => {
@@ -346,9 +327,7 @@ fn run_opencode_task(
         }
     };
     drop(event_receiver);
-    reader_handle
-        .join()
-        .map_err(|_| AppError::OpenCodeProtocolFailed)?;
+    reader_handle.join().map_err(|_| AppError::OpenCodeProtocolFailed)?;
     status_result?;
     result
 }
@@ -371,18 +350,12 @@ fn build_opencode_task_command(
     if let Some(session_id) = session_id {
         command.args(["--session", session_id]);
     }
-    if let Some(inline_config) = opencode_permission_config(
-        config,
-        std::env::var("OPENCODE_CONFIG_CONTENT").ok().as_deref(),
-    ) {
+    if let Some(inline_config) =
+        opencode_permission_config(config, std::env::var("OPENCODE_CONFIG_CONTENT").ok().as_deref())
+    {
         command.env("OPENCODE_CONFIG_CONTENT", inline_config);
     }
-    command
-        .arg("--")
-        .arg(query)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null());
+    command.arg("--").arg(query).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null());
     command
 }
 
@@ -406,12 +379,7 @@ fn opencode_permission_config(
         permission.insert(
             "edit".to_string(),
             serde_json::Value::String(
-                if file_access == "read_only" {
-                    "deny"
-                } else {
-                    "allow"
-                }
-                .to_string(),
+                if file_access == "read_only" { "deny" } else { "allow" }.to_string(),
             ),
         );
         permission.insert(
@@ -420,15 +388,10 @@ fn opencode_permission_config(
         );
     }
     if let Some(command_execution) = config.command_execution {
-        permission.insert(
-            "bash".to_string(),
-            serde_json::Value::String(command_execution.to_string()),
-        );
+        permission
+            .insert("bash".to_string(), serde_json::Value::String(command_execution.to_string()));
     }
-    root.as_object_mut()?.insert(
-        "permission".to_string(),
-        serde_json::Value::Object(permission),
-    );
+    root.as_object_mut()?.insert("permission".to_string(), serde_json::Value::Object(permission));
     Some(root.to_string())
 }
 
@@ -464,9 +427,8 @@ fn collect_opencode_events_cancellable(
     let mut session_id = None;
 
     loop {
-        let remaining = timeout
-            .checked_sub(started_at.elapsed())
-            .ok_or(AppError::OpenCodeTimedOut)?;
+        let remaining =
+            timeout.checked_sub(started_at.elapsed()).ok_or(AppError::OpenCodeTimedOut)?;
         if cancelled.load(Ordering::Acquire) {
             return Err(AppError::OpenCodeTaskFailed);
         }
@@ -555,20 +517,14 @@ fn collect_opencode_events_cancellable(
     }
     let total_duration = started_at.elapsed();
     Ok(AgentSessionRunOutput {
-        output: AgentRunOutput {
-            response,
-            metrics: collector.finish(total_duration),
-        },
+        output: AgentRunOutput { response, metrics: collector.finish(total_duration) },
         session_id,
         outcome: AgentTurnOutcome::Completed,
     })
 }
 
 fn completed_interval(time: OpenCodeTime) -> Option<CompletedInterval> {
-    Some(CompletedInterval {
-        start: time.start,
-        end: time.end?,
-    })
+    Some(CompletedInterval { start: time.start, end: time.end? })
 }
 
 struct CompletedInterval {
@@ -588,10 +544,8 @@ fn read_stream_events(stdout: impl io::Read, sender: SyncSender<Result<String, A
     let mut reader = BufReader::new(stdout);
     loop {
         let mut bytes = Vec::with_capacity(4096);
-        let read_result = reader
-            .by_ref()
-            .take((MAX_EVENT_BYTES + 1) as u64)
-            .read_until(b'\n', &mut bytes);
+        let read_result =
+            reader.by_ref().take((MAX_EVENT_BYTES + 1) as u64).read_until(b'\n', &mut bytes);
         let event = match read_result {
             Ok(0) => break,
             Ok(_) if bytes.len() <= MAX_EVENT_BYTES => {
@@ -615,10 +569,7 @@ fn terminate_child(child: &mut Child) -> Result<(), AppError> {
         Err(error) if error.kind() == io::ErrorKind::InvalidInput => {}
         Err(_) => return Err(AppError::OpenCodeProtocolFailed),
     }
-    child
-        .wait()
-        .map(|_| ())
-        .map_err(|_| AppError::OpenCodeProtocolFailed)
+    child.wait().map(|_| ()).map_err(|_| AppError::OpenCodeProtocolFailed)
 }
 
 fn opencode_executable_candidates() -> Vec<OsString> {
@@ -657,10 +608,7 @@ mod tests {
         let args = command.get_args().collect::<Vec<_>>();
 
         for option in ["--model", "--variant", "--session"] {
-            assert!(
-                !args.iter().any(|arg| *arg == option),
-                "unexpected override: {option}"
-            );
+            assert!(!args.iter().any(|arg| *arg == option), "unexpected override: {option}");
         }
         assert!(args.windows(2).any(|args| args == ["--format", "json"]));
         assert_eq!(command.get_envs().count(), 0);
@@ -686,14 +634,10 @@ mod tests {
             },
             None,
         );
-        let args = command
-            .get_args()
-            .map(|arg| arg.to_string_lossy().into_owned())
-            .collect::<Vec<_>>();
+        let args =
+            command.get_args().map(|arg| arg.to_string_lossy().into_owned()).collect::<Vec<_>>();
 
-        assert!(args
-            .windows(2)
-            .any(|args| args == ["--model", "anthropic/claude-sonnet-4-6"]));
+        assert!(args.windows(2).any(|args| args == ["--model", "anthropic/claude-sonnet-4-6"]));
         assert!(args.windows(2).any(|args| args == ["--variant", "high"]));
         let permissions = opencode_permission_config(
             AgentExecutionConfig {
@@ -720,14 +664,10 @@ mod tests {
             AgentExecutionConfig::default(),
             Some("session-42"),
         );
-        let args = command
-            .get_args()
-            .map(|arg| arg.to_string_lossy().into_owned())
-            .collect::<Vec<_>>();
+        let args =
+            command.get_args().map(|arg| arg.to_string_lossy().into_owned()).collect::<Vec<_>>();
 
-        assert!(args
-            .windows(2)
-            .any(|args| args == ["--session", "session-42"]));
+        assert!(args.windows(2).any(|args| args == ["--session", "session-42"]));
     }
 
     #[test]
@@ -746,10 +686,7 @@ mod tests {
 
         assert!(authentication.installed);
         assert!(authentication.logged_in);
-        assert_eq!(
-            authentication.authentication_method.as_deref(),
-            Some("configured provider")
-        );
+        assert_eq!(authentication.authentication_method.as_deref(), Some("configured provider"));
         assert_eq!(config.model.as_deref(), Some("anthropic/claude-sonnet-4-6"));
         assert_eq!(config.reasoning_effort.as_deref(), Some("high"));
     }
@@ -761,10 +698,7 @@ mod tests {
         );
 
         assert!(authentication.logged_in);
-        assert_eq!(
-            authentication.authentication_method.as_deref(),
-            Some("environment credential")
-        );
+        assert_eq!(authentication.authentication_method.as_deref(), Some("environment credential"));
     }
 
     #[test]
@@ -777,9 +711,7 @@ mod tests {
             r#"{"type":"text","timestamp":1800,"sessionID":"ses-1","part":{"type":"text","id":"text-1","sessionID":"ses-1","messageID":"msg-1","text":"done","time":{"start":1400,"end":1750}}}"#,
             r#"{"type":"step_finish","timestamp":1900,"sessionID":"ses-1","part":{"type":"step-finish","id":"step-2","sessionID":"ses-1","messageID":"msg-1","reason":"stop","cost":0,"tokens":{"total":160,"input":100,"output":40,"reasoning":20,"cache":{"read":30,"write":10}}}}"#,
         ] {
-            sender
-                .send(Ok(line.to_string()))
-                .expect("fixture should queue");
+            sender.send(Ok(line.to_string())).expect("fixture should queue");
         }
         drop(sender);
 
@@ -787,21 +719,12 @@ mod tests {
             .expect("valid OpenCode events should complete");
 
         assert_eq!(output.response, "done");
-        assert_eq!(
-            output.metrics.time_to_first_token,
-            Some(Duration::from_millis(400))
-        );
+        assert_eq!(output.metrics.time_to_first_token, Some(Duration::from_millis(400)));
         assert_eq!(output.metrics.thinking_duration, Duration::from_millis(200));
         assert_eq!(output.metrics.tool_calls.len(), 1);
         assert_eq!(output.metrics.tool_calls[0].name, "read");
-        assert_eq!(
-            output.metrics.tool_calls[0].duration,
-            Duration::from_millis(250)
-        );
-        let usage = output
-            .metrics
-            .token_usage
-            .expect("step finish should supply usage");
+        assert_eq!(output.metrics.tool_calls[0].duration, Duration::from_millis(250));
+        let usage = output.metrics.token_usage.expect("step finish should supply usage");
         assert_eq!(usage.total_tokens, 160);
         assert_eq!(usage.input_tokens, 140);
         assert_eq!(usage.cached_input_tokens, 30);

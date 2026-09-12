@@ -35,9 +35,7 @@ pub(crate) struct SystemCodexAdapter {
 
 impl SystemCodexAdapter {
     pub(crate) fn new(runtime_defaults_cache: CodexRuntimeDefaultsCache) -> Self {
-        Self {
-            runtime_defaults_cache,
-        }
+        Self { runtime_defaults_cache }
     }
 }
 
@@ -77,12 +75,12 @@ impl AgentStatusAdapter for SystemCodexAdapter {
 
     fn load_runtime_config(&self) -> Result<AgentRuntimeConfig, AppError> {
         let executable = find_usable_codex_executable()?;
-        self.runtime_defaults_cache
-            .resolve(|| resolve_codex_runtime_settings(&executable))
-            .map(|settings| AgentRuntimeConfig {
+        self.runtime_defaults_cache.resolve(|| resolve_codex_runtime_settings(&executable)).map(
+            |settings| AgentRuntimeConfig {
                 model: Some(settings.model),
                 reasoning_effort: settings.reasoning_effort,
-            })
+            },
+        )
     }
 }
 
@@ -117,13 +115,9 @@ impl AgentAdapter for SystemCodexAdapter {
     ) -> Result<AgentSessionRunOutput, AppError> {
         validate_execution_directory(execution_directory)?;
         let executable = find_usable_codex_executable()?;
-        with_app_server(
-            &executable,
-            Some(execution_directory),
-            |stdin, event_receiver| {
-                run_app_server_task(stdin, event_receiver, query, config, session_id, cancelled)
-            },
-        )
+        with_app_server(&executable, Some(execution_directory), |stdin, event_receiver| {
+            run_app_server_task(stdin, event_receiver, query, config, session_id, cancelled)
+        })
     }
 }
 
@@ -291,10 +285,8 @@ impl CodexRuntimeDefaultsCache {
 
         for _ in 0..MAX_RUNTIME_DEFAULT_RESOLUTION_ATTEMPTS {
             let revision = self.state.revision.load(Ordering::Acquire);
-            if let Some(cached) = self
-                .lock_value()
-                .as_ref()
-                .filter(|cached| cached.revision == revision)
+            if let Some(cached) =
+                self.lock_value().as_ref().filter(|cached| cached.revision == revision)
             {
                 return Ok(cached.value.clone());
             }
@@ -302,10 +294,8 @@ impl CodexRuntimeDefaultsCache {
             let resolved = resolver()?;
             let mut cached_value = self.lock_value();
             if self.state.revision.load(Ordering::Acquire) == revision {
-                *cached_value = Some(CachedCodexRuntimeDefaults {
-                    revision,
-                    value: resolved.clone(),
-                });
+                *cached_value =
+                    Some(CachedCodexRuntimeDefaults { revision, value: resolved.clone() });
                 return Ok(resolved);
             }
         }
@@ -422,9 +412,7 @@ fn read_bounded_codex_config(path: &Path) -> Result<Option<String>, ()> {
         Err(_) => return Err(()),
     };
     let mut bytes = Vec::new();
-    file.take(MAX_CODEX_CONFIG_BYTES + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|_| ())?;
+    file.take(MAX_CODEX_CONFIG_BYTES + 1).read_to_end(&mut bytes).map_err(|_| ())?;
     if bytes.len() as u64 > MAX_CODEX_CONFIG_BYTES {
         return Err(());
     }
@@ -448,10 +436,7 @@ fn runtime_settings_from_config_layers<'a>(
         }
     }
 
-    Some(CodexRuntimeSettings {
-        model: model?,
-        reasoning_effort: Some(reasoning_effort?),
-    })
+    Some(CodexRuntimeSettings { model: model?, reasoning_effort: Some(reasoning_effort?) })
 }
 
 fn non_empty_config_value(value: Option<String>) -> Option<String> {
@@ -508,9 +493,7 @@ fn with_app_server<T>(
     // native App Server exit, so the stdout reader cannot outlive the launcher indefinitely.
     drop(stdin);
     let termination_result = terminate_child(&mut child);
-    let reader_result = reader_handle
-        .join()
-        .map_err(|_| AppError::CodexProtocolFailed);
+    let reader_result = reader_handle.join().map_err(|_| AppError::CodexProtocolFailed);
 
     let output = operation_result?;
     termination_result?;
@@ -531,20 +514,12 @@ fn initialize_app_server_thread(
     )?;
     wait_for_response(event_receiver, 0, APP_SERVER_START_TIMEOUT)?;
     write_message(stdin, r#"{"method":"initialized","params":{}}"#)?;
-    write_message(
-        stdin,
-        &build_codex_thread_request(config, session_id, ephemeral).to_string(),
-    )?;
+    write_message(stdin, &build_codex_thread_request(config, session_id, ephemeral).to_string())?;
     let thread_response = wait_for_response(event_receiver, 1, APP_SERVER_START_TIMEOUT)?;
-    let result = thread_response
-        .result
-        .ok_or(AppError::CodexProtocolFailed)?;
+    let result = thread_response.result.ok_or(AppError::CodexProtocolFailed)?;
 
     Ok(CodexRuntimeDefaults {
-        thread_id: result
-            .thread
-            .map(|thread| thread.id)
-            .ok_or(AppError::CodexProtocolFailed)?,
+        thread_id: result.thread.map(|thread| thread.id).ok_or(AppError::CodexProtocolFailed)?,
         model: result.model,
         reasoning_effort: result.reasoning_effort,
     })
@@ -641,9 +616,8 @@ fn collect_run_events_cancellable(
     let mut response = String::new();
 
     loop {
-        let remaining = CODEX_RUN_TIMEOUT
-            .checked_sub(started_at.elapsed())
-            .ok_or(AppError::CodexTimedOut)?;
+        let remaining =
+            CODEX_RUN_TIMEOUT.checked_sub(started_at.elapsed()).ok_or(AppError::CodexTimedOut)?;
         let line = receive_cancellable_line(event_receiver, remaining, cancelled)?;
         let message: AppServerMessage =
             serde_json::from_str(&line).map_err(|_| AppError::CodexProtocolFailed)?;
@@ -655,10 +629,7 @@ fn collect_run_events_cancellable(
                 | "mcpServer/elicitation/request",
             ) => {
                 return Ok((
-                    AgentRunOutput {
-                        response,
-                        metrics: collector.finish(started_at.elapsed()),
-                    },
+                    AgentRunOutput { response, metrics: collector.finish(started_at.elapsed()) },
                     AgentTurnOutcome::Waiting,
                 ));
             }
@@ -707,10 +678,7 @@ fn collect_run_events_cancellable(
                 }
 
                 return Ok((
-                    AgentRunOutput {
-                        response,
-                        metrics: collector.finish(started_at.elapsed()),
-                    },
+                    AgentRunOutput { response, metrics: collector.finish(started_at.elapsed()) },
                     AgentTurnOutcome::Completed,
                 ));
             }
@@ -730,9 +698,7 @@ fn receive_cancellable_line(
         if cancelled.load(Ordering::Acquire) {
             return Err(AppError::CodexTaskFailed);
         }
-        let remaining = timeout
-            .checked_sub(started_at.elapsed())
-            .ok_or(AppError::CodexTimedOut)?;
+        let remaining = timeout.checked_sub(started_at.elapsed()).ok_or(AppError::CodexTimedOut)?;
         match event_receiver.recv_timeout(remaining.min(Duration::from_millis(100))) {
             Ok(result) => return result,
             Err(RecvTimeoutError::Timeout) => continue,
@@ -749,9 +715,7 @@ fn wait_for_response(
     let started_at = Instant::now();
 
     loop {
-        let remaining = timeout
-            .checked_sub(started_at.elapsed())
-            .ok_or(AppError::CodexTimedOut)?;
+        let remaining = timeout.checked_sub(started_at.elapsed()).ok_or(AppError::CodexTimedOut)?;
         let line = receive_line(event_receiver, remaining)?;
         let message: AppServerMessage =
             serde_json::from_str(&line).map_err(|_| AppError::CodexProtocolFailed)?;
@@ -780,17 +744,11 @@ fn read_app_server_events(
 
     loop {
         let mut bytes = Vec::new();
-        let result = reader
-            .by_ref()
-            .take(MAX_EVENT_BYTES + 1)
-            .read_until(b'\n', &mut bytes);
+        let result = reader.by_ref().take(MAX_EVENT_BYTES + 1).read_until(b'\n', &mut bytes);
         match result {
             Ok(0) => break,
             Ok(_) if bytes.len() as u64 > MAX_EVENT_BYTES => {
-                if event_sender
-                    .send(Err(AppError::CodexProtocolFailed))
-                    .is_err()
-                {
+                if event_sender.send(Err(AppError::CodexProtocolFailed)).is_err() {
                     break;
                 }
             }
@@ -801,10 +759,7 @@ fn read_app_server_events(
                 }
             }
             Err(_) => {
-                if event_sender
-                    .send(Err(AppError::CodexProtocolFailed))
-                    .is_err()
-                {
+                if event_sender.send(Err(AppError::CodexProtocolFailed)).is_err() {
                     break;
                 }
             }
@@ -826,10 +781,7 @@ fn terminate_child(child: &mut Child) -> Result<(), AppError> {
         Err(error) if error.kind() == io::ErrorKind::InvalidInput => {}
         Err(_) => return Err(AppError::CodexProtocolFailed),
     }
-    child
-        .wait()
-        .map(|_| ())
-        .map_err(|_| AppError::CodexProtocolFailed)
+    child.wait().map(|_| ()).map_err(|_| AppError::CodexProtocolFailed)
 }
 
 fn codex_executable_candidates() -> Vec<OsString> {
@@ -869,10 +821,7 @@ mod tests {
 
         assert_eq!(request["method"], "thread/start");
         for field in ["model", "effort", "sandbox", "approvalPolicy", "threadId"] {
-            assert!(
-                request["params"].get(field).is_none(),
-                "unexpected override: {field}"
-            );
+            assert!(request["params"].get(field).is_none(), "unexpected override: {field}");
         }
     }
 
@@ -911,10 +860,8 @@ mod tests {
     fn closes_app_server_stdin_before_waiting_for_the_stdout_reader() {
         use std::os::unix::fs::PermissionsExt;
 
-        let script_path = std::env::temp_dir().join(format!(
-            "agent-gauge-codex-wrapper-test-{}",
-            std::process::id()
-        ));
+        let script_path = std::env::temp_dir()
+            .join(format!("agent-gauge-codex-wrapper-test-{}", std::process::id()));
         std::fs::write(
             &script_path,
             r#"#!/bin/sh
@@ -971,18 +918,12 @@ wait "$reader_pid"
         std::fs::set_permissions(&script_path, permissions)
             .expect("wrapper fixture should be executable");
 
-        let result = with_app_server(
-            script_path.as_os_str(),
-            Some(&execution),
-            |_stdin, receiver| {
+        let result =
+            with_app_server(script_path.as_os_str(), Some(&execution), |_stdin, receiver| {
                 let cwd = super::receive_line(receiver, Duration::from_secs(5))?;
-                assert_eq!(
-                    cwd.trim(),
-                    execution.canonicalize().unwrap().to_string_lossy()
-                );
+                assert_eq!(cwd.trim(), execution.canonicalize().unwrap().to_string_lossy());
                 Ok(())
-            },
-        );
+            });
 
         std::fs::remove_dir_all(root).expect("fixture should be removable");
         assert_eq!(result, Ok(()));
@@ -993,10 +934,8 @@ wait "$reader_pid"
     fn native_local_turn_completes_when_the_product_omits_model_metadata() {
         use std::os::unix::fs::PermissionsExt;
 
-        let root = std::env::temp_dir().join(format!(
-            "theoria-codex-native-metadata-test-{}",
-            std::process::id()
-        ));
+        let root = std::env::temp_dir()
+            .join(format!("theoria-codex-native-metadata-test-{}", std::process::id()));
         std::fs::create_dir_all(&root).expect("fixture directory should be created");
         let executable = root.join("codex-fixture");
         std::fs::write(
@@ -1039,16 +978,12 @@ cat <&0 >/dev/null
 
     #[test]
     fn reports_when_codex_requests_user_input() {
-        for method in [
-            "tool/requestUserInput",
-            "item/tool/requestUserInput",
-            "mcpServer/elicitation/request",
-        ] {
+        for method in
+            ["tool/requestUserInput", "item/tool/requestUserInput", "mcpServer/elicitation/request"]
+        {
             let (sender, receiver) = mpsc::sync_channel(1);
             sender
-                .send(Ok(format!(
-                    r#"{{"method":"{method}","id":7,"params":{{}}}}"#
-                )))
+                .send(Ok(format!(r#"{{"method":"{method}","id":7,"params":{{}}}}"#)))
                 .expect("fixture should be queued");
             drop(sender);
 
@@ -1058,9 +993,7 @@ cat <&0 >/dev/null
 
             let (sender, receiver) = mpsc::sync_channel(1);
             sender
-                .send(Ok(format!(
-                    r#"{{"method":"{method}","id":7,"params":{{}}}}"#
-                )))
+                .send(Ok(format!(r#"{{"method":"{method}","id":7,"params":{{}}}}"#)))
                 .expect("resumable fixture should be queued");
             drop(sender);
             let (_, outcome) =
@@ -1091,9 +1024,7 @@ cat <&0 >/dev/null
             r#"{"method":"item/completed","params":{"item":{"id":"compact-1","type":"contextCompaction"}}}"#,
             r#"{"method":"turn/completed","params":{"turn":{"status":"completed"}}}"#,
         ] {
-            sender
-                .send(Ok(fixture.to_string()))
-                .expect("fixture should be queued");
+            sender.send(Ok(fixture.to_string())).expect("fixture should be queued");
         }
 
         let output = collect_run_events(&receiver, Instant::now())
@@ -1112,17 +1043,12 @@ cat <&0 >/dev/null
             r#"{"method":"thread/tokenUsage/updated","params":{"tokenUsage":{"last":{"totalTokens":16400,"inputTokens":16395,"cachedInputTokens":9984,"outputTokens":5,"reasoningOutputTokens":0}}}}"#,
             r#"{"method":"turn/completed","params":{"turn":{"status":"completed"}}}"#,
         ] {
-            sender
-                .send(Ok(fixture.to_string()))
-                .expect("fixture should be queued");
+            sender.send(Ok(fixture.to_string())).expect("fixture should be queued");
         }
 
         let output = collect_run_events(&receiver, Instant::now())
             .expect("current Codex token usage should complete");
-        let usage = output
-            .metrics
-            .token_usage
-            .expect("token usage should be retained");
+        let usage = output.metrics.token_usage.expect("token usage should be retained");
 
         assert_eq!(output.response, "OK");
         assert_eq!(usage.cache_write_input_tokens, 0);
@@ -1147,14 +1073,8 @@ cat <&0 >/dev/null
 
     #[test]
     fn requires_app_server_fallback_for_incomplete_or_invalid_codex_config() {
-        assert_eq!(
-            runtime_settings_from_config_layers([r#"model = "gpt-5.6-sol""#]),
-            None
-        );
-        assert_eq!(
-            runtime_settings_from_config_layers(["model = [invalid"]),
-            None
-        );
+        assert_eq!(runtime_settings_from_config_layers([r#"model = "gpt-5.6-sol""#]), None);
+        assert_eq!(runtime_settings_from_config_layers(["model = [invalid"]), None);
     }
 
     #[test]
@@ -1170,16 +1090,12 @@ cat <&0 >/dev/null
             })
         };
 
-        let first = cache
-            .resolve(&mut resolve)
-            .expect("initial runtime defaults should resolve");
-        let cached = cache
-            .resolve(&mut resolve)
-            .expect("runtime defaults should come from the cache");
+        let first = cache.resolve(&mut resolve).expect("initial runtime defaults should resolve");
+        let cached =
+            cache.resolve(&mut resolve).expect("runtime defaults should come from the cache");
         cache.invalidate();
-        let refreshed = cache
-            .resolve(&mut resolve)
-            .expect("invalidated runtime defaults should resolve again");
+        let refreshed =
+            cache.resolve(&mut resolve).expect("invalidated runtime defaults should resolve again");
 
         assert_eq!(first.model, "model-1");
         assert_eq!(cached.model, "model-1");
@@ -1199,12 +1115,9 @@ cat <&0 >/dev/null
             })
         };
 
-        let first = cache
-            .resolve(&mut resolve)
-            .expect("initial runtime defaults should resolve");
-        let second = cache
-            .resolve(&mut resolve)
-            .expect("uncached runtime defaults should resolve again");
+        let first = cache.resolve(&mut resolve).expect("initial runtime defaults should resolve");
+        let second =
+            cache.resolve(&mut resolve).expect("uncached runtime defaults should resolve again");
 
         assert_eq!(first.model, "model-1");
         assert_eq!(second.model, "model-2");
