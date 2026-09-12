@@ -388,6 +388,7 @@ pub fn run() {
             commands::skill::unmount_workspace_skill,
             commands::skill::update_git_skill,
             commands::task::continue_task,
+            commands::task::get_task_header,
             commands::task::get_task,
             commands::task::create_task,
             commands::task::delete_task,
