@@ -732,8 +732,9 @@ mod tests {
             let inserted = database.execute_unprepared(r#"
                 INSERT INTO workspaces (id, name, source_kind, source_path, created_at_ms, updated_at_ms)
                 VALUES ('w', 'Workspace', 'external', '/tmp/project', 1, 1);
+                INSERT INTO benchmark_tags (id, name, icon) VALUES ('coding', 'Coding', 'Code');
                 INSERT INTO benchmarks (id, name, description, tag_id, author, created_at_ms, updated_at_ms)
-                VALUES ('b', 'Suite', 'Two questions', 'uncategorized', 'myself', 1, 1);
+                VALUES ('b', 'Suite', 'Two questions', 'coding', 'myself', 1, 1);
                 INSERT INTO benchmark_versions (id, benchmark_id, number, content_json, created_at_ms)
                 VALUES ('v', 'b', 1, '{}', 1);
                 INSERT INTO benchmark_cases (id, version_id, position, name, content_json)

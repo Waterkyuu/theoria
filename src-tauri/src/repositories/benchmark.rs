@@ -26,6 +26,7 @@ impl BenchmarkRepository {
     /// Returns classifications without loading benchmark documents.
     pub(crate) async fn tags(&self) -> Result<Vec<BenchmarkTag>, DbErr> {
         Ok(tag::Entity::find()
+            .filter(tag::Column::Id.ne("uncategorized"))
             .order_by_asc(tag::Column::IsSystem)
             .order_by_asc(tag::Column::Name)
             .all(&self.database)

@@ -4,7 +4,6 @@ CREATE TABLE benchmark_tags (
     icon TEXT NOT NULL CHECK (length(icon) BETWEEN 1 AND 80),
     is_system INTEGER NOT NULL DEFAULT 0 CHECK (is_system IN (0, 1))
 );
-INSERT INTO benchmark_tags VALUES ('uncategorized', 'Uncategorized', 'Tag', 1);
 CREATE TRIGGER benchmark_system_tag_update BEFORE UPDATE ON benchmark_tags
 WHEN OLD.is_system = 1
 BEGIN SELECT RAISE(ABORT, 'System tag is immutable'); END;
