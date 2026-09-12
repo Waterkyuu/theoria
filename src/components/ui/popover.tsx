@@ -39,7 +39,7 @@ type PopoverProps = PopoverBaseProps &
 	(PopoverControlledProps | PopoverUncontrolledProps);
 
 /**
- * Renders a titled popover that supports controlled or internal open state.
+ * Uses the supplied pressable directly so keyboard and screen-reader users get one trigger.
  *
  * @example
  * <Popover title="Account" trigger={<Button>Open</Button>}>
@@ -57,7 +57,7 @@ const Popover = ({
 	trigger,
 }: PopoverProps) => (
 	<HeroUIPopover isOpen={isOpen} onOpenChange={onOpenChange}>
-		<HeroUIPopover.Trigger>{trigger}</HeroUIPopover.Trigger>
+		{trigger}
 		<HeroUIPopover.Content className={className} placement={placement}>
 			{showArrow && <HeroUIPopover.Arrow />}
 			<HeroUIPopover.Dialog>

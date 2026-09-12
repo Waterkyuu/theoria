@@ -1,7 +1,10 @@
 import { SearchField } from "@heroui/react";
+import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 
 type SearchBoxProps = {
+	/** Optional field styling for the surrounding surface. */
+	className?: string;
 	/** Whether the search input is disabled. */
 	isDisabled?: boolean;
 	/** Called with the next search value whenever the input changes. */
@@ -14,6 +17,7 @@ type SearchBoxProps = {
 
 /** Renders a controlled search input with a leading search icon. */
 const SearchBox = ({
+	className,
 	isDisabled = false,
 	onValueChange,
 	placeholder,
@@ -31,7 +35,7 @@ const SearchBox = ({
 			onChange={onValueChange}
 			value={value}
 		>
-			<SearchField.Group>
+			<SearchField.Group className={cn(className)}>
 				<SearchField.SearchIcon />
 				<SearchField.Input placeholder={resolvedPlaceholder} />
 				<SearchField.ClearButton aria-label={t("common.clearSearch")} />
