@@ -4,6 +4,7 @@ use crate::dto::task::{
     TaskResponse,
 };
 use crate::error::{AppError, IpcError};
+use crate::services::benchmark_task::BenchmarkTaskService;
 use crate::services::cleanup::TaskCleanupService;
 use crate::services::task::{CreateTaskAgentInput, CreateTaskInput, TaskService};
 use crate::services::task_execution::TaskExecutionService;
@@ -160,6 +161,31 @@ pub(crate) async fn stop_task_agent(
         .await
         .map(Into::into)
         .map_err(Into::into)
+}
+
+/// Cancels all unfinished work through the orchestrator that owns the selected Task kind.
+#[tauri::command]
+pub(crate) async fn cancel_task(
+    request: GetTaskRequest,
+    task_service: State<'_, TaskService>,
+    work_execution_service: State<'_, TaskExecutionService>,
+    benchmark_service: State<'_, BenchmarkTaskService>,
+) -> Result<(), IpcError> {
+    let task = task_service
+        .header(&request.task_id)
+        .await
+        .map_err(IpcError::from)?;
+    match task.kind {
+        crate::domain::task::TaskKind::Work => work_execution_service
+            .stop_task_and_wait(&request.task_id)
+            .await
+            .map_err(Into::into),
+        crate::domain::task::TaskKind::Benchmark => benchmark_service
+            .cancel(&request.task_id)
+            .await
+            .map(|_| ())
+            .map_err(Into::into),
+    }
 }
 
 /// Stops writers, removes all Task files, then cascades database records.

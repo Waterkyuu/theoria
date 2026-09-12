@@ -52,7 +52,7 @@ pub(crate) async fn start_benchmark_task(
     let codex_cache = codex_cache.inner().clone();
     let claude_cache = claude_cache.inner().clone();
     tauri::async_runtime::spawn(async move {
-        let _ = worker
+        if worker
             .execute_with(&task_id, move |invocation| {
                 run_benchmark_agent(
                     invocation,
@@ -62,7 +62,11 @@ pub(crate) async fn start_benchmark_task(
                     },
                 )
             })
-            .await;
+            .await
+            .is_err()
+        {
+            eprintln!("Benchmark worker ended before reaching a terminal Task state");
+        }
     });
     Ok(detail.into())
 }
@@ -72,7 +76,7 @@ fn run_benchmark_agent(
     request: BenchmarkAgentRequest,
     caches: AgentRuntimeCaches,
 ) -> Result<AgentSessionRunOutput, AppError> {
-    let cancelled = Arc::new(AtomicBool::new(false));
+    let cancelled = request.cancellation.clone();
     let timed_out = Arc::new(AtomicBool::new(false));
     let (finished_sender, finished_receiver) = std::sync::mpsc::channel();
     std::thread::scope(|scope| {
