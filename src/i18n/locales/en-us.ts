@@ -171,6 +171,11 @@ const enUS = {
 				incompleteCoverage: "Incomplete result coverage",
 				metrics: "{{duration}} ms · {{tokens}} tokens · {{tools}} tools",
 				executionDetail: "Execution detail",
+				requirements: "Case requirements",
+				response: "Agent response",
+				noResponse: "No response was recorded.",
+				duration: "Execution duration",
+				checks: "Validation checks",
 				state: {
 					passed: "Passed",
 					failed: "Failed",
@@ -208,6 +213,7 @@ const enUS = {
 				duplicate_path: "Use each file path only once",
 				invalid_expected: "Enter a valid expected value",
 				invalid_json: "Enter valid JSON",
+				invalid_python: "Provide a valid validate(workspace) Python entrypoint",
 			},
 			sort: {
 				newest: "Newest",

@@ -202,6 +202,18 @@ const BenchmarkTaskView = ({ taskId }: BenchmarkTaskViewProps) => {
 	const selected = detail.executions.find(
 		(execution) => execution.id === selectedExecutionId,
 	);
+	const selectedCase = selected
+		? detail.cases.find((item) => item.id === selected.taskCaseId)
+		: null;
+	const selectedAgent = selected
+		? detail.agents.find((item) => item.id === selected.taskAgentId)
+		: null;
+	const selectedDuration =
+		selected?.startedAtMs !== null &&
+		selected?.startedAtMs !== undefined &&
+		selected.finishedAtMs !== null
+			? Math.max(0, selected.finishedAtMs - selected.startedAtMs)
+			: null;
 
 	return (
 		<main className="flex h-dvh min-w-0 flex-1 flex-col overflow-hidden bg-canvas max-md:h-[calc(100dvh-4rem)]">
@@ -328,14 +340,87 @@ const BenchmarkTaskView = ({ taskId }: BenchmarkTaskViewProps) => {
 
 				{selected ? (
 					<article className="rounded-xl border border-hairline bg-surface-card p-lg">
-						<h2 className="font-medium text-ink">
-							{t("benchmark.results.executionDetail")}
-						</h2>
-						<pre className="mt-md whitespace-pre-wrap text-body-sm text-body">
-							{selected.responseText ??
-								selected.terminationReason ??
-								selected.result}
-						</pre>
+						<div className="flex flex-wrap items-start justify-between gap-md">
+							<div>
+								<h2 className="font-medium text-ink">
+									{t("benchmark.results.executionDetail")}
+								</h2>
+								<p className="mt-xs text-caption-sm text-mute">
+									{selectedCase?.name ?? "—"} ·{" "}
+									{selectedAgent
+										? t(`agentNames.${selectedAgent.agentKind}`)
+										: "—"}
+								</p>
+							</div>
+							<span
+								className={cn(
+									"rounded-md px-sm py-xs text-caption-sm",
+									resultClass(selected.result),
+								)}
+							>
+								{t(`benchmark.results.state.${selected.result}`, {
+									defaultValue: selected.result,
+								})}
+							</span>
+						</div>
+						<div className="mt-lg grid gap-lg lg:grid-cols-2">
+							<section>
+								<h3 className="text-caption-sm font-medium text-mute">
+									{t("benchmark.results.requirements")}
+								</h3>
+								<pre className="mt-sm whitespace-pre-wrap text-body-sm text-body">
+									{selectedCase?.prompt ?? "—"}
+								</pre>
+							</section>
+							<section>
+								<h3 className="text-caption-sm font-medium text-mute">
+									{t("benchmark.results.response")}
+								</h3>
+								<pre className="mt-sm whitespace-pre-wrap text-body-sm text-body">
+									{selected.responseText ??
+										selected.terminationReason ??
+										t("benchmark.results.noResponse")}
+								</pre>
+							</section>
+						</div>
+						{selectedDuration !== null ? (
+							<p className="mt-lg text-caption-sm text-mute">
+								{t("benchmark.results.duration")}: {selectedDuration} ms
+							</p>
+						) : null}
+						{selected.report ? (
+							<section className="mt-lg">
+								<h3 className="text-caption-sm font-medium text-mute">
+									{t("benchmark.results.checks")}
+								</h3>
+								<ul className="mt-sm space-y-sm">
+									{selected.report.checks.map((check, index) => (
+										<li
+											className="rounded-md border border-hairline p-sm text-body-sm"
+											key={`${check.kind}-${check.path ?? "none"}-${index}`}
+										>
+											<span
+												className={
+													check.passed
+														? "text-terminal-green"
+														: "text-terminal-red"
+												}
+											>
+												{check.passed
+													? t("benchmark.results.passed")
+													: t("benchmark.results.failed")}
+											</span>{" "}
+											{check.message}
+											{check.path ? (
+												<code className="ml-sm text-caption-sm text-mute">
+													{check.path}
+												</code>
+											) : null}
+										</li>
+									))}
+								</ul>
+							</section>
+						) : null}
 					</article>
 				) : null}
 			</section>
