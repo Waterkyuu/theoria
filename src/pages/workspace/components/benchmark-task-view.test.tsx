@@ -218,3 +218,68 @@ it("shows the selected case requirements and every public validation check", asy
 	await user.click(await screen.findByRole("button", { name: /result.txt/ }));
 	expect(await screen.findByText("artifact body")).toBeInTheDocument();
 });
+
+it("filters matrix rows without changing the full-task aggregate", async () => {
+	const completed = task("completed");
+	completed.cases.push({
+		id: "task-case-2",
+		caseId: "case-2",
+		position: 1,
+		name: "Write file",
+		prompt: "Create output.txt",
+		timeoutMinutes: 1,
+	});
+	completed.progress = {
+		total: 2,
+		finished: 2,
+		passed: 1,
+		failed: 1,
+		errors: 0,
+	};
+	completed.executions = [
+		{
+			id: "execution-1",
+			taskCaseId: "task-case-1",
+			taskAgentId: "task-agent-1",
+			phase: "finished",
+			result: "passed",
+			terminationReason: null,
+			responseText: "42",
+			metrics: null,
+			startedAtMs: 1,
+			finishedAtMs: 2,
+			verdict: "passed",
+			report: null,
+		},
+		{
+			id: "execution-2",
+			taskCaseId: "task-case-2",
+			taskAgentId: "task-agent-1",
+			phase: "finished",
+			result: "failed",
+			terminationReason: null,
+			responseText: "done",
+			metrics: null,
+			startedAtMs: 2,
+			finishedAtMs: 3,
+			verdict: "failed",
+			report: null,
+		},
+	];
+	invoke.mockImplementation(async (command: string) => {
+		if (command === "get_benchmark_task") return completed;
+		throw new Error(`Unexpected command: ${command}`);
+	});
+	const user = userEvent.setup();
+	renderTask();
+
+	expect(await screen.findByText("2/2")).toBeInTheDocument();
+	await user.type(
+		screen.getByRole("searchbox", { name: "Search cases" }),
+		"write",
+	);
+
+	expect(screen.queryByRole("row", { name: /Count/ })).not.toBeInTheDocument();
+	expect(screen.getByRole("row", { name: /Write file/ })).toBeInTheDocument();
+	expect(screen.getByText("2/2")).toBeInTheDocument();
+});
