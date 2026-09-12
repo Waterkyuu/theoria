@@ -67,6 +67,27 @@ it("shows published cards and forwards search and author filters to the catalog"
 	expect(screen.getByRole("button", { name: "Mount" })).toBeInTheDocument();
 });
 
+it("styles the new benchmark trigger as the dark primary action", async () => {
+	render(
+		<QueryClientProvider
+			client={
+				new QueryClient({ defaultOptions: { queries: { retry: false } } })
+			}
+		>
+			<MemoryRouter>
+				<BenchmarkPage />
+			</MemoryRouter>
+		</QueryClientProvider>,
+	);
+	const addButton = await screen.findByRole("button", { name: "Add new" });
+	expect(addButton).toHaveClass("h-9");
+	expect(addButton).toHaveClass("rounded-md");
+	expect(addButton).toHaveClass("bg-surface-dark");
+	expect(addButton).toHaveClass("px-[10px]");
+	expect(addButton).toHaveClass("py-[9px]");
+	expect(addButton).toHaveClass("text-on-dark");
+});
+
 it("shows a retryable catalog failure instead of an empty library", async () => {
 	invoke.mockRejectedValue(new Error("offline"));
 	const user = userEvent.setup();

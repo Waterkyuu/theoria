@@ -50,7 +50,7 @@ const BenchmarkPage = () => {
 						]}
 						onAction={(action) => navigate(`/benchmark/${action}`)}
 						trigger={
-							<Button className="min-h-9 rounded-md px-2.5 py-2 text-body-sm">
+							<Button className="h-9 shrink-0 gap-sm rounded-md bg-surface-dark px-[10px] py-[9px] text-body-sm font-medium text-on-dark shadow-none outline-none hover:bg-ink-deep focus-visible:ring-2 focus-visible:ring-focus-ring">
 								<Plus className="size-4" />
 								{t("benchmark.add")}
 							</Button>
