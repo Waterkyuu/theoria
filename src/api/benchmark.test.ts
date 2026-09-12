@@ -5,6 +5,7 @@ import {
 	importBenchmarkFolder,
 	previewBenchmarkAsset,
 	previewBenchmarkImport,
+	saveBenchmarkTextAsset,
 } from "@/api/benchmark";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -49,12 +50,14 @@ describe("Benchmark import IPC", () => {
 				sizeBytes: 7,
 				text: "fixture",
 				truncated: false,
-			});
+			})
+			.mockResolvedValueOnce({ path: "input.txt", assetId: "asset-2" });
 
 		await previewBenchmarkImport("/selected/template");
 		await importBenchmarkFolder("/selected/template", "coding");
 		await importBenchmarkAsset("/selected/input.txt", "input.txt");
 		await previewBenchmarkAsset("asset-1");
+		await saveBenchmarkTextAsset("input.txt", "edited");
 
 		expect(invoke).toHaveBeenNthCalledWith(1, "preview_benchmark_import", {
 			request: { sourcePath: "/selected/template" },
@@ -67,6 +70,9 @@ describe("Benchmark import IPC", () => {
 		});
 		expect(invoke).toHaveBeenNthCalledWith(4, "preview_benchmark_asset", {
 			request: { assetId: "asset-1" },
+		});
+		expect(invoke).toHaveBeenNthCalledWith(5, "save_benchmark_text_asset", {
+			request: { path: "input.txt", text: "edited" },
 		});
 	});
 });
