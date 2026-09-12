@@ -140,9 +140,8 @@ const ContinueTaskRequestSchema = z.object({
 	taskAgentIds: z.array(z.string().min(1)),
 });
 
-const CompiledTaskDetailSchema = z.compile(TaskDetailSchema);
-const CompiledTaskSchema = z.compile(TaskSchema);
-const CompiledTasksSchema = z.compile(z.array(TaskSchema));
+const TasksSchema = z.array(TaskSchema);
+const EmptyTaskResponseSchema = z.null();
 
 type TaskStatus = z.infer<typeof TaskStatusSchema>;
 type Task = z.infer<typeof TaskSchema>;
@@ -164,9 +163,10 @@ export type {
 	TaskStatus,
 };
 export {
-	CompiledTaskDetailSchema,
-	CompiledTaskSchema,
-	CompiledTasksSchema,
+	TaskDetailSchema,
+	TaskSchema,
+	TasksSchema,
+	EmptyTaskResponseSchema,
 	ContinueTaskRequestSchema,
 	CreateTaskRequestSchema,
 	TaskStatusSchema,
