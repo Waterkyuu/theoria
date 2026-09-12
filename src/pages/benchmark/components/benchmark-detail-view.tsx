@@ -34,12 +34,17 @@ const BenchmarkDetailView = ({ benchmarkId, mount }: DetailProps) => {
 	const navigate = useNavigate();
 	const client = useQueryClient();
 
-	/** Copies immutable case content into a separate personal draft. */
-	const duplicate = async () => {
+	/** Opens immutable content as either a linked personal edit or an independent copy. */
+	const createDraft = async (definitionId: string | null) => {
 		if (!query.data || pending) return;
 		setPending(true);
 		try {
-			const draft = await saveBenchmarkDraft(query.data.document, null, null);
+			const draft = await saveBenchmarkDraft(
+				query.data.document,
+				null,
+				null,
+				definitionId,
+			);
 			await client.invalidateQueries({ queryKey: ["benchmarks", "drafts"] });
 			Toast.toast.success(t("benchmark.copied"));
 			navigate(`/benchmark/drafts/${encodeURIComponent(draft.id)}`);
@@ -94,13 +99,25 @@ const BenchmarkDetailView = ({ benchmarkId, mount }: DetailProps) => {
 								</p>
 							</div>
 							<div className="flex flex-wrap gap-sm">
-								<Button
-									variant="secondary"
-									isPending={pending}
-									onPress={duplicate}
-								>
-									{t("benchmark.duplicate")}
-								</Button>
+								{!mount && (
+									<Button
+										variant="secondary"
+										isPending={pending}
+										onPress={() =>
+											createDraft(
+												detail.summary.author === "myself"
+													? detail.summary.id
+													: null,
+											)
+										}
+									>
+										{t(
+											detail.summary.author === "myself"
+												? "benchmark.edit"
+												: "benchmark.duplicate",
+										)}
+									</Button>
+								)}
 								{mount ? (
 									<>
 										<BenchmarkConfiguration mount={mount} />

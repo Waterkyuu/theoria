@@ -66,9 +66,15 @@ const saveBenchmarkDraft = (
 	document: BenchmarkDocument,
 	draftId: string | null,
 	expectedRevision: number | null,
+	benchmarkId: string | null = null,
 ) =>
 	invokeWithResponseSchema("save_benchmark_draft", BenchmarkDraftSchema, {
-		request: { document, draftId, expectedRevision },
+		request: {
+			document,
+			draftId,
+			expectedRevision,
+			...(benchmarkId ? { benchmarkId } : {}),
+		},
 	});
 
 /**

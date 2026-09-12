@@ -63,6 +63,7 @@ const enUS = {
 			files: "Starting files",
 			noFiles: "No starting files",
 			duplicate: "Duplicate",
+			edit: "Edit",
 			copied: "Editable copy created",
 			unmount: "Unmount",
 			unmountConfirm:
