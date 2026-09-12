@@ -2,6 +2,7 @@ import { Toast } from "@heroui/react";
 import "@testing-library/jest-dom/vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import WorkspacePage from ".";
 
@@ -114,6 +115,26 @@ vi.mock("@/queries/task", () => ({
 }));
 vi.mock("@/queries/benchmark", () => ({
 	useBenchmarkTask: apiMocks.useBenchmarkTask,
+	useBenchmarkExecutionArtifacts: () => ({
+		data: [],
+		isError: false,
+		isLoading: false,
+		refetch: vi.fn(),
+	}),
+	useBenchmarkExecutionArtifactPreview: () => ({
+		data: undefined,
+		isError: false,
+		isLoading: false,
+		refetch: vi.fn(),
+	}),
+	useCancelBenchmarkTask: () => ({
+		isPending: false,
+		mutate: vi.fn(),
+	}),
+	useRerunBenchmarkTask: () => ({
+		isPending: false,
+		mutateAsync: vi.fn(),
+	}),
 }));
 vi.mock("@/queries/skill", () => ({
 	useSkills: () => ({ data: [], isLoading: false }),
@@ -263,7 +284,11 @@ describe("WorkspacePage", () => {
 			isError: false,
 		});
 
-		render(<WorkspacePage taskId="task-42" />);
+		render(
+			<MemoryRouter>
+				<WorkspacePage taskId="task-42" />
+			</MemoryRouter>,
+		);
 
 		expect(screen.getByText("Repository suite")).toBeInTheDocument();
 		expect(apiMocks.useTask).not.toHaveBeenCalled();
