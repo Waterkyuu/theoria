@@ -6,18 +6,13 @@ import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import { PageHeader } from "@/components/share/page-header";
 import { AlertDialog } from "@/components/ui/alert-dialog";
-import { Popover } from "@/components/ui/popover";
 import { Select } from "@/components/ui/select";
 import { handleError } from "@/utils/error";
-import {
-	createBenchmarkTag,
-	saveBenchmarkDraft,
-	publishBenchmark,
-} from "@/api/benchmark";
+import { saveBenchmarkDraft, publishBenchmark } from "@/api/benchmark";
 import { useBenchmarkTags } from "@/queries/benchmark";
 import type { BenchmarkDocument, BenchmarkDraft } from "@/types/benchmark";
 import { BenchmarkFeedback } from "../../components/feedback";
-import { BENCHMARK_ICONS, TagIcon } from "../../components/tag-icon";
+import { BenchmarkTagCreatePopover } from "./benchmark-tag-create-popover";
 
 const FIELD =
 	"w-full rounded-md border border-hairline bg-canvas px-md py-sm text-body-sm outline-none focus-visible:ring-2 focus-visible:ring-focus-ring";
@@ -58,8 +53,6 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 		},
 	);
 	const [pending, setPending] = useState(false);
-	const [tagPending, setTagPending] = useState(false);
-	const [icon, setIcon] = useState("Code");
 
 	/**
 	 * Saves before publication and retains recoverable editor content on failure.
@@ -101,28 +94,6 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 		}
 	};
 
-	/**
-	 * Creates the selected icon/tag through the shared native catalog.
-	 *
-	 * @example
-	 * addTag(event);
-	 */
-	const addTag = async (event: FormEvent<HTMLFormElement>) => {
-		event.preventDefault();
-		if (tagPending) return;
-		const name = String(new FormData(event.currentTarget).get("tagName") ?? "");
-		setTagPending(true);
-		try {
-			const tag = await createBenchmarkTag(name, icon);
-			await client.invalidateQueries({ queryKey: ["benchmarks", "tags"] });
-			setDocument((current) => ({ ...current, tagId: tag.id }));
-			Toast.toast.success(t("benchmark.tagCreated"));
-		} catch (error) {
-			handleError(error, "Benchmark tag creation failed", true);
-		} finally {
-			setTagPending(false);
-		}
-	};
 	return (
 		<main className="flex h-full min-h-0 flex-col">
 			<PageHeader>
@@ -137,55 +108,11 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 						: t("benchmark.newTitle")}
 				</h1>
 				<div className="mb-lg flex justify-end">
-					<Popover
-						title={t("benchmark.newTag")}
-						trigger={
-							<Button
-								size="sm"
-								variant="secondary"
-								className="border border-hairline bg-canvas shadow-none"
-							>
-								{t("benchmark.newTag")}
-							</Button>
+					<BenchmarkTagCreatePopover
+						onCreated={(tag) =>
+							setDocument((current) => ({ ...current, tagId: tag.id }))
 						}
-					>
-						<form
-							onSubmit={addTag}
-							className="flex max-w-72 flex-col gap-md pt-md"
-						>
-							<label className="text-body-sm">
-								{t("benchmark.tagName")}
-								<input
-									name="tagName"
-									required
-									maxLength={40}
-									className={FIELD}
-								/>
-							</label>
-							<div
-								className="grid grid-cols-5 gap-sm"
-								aria-label={t("benchmark.icon")}
-							>
-								{Object.keys(BENCHMARK_ICONS).map((name) => (
-									<Button
-										key={name}
-										isIconOnly
-										aria-label={name}
-										aria-pressed={icon === name}
-										variant={icon === name ? "primary" : "tertiary"}
-										onPress={() => setIcon(name)}
-									>
-										<TagIcon name={name} />
-									</Button>
-								))}
-							</div>
-							<div className="flex justify-end">
-								<Button type="submit" isPending={tagPending}>
-									{t("common.confirm")}
-								</Button>
-							</div>
-						</form>
-					</Popover>
+					/>
 				</div>
 				<form onSubmit={submit} className="flex flex-col gap-xl">
 					<fieldset disabled={pending} className="contents">
@@ -260,7 +187,7 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 											<Button
 												variant="secondary"
 												size="sm"
-												className="border border-hairline bg-canvas shadow-none"
+												className="border border-terminal-red bg-canvas text-terminal-red shadow-none"
 											>
 												{t("benchmark.removeCase")}
 											</Button>
