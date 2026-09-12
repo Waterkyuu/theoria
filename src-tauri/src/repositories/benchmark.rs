@@ -2,7 +2,7 @@ use crate::domain::benchmark::{
     BenchmarkDetail, BenchmarkDocument, BenchmarkDraft, BenchmarkMount, BenchmarkSummary,
     BenchmarkTag,
 };
-use crate::models::benchmark::{case, definition, draft, mount, tag, version};
+use crate::models::benchmark::{self as benchmark, case, draft, mount, tag, version};
 use sea_orm::sea_query::{Expr, ExprTrait, OnConflict, Query};
 use sea_orm::TransactionTrait;
 use sea_orm::{
@@ -141,20 +141,20 @@ impl BenchmarkRepository {
         }
         let document = &value.document;
         if value.benchmark_id.is_some() {
-            let updated = definition::Entity::update_many()
-                .col_expr(definition::Column::Name, Expr::value(document.name.trim()))
+            let updated = benchmark::Entity::update_many()
+                .col_expr(benchmark::Column::Name, Expr::value(document.name.trim()))
                 .col_expr(
-                    definition::Column::Description,
+                    benchmark::Column::Description,
                     Expr::value(document.description.trim()),
                 )
                 .col_expr(
-                    definition::Column::TagId,
+                    benchmark::Column::TagId,
                     Expr::value(document.tag_id.clone()),
                 )
-                .col_expr(definition::Column::UpdatedAtMs, Expr::value(now))
-                .filter(definition::Column::Id.eq(benchmark_id))
-                .filter(definition::Column::Author.eq("myself"))
-                .filter(definition::Column::Archived.eq(false))
+                .col_expr(benchmark::Column::UpdatedAtMs, Expr::value(now))
+                .filter(benchmark::Column::Id.eq(benchmark_id))
+                .filter(benchmark::Column::Author.eq("myself"))
+                .filter(benchmark::Column::Archived.eq(false))
                 .exec(&transaction)
                 .await?;
             if updated.rows_affected != 1 {
@@ -162,7 +162,7 @@ impl BenchmarkRepository {
                 return Ok(None);
             }
         } else {
-            definition::ActiveModel {
+            benchmark::ActiveModel {
                 id: Set(benchmark_id.to_string()),
                 name: Set(document.name.trim().to_string()),
                 description: Set(document.description.trim().to_string()),
@@ -232,7 +232,7 @@ impl BenchmarkRepository {
         sort: &str,
         page: u32,
     ) -> Result<Vec<BenchmarkSummary>, DbErr> {
-        let mut query = summary_query().filter(definition::Column::Archived.eq(false));
+        let mut query = summary_query().filter(benchmark::Column::Archived.eq(false));
         if !search.is_empty() {
             let pattern = format!(
                 "%{}%",
@@ -244,29 +244,29 @@ impl BenchmarkRepository {
             query = query.filter(
                 Condition::any()
                     .add(
-                        Expr::col((definition::Entity, definition::Column::Name))
+                        Expr::col((benchmark::Entity, benchmark::Column::Name))
                             .like(sea_orm::sea_query::LikeExpr::new(&pattern).escape('\\')),
                     )
                     .add(
-                        Expr::col((definition::Entity, definition::Column::Description))
+                        Expr::col((benchmark::Entity, benchmark::Column::Description))
                             .like(sea_orm::sea_query::LikeExpr::new(&pattern).escape('\\')),
                     ),
             );
         }
         if !tag_ids.is_empty() {
-            query = query.filter(definition::Column::TagId.is_in(tag_ids));
+            query = query.filter(benchmark::Column::TagId.is_in(tag_ids));
         }
         if let Some(author) = author {
-            query = query.filter(definition::Column::Author.eq(author));
+            query = query.filter(benchmark::Column::Author.eq(author));
         }
         let query = match sort {
-            "updated" => query.order_by_desc(definition::Column::UpdatedAtMs),
-            "oldest" => query.order_by_asc(definition::Column::CreatedAtMs),
-            "alphabetical" => query.order_by_asc(definition::Column::Name),
-            _ => query.order_by_desc(definition::Column::CreatedAtMs),
+            "updated" => query.order_by_desc(benchmark::Column::UpdatedAtMs),
+            "oldest" => query.order_by_asc(benchmark::Column::CreatedAtMs),
+            "alphabetical" => query.order_by_asc(benchmark::Column::Name),
+            _ => query.order_by_desc(benchmark::Column::CreatedAtMs),
         };
         Ok(query
-            .order_by_asc(definition::Column::Id)
+            .order_by_asc(benchmark::Column::Id)
             .limit(30)
             .offset(u64::from(page) * 30)
             .into_model::<SummaryRow>()
@@ -284,7 +284,7 @@ impl BenchmarkRepository {
         selected: Option<&str>,
     ) -> Result<Option<BenchmarkDetail>, DbErr> {
         let summary = summary_query()
-            .filter(definition::Column::Id.eq(id))
+            .filter(benchmark::Column::Id.eq(id))
             .into_model::<SummaryRow>()
             .one(&self.database)
             .await?;
@@ -318,7 +318,7 @@ impl BenchmarkRepository {
         value: BenchmarkMount,
     ) -> Result<Option<BenchmarkMount>, DbErr> {
         let transaction = self.database.begin().await?;
-        let definition = definition::Entity::find_by_id(&value.benchmark_id)
+        let definition = benchmark::Entity::find_by_id(&value.benchmark_id)
             .one(&transaction)
             .await?;
         let Some(definition) = definition else {
@@ -397,13 +397,13 @@ impl BenchmarkRepository {
 }
 
 /// Projects latest version metadata in one query; cases are counted without loading their content.
-fn summary_query() -> Select<definition::Entity> {
+fn summary_query() -> Select<benchmark::Entity> {
     let latest = Query::select()
         .column((version::Entity, version::Column::Id))
         .from(version::Entity)
         .and_where(
             Expr::col((version::Entity, version::Column::BenchmarkId))
-                .equals((definition::Entity, definition::Column::Id)),
+                .equals((benchmark::Entity, benchmark::Column::Id)),
         )
         .order_by(version::Column::Number, Order::Desc)
         .limit(1)
@@ -416,17 +416,17 @@ fn summary_query() -> Select<definition::Entity> {
                 .equals((version::Entity, version::Column::Id)),
         )
         .to_owned();
-    definition::Entity::find()
+    benchmark::Entity::find()
         .select_only()
         .columns([
-            definition::Column::Id,
-            definition::Column::Name,
-            definition::Column::Description,
-            definition::Column::TagId,
-            definition::Column::Author,
-            definition::Column::Source,
-            definition::Column::Archived,
-            definition::Column::CreatedAtMs,
+            benchmark::Column::Id,
+            benchmark::Column::Name,
+            benchmark::Column::Description,
+            benchmark::Column::TagId,
+            benchmark::Column::Author,
+            benchmark::Column::Source,
+            benchmark::Column::Archived,
+            benchmark::Column::CreatedAtMs,
         ])
         .column_as(
             Expr::col((version::Entity, version::Column::Id)),
@@ -437,7 +437,7 @@ fn summary_query() -> Select<definition::Entity> {
             "version_number",
         )
         .column_as(Expr::from(count), "case_count")
-        .join(JoinType::InnerJoin, definition::Relation::Versions.def())
+        .join(JoinType::InnerJoin, benchmark::Relation::Versions.def())
         .filter(version::Column::Id.in_subquery(latest))
 }
 
