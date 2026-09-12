@@ -15,8 +15,10 @@ use crate::dto::benchmark_task::BenchmarkAgentRequest;
 use crate::error::AppError;
 use crate::repositories::benchmark::BenchmarkRepository;
 use crate::repositories::benchmark_task::BenchmarkTaskRepository;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 /// Benchmark execution configuration is independent of catalog editing and work Task inputs.
 #[derive(Clone)]
@@ -30,7 +32,9 @@ pub(crate) struct BenchmarkTaskService {
     /// Root of Task-owned baselines and execution artifacts.
     app_data_directory: PathBuf,
     /// V1 uses one global execution slot regardless of page lifecycle.
-    execution_lock: std::sync::Arc<tokio::sync::Mutex<()>>,
+    execution_lock: Arc<tokio::sync::Mutex<()>>,
+    /// Task identifiers paired with cancellation signals owned by this service.
+    active_tasks: ActiveBenchmarkTasks,
 }
 
 impl BenchmarkTaskService {
@@ -45,7 +49,8 @@ impl BenchmarkTaskService {
             task_repository,
             asset_directory: app_data.join("benchmark-assets"),
             app_data_directory: app_data,
-            execution_lock: std::sync::Arc::new(tokio::sync::Mutex::new(())),
+            execution_lock: Arc::new(tokio::sync::Mutex::new(())),
+            active_tasks: ActiveBenchmarkTasks::default(),
         }
     }
 
@@ -126,6 +131,27 @@ impl BenchmarkTaskService {
             .ok_or(AppError::TaskNotFound)
     }
 
+    /// Stops new matrix claims and signals the one active Agent owned by this Task.
+    pub(crate) async fn cancel(&self, task_id: &str) -> Result<BenchmarkTaskDetail, AppError> {
+        let detail = self.get(task_id).await?;
+        if matches!(
+            detail.task.status,
+            TaskStatus::Completed | TaskStatus::Failed | TaskStatus::Stopped
+        ) {
+            return Ok(detail);
+        }
+        self.task_repository
+            .request_cancel(task_id, now_ms()?)
+            .await
+            .map_err(|_| AppError::BenchmarkDatabaseFailed)?;
+        self.active_tasks.stop(task_id);
+        self.task_repository
+            .refresh_status(task_id, now_ms()?)
+            .await
+            .map_err(|_| AppError::BenchmarkDatabaseFailed)?;
+        self.get(task_id).await
+    }
+
     /// Sequentially executes every claimed cell and immediately persists its score.
     pub(crate) async fn execute_with(
         &self,
@@ -134,9 +160,26 @@ impl BenchmarkTaskService {
             + Send
             + 'static,
     ) -> Result<(), AppError> {
+        let cancellation = self.active_tasks.register(task_id);
+        let result = self.execute_plan(task_id, runner, cancellation).await;
+        self.active_tasks.remove(task_id);
+        result
+    }
+
+    async fn execute_plan(
+        &self,
+        task_id: &str,
+        runner: impl FnMut(BenchmarkAgentRequest) -> Result<AgentSessionRunOutput, AppError>
+            + Send
+            + 'static,
+        cancellation: Arc<AtomicBool>,
+    ) -> Result<(), AppError> {
         let _execution_slot = self.execution_lock.lock().await;
         let runner = std::sync::Arc::new(std::sync::Mutex::new(runner));
         let detail = self.get(task_id).await?;
+        if detail.task.status == TaskStatus::Stopped && detail.cancel_requested {
+            return Ok(());
+        }
         if detail.task.status != TaskStatus::Preparing {
             return Err(AppError::InvalidTask);
         }
@@ -168,10 +211,14 @@ impl BenchmarkTaskService {
                         continue;
                     }
                 };
-                self.task_repository
+                if !self
+                    .task_repository
                     .mark_execution_running(&execution.id, now_ms()?)
                     .await
-                    .map_err(|_| AppError::BenchmarkDatabaseFailed)?;
+                    .map_err(|_| AppError::BenchmarkDatabaseFailed)?
+                {
+                    continue;
+                }
                 let request = BenchmarkAgentRequest {
                     agent_kind: agent.agent_kind,
                     prompt: case.content.prompt.clone(),
@@ -184,6 +231,7 @@ impl BenchmarkTaskService {
                     timeout: std::time::Duration::from_secs(
                         u64::from(case.content.timeout_minutes) * 60,
                     ),
+                    cancellation: cancellation.clone(),
                 };
                 let call = runner.clone();
                 let output = tokio::task::spawn_blocking(move || {
@@ -222,6 +270,9 @@ impl BenchmarkTaskService {
                             Err(error) => self.finish_error(&execution.id, &error).await?,
                         }
                     }
+                    Ok(_) if cancellation.load(Ordering::Acquire) => {
+                        self.finish_cancelled(&execution.id).await?;
+                    }
                     Ok(output) => {
                         let metrics = metrics_json(&output.output.metrics);
                         self.task_repository
@@ -239,6 +290,12 @@ impl BenchmarkTaskService {
                             .await
                             .map_err(|_| AppError::BenchmarkDatabaseFailed)?;
                     }
+                    Err(error) if agent_timed_out(&error) => {
+                        self.finish_error(&execution.id, &error).await?;
+                    }
+                    Err(_) if cancellation.load(Ordering::Acquire) => {
+                        self.finish_cancelled(&execution.id).await?;
+                    }
                     Err(error) => self.finish_error(&execution.id, &error).await?,
                 }
                 self.task_repository
@@ -249,6 +306,23 @@ impl BenchmarkTaskService {
         }
         self.task_repository
             .refresh_status(task_id, now_ms()?)
+            .await
+            .map_err(|_| AppError::BenchmarkDatabaseFailed)
+    }
+
+    async fn finish_cancelled(&self, execution_id: &str) -> Result<(), AppError> {
+        self.task_repository
+            .finish_execution(
+                execution_id,
+                BenchmarkExecutionResult {
+                    session_id: None,
+                    response_text: None,
+                    metrics_json: None,
+                    termination_reason: Some("cancelled".into()),
+                    report: None,
+                    finished_at_ms: now_ms()?,
+                },
+            )
             .await
             .map_err(|_| AppError::BenchmarkDatabaseFailed)
     }
@@ -461,6 +535,17 @@ fn validate_configuration(configuration: &BenchmarkTaskConfiguration) -> Result<
     }
 }
 
+/// Keeps a Case deadline distinct from a user-requested Task cancellation.
+fn agent_timed_out(error: &AppError) -> bool {
+    matches!(
+        error,
+        AppError::ClaudeTimedOut
+            | AppError::CodexTimedOut
+            | AppError::OpenCodeTimedOut
+            | AppError::WorkBuddyTimedOut
+    )
+}
+
 fn configuration_json(configuration: &BenchmarkTaskConfiguration) -> Result<String, AppError> {
     serde_json::to_string(&serde_json::json!({
         "workspaceId": configuration.workspace_id,
@@ -647,6 +732,47 @@ fn metrics_json(metrics: &crate::domain::agent_run::AgentRunMetrics) -> String {
             "durationMs": u64::try_from(call.duration.as_millis()).unwrap_or(u64::MAX),
         })).collect::<Vec<_>>(),
     }).to_string()
+}
+
+/// Thread-safe registry shared by background execution and Cancel IPC calls.
+#[derive(Clone, Default)]
+struct ActiveBenchmarkTasks {
+    /// Task identifiers paired with cooperative cancellation flags.
+    items: Arc<Mutex<HashMap<String, Arc<AtomicBool>>>>,
+}
+
+impl ActiveBenchmarkTasks {
+    /// Registers a Task before it waits for the global execution slot.
+    fn register(&self, task_id: &str) -> Arc<AtomicBool> {
+        let cancellation = Arc::new(AtomicBool::new(false));
+        self.lock()
+            .insert(task_id.to_string(), cancellation.clone());
+        cancellation
+    }
+
+    /// Signals an active or queued Task if its worker is still registered.
+    fn stop(&self, task_id: &str) -> bool {
+        let cancellation = self.lock().get(task_id).cloned();
+        if let Some(cancellation) = cancellation {
+            cancellation.store(true, Ordering::Release);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Removes the signal only after the background worker has returned.
+    fn remove(&self, task_id: &str) {
+        self.lock().remove(task_id);
+    }
+
+    /// Recovers a poisoned lock because losing cancellation could strand a child process.
+    fn lock(&self) -> MutexGuard<'_, HashMap<String, Arc<AtomicBool>>> {
+        match self.items.lock() {
+            Ok(items) => items,
+            Err(poisoned) => poisoned.into_inner(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -1099,6 +1225,139 @@ mod tests {
                 .expect("count");
             assert_eq!(count, 4);
             database.close().await.expect("close");
+            std::fs::remove_dir_all(root).expect("cleanup");
+        });
+    }
+
+    #[test]
+    fn cancel_stops_the_active_execution_and_finishes_the_remaining_matrix() {
+        tauri::async_runtime::block_on(async {
+            use crate::adapters::agent::{AgentSessionRunOutput, AgentTurnOutcome};
+            use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput};
+            use std::sync::atomic::Ordering;
+            use std::time::Duration;
+
+            let database = connect_sqlite("sqlite::memory:").await.expect("database");
+            Migrator::up(&database, None).await.expect("schema");
+            WorkspaceRepository::new(database.clone())
+                .create(NewWorkspace {
+                    id: "workspace".into(),
+                    name: "Workspace".into(),
+                    source_kind: WorkspaceSourceKind::External,
+                    source_path: PathBuf::from("unused"),
+                    created_at_ms: 1,
+                })
+                .await
+                .expect("workspace");
+            let root = std::env::temp_dir().join(super::next_id("cancel").expect("id"));
+            std::fs::create_dir_all(&root).expect("app data");
+            let repository = BenchmarkRepository::new(database.clone());
+            let catalog = BenchmarkService::new(repository.clone(), root.clone());
+            let tag = catalog.create_tag("Coding", "Code").await.expect("tag");
+            let draft = catalog
+                .save_draft(
+                    None,
+                    None,
+                    BenchmarkDocument {
+                        schema_version: 1,
+                        name: "Two cases".into(),
+                        description: "Fixed suite".into(),
+                        tag_id: Some(tag.id),
+                        source: None,
+                        cases: ["First", "Second"]
+                            .into_iter()
+                            .map(|name| BenchmarkCase {
+                                name: name.into(),
+                                prompt: "Return 42".into(),
+                                timeout_minutes: 1,
+                                input_files: Vec::new(),
+                                checks: vec![BenchmarkCheck::Answer {
+                                    expected: "42".into(),
+                                }],
+                            })
+                            .collect(),
+                    },
+                )
+                .await
+                .expect("draft");
+            let published = catalog
+                .publish(&draft.id, draft.revision)
+                .await
+                .expect("publish");
+            let mount = catalog
+                .mount(
+                    "workspace".into(),
+                    published.summary.id,
+                    published.version_id.clone(),
+                )
+                .await
+                .expect("mount");
+            let service = BenchmarkTaskService::new(
+                repository,
+                BenchmarkTaskRepository::new(database.clone()),
+                root.clone(),
+            );
+            let planned = service
+                .start(
+                    BenchmarkTaskConfiguration {
+                        workspace_id: "workspace".into(),
+                        mount_id: mount.id,
+                        expected_version_id: published.version_id,
+                        agent_kinds: vec![AgentKind::Codex],
+                        permissions: TaskPermissions {
+                            file_access: "read_only".into(),
+                            command_execution: "deny".into(),
+                        },
+                    },
+                    "cancel-request",
+                )
+                .await
+                .expect("plan");
+            let task_id = planned.task.id.clone();
+            let worker = service.clone();
+            let (started_sender, started_receiver) = std::sync::mpsc::channel();
+            let handle = tauri::async_runtime::spawn(async move {
+                worker
+                    .execute_with(&task_id, move |request| {
+                        started_sender.send(()).expect("announce active execution");
+                        while !request.cancellation.load(Ordering::Acquire) {
+                            std::thread::yield_now();
+                        }
+                        Ok(AgentSessionRunOutput {
+                            output: AgentRunOutput {
+                                response: String::new(),
+                                metrics: AgentRunMetricsCollector::default()
+                                    .finish(Duration::from_millis(1)),
+                            },
+                            session_id: None,
+                            outcome: AgentTurnOutcome::Waiting,
+                        })
+                    })
+                    .await
+            });
+            tokio::task::spawn_blocking(move || {
+                started_receiver.recv().expect("execution should start")
+            })
+            .await
+            .expect("wait worker");
+
+            let cancelled = service.cancel(&planned.task.id).await.expect("cancel task");
+            assert!(cancelled.cancel_requested);
+            handle
+                .await
+                .expect("join executor")
+                .expect("finish executor");
+
+            let stopped = service.get(&planned.task.id).await.expect("stopped task");
+            assert_eq!(stopped.task.status, TaskStatus::Stopped);
+            assert_eq!(stopped.result_completeness, "incomplete");
+            assert_eq!(stopped.executions.len(), 2);
+            assert!(stopped.executions.iter().all(|execution| {
+                execution.phase == "finished"
+                    && execution.termination_reason.as_deref() == Some("cancelled")
+            }));
+
+            database.close().await.expect("close database");
             std::fs::remove_dir_all(root).expect("cleanup");
         });
     }

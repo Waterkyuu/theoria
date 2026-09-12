@@ -323,15 +323,58 @@ impl BenchmarkTaskRepository {
         &self,
         execution_id: &str,
         now: i64,
-    ) -> Result<(), DbErr> {
-        benchmark_execution::Entity::update_many()
+    ) -> Result<bool, DbErr> {
+        let updated = benchmark_execution::Entity::update_many()
             .col_expr(benchmark_execution::Column::Phase, Expr::value("running"))
             .col_expr(benchmark_execution::Column::StartedAtMs, Expr::value(now))
             .filter(benchmark_execution::Column::Id.eq(execution_id))
             .filter(benchmark_execution::Column::Phase.eq("preparing"))
             .exec(&self.database)
             .await?;
-        Ok(())
+        Ok(updated.rows_affected == 1)
+    }
+
+    /// Persists cancellation before stopping new claims or signalling an active Agent.
+    pub(crate) async fn request_cancel(&self, task_id: &str, now: i64) -> Result<bool, DbErr> {
+        let transaction = self.database.begin().await?;
+        let active_tasks = Query::select()
+            .column(task::Column::Id)
+            .from(task::Entity)
+            .and_where(task::Column::Status.is_in(["preparing", "running", "waiting"]))
+            .to_owned();
+        let requested = benchmark_task::Entity::update_many()
+            .col_expr(benchmark_task::Column::CancelRequested, Expr::value(true))
+            .filter(benchmark_task::Column::TaskId.eq(task_id))
+            .filter(benchmark_task::Column::TaskId.in_subquery(active_tasks))
+            .exec(&transaction)
+            .await?;
+        if requested.rows_affected == 0 {
+            transaction.commit().await?;
+            return Ok(false);
+        }
+        benchmark_execution::Entity::update_many()
+            .col_expr(benchmark_execution::Column::Phase, Expr::value("finished"))
+            .col_expr(
+                benchmark_execution::Column::TerminationReason,
+                Expr::value("cancelled"),
+            )
+            .col_expr(benchmark_execution::Column::FinishedAtMs, Expr::value(now))
+            .filter(benchmark_execution::Column::TaskId.eq(task_id))
+            .filter(benchmark_execution::Column::Phase.is_in(["queued", "preparing"]))
+            .exec(&transaction)
+            .await?;
+        benchmark_execution::Entity::update_many()
+            .col_expr(benchmark_execution::Column::Phase, Expr::value("stopping"))
+            .filter(benchmark_execution::Column::TaskId.eq(task_id))
+            .filter(benchmark_execution::Column::Phase.is_in([
+                "running",
+                "collecting",
+                "evaluating",
+            ]))
+            .exec(&transaction)
+            .await?;
+        transaction.commit().await?;
+        Ok(true)
     }
 
     /// Saves one cell's output and optional score without allowing later callbacks to overwrite it.
