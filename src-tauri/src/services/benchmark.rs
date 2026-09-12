@@ -330,6 +330,35 @@ impl BenchmarkService {
         self.copy_managed_asset(&canonical, path).await
     }
 
+    /// Stores text edits as a new immutable asset instead of mutating published content.
+    pub(crate) async fn save_text_asset(
+        &self,
+        path: &str,
+        text: &str,
+    ) -> Result<BenchmarkFile, AppError> {
+        if !safe_relative_path(path) || text.len() as u64 > MAX_ASSET_BYTES {
+            return Err(AppError::InvalidBenchmark);
+        }
+        tokio::fs::create_dir_all(&self.asset_directory)
+            .await
+            .map_err(|_| AppError::BenchmarkAssetUnavailable)?;
+        let asset_id = new_id("asset")?;
+        let staging = self.asset_directory.join(format!(".{asset_id}.tmp"));
+        let destination = self.asset_directory.join(&asset_id);
+        if tokio::fs::write(&staging, text.as_bytes()).await.is_err()
+            || tokio::fs::rename(&staging, destination).await.is_err()
+        {
+            if tokio::fs::remove_file(staging).await.is_err() {
+                eprintln!("Benchmark staging cleanup failed");
+            }
+            return Err(AppError::BenchmarkAssetUnavailable);
+        }
+        Ok(BenchmarkFile {
+            path: path.to_string(),
+            asset_id,
+        })
+    }
+
     /// Returns a bounded preview and never exposes a managed filesystem path.
     pub(crate) async fn asset_preview(
         &self,
@@ -1170,6 +1199,20 @@ mod tests {
                 .await
                 .expect("asset preview");
             assert_eq!(asset_preview.text.as_deref(), Some("fixture input"));
+            let edited = service
+                .save_text_asset("copy.txt", "edited fixture")
+                .await
+                .expect("edited asset");
+            assert_ne!(edited.asset_id, asset.asset_id);
+            assert_eq!(
+                service
+                    .asset_preview(&edited.asset_id)
+                    .await
+                    .expect("edited preview")
+                    .text
+                    .as_deref(),
+                Some("edited fixture")
+            );
 
             database.close().await.expect("database should close");
             std::fs::remove_dir_all(root).expect("temporary import should be removed");

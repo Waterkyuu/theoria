@@ -431,6 +431,16 @@ pub(crate) struct ImportBenchmarkAssetRequest {
     pub(crate) path: String,
 }
 
+/// Stores an edited UTF-8 file as a new immutable managed asset.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct SaveBenchmarkTextAssetRequest {
+    /// Portable destination used inside a Case workspace.
+    pub(crate) path: String,
+    /// Complete UTF-8 file content from the bounded editor.
+    pub(crate) text: String,
+}
+
 /// Reads a bounded preview from one opaque managed asset identifier.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
