@@ -21,9 +21,15 @@ import { BENCHMARK_ICONS, TagIcon } from "./components/tag-icon";
 const FIELD =
 	"w-full rounded-md border border-hairline bg-canvas px-md py-sm text-body-sm outline-none focus-visible:ring-2 focus-visible:ring-focus-ring";
 type EditorProps = {
-	/** Latest saved document, absent for a blank draft. */ initial?: BenchmarkDraft;
+	/** Latest saved document, absent for a blank draft. */
+	initial?: BenchmarkDraft;
 };
-/** Keeps the saved revision after a failed publish, so retries cannot overwrite another editor. @example <BenchmarkEditor initial={draft} /> */
+/**
+ * Keeps the saved revision after a failed publish, so retries cannot overwrite another editor.
+ *
+ * @example
+ * <BenchmarkEditor initial={draft} />
+ */
 const BenchmarkEditor = ({ initial }: EditorProps) => {
 	const { t } = useTranslation();
 	const navigate = useNavigate();
@@ -51,7 +57,12 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 	const [pending, setPending] = useState(false);
 	const [tagPending, setTagPending] = useState(false);
 	const [icon, setIcon] = useState("Code");
-	/** Saves before publication and retains recoverable editor content on failure. @example submit(event); */
+	/**
+	 * Saves before publication and retains recoverable editor content on failure.
+	 *
+	 * @example
+	 * submit(event);
+	 */
 	const submit = async (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
 		if (pending) return;
@@ -85,7 +96,12 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 			setPending(false);
 		}
 	};
-	/** Creates the selected icon/tag through the shared native catalog. @example addTag(event); */
+	/**
+	 * Creates the selected icon/tag through the shared native catalog.
+	 *
+	 * @example
+	 * addTag(event);
+	 */
 	const addTag = async (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
 		if (tagPending) return;

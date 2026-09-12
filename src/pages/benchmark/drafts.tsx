@@ -4,8 +4,16 @@ import { Link } from "react-router";
 import { PageHeader } from "@/components/share/page-header";
 import { useBenchmarkDraft, useBenchmarkDrafts } from "@/queries/benchmark";
 import { BenchmarkFeedback } from "./components/feedback";
-type DraftRowProps = { /** Lazily loaded draft ID. */ id: string };
-/** Loads only visible draft metadata for the saved-editor list. @example <DraftRow id="draft" /> */
+type DraftRowProps = {
+	/** Lazily loaded draft ID. */
+	id: string;
+};
+/**
+ * Loads only visible draft metadata for the saved-editor list.
+ *
+ * @example
+ * <DraftRow id="draft" />
+ */
 const DraftRow = ({ id }: DraftRowProps) => {
 	const { t } = useTranslation();
 	const query = useBenchmarkDraft(id);

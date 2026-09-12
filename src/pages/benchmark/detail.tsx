@@ -13,10 +13,17 @@ import { BenchmarkConfiguration } from "./components/configuration";
 import { BenchmarkFeedback } from "./components/feedback";
 import { BenchmarkMountModal } from "./components/mount-modal";
 type DetailProps = {
-	/** Definition selected by catalog or workspace mount. */ benchmarkId: string;
-	/** Workspace context pins the content and enables configuration. */ mount?: BenchmarkMount;
+	/** Definition selected by catalog or workspace mount. */
+	benchmarkId: string;
+	/** Workspace context pins the content and enables configuration. */
+	mount?: BenchmarkMount;
 };
-/** Uses one content renderer for both navigation contexts without upgrading a mount. @example <BenchmarkDetailView benchmarkId="suite" mount={mount} /> */
+/**
+ * Shares catalog and workspace details while preserving the mounted version.
+ *
+ * @example
+ * <BenchmarkDetailView benchmarkId="suite" mount={mount} />
+ */
 const BenchmarkDetailView = ({ benchmarkId, mount }: DetailProps) => {
 	const { t } = useTranslation();
 	const query = useBenchmark(benchmarkId, mount?.versionId ?? null);
