@@ -62,6 +62,7 @@ const zhCN = {
 			files: "起始文件",
 			noFiles: "无起始文件",
 			duplicate: "创建副本",
+			edit: "编辑",
 			copied: "已创建可编辑副本",
 			unmount: "取消挂载",
 			unmountConfirm: "取消挂载此 Benchmark？已有评测结果会保留。",
