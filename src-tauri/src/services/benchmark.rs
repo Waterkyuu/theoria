@@ -1,13 +1,16 @@
+use crate::adapters::benchmark_verifier::BenchmarkVerifier;
 use crate::domain::benchmark::{
     safe_asset_id, safe_relative_path, BenchmarkAssetPreview, BenchmarkCase, BenchmarkCheck,
     BenchmarkDetail, BenchmarkDocument, BenchmarkDraft, BenchmarkFile, BenchmarkImportPreview,
     BenchmarkImportPreviewCase, BenchmarkMount, BenchmarkSummary, BenchmarkTag,
+    BenchmarkValidationIssue,
 };
 use crate::dto::benchmark::{BenchmarkImportCheck, BenchmarkImportFile, BenchmarkImportTemplate};
 use crate::error::AppError;
 use crate::repositories::benchmark::BenchmarkRepository;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 static IDENTIFIER_SEQUENCE: AtomicU64 = AtomicU64::new(1);
@@ -23,13 +26,20 @@ pub(crate) struct BenchmarkService {
     repository: BenchmarkRepository,
     /// Application-owned immutable assets.
     asset_directory: PathBuf,
+    /// Host capability required before Python validator drafts may be published.
+    verifier: Arc<dyn BenchmarkVerifier>,
 }
 impl BenchmarkService {
     /// Keeps all material under the application data directory.
-    pub(crate) fn new(repository: BenchmarkRepository, app_data: PathBuf) -> Self {
+    pub(crate) fn new(
+        repository: BenchmarkRepository,
+        app_data: PathBuf,
+        verifier: Arc<dyn BenchmarkVerifier>,
+    ) -> Self {
         Self {
             repository,
             asset_directory: app_data.join("benchmark-assets"),
+            verifier,
         }
     }
 
@@ -544,7 +554,22 @@ impl BenchmarkService {
         if !issues.is_empty() {
             return Err(AppError::BenchmarkValidationFailed(issues));
         }
-        for case in &draft.document.cases {
+        let uses_python = draft.document.cases.iter().any(|case| {
+            case.checks
+                .iter()
+                .any(|check| matches!(check, BenchmarkCheck::Python { .. }))
+        });
+        if uses_python {
+            let verifier = self.verifier.clone();
+            if !tokio::task::spawn_blocking(move || verifier.available())
+                .await
+                .map_err(|_| AppError::WorkerFailed)?
+            {
+                return Err(AppError::BenchmarkVerifierUnavailable);
+            }
+        }
+        let mut script_issues = Vec::new();
+        for (case_index, case) in draft.document.cases.iter().enumerate() {
             for file in &case.input_files {
                 if !safe_asset_id(&file.asset_id) {
                     return Err(AppError::BenchmarkAssetUnavailable);
@@ -557,13 +582,38 @@ impl BenchmarkService {
                     return Err(AppError::BenchmarkAssetUnavailable);
                 }
             }
-            if case
-                .checks
-                .iter()
-                .any(|check| matches!(check, BenchmarkCheck::Python { .. }))
-            {
-                return Err(AppError::BenchmarkVerifierUnavailable);
+            for (check_index, check) in case.checks.iter().enumerate() {
+                if let BenchmarkCheck::Python { script } = check {
+                    if !safe_asset_id(&script.asset_id) {
+                        return Err(AppError::BenchmarkAssetUnavailable);
+                    }
+                    let metadata =
+                        tokio::fs::symlink_metadata(self.asset_directory.join(&script.asset_id))
+                            .await
+                            .map_err(|_| AppError::BenchmarkAssetUnavailable)?;
+                    if !metadata.is_file() || metadata.file_type().is_symlink() {
+                        return Err(AppError::BenchmarkAssetUnavailable);
+                    }
+                    let verifier = self.verifier.clone();
+                    let script_path = self.asset_directory.join(&script.asset_id);
+                    match tokio::task::spawn_blocking(move || verifier.validate(&script_path))
+                        .await
+                        .map_err(|_| AppError::WorkerFailed)?
+                    {
+                        Ok(()) => {}
+                        Err(AppError::InvalidBenchmark) => {
+                            script_issues.push(BenchmarkValidationIssue {
+                                field: format!("cases.{case_index}.checks.{check_index}.script"),
+                                code: "invalid_python",
+                            });
+                        }
+                        Err(error) => return Err(error),
+                    }
+                }
             }
+        }
+        if !script_issues.is_empty() {
+            return Err(AppError::BenchmarkValidationFailed(script_issues));
         }
         let benchmark_id = match &draft.benchmark_id {
             Some(id) => id.clone(),
@@ -835,12 +885,42 @@ fn now_ms() -> Result<i64, AppError> {
 #[cfg(test)]
 mod tests {
     use super::BenchmarkService;
+    use crate::adapters::benchmark_verifier::{BenchmarkVerifier, SystemBenchmarkVerifier};
     use crate::db::{connection::connect_sqlite, migration::Migrator};
-    use crate::domain::benchmark::BenchmarkDocument;
+    use crate::domain::benchmark::{
+        BenchmarkCase, BenchmarkCheck, BenchmarkDocument, BenchmarkFile,
+    };
+    use crate::domain::benchmark_task::BenchmarkEvaluationReport;
     use crate::error::AppError;
     use crate::repositories::benchmark::BenchmarkRepository;
     use sea_orm_migration::MigratorTrait;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
+    use std::sync::Arc;
+
+    fn verifier() -> Arc<dyn BenchmarkVerifier> {
+        Arc::new(SystemBenchmarkVerifier)
+    }
+
+    #[derive(Debug)]
+    struct RejectingVerifier;
+
+    impl BenchmarkVerifier for RejectingVerifier {
+        fn available(&self) -> bool {
+            true
+        }
+
+        fn validate(&self, _script: &Path) -> Result<(), AppError> {
+            Err(AppError::InvalidBenchmark)
+        }
+
+        fn evaluate(
+            &self,
+            _script: &Path,
+            _workspace: &Path,
+        ) -> Result<BenchmarkEvaluationReport, AppError> {
+            unreachable!("publication must not execute validators")
+        }
+    }
 
     #[test]
     fn incomplete_draft_is_saved_but_cannot_be_published() {
@@ -851,8 +931,11 @@ mod tests {
             Migrator::up(&database, None)
                 .await
                 .expect("schema should initialize");
-            let service =
-                BenchmarkService::new(BenchmarkRepository::new(database.clone()), PathBuf::new());
+            let service = BenchmarkService::new(
+                BenchmarkRepository::new(database.clone()),
+                PathBuf::new(),
+                verifier(),
+            );
             let draft = service
                 .save_draft(
                     None,
@@ -893,6 +976,76 @@ mod tests {
             database.close().await.expect("database should close");
         });
     }
+
+    #[test]
+    fn publication_reports_the_exact_invalid_python_check() {
+        tauri::async_runtime::block_on(async {
+            let database = connect_sqlite("sqlite::memory:")
+                .await
+                .expect("database should open");
+            Migrator::up(&database, None)
+                .await
+                .expect("schema should initialize");
+            let root = std::env::temp_dir().join(format!(
+                "theoria-benchmark-publish-{}-{}",
+                std::process::id(),
+                super::IDENTIFIER_SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            ));
+            std::fs::create_dir_all(root.join("benchmark-assets")).expect("asset directory");
+            std::fs::write(
+                root.join("benchmark-assets/asset-script"),
+                "def other(workspace):\n    return {}\n",
+            )
+            .expect("script fixture");
+            let service = BenchmarkService::new(
+                BenchmarkRepository::new(database.clone()),
+                root.clone(),
+                Arc::new(RejectingVerifier),
+            );
+            let tag = service.create_tag("Python", "Code").await.expect("tag");
+            let draft = service
+                .save_draft(
+                    None,
+                    None,
+                    None,
+                    BenchmarkDocument {
+                        schema_version: 1,
+                        name: "Python suite".to_string(),
+                        description: "Validate output".to_string(),
+                        tag_id: Some(tag.id),
+                        source: None,
+                        cases: vec![BenchmarkCase {
+                            name: "One".to_string(),
+                            prompt: "Create a report".to_string(),
+                            timeout_minutes: 5,
+                            input_files: Vec::new(),
+                            checks: vec![BenchmarkCheck::Python {
+                                script: BenchmarkFile {
+                                    path: "validator.py".to_string(),
+                                    asset_id: "asset-script".to_string(),
+                                },
+                            }],
+                        }],
+                    },
+                )
+                .await
+                .expect("draft");
+
+            let AppError::BenchmarkValidationFailed(issues) = service
+                .publish(&draft.id, draft.revision)
+                .await
+                .expect_err("invalid Python must not publish")
+            else {
+                panic!("invalid Python should return field-addressable validation");
+            };
+            assert_eq!(issues.len(), 1);
+            assert_eq!(issues[0].field, "cases.0.checks.0.script");
+            assert_eq!(issues[0].code, "invalid_python");
+
+            std::fs::remove_dir_all(root).expect("fixture cleanup");
+            database.close().await.expect("database should close");
+        });
+    }
     #[test]
     fn publishes_complete_cases_and_mounts_one_fixed_version() {
         tauri::async_runtime::block_on(async {
@@ -916,8 +1069,11 @@ mod tests {
                 })
                 .await
                 .expect("workspace metadata should save");
-            let service =
-                BenchmarkService::new(BenchmarkRepository::new(database.clone()), PathBuf::new());
+            let service = BenchmarkService::new(
+                BenchmarkRepository::new(database.clone()),
+                PathBuf::new(),
+                verifier(),
+            );
             let tag = service
                 .create_tag("Code", "Code")
                 .await
@@ -1166,8 +1322,11 @@ mod tests {
                 .expect("template JSON"),
             )
             .expect("template file");
-            let service =
-                BenchmarkService::new(BenchmarkRepository::new(database.clone()), storage.clone());
+            let service = BenchmarkService::new(
+                BenchmarkRepository::new(database.clone()),
+                storage.clone(),
+                verifier(),
+            );
             let tag = service.create_tag("Imported", "Folder").await.expect("tag");
 
             let preview = service

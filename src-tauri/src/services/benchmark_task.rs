@@ -1,4 +1,5 @@
 use crate::adapters::agent::{AgentSessionRunOutput, AgentTurnOutcome};
+use crate::adapters::benchmark_verifier::BenchmarkVerifier;
 use crate::domain::agent_kind::AgentKind;
 use crate::domain::agent_status::AgentLoginStatus;
 use crate::domain::benchmark::{safe_asset_id, safe_relative_path, BenchmarkCheck};
@@ -35,6 +36,8 @@ pub(crate) struct BenchmarkTaskService {
     execution_lock: Arc<tokio::sync::Mutex<()>>,
     /// Task identifiers paired with cancellation signals owned by this service.
     active_tasks: ActiveBenchmarkTasks,
+    /// Controlled validator runtime shared by preflight and scoring.
+    verifier: Arc<dyn BenchmarkVerifier>,
 }
 
 impl BenchmarkTaskService {
@@ -43,6 +46,7 @@ impl BenchmarkTaskService {
         repository: BenchmarkRepository,
         task_repository: BenchmarkTaskRepository,
         app_data: PathBuf,
+        verifier: Arc<dyn BenchmarkVerifier>,
     ) -> Self {
         Self {
             repository,
@@ -51,6 +55,7 @@ impl BenchmarkTaskService {
             app_data_directory: app_data,
             execution_lock: Arc::new(tokio::sync::Mutex::new(())),
             active_tasks: ActiveBenchmarkTasks::default(),
+            verifier,
         }
     }
 
@@ -338,11 +343,22 @@ impl BenchmarkTaskService {
                 .map_err(|_| AppError::WorkerFailed)?;
                 match output {
                     Ok(output) if output.outcome == AgentTurnOutcome::Completed => {
-                        let report = evaluate_checks(
-                            &case.content.checks,
-                            &output.output.response,
-                            &workspace,
-                        );
+                        let checks = case.content.checks.clone();
+                        let response = output.output.response.clone();
+                        let evaluation_workspace = workspace.clone();
+                        let asset_directory = self.asset_directory.clone();
+                        let verifier = self.verifier.clone();
+                        let report = tokio::task::spawn_blocking(move || {
+                            evaluate_checks(
+                                &checks,
+                                &response,
+                                &evaluation_workspace,
+                                &asset_directory,
+                                verifier.as_ref(),
+                            )
+                        })
+                        .await
+                        .map_err(|_| AppError::WorkerFailed)?;
                         let metrics = metrics_json(&output.output.metrics);
                         match report {
                             Ok(report) => self
@@ -528,10 +544,30 @@ impl BenchmarkTaskService {
         {
             return Err(AppError::InvalidBenchmark);
         }
+        let uses_python = benchmark.document.cases.iter().any(|case| {
+            case.checks
+                .iter()
+                .any(|check| matches!(check, BenchmarkCheck::Python { .. }))
+        });
+        let verifier_available = if uses_python {
+            let verifier = self.verifier.clone();
+            tokio::task::spawn_blocking(move || verifier.available())
+                .await
+                .map_err(|_| AppError::WorkerFailed)?
+        } else {
+            true
+        };
         let mut issues = Vec::new();
         for (position, case) in benchmark.document.cases.iter().enumerate() {
             let mut missing_asset = false;
-            for file in &case.input_files {
+            for file in case
+                .input_files
+                .iter()
+                .chain(case.checks.iter().filter_map(|check| match check {
+                    BenchmarkCheck::Python { script } => Some(script),
+                    _ => None,
+                }))
+            {
                 if !safe_asset_id(&file.asset_id) {
                     missing_asset = true;
                     break;
@@ -551,10 +587,11 @@ impl BenchmarkTaskService {
                     case_position: Some(position),
                 });
             }
-            if case
-                .checks
-                .iter()
-                .any(|check| matches!(check, BenchmarkCheck::Python { .. }))
+            if !verifier_available
+                && case
+                    .checks
+                    .iter()
+                    .any(|check| matches!(check, BenchmarkCheck::Python { .. }))
             {
                 issues.push(BenchmarkPreflightIssue {
                     kind: BenchmarkPreflightIssueKind::VerifierUnavailable,
@@ -718,6 +755,8 @@ fn evaluate_checks(
     checks: &[BenchmarkCheck],
     response: &str,
     workspace: &std::path::Path,
+    asset_directory: &std::path::Path,
+    verifier: &dyn BenchmarkVerifier,
 ) -> Result<BenchmarkEvaluationReport, AppError> {
     let mut results = Vec::with_capacity(checks.len());
     for check in checks {
@@ -789,7 +828,15 @@ fn evaluate_checks(
                     .into(),
                 }
             }
-            BenchmarkCheck::Python { .. } => return Err(AppError::BenchmarkVerifierUnavailable),
+            BenchmarkCheck::Python { script } => {
+                if !safe_asset_id(&script.asset_id) {
+                    return Err(AppError::BenchmarkAssetUnavailable);
+                }
+                let report =
+                    verifier.evaluate(&asset_directory.join(&script.asset_id), workspace)?;
+                results.extend(report.checks);
+                continue;
+            }
         };
         results.push(result);
     }
@@ -912,6 +959,7 @@ impl ActiveBenchmarkTasks {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::adapters::benchmark_verifier::SystemBenchmarkVerifier;
     use crate::db::{connection::connect_sqlite, migration::Migrator};
     use crate::domain::benchmark::{
         BenchmarkCase, BenchmarkCheck, BenchmarkDocument, BenchmarkFile,
@@ -923,6 +971,10 @@ mod tests {
     use crate::services::benchmark::BenchmarkService;
     use sea_orm::{EntityTrait, PaginatorTrait};
     use sea_orm_migration::MigratorTrait;
+
+    fn verifier() -> Arc<dyn BenchmarkVerifier> {
+        Arc::new(SystemBenchmarkVerifier)
+    }
 
     #[test]
     fn preview_keeps_all_cases_and_permissions_without_creating_tasks() {
@@ -940,7 +992,7 @@ mod tests {
                 .await
                 .expect("workspace");
             let repository = BenchmarkRepository::new(database.clone());
-            let catalog = BenchmarkService::new(repository.clone(), PathBuf::new());
+            let catalog = BenchmarkService::new(repository.clone(), PathBuf::new(), verifier());
             let tag = catalog.create_tag("Coding", "Code").await.expect("tag");
             let directory =
                 std::env::temp_dir().join(format!("theoria-benchmark-preflight-{}", tag.id));
@@ -954,7 +1006,7 @@ mod tests {
             tokio::fs::write(&asset, "starting material")
                 .await
                 .expect("input asset");
-            let catalog = BenchmarkService::new(repository.clone(), directory.clone());
+            let catalog = BenchmarkService::new(repository.clone(), directory.clone(), verifier());
             let document = BenchmarkDocument {
                 schema_version: 1,
                 name: "Two cases".into(),
@@ -1007,6 +1059,7 @@ mod tests {
                 repository,
                 BenchmarkTaskRepository::new(database.clone()),
                 directory.clone(),
+                verifier(),
             );
             let preview = service
                 .preview(configuration.clone(), |_| {
@@ -1114,7 +1167,7 @@ mod tests {
                 .await
                 .expect("workspace");
             let repository = BenchmarkRepository::new(database.clone());
-            let catalog = BenchmarkService::new(repository.clone(), PathBuf::new());
+            let catalog = BenchmarkService::new(repository.clone(), PathBuf::new(), verifier());
             let tag = catalog.create_tag("Coding", "Code").await.expect("tag");
             let document = BenchmarkDocument {
                 schema_version: 1,
@@ -1165,6 +1218,7 @@ mod tests {
                 repository,
                 BenchmarkTaskRepository::new(database.clone()),
                 PathBuf::new(),
+                verifier(),
             );
 
             let first = service
@@ -1217,10 +1271,13 @@ mod tests {
             },
         ];
 
-        let passed = super::evaluate_checks(&checks, " 42\n", &root).expect("evaluation");
+        let verifier = verifier();
+        let passed = super::evaluate_checks(&checks, " 42\n", &root, &root, verifier.as_ref())
+            .expect("evaluation");
         assert!(passed.passed);
         assert_eq!(passed.checks.len(), 4);
-        let failed = super::evaluate_checks(&checks, "forty-two", &root).expect("evaluation");
+        let failed = super::evaluate_checks(&checks, "forty-two", &root, &root, verifier.as_ref())
+            .expect("evaluation");
         assert!(!failed.passed);
         assert!(!failed.checks[0].passed);
 
@@ -1249,7 +1306,7 @@ mod tests {
             let root = std::env::temp_dir().join(super::next_id("executor").expect("id"));
             std::fs::create_dir_all(&root).expect("app data");
             let repository = BenchmarkRepository::new(database.clone());
-            let catalog = BenchmarkService::new(repository.clone(), root.clone());
+            let catalog = BenchmarkService::new(repository.clone(), root.clone(), verifier());
             let tag = catalog.create_tag("Coding", "Code").await.expect("tag");
             let draft = catalog
                 .save_draft(
@@ -1294,6 +1351,7 @@ mod tests {
                 repository,
                 BenchmarkTaskRepository::new(database.clone()),
                 root.clone(),
+                verifier(),
             );
             let planned = service
                 .start(
@@ -1416,7 +1474,7 @@ mod tests {
             let root = std::env::temp_dir().join(super::next_id("cancel").expect("id"));
             std::fs::create_dir_all(&root).expect("app data");
             let repository = BenchmarkRepository::new(database.clone());
-            let catalog = BenchmarkService::new(repository.clone(), root.clone());
+            let catalog = BenchmarkService::new(repository.clone(), root.clone(), verifier());
             let tag = catalog.create_tag("Coding", "Code").await.expect("tag");
             let draft = catalog
                 .save_draft(
@@ -1461,6 +1519,7 @@ mod tests {
                 repository,
                 BenchmarkTaskRepository::new(database.clone()),
                 root.clone(),
+                verifier(),
             );
             let planned = service
                 .start(

@@ -1,6 +1,7 @@
 mod adapters {
     pub(crate) mod activity;
     pub(crate) mod agent;
+    pub(crate) mod benchmark_verifier;
     pub(crate) mod claude;
     pub(crate) mod codex;
     pub(crate) mod opencode;
@@ -94,6 +95,7 @@ mod utils {
 
 use crate::adapters::activity::SystemAgentActivityAdapter;
 use crate::adapters::agent::AgentStatusAdapter;
+use crate::adapters::benchmark_verifier::{BenchmarkVerifier, SystemBenchmarkVerifier};
 use crate::adapters::claude::{ClaudeRuntimeSettingsCache, SystemClaudeAdapter};
 use crate::adapters::codex::{CodexRuntimeDefaultsCache, SystemCodexAdapter};
 use crate::adapters::opencode::SystemOpenCodeAdapter;
@@ -132,6 +134,7 @@ use crate::services::task::TaskService;
 use crate::services::task_execution::TaskExecutionService;
 use crate::services::workspace::WorkspaceService;
 use sea_orm_migration::MigratorTrait;
+use std::sync::Arc;
 use std::time::Duration;
 use tauri::{Emitter, Manager};
 
@@ -165,14 +168,17 @@ pub fn run() {
                     .map_err(std::io::Error::other)?;
                 Ok::<_, std::io::Error>(database)
             })?;
+            let benchmark_verifier: Arc<dyn BenchmarkVerifier> = Arc::new(SystemBenchmarkVerifier);
             app.manage(BenchmarkTaskService::new(
                 BenchmarkRepository::new(comparison_database.clone()),
                 BenchmarkTaskRepository::new(comparison_database.clone()),
                 app_data_directory.clone(),
+                benchmark_verifier.clone(),
             ));
             app.manage(BenchmarkService::new(
                 BenchmarkRepository::new(comparison_database.clone()),
                 app_data_directory.clone(),
+                benchmark_verifier,
             ));
             app.manage(WorkspaceService::new(
                 WorkspaceRepository::new(comparison_database.clone()),
