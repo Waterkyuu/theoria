@@ -268,21 +268,38 @@ impl MigrationTrait for CreateWorkspaceTaskSystem {
                     id TEXT PRIMARY KEY,
                     workspace_id TEXT,
                     title TEXT NOT NULL,
-                    prompt TEXT NOT NULL,
-                    baseline_relative_path TEXT NOT NULL,
+                    kind TEXT NOT NULL,
                     status TEXT NOT NULL,
                     configuration_locked_at_ms INTEGER,
                     created_at_ms INTEGER NOT NULL,
                     updated_at_ms INTEGER NOT NULL,
                     FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
                     CHECK (length(trim(title)) BETWEEN 1 AND 120),
-                    CHECK (length(trim(prompt)) BETWEEN 1 AND 16000),
-                    CHECK (length(baseline_relative_path) > 0),
+                    CHECK (kind IN ('work', 'benchmark')),
+                    CHECK (kind != 'benchmark' OR workspace_id IS NOT NULL),
                     CHECK (status IN ('preparing', 'running', 'waiting', 'completed', 'failed', 'stopped')),
                     CHECK (configuration_locked_at_ms IS NULL OR configuration_locked_at_ms > 0),
                     CHECK (created_at_ms > 0),
                     CHECK (updated_at_ms > 0)
                 );
+
+                CREATE TABLE work_tasks (
+                    task_id TEXT PRIMARY KEY REFERENCES tasks(id) ON DELETE CASCADE,
+                    prompt TEXT NOT NULL CHECK (length(trim(prompt)) BETWEEN 1 AND 16000),
+                    baseline_relative_path TEXT NOT NULL CHECK (length(baseline_relative_path) > 0)
+                );
+
+                CREATE TRIGGER work_tasks_kind_insert BEFORE INSERT ON work_tasks
+                WHEN NOT EXISTS (SELECT 1 FROM tasks WHERE id = NEW.task_id AND kind = 'work')
+                BEGIN SELECT RAISE(ABORT, 'Work inputs require a work task'); END;
+
+                CREATE TRIGGER work_tasks_kind_update BEFORE UPDATE OF task_id ON work_tasks
+                WHEN NOT EXISTS (SELECT 1 FROM tasks WHERE id = NEW.task_id AND kind = 'work')
+                BEGIN SELECT RAISE(ABORT, 'Work inputs require a work task'); END;
+
+                CREATE TRIGGER tasks_kind_immutable BEFORE UPDATE OF kind ON tasks
+                WHEN OLD.kind != NEW.kind
+                BEGIN SELECT RAISE(ABORT, 'Task kind is immutable'); END;
 
                 CREATE INDEX idx_tasks_scope_history
                     ON tasks(workspace_id, created_at_ms DESC);
@@ -366,6 +383,7 @@ impl MigrationTrait for CreateWorkspaceTaskSystem {
                 DROP TABLE task_skills;
                 DROP TABLE task_permissions;
                 DROP TABLE task_agents;
+                DROP TABLE work_tasks;
                 DROP TABLE tasks;
                 DROP TABLE workspace_skill_mounts;
                 DROP TABLE skills;
@@ -650,6 +668,34 @@ mod tests {
         ));
         let url = format!("sqlite://{}?mode=rwc", path.display());
         (path, url)
+    }
+
+    #[test]
+    fn separates_work_inputs_from_benchmark_task_identity() {
+        tauri::async_runtime::block_on(async {
+            let (path, url) = temporary_database_url();
+            let database = connect_sqlite(&url).await.expect("database should connect");
+            Migrator::up(&database, None)
+                .await
+                .expect("schema should initialize");
+            let inserted = database.execute_unprepared(r#"
+                INSERT INTO workspaces (id, name, source_kind, source_path, created_at_ms, updated_at_ms)
+                VALUES ('w', 'Workspace', 'external', '/tmp/project', 1, 1);
+                INSERT INTO tasks (id, kind, workspace_id, title, status, created_at_ms, updated_at_ms)
+                VALUES ('b', 'benchmark', 'w', 'Benchmark', 'preparing', 1, 1),
+                       ('t', 'work', NULL, 'Work', 'preparing', 1, 1);
+                INSERT INTO work_tasks (task_id, prompt, baseline_relative_path)
+                VALUES ('t', 'Solve this', 'task-runs/t/baseline');
+            "#).await;
+            assert!(
+                inserted.is_ok(),
+                "both task kinds must persist without fabricated inputs: {inserted:?}"
+            );
+            assert!(database.execute_unprepared("INSERT INTO work_tasks (task_id, prompt, baseline_relative_path) VALUES ('b', 'Invalid', 'invalid')").await.is_err());
+            assert!(database.execute_unprepared("INSERT INTO tasks (id, kind, title, status, created_at_ms, updated_at_ms) VALUES ('global-b', 'benchmark', 'Invalid', 'preparing', 1, 1)").await.is_err());
+            database.close().await.expect("database should close");
+            std::fs::remove_file(path).expect("owned database should be removed");
+        });
     }
 
     #[test]

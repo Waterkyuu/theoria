@@ -11,10 +11,8 @@ pub(crate) struct Model {
     pub(crate) workspace_id: Option<String>,
     /// User-visible Task title.
     pub(crate) title: String,
-    /// Frozen initial prompt.
-    pub(crate) prompt: String,
-    /// Baseline path relative to application data.
-    pub(crate) baseline_relative_path: String,
+    /// Business type controlling the task detail and execution path.
+    pub(crate) kind: String,
     /// Stable aggregate lifecycle identifier.
     pub(crate) status: String,
     /// Time after which configuration cannot change.
@@ -29,6 +27,9 @@ pub(crate) struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub(crate) enum Relation {
+    /// Inputs owned exclusively by a work task.
+    #[sea_orm(has_one = "work::Entity")]
+    Work,
     /// Isolated Agent Executions owned by this Task.
     #[sea_orm(has_many = "agent::Entity")]
     Agents,
@@ -38,6 +39,12 @@ pub(crate) enum Relation {
     /// Skill snapshots owned by this Task.
     #[sea_orm(has_many = "skill::Entity")]
     Skills,
+}
+
+impl Related<work::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Work.def()
+    }
 }
 
 impl Related<agent::Entity> for Entity {
@@ -305,6 +312,43 @@ pub(crate) mod turn {
     impl Related<super::agent::Entity> for Entity {
         fn to() -> RelationDef {
             Relation::Agent.def()
+        }
+    }
+
+    impl ActiveModelBehavior for ActiveModel {}
+}
+
+/// Work-specific inputs are separate from common task identity.
+pub(crate) mod work {
+    use sea_orm::entity::prelude::*;
+
+    #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
+    #[sea_orm(table_name = "work_tasks")]
+    pub(crate) struct Model {
+        /// Common task identifier.
+        #[sea_orm(primary_key, auto_increment = false)]
+        pub(crate) task_id: String,
+        /// Frozen initial request.
+        pub(crate) prompt: String,
+        /// Baseline path relative to application storage.
+        pub(crate) baseline_relative_path: String,
+    }
+
+    #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
+    pub(crate) enum Relation {
+        /// Common task owning these inputs.
+        #[sea_orm(
+            belongs_to = "super::Entity",
+            from = "Column::TaskId",
+            to = "super::Column::Id",
+            on_delete = "Cascade"
+        )]
+        Task,
+    }
+
+    impl Related<super::Entity> for Entity {
+        fn to() -> RelationDef {
+            Relation::Task.def()
         }
     }
 

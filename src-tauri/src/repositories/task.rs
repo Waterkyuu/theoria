@@ -3,7 +3,7 @@ use crate::domain::task::{
     Task, TaskAgent, TaskAgentResult, TaskAgentTurn, TaskDetail, TaskPermissions, TaskSkill,
     TaskStatus,
 };
-use crate::models::task::{self as task, agent, permissions, result, skill, turn};
+use crate::models::task::{self as task, agent, permissions, result, skill, turn, work};
 use sea_orm::sea_query::{Expr, OnConflict};
 use sea_orm::{
     ActiveModelTrait,
@@ -40,13 +40,19 @@ impl TaskRepository {
             id: Set(detail.task.id.clone()),
             workspace_id: Set(detail.task.workspace_id.clone()),
             title: Set(detail.task.title.clone()),
-            prompt: Set(detail.task.prompt.clone()),
-            baseline_relative_path: Set(detail.task.baseline_relative_path.clone()),
+            kind: Set("work".to_string()),
             status: Set(detail.task.status.as_str().to_string()),
             configuration_locked_at_ms: Set(detail.task.configuration_locked_at_ms),
             pinned_at_ms: Set(detail.task.pinned_at_ms),
             created_at_ms: Set(detail.task.created_at_ms),
             updated_at_ms: Set(detail.task.updated_at_ms),
+        }
+        .insert(&transaction)
+        .await?;
+        work::ActiveModel {
+            task_id: Set(detail.task.id.clone()),
+            prompt: Set(detail.task.prompt.clone()),
+            baseline_relative_path: Set(detail.task.baseline_relative_path.clone()),
         }
         .insert(&transaction)
         .await?;
@@ -383,6 +389,7 @@ impl TaskRepository {
             .exec(&self.database)
             .await?;
         task::Entity::find_by_id(task_id)
+            .find_also_related(work::Entity)
             .one(&self.database)
             .await?
             .map(task_from_model)
@@ -402,6 +409,7 @@ impl TaskRepository {
             .await?;
         task::Entity::find()
             .filter(task::Column::Id.eq(task_id))
+            .find_also_related(work::Entity)
             .one(&self.database)
             .await?
             .map(task_from_model)
@@ -419,6 +427,7 @@ impl TaskRepository {
             .order_by_desc(task::Column::PinnedAtMs)
             .order_by_desc(task::Column::CreatedAtMs)
             .order_by_desc(task::Column::Id)
+            .find_also_related(work::Entity)
             .all(&self.database)
             .await?
             .into_iter()
@@ -429,6 +438,7 @@ impl TaskRepository {
     /// Restores immutable configuration, Executions, Skills, and results for one Task.
     pub(crate) async fn get(&self, task_id: &str) -> Result<Option<TaskDetail>, DbErr> {
         let task = task::Entity::find_by_id(task_id)
+            .find_also_related(work::Entity)
             .one(&self.database)
             .await?
             .map(task_from_model)
@@ -497,13 +507,14 @@ impl TaskRepository {
 }
 
 /// Maps one Task model while rejecting corrupted lifecycle values.
-fn task_from_model(model: task::Model) -> Result<Task, DbErr> {
+fn task_from_model((model, inputs): (task::Model, Option<work::Model>)) -> Result<Task, DbErr> {
+    let inputs = inputs.ok_or_else(|| DbErr::Custom("Work task inputs are missing".to_string()))?;
     Ok(Task {
         id: model.id,
         workspace_id: model.workspace_id,
         title: model.title,
-        prompt: model.prompt,
-        baseline_relative_path: model.baseline_relative_path,
+        prompt: inputs.prompt,
+        baseline_relative_path: inputs.baseline_relative_path,
         status: TaskStatus::parse(&model.status)
             .ok_or_else(|| DbErr::Custom("Task contains an invalid status".to_string()))?,
         configuration_locked_at_ms: model.configuration_locked_at_ms,
@@ -656,15 +667,17 @@ mod tests {
                         (id, name, source_kind, source_path, created_at_ms, updated_at_ms)
                     VALUES ('workspace-1', 'Docs', 'external', '/tmp/docs', 100, 100);
                     INSERT INTO tasks
-                        (id, workspace_id, title, prompt, baseline_relative_path, status,
+                        (id, workspace_id, title, kind, status,
                          configuration_locked_at_ms, created_at_ms, updated_at_ms)
                     VALUES
-                        ('task-global', NULL, 'Global', 'Compare', 'task-runs/task-global/baseline',
+                        ('task-global', NULL, 'Global', 'work',
                          'completed', 100, 100, 200),
-                        ('task-global-newer', NULL, 'Newer', 'Compare',
-                         'task-runs/task-global-newer/baseline', 'completed', 100, 120, 220),
-                        ('task-workspace', 'workspace-1', 'Workspace', 'Compare',
-                         'task-runs/task-workspace/baseline', 'running', 100, 110, 210);
+                        ('task-global-newer', NULL, 'Newer', 'work', 'completed', 100, 120, 220),
+                        ('task-workspace', 'workspace-1', 'Workspace', 'work', 'running', 100, 110, 210);
+                    INSERT INTO work_tasks (task_id, prompt, baseline_relative_path) VALUES
+                        ('task-global', 'Compare', 'task-runs/task-global/baseline'),
+                        ('task-global-newer', 'Compare', 'task-runs/task-global-newer/baseline'),
+                        ('task-workspace', 'Compare', 'task-runs/task-workspace/baseline');
                     "#,
                 )
                 .await
@@ -727,10 +740,11 @@ mod tests {
                 .execute_unprepared(
                     r#"
                     INSERT INTO tasks
-                        (id, workspace_id, title, prompt, baseline_relative_path, status,
+                        (id, workspace_id, title, kind, status,
                          configuration_locked_at_ms, created_at_ms, updated_at_ms)
-                    VALUES ('task-1', NULL, 'Compare', 'Initial prompt',
-                            'task-runs/task-1/baseline', 'running', 100, 100, 100);
+                    VALUES ('task-1', NULL, 'Compare', 'work', 'running', 100, 100, 100);
+                    INSERT INTO work_tasks (task_id, prompt, baseline_relative_path)
+                    VALUES ('task-1', 'Initial prompt', 'task-runs/task-1/baseline');
                     INSERT INTO task_agents
                         (id, task_id, slot_index, agent_kind, model_snapshot, mode_snapshot,
                          session_id, execution_relative_path, status, created_at_ms, updated_at_ms)
