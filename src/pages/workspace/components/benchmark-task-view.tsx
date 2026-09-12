@@ -1,9 +1,22 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { Button, Toast } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router";
 import { PageHeader } from "@/components/share/page-header";
+import { AlertDialog } from "@/components/ui/alert-dialog";
+import { CheckBox } from "@/components/ui/check-box";
+import { ModalProvider } from "@/components/ui/modal-provider";
+import { Select } from "@/components/ui/select";
+import { handleError } from "@/utils/error";
+import { AGENT_KINDS } from "@/constants/agent";
 import { BenchmarkFeedback } from "@/pages/benchmark/components/feedback";
-import { useBenchmarkTask } from "@/queries/benchmark";
+import {
+	useBenchmarkTask,
+	useCancelBenchmarkTask,
+	useRerunBenchmarkTask,
+} from "@/queries/benchmark";
+import type { BenchmarkTaskDetail } from "@/types/benchmark";
 
 type BenchmarkTaskViewProps = {
 	taskId: string;
@@ -13,6 +26,158 @@ const resultClass = (result: string) => {
 	if (result === "passed") return "bg-terminal-green/10 text-terminal-green";
 	if (result === "failed") return "bg-terminal-red/10 text-terminal-red";
 	return "bg-surface-soft text-body";
+};
+
+const terminalStatuses = new Set(["completed", "failed", "stopped"]);
+
+const errorCode = (error: unknown) =>
+	typeof error === "object" && error !== null && "code" in error
+		? String(error.code)
+		: null;
+
+/** Owns Task lifecycle actions separately from the read-only result matrix. */
+const BenchmarkTaskActions = ({ detail }: { detail: BenchmarkTaskDetail }) => {
+	const { t } = useTranslation();
+	const navigate = useNavigate();
+	const cancelMutation = useCancelBenchmarkTask();
+	const rerunMutation = useRerunBenchmarkTask();
+	const idempotencyKey = useRef<string | null>(null);
+	const [agents, setAgents] = useState(
+		detail.agents.map((agent) => agent.agentKind),
+	);
+	const [fileAccess, setFileAccess] = useState(detail.fileAccess);
+	const [commands, setCommands] = useState(detail.commandExecution);
+	const [restoreConfirmation, setRestoreConfirmation] = useState(false);
+	const active =
+		detail.task.status === "preparing" || detail.task.status === "running";
+	const terminal = terminalStatuses.has(detail.task.status);
+
+	const cancel = () => {
+		if (cancelMutation.isPending || detail.cancelRequested) return;
+		cancelMutation.mutate(detail.task.id, {
+			onError: (error) =>
+				handleError(error, "Benchmark cancellation failed", true),
+			onSuccess: () => Toast.toast.success(t("benchmark.cancelRequested")),
+		});
+	};
+
+	const rerun = async (restoreMount: boolean) => {
+		if (rerunMutation.isPending || !agents.length) return;
+		idempotencyKey.current ??= crypto.randomUUID();
+		try {
+			const next = await rerunMutation.mutateAsync({
+				sourceTaskId: detail.task.id,
+				agentKinds: agents,
+				fileAccess,
+				commandExecution: commands,
+				restoreMount,
+				idempotencyKey: idempotencyKey.current,
+			});
+			Toast.toast.success(t("benchmark.rerunStarted"));
+			const route = next.task.workspaceId
+				? `/workspaces/${encodeURIComponent(next.task.workspaceId)}/task/${encodeURIComponent(next.task.id)}`
+				: `/task/${encodeURIComponent(next.task.id)}`;
+			navigate(route);
+		} catch (error) {
+			if (errorCode(error) === "BENCHMARK_MOUNT_REQUIRED") {
+				setRestoreConfirmation(true);
+				return;
+			}
+			handleError(error, "Benchmark rerun failed", true);
+		}
+	};
+
+	return (
+		<div className="flex shrink-0 items-center gap-sm">
+			{active ? (
+				<Button
+					isDisabled={detail.cancelRequested}
+					isPending={cancelMutation.isPending}
+					onPress={cancel}
+					variant="danger"
+				>
+					{detail.cancelRequested
+						? t("benchmark.cancelling")
+						: t("benchmark.cancelRun")}
+				</Button>
+			) : null}
+			{terminal ? (
+				<ModalProvider
+					title={t("benchmark.rerun")}
+					description={t("benchmark.rerunDescription")}
+					trigger={<Button>{t("benchmark.rerun")}</Button>}
+					footer={
+						<Button
+							isDisabled={!agents.length}
+							isPending={rerunMutation.isPending}
+							onPress={() => rerun(false)}
+						>
+							{t("benchmark.startRerun")}
+						</Button>
+					}
+				>
+					<fieldset
+						className="flex flex-col gap-sm"
+						disabled={rerunMutation.isPending}
+					>
+						<legend className="mb-xs text-body-sm font-medium">
+							{t("benchmark.agents")}
+						</legend>
+						{AGENT_KINDS.map((kind) => (
+							<CheckBox
+								isSelected={agents.includes(kind)}
+								key={kind}
+								label={t(`agentNames.${kind}`)}
+								onChange={(selected) => {
+									setAgents(
+										selected
+											? [...agents, kind]
+											: agents.filter((agent) => agent !== kind),
+									);
+									idempotencyKey.current = null;
+								}}
+							/>
+						))}
+					</fieldset>
+					<Select
+						label={t("benchmark.fileAccess")}
+						onChange={(value) => {
+							if (value) setFileAccess(value);
+							idempotencyKey.current = null;
+						}}
+						options={(["read_only", "allow_edits"] as const).map((value) => ({
+							label: t(`benchmark.${value}`),
+							value,
+						}))}
+						placeholder={t("benchmark.fileAccess")}
+						value={fileAccess}
+					/>
+					<Select
+						label={t("benchmark.commandExecution")}
+						onChange={(value) => {
+							if (value) setCommands(value);
+							idempotencyKey.current = null;
+						}}
+						options={(["deny", "ask", "allow"] as const).map((value) => ({
+							label: t(`benchmark.${value}`),
+							value,
+						}))}
+						placeholder={t("benchmark.commandExecution")}
+						value={commands}
+					/>
+				</ModalProvider>
+			) : null}
+			<AlertDialog
+				confirmText={t("benchmark.restoreAndRerun")}
+				description={t("benchmark.restoreMountDescription")}
+				isOpen={restoreConfirmation}
+				onConfirm={() => rerun(true)}
+				onOpenChange={setRestoreConfirmation}
+				status="warning"
+				title={t("benchmark.restoreMountTitle")}
+			/>
+		</div>
+	);
 };
 
 /** Renders the persisted Case × Agent matrix and coverage-aware aggregate metrics. */
@@ -50,6 +215,7 @@ const BenchmarkTaskView = ({ taskId }: BenchmarkTaskViewProps) => {
 						{t(`benchmark.taskStatus.${detail.task.status}`)}
 					</p>
 				</div>
+				<BenchmarkTaskActions detail={detail} />
 			</PageHeader>
 
 			<section className="min-h-0 flex-1 space-y-xl overflow-y-auto p-lg sm:p-xl">
