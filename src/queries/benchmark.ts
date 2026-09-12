@@ -5,6 +5,8 @@ import {
 	useQueryClient,
 } from "@tanstack/react-query";
 import {
+	archiveBenchmark,
+	deleteBenchmarkTag,
 	getBenchmarkTask,
 	getBenchmark,
 	getBenchmarkDraft,
@@ -14,6 +16,8 @@ import {
 	listWorkspaceBenchmarks,
 	rerunBenchmarkTask,
 	startBenchmarkTask,
+	updateBenchmarkMount,
+	updateBenchmarkTag,
 } from "@/api/benchmark";
 import { cancelTask } from "@/api/task";
 import type {
@@ -48,6 +52,36 @@ const useBenchmarks = (filters: BenchmarkFilters) =>
 const useBenchmarkTags = () =>
 	useQuery({ queryKey: ["benchmarks", "tags"], queryFn: listBenchmarkTags });
 
+/** Updates one Tag and refreshes every surface that displays its metadata. */
+const useUpdateBenchmarkTag = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({
+			id,
+			name,
+			icon,
+		}: {
+			id: string;
+			name: string;
+			icon: string;
+		}) => updateBenchmarkTag(id, name, icon),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["benchmarks"] });
+		},
+	});
+};
+
+/** Deletes a personal Tag after the caller has shown its usage count. */
+const useDeleteBenchmarkTag = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: deleteBenchmarkTag,
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["benchmarks"] });
+		},
+	});
+};
+
 /**
  * Keys workspace details by immutable version.
  *
@@ -60,6 +94,21 @@ const useBenchmark = (id: string, versionId: string | null = null) =>
 		queryFn: () => getBenchmark(id, versionId),
 		enabled: Boolean(id),
 	});
+
+/** Archives a personal definition and removes it from cached catalog pages. */
+const useArchiveBenchmark = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: archiveBenchmark,
+		onSuccess: (detail) => {
+			queryClient.setQueryData(
+				["benchmarks", "detail", detail.summary.id, null],
+				detail,
+			);
+			queryClient.invalidateQueries({ queryKey: ["benchmarks", "catalog"] });
+		},
+	});
+};
 
 /**
  * Restores exactly one saved revision.
@@ -99,6 +148,27 @@ const useWorkspaceBenchmarks = (workspaceId: string) =>
 		getNextPageParam: (last, pages) =>
 			last.length === 30 ? pages.length : undefined,
 	});
+
+/** Applies an explicit version update to one mounted relationship. */
+const useUpdateBenchmarkMount = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({
+			workspaceId,
+			mountId,
+			versionId,
+		}: {
+			workspaceId: string;
+			mountId: string;
+			versionId: string;
+		}) => updateBenchmarkMount(workspaceId, mountId, versionId),
+		onSuccess: (mount) => {
+			queryClient.invalidateQueries({
+				queryKey: ["benchmarks", "mounts", mount.workspaceId],
+			});
+		},
+	});
+};
 
 /** Polls only while the persisted Benchmark matrix can still change. */
 const useBenchmarkTask = (taskId: string | null) =>
@@ -161,10 +231,14 @@ const useRerunBenchmarkTask = () => {
 export {
 	useBenchmarks,
 	useBenchmarkTags,
+	useUpdateBenchmarkTag,
+	useDeleteBenchmarkTag,
 	useBenchmark,
+	useArchiveBenchmark,
 	useBenchmarkDraft,
 	useBenchmarkDrafts,
 	useWorkspaceBenchmarks,
+	useUpdateBenchmarkMount,
 	useBenchmarkTask,
 	useCancelBenchmarkTask,
 	useRerunBenchmarkTask,
