@@ -1,13 +1,16 @@
-import { z } from "zod";
 import { invokeWithResponseSchema } from "@/api/ipc";
 import {
-	BenchmarkSummarySchema,
+	BenchmarkDraftIdsSchema,
+	BenchmarkSummariesSchema,
 	BenchmarkDetailSchema,
 	BenchmarkDraftSchema,
 	BenchmarkMountSchema,
+	BenchmarkMountsSchema,
 	BenchmarkTagSchema,
+	BenchmarkTagsSchema,
 	BenchmarkPreviewSchema,
 	BenchmarkTaskDetailSchema,
+	EmptyBenchmarkResponseSchema,
 } from "@/types/benchmark";
 import type {
 	BenchmarkDocument,
@@ -16,28 +19,6 @@ import type {
 	StartBenchmarkTaskInput,
 } from "@/types/benchmark";
 
-const summaries = z.compile(z.array(BenchmarkSummarySchema));
-
-const detail = z.compile(BenchmarkDetailSchema);
-
-const draft = z.compile(BenchmarkDraftSchema);
-
-const mounts = z.compile(z.array(BenchmarkMountSchema));
-
-const mount = z.compile(BenchmarkMountSchema);
-
-const tags = z.compile(z.array(BenchmarkTagSchema));
-
-const tag = z.compile(BenchmarkTagSchema);
-
-const ids = z.compile(z.array(z.string()));
-
-const empty = z.compile(z.null());
-
-const preview = z.compile(BenchmarkPreviewSchema);
-
-const benchmarkTask = z.compile(BenchmarkTaskDetailSchema);
-
 /**
  * Keeps sorting and filtering ahead of native pagination.
  *
@@ -45,7 +26,7 @@ const benchmarkTask = z.compile(BenchmarkTaskDetailSchema);
  * listBenchmarks(filters, 0);
  */
 const listBenchmarks = (filters: BenchmarkFilters, page: number) =>
-	invokeWithResponseSchema("list_benchmarks", summaries, {
+	invokeWithResponseSchema("list_benchmarks", BenchmarkSummariesSchema, {
 		request: { ...filters, page },
 	});
 
@@ -56,13 +37,13 @@ const listBenchmarks = (filters: BenchmarkFilters, page: number) =>
  * getBenchmark("suite", "v1");
  */
 const getBenchmark = (benchmarkId: string, versionId: string | null = null) =>
-	invokeWithResponseSchema("get_benchmark", detail, {
+	invokeWithResponseSchema("get_benchmark", BenchmarkDetailSchema, {
 		request: { benchmarkId, versionId },
 	});
 
 /** Loads available classifications. */
 const listBenchmarkTags = () =>
-	invokeWithResponseSchema("list_benchmark_tags", tags);
+	invokeWithResponseSchema("list_benchmark_tags", BenchmarkTagsSchema);
 
 /**
  * Stores an allowed Gravity selection.
@@ -71,7 +52,7 @@ const listBenchmarkTags = () =>
  * createBenchmarkTag("Coding", "Code");
  */
 const createBenchmarkTag = (name: string, icon: string) =>
-	invokeWithResponseSchema("create_benchmark_tag", tag, {
+	invokeWithResponseSchema("create_benchmark_tag", BenchmarkTagSchema, {
 		request: { name, icon },
 	});
 
@@ -86,7 +67,7 @@ const saveBenchmarkDraft = (
 	draftId: string | null,
 	expectedRevision: number | null,
 ) =>
-	invokeWithResponseSchema("save_benchmark_draft", draft, {
+	invokeWithResponseSchema("save_benchmark_draft", BenchmarkDraftSchema, {
 		request: { document, draftId, expectedRevision },
 	});
 
@@ -97,7 +78,7 @@ const saveBenchmarkDraft = (
  * publishBenchmark("draft", 2);
  */
 const publishBenchmark = (draftId: string, expectedRevision: number) =>
-	invokeWithResponseSchema("publish_benchmark", detail, {
+	invokeWithResponseSchema("publish_benchmark", BenchmarkDetailSchema, {
 		request: { draftId, expectedRevision },
 	});
 
@@ -108,7 +89,7 @@ const publishBenchmark = (draftId: string, expectedRevision: number) =>
  * getBenchmarkDraft("draft");
  */
 const getBenchmarkDraft = (draftId: string) =>
-	invokeWithResponseSchema("get_benchmark_draft", draft, {
+	invokeWithResponseSchema("get_benchmark_draft", BenchmarkDraftSchema, {
 		request: { draftId },
 	});
 
@@ -119,7 +100,9 @@ const getBenchmarkDraft = (draftId: string) =>
  * listBenchmarkDrafts(0);
  */
 const listBenchmarkDrafts = (page: number) =>
-	invokeWithResponseSchema("list_benchmark_drafts", ids, { request: { page } });
+	invokeWithResponseSchema("list_benchmark_drafts", BenchmarkDraftIdsSchema, {
+		request: { page },
+	});
 
 /**
  * Reads fixed workspace relationships.
@@ -128,7 +111,7 @@ const listBenchmarkDrafts = (page: number) =>
  * listWorkspaceBenchmarks("workspace", 0);
  */
 const listWorkspaceBenchmarks = (workspaceId: string, page: number) =>
-	invokeWithResponseSchema("list_workspace_benchmarks", mounts, {
+	invokeWithResponseSchema("list_workspace_benchmarks", BenchmarkMountsSchema, {
 		request: { workspaceId, page },
 	});
 
@@ -143,7 +126,7 @@ const mountBenchmark = (
 	benchmarkId: string,
 	versionId: string,
 ) =>
-	invokeWithResponseSchema("mount_benchmark", mount, {
+	invokeWithResponseSchema("mount_benchmark", BenchmarkMountSchema, {
 		request: { workspaceId, benchmarkId, versionId },
 	});
 
@@ -154,7 +137,7 @@ const mountBenchmark = (
  * unmountBenchmark("workspace", "mount");
  */
 const unmountBenchmark = (workspaceId: string, mountId: string) =>
-	invokeWithResponseSchema("unmount_benchmark", empty, {
+	invokeWithResponseSchema("unmount_benchmark", EmptyBenchmarkResponseSchema, {
 		request: { workspaceId, mountId },
 	});
 
@@ -165,15 +148,19 @@ const unmountBenchmark = (workspaceId: string, mountId: string) =>
  * previewBenchmarkTask(input);
  */
 const previewBenchmarkTask = (request: BenchmarkPreviewInput) =>
-	invokeWithResponseSchema("preview_benchmark_task", preview, { request });
+	invokeWithResponseSchema("preview_benchmark_task", BenchmarkPreviewSchema, {
+		request,
+	});
 
 /** Creates one immutable task plan and starts its background execution. */
 const startBenchmarkTask = (request: StartBenchmarkTaskInput) =>
-	invokeWithResponseSchema("start_benchmark_task", benchmarkTask, { request });
+	invokeWithResponseSchema("start_benchmark_task", BenchmarkTaskDetailSchema, {
+		request,
+	});
 
 /** Restores the latest persisted matrix state for one Benchmark Task. */
 const getBenchmarkTask = (taskId: string) =>
-	invokeWithResponseSchema("get_benchmark_task", benchmarkTask, {
+	invokeWithResponseSchema("get_benchmark_task", BenchmarkTaskDetailSchema, {
 		request: { taskId },
 	});
 

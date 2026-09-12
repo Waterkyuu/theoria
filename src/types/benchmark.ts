@@ -271,6 +271,12 @@ const BenchmarkTaskDetailSchema = z.object({
 	),
 });
 
+const BenchmarkSummariesSchema = z.array(BenchmarkSummarySchema);
+const BenchmarkMountsSchema = z.array(BenchmarkMountSchema);
+const BenchmarkTagsSchema = z.array(BenchmarkTagSchema);
+const BenchmarkDraftIdsSchema = z.array(z.string());
+const EmptyBenchmarkResponseSchema = z.null();
+
 type BenchmarkDocument = z.infer<typeof BenchmarkDocumentSchema>;
 
 type BenchmarkDetail = z.infer<typeof BenchmarkDetailSchema>;
@@ -336,4 +342,9 @@ export {
 	BenchmarkTagSchema,
 	BenchmarkPreviewSchema,
 	BenchmarkTaskDetailSchema,
+	BenchmarkSummariesSchema,
+	BenchmarkMountsSchema,
+	BenchmarkTagsSchema,
+	BenchmarkDraftIdsSchema,
+	EmptyBenchmarkResponseSchema,
 };
