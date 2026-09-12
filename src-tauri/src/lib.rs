@@ -347,6 +347,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::benchmark::archive_benchmark,
             commands::benchmark_task::get_benchmark_task,
             commands::benchmark_task::preview_benchmark_task,
             commands::benchmark_task::rerun_benchmark_task,
@@ -354,6 +355,8 @@ pub fn run() {
             commands::task::cancel_task,
             commands::benchmark::list_benchmark_tags,
             commands::benchmark::create_benchmark_tag,
+            commands::benchmark::delete_benchmark_tag,
+            commands::benchmark::get_benchmark_tag_usage,
             commands::benchmark::save_benchmark_draft,
             commands::benchmark::get_benchmark_draft,
             commands::benchmark::list_benchmark_drafts,
@@ -361,6 +364,8 @@ pub fn run() {
             commands::benchmark::list_benchmarks,
             commands::benchmark::get_benchmark,
             commands::benchmark::mount_benchmark,
+            commands::benchmark::update_benchmark_mount,
+            commands::benchmark::update_benchmark_tag,
             commands::benchmark::list_workspace_benchmarks,
             commands::benchmark::unmount_benchmark,
             commands::activity::check_agent_activities,

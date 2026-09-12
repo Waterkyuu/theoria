@@ -210,6 +210,51 @@ pub(crate) struct CreateBenchmarkTagRequest {
     pub(crate) icon: String,
 }
 
+/// Changes one user-owned Tag while keeping its identifier stable.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct UpdateBenchmarkTagRequest {
+    pub(crate) tag_id: String,
+    pub(crate) name: String,
+    pub(crate) icon: String,
+}
+
+/// Addresses one Tag for usage inspection or deletion.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct BenchmarkTagRequest {
+    pub(crate) tag_id: String,
+}
+
+/// Count returned before and after Tag reassignment.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct BenchmarkTagUsageResponse {
+    pub(crate) benchmark_count: u64,
+}
+
+impl From<u64> for BenchmarkTagUsageResponse {
+    fn from(benchmark_count: u64) -> Self {
+        Self { benchmark_count }
+    }
+}
+
+/// Archives one published personal Benchmark definition.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct ArchiveBenchmarkRequest {
+    pub(crate) benchmark_id: String,
+}
+
+/// Explicitly changes the immutable version pinned by one existing mount.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct UpdateBenchmarkMountRequest {
+    pub(crate) workspace_id: String,
+    pub(crate) mount_id: String,
+    pub(crate) version_id: String,
+}
+
 /// Typed request validated by the Benchmark application service.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

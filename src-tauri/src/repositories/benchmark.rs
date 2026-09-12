@@ -7,8 +7,8 @@ use sea_orm::sea_query::{Expr, ExprTrait, OnConflict, Query};
 use sea_orm::TransactionTrait;
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, Condition, DatabaseConnection, DbErr,
-    EntityTrait, FromQueryResult, JoinType, Order, QueryFilter, QueryOrder, QuerySelect,
-    RelationTrait, Select,
+    EntityTrait, FromQueryResult, JoinType, Order, PaginatorTrait, QueryFilter, QueryOrder,
+    QuerySelect, RelationTrait, Select,
 };
 
 /// Catalog operations share one SQLite transaction boundary and use SeaORM entities.
@@ -26,8 +26,7 @@ impl BenchmarkRepository {
     /// Returns classifications without loading benchmark documents.
     pub(crate) async fn tags(&self) -> Result<Vec<BenchmarkTag>, DbErr> {
         Ok(tag::Entity::find()
-            .filter(tag::Column::Id.ne("uncategorized"))
-            .order_by_asc(tag::Column::IsSystem)
+            .order_by_desc(tag::Column::IsSystem)
             .order_by_asc(tag::Column::Name)
             .all(&self.database)
             .await?
@@ -41,6 +40,27 @@ impl BenchmarkRepository {
             .collect())
     }
 
+    /// Finds one classification without loading related Benchmark documents.
+    pub(crate) async fn tag(&self, id: &str) -> Result<Option<BenchmarkTag>, DbErr> {
+        Ok(tag::Entity::find_by_id(id)
+            .one(&self.database)
+            .await?
+            .map(|row| BenchmarkTag {
+                id: row.id,
+                name: row.name,
+                icon: row.icon,
+                is_system: row.is_system,
+            }))
+    }
+
+    /// Counts definitions that will move to the protected fallback classification.
+    pub(crate) async fn tag_usage(&self, id: &str) -> Result<u64, DbErr> {
+        benchmark::Entity::find()
+            .filter(benchmark::Column::TagId.eq(id))
+            .count(&self.database)
+            .await
+    }
+
     /// Database uniqueness also protects simultaneous tag creation.
     pub(crate) async fn create_tag(&self, value: BenchmarkTag) -> Result<BenchmarkTag, DbErr> {
         tag::ActiveModel {
@@ -52,6 +72,43 @@ impl BenchmarkRepository {
         .insert(&self.database)
         .await?;
         Ok(value)
+    }
+
+    /// Updates only user-owned tags; the database trigger independently protects system rows.
+    pub(crate) async fn update_tag(
+        &self,
+        value: BenchmarkTag,
+    ) -> Result<Option<BenchmarkTag>, DbErr> {
+        let result = tag::Entity::update_many()
+            .col_expr(tag::Column::Name, Expr::value(value.name.clone()))
+            .col_expr(tag::Column::Icon, Expr::value(value.icon.clone()))
+            .filter(tag::Column::Id.eq(&value.id))
+            .filter(tag::Column::IsSystem.eq(false))
+            .exec(&self.database)
+            .await?;
+        Ok((result.rows_affected == 1).then_some(value))
+    }
+
+    /// Reassigns every dependent definition before deleting one user-owned tag atomically.
+    pub(crate) async fn delete_tag(&self, id: &str, now: i64) -> Result<Option<u64>, DbErr> {
+        let transaction = self.database.begin().await?;
+        let reassigned = benchmark::Entity::update_many()
+            .col_expr(benchmark::Column::TagId, Expr::value("uncategorized"))
+            .col_expr(benchmark::Column::UpdatedAtMs, Expr::value(now))
+            .filter(benchmark::Column::TagId.eq(id))
+            .exec(&transaction)
+            .await?;
+        let deleted = tag::Entity::delete_many()
+            .filter(tag::Column::Id.eq(id))
+            .filter(tag::Column::IsSystem.eq(false))
+            .exec(&transaction)
+            .await?;
+        if deleted.rows_affected != 1 {
+            transaction.rollback().await?;
+            return Ok(None);
+        }
+        transaction.commit().await?;
+        Ok(Some(reassigned.rows_affected))
     }
 
     /// Conditional updates reject stale editors without overwriting another save.
@@ -312,6 +369,20 @@ impl BenchmarkRepository {
         }))
     }
 
+    /// Marks one personal definition unavailable to the default catalog and future mounts.
+    pub(crate) async fn archive(&self, id: &str, now: i64) -> Result<bool, DbErr> {
+        Ok(benchmark::Entity::update_many()
+            .col_expr(benchmark::Column::Archived, Expr::value(true))
+            .col_expr(benchmark::Column::UpdatedAtMs, Expr::value(now))
+            .filter(benchmark::Column::Id.eq(id))
+            .filter(benchmark::Column::Author.eq("myself"))
+            .filter(benchmark::Column::Archived.eq(false))
+            .exec(&self.database)
+            .await?
+            .rows_affected
+            == 1)
+    }
+
     /// Repeating Mount never silently upgrades an existing workspace relationship.
     pub(crate) async fn mount(
         &self,
@@ -364,6 +435,45 @@ impl BenchmarkRepository {
             .one(&self.database)
             .await?
             .map(mount_from_model))
+    }
+
+    /// Replaces only the pinned version after proving it belongs to the mounted definition.
+    pub(crate) async fn update_mount(
+        &self,
+        workspace_id: &str,
+        mount_id: &str,
+        version_id: &str,
+    ) -> Result<Option<BenchmarkMount>, DbErr> {
+        let transaction = self.database.begin().await?;
+        let current = mount::Entity::find_by_id(mount_id)
+            .filter(mount::Column::WorkspaceId.eq(workspace_id))
+            .one(&transaction)
+            .await?;
+        let Some(current) = current else {
+            transaction.rollback().await?;
+            return Ok(None);
+        };
+        let version_exists = version::Entity::find_by_id(version_id)
+            .filter(version::Column::BenchmarkId.eq(&current.benchmark_id))
+            .one(&transaction)
+            .await?
+            .is_some();
+        if !version_exists {
+            transaction.rollback().await?;
+            return Ok(None);
+        }
+        mount::Entity::update_many()
+            .col_expr(mount::Column::VersionId, Expr::value(version_id))
+            .filter(mount::Column::Id.eq(mount_id))
+            .filter(mount::Column::WorkspaceId.eq(workspace_id))
+            .exec(&transaction)
+            .await?;
+        let updated = mount::Entity::find_by_id(mount_id)
+            .one(&transaction)
+            .await?
+            .map(mount_from_model);
+        transaction.commit().await?;
+        Ok(updated)
     }
 
     /// Loads bounded relationship pages without copying inputs into workspace sources.
