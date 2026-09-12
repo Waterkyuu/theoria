@@ -91,7 +91,7 @@ const zhCN = {
 				oldest: "最早创建",
 				alphabetical: "名称排序",
 			},
-			authors: { platform: "Platform", myself: "MySelf" },
+			authors: { platform: "平台", myself: "本人" },
 			issues: {
 				agent_not_installed: "Agent 未安装",
 				agent_not_authenticated: "Agent 未登录",
