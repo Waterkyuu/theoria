@@ -28,7 +28,6 @@ const LAST_TASK_CONTEXT_KEY = "theoria:last-task-context";
 const WorkspacePage = lazy(() => import("@/pages/workspace"));
 const AgentsPage = lazy(() => import("@/pages/agents"));
 const BenchmarkPage = lazy(() => import("@/pages/benchmark"));
-const ComparisonHistoryPage = lazy(() => import("@/pages/comparison-history"));
 const RunBoardPage = lazy(() => import("@/pages/run-board"));
 const SkillsPage = lazy(() => import("@/pages/skills"));
 const SimpleCreateSkillPage = lazy(
@@ -145,14 +144,6 @@ const RoutedApplication = () => {
 					<Route
 						element={<WorkspaceRoute />}
 						path="/workspaces/:workspaceId/task/:taskId"
-					/>
-					<Route
-						element={<ComparisonHistoryPage />}
-						path="/comparison-history"
-					/>
-					<Route
-						element={<ComparisonHistoryPage />}
-						path="/comparison-history/:comparisonId"
 					/>
 					<Route element={<RunBoardPage />} path="/runs" />
 					<Route element={<AgentsPage />} path="/agents" />

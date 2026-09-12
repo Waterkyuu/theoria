@@ -28,9 +28,6 @@ vi.mock("@/pages/workspace", () => ({
 		</main>
 	),
 }));
-vi.mock("@/pages/comparison-history", () => ({
-	default: () => <main>comparison history route</main>,
-}));
 vi.mock("@/pages/skills", () => ({
 	default: () => <main>skills route</main>,
 }));
@@ -88,6 +85,19 @@ describe("AppRouter", () => {
 		expect(await screen.findByText("bound:research-kit")).toBeInTheDocument();
 		expect(screen.getByText("task:task-84")).toBeInTheDocument();
 	});
+
+	it.each(["/comparison-history", "/comparison-history/42"])(
+		"redirects the removed history route %s to the Task composer",
+		async (path) => {
+			window.history.pushState({}, "", path);
+			render(<AppRouter />);
+
+			expect(
+				await screen.findByText("workspace composer route"),
+			).toBeInTheDocument();
+			expect(window.location.pathname).toBe("/task");
+		},
+	);
 
 	it("opens the skill library from its dedicated route", async () => {
 		window.history.pushState({}, "", "/skills");
