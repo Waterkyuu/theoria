@@ -337,6 +337,20 @@ type StartBenchmarkTaskInput = BenchmarkPreviewInput & {
 	idempotencyKey: string;
 };
 
+type RerunBenchmarkTaskInput = Pick<
+	BenchmarkTaskDetail,
+	"fileAccess" | "commandExecution"
+> & {
+	/** Terminal Benchmark Task whose immutable version is reused. */
+	sourceTaskId: string;
+	/** Local Agent products selected for the fresh execution matrix. */
+	agentKinds: BenchmarkPreview["agentKinds"];
+	/** Explicit approval to recreate an absent historical mount. */
+	restoreMount: boolean;
+	/** Retry identity for this exact submission. */
+	idempotencyKey: string;
+};
+
 export type {
 	BenchmarkDocument,
 	BenchmarkDetail,
@@ -349,6 +363,7 @@ export type {
 	BenchmarkPreviewInput,
 	BenchmarkTaskDetail,
 	BenchmarkValidationIssue,
+	RerunBenchmarkTaskInput,
 	StartBenchmarkTaskInput,
 };
 

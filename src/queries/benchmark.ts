@@ -12,10 +12,13 @@ import {
 	listBenchmarks,
 	listBenchmarkTags,
 	listWorkspaceBenchmarks,
+	rerunBenchmarkTask,
 	startBenchmarkTask,
 } from "@/api/benchmark";
+import { cancelTask } from "@/api/task";
 import type {
 	BenchmarkFilters,
+	RerunBenchmarkTaskInput,
 	StartBenchmarkTaskInput,
 } from "@/types/benchmark";
 
@@ -127,6 +130,34 @@ const useStartBenchmarkTask = () => {
 	});
 };
 
+/** Requests cancellation and lets the persisted task poll reveal the terminal state. */
+const useCancelBenchmarkTask = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (taskId: string) => cancelTask(taskId).then(() => taskId),
+		onSuccess: (taskId) => {
+			queryClient.invalidateQueries({ queryKey: benchmarkTaskKey(taskId) });
+			queryClient.invalidateQueries({ queryKey: ["tasks"] });
+		},
+	});
+};
+
+/** Creates a new historical-version run and seeds its independent polling cache. */
+const useRerunBenchmarkTask = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (request: RerunBenchmarkTaskInput) =>
+			rerunBenchmarkTask(request),
+		onSuccess: (detail) => {
+			queryClient.setQueryData(benchmarkTaskKey(detail.task.id), detail);
+			queryClient.invalidateQueries({ queryKey: ["tasks"] });
+			queryClient.invalidateQueries({
+				queryKey: ["benchmarks", "mounts", detail.task.workspaceId],
+			});
+		},
+	});
+};
+
 export {
 	useBenchmarks,
 	useBenchmarkTags,
@@ -135,5 +166,7 @@ export {
 	useBenchmarkDrafts,
 	useWorkspaceBenchmarks,
 	useBenchmarkTask,
+	useCancelBenchmarkTask,
+	useRerunBenchmarkTask,
 	useStartBenchmarkTask,
 };
