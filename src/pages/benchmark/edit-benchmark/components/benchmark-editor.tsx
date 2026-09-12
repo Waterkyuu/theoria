@@ -1,11 +1,10 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { Button, Label, NumberField, Toast } from "@heroui/react";
+import { Button, Toast } from "@heroui/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import { PageHeader } from "@/components/share/page-header";
-import { AlertDialog } from "@/components/ui/alert-dialog";
 import { Select } from "@/components/ui/select";
 import { handleError } from "@/utils/error";
 import { saveBenchmarkDraft, publishBenchmark } from "@/api/benchmark";
@@ -17,6 +16,7 @@ import {
 	type BenchmarkValidationIssue,
 } from "@/types/benchmark";
 import { BenchmarkFeedback } from "../../components/feedback";
+import { BenchmarkCaseEditor } from "./benchmark-case-editor";
 import { BenchmarkTagCreatePopover } from "./benchmark-tag-create-popover";
 
 const FIELD =
@@ -193,146 +193,27 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 							</p>
 						</div>
 						{document.cases.map((item, index) => (
-							<section
+							<BenchmarkCaseEditor
+								index={index}
+								item={item}
 								key={index}
-								className="rounded-xl border border-hairline p-lg"
-							>
-								<div className="flex items-center justify-between gap-md">
-									<span className="text-body-sm font-semibold">
-										{t("benchmark.cases")} {index + 1}
-									</span>
-									<AlertDialog
-										title={t("benchmark.removeCaseConfirm")}
-										confirmText={t("benchmark.removeCase")}
-										onConfirm={() =>
-											setDocument({
-												...document,
-												cases: document.cases.filter(
-													(_, position) => position !== index,
-												),
-											})
-										}
-										trigger={
-											<Button
-												variant="secondary"
-												size="sm"
-												className="border border-terminal-red bg-canvas text-terminal-red shadow-none"
-											>
-												{t("benchmark.removeCase")}
-											</Button>
-										}
-									/>
-								</div>
-								<div className="mt-xl flex flex-col gap-xl">
-									<label className="flex flex-col gap-sm text-body-sm">
-										{t("benchmark.caseName")}
-										<input
-											required
-											maxLength={120}
-											className={FIELD}
-											value={item.name}
-											onChange={(event) =>
-												setDocument({
-													...document,
-													cases: document.cases.map((value, position) =>
-														position === index
-															? { ...value, name: event.target.value }
-															: value,
-													),
-												})
-											}
-										/>
-									</label>
-									<label className="flex flex-col gap-sm text-body-sm">
-										{t("benchmark.prompt")}
-										<textarea
-											required
-											rows={4}
-											maxLength={16000}
-											className={FIELD}
-											value={item.prompt}
-											onChange={(event) =>
-												setDocument({
-													...document,
-													cases: document.cases.map((value, position) =>
-														position === index
-															? { ...value, prompt: event.target.value }
-															: value,
-													),
-												})
-											}
-										/>
-									</label>
-									{item.checks.length === 1 &&
-									item.checks[0].kind === "answer" ? (
-										<label className="flex flex-col gap-sm text-body-sm">
-											{t("benchmark.expected")}
-											<textarea
-												required
-												rows={2}
-												maxLength={65536}
-												className={FIELD}
-												value={item.checks[0].expected}
-												onChange={(event) =>
-													setDocument({
-														...document,
-														cases: document.cases.map((value, position) =>
-															position === index
-																? {
-																		...value,
-																		checks: [
-																			{
-																				kind: "answer",
-																				expected: event.target.value,
-																			},
-																		],
-																	}
-																: value,
-														),
-													})
-												}
-											/>
-										</label>
-									) : (
-										<p className="text-body-sm text-body">
-											{t("benchmark.structuredCase")}
-										</p>
-									)}
-									<NumberField
-										className="max-w-60"
-										fullWidth
-										isRequired
-										minValue={1}
-										maxValue={60}
-										value={item.timeoutMinutes}
-										onChange={(nextValue) =>
-											setDocument({
-												...document,
-												cases: document.cases.map((value, position) =>
-													position === index
-														? {
-																...value,
-																timeoutMinutes: Number.isNaN(nextValue)
-																	? 1
-																	: nextValue,
-															}
-														: value,
-												),
-											})
-										}
-									>
-										<Label>{t("benchmark.timeout")}</Label>
-										<NumberField.Group>
-											<NumberField.DecrementButton />
-											<NumberField.Input
-												className="bg-canvas"
-												name={`cases.${index}.timeoutMinutes`}
-											/>
-											<NumberField.IncrementButton />
-										</NumberField.Group>
-									</NumberField>
-								</div>
-							</section>
+								onChange={(next) =>
+									setDocument({
+										...document,
+										cases: document.cases.map((value, position) =>
+											position === index ? next : value,
+										),
+									})
+								}
+								onRemove={() =>
+									setDocument({
+										...document,
+										cases: document.cases.filter(
+											(_, position) => position !== index,
+										),
+									})
+								}
+							/>
 						))}
 						<Button
 							variant="secondary"
