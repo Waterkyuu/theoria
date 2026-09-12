@@ -3,6 +3,7 @@ import { ListCheck, Plus } from "@gravity-ui/icons";
 import { Button } from "@heroui/react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
+import { PageHeader } from "@/components/share/page-header";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { SearchBox } from "@/components/ui/search-box";
 import { useBenchmarks, useBenchmarkTags } from "@/queries/benchmark";
@@ -27,11 +28,11 @@ const BenchmarkPage = () => {
 	const cards = query.data?.pages.flat() ?? [];
 	return (
 		<main className="flex h-full min-h-0 flex-col">
-			<header className="flex h-14 shrink-0 items-center px-10">
-				<span className="text-body-sm text-charcoal">
+			<PageHeader>
+				<p className="text-body-sm font-medium text-charcoal">
 					{t("benchmark.title")}
-				</span>
-			</header>
+				</p>
+			</PageHeader>
 			<div className="w-full overflow-y-auto px-10 py-7.5">
 				<div className="mb-xl flex flex-wrap items-center justify-between gap-lg">
 					<div>
