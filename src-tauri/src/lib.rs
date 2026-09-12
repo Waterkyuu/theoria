@@ -66,6 +66,7 @@ mod repositories {
 mod services {
     pub(crate) mod activity;
     pub(crate) mod agent;
+    pub(crate) mod agent_runtime;
     pub(crate) mod cleanup;
     pub(crate) mod comparison;
     pub(crate) mod process;
