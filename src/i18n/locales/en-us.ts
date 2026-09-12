@@ -32,7 +32,6 @@ const enUS = {
 			loadFailed: "Could not load benchmarks. Please try again.",
 			retry: "Retry",
 			more: "Load more",
-			uncategorized: "Uncategorized",
 			drafts: "Drafts",
 			newTitle: "New benchmark",
 			name: "Name",

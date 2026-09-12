@@ -31,7 +31,6 @@ const zhCN = {
 			loadFailed: "无法加载 Benchmark，请重试。",
 			retry: "重试",
 			more: "加载更多",
-			uncategorized: "未分类",
 			drafts: "草稿",
 			newTitle: "新建 Benchmark",
 			name: "名称",

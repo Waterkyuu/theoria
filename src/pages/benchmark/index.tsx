@@ -87,10 +87,12 @@ const BenchmarkPage = () => {
 							>
 								<div className="flex items-center justify-between gap-md">
 									<ListCheck className="size-5" />
-									<span className="flex items-center gap-1.5 rounded-full border border-hairline px-2.5 py-1.75 text-caption-sm text-charcoal">
-										<TagIcon name={tag?.icon} />
-										{tag?.name ?? t("benchmark.uncategorized")}
-									</span>
+									{tag && (
+										<span className="flex items-center gap-1.5 rounded-full border border-hairline px-2.5 py-1.75 text-caption-sm text-charcoal">
+											<TagIcon name={tag.icon} />
+											{tag.name}
+										</span>
+									)}
 								</div>
 								<Link
 									className="break-words text-[18px] after:absolute after:inset-0 font-semibold text-ink outline-none hover:underline focus-visible:ring-2 focus-visible:ring-focus-ring"
