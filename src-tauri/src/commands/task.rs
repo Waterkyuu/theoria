@@ -35,6 +35,19 @@ pub(crate) async fn get_task(
         .map_err(Into::into)
 }
 
+/// Returns only common Task metadata so the frontend can dispatch by Task kind.
+#[tauri::command]
+pub(crate) async fn get_task_header(
+    request: GetTaskRequest,
+    service: State<'_, TaskService>,
+) -> Result<TaskResponse, IpcError> {
+    service
+        .header(&request.task_id)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
 /// Changes one Task title after applying the same persisted title bounds as creation.
 #[tauri::command]
 pub(crate) async fn rename_task(

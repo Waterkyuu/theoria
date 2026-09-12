@@ -198,6 +198,15 @@ impl TaskService {
             .map_err(|_| AppError::TaskDatabaseFailed)
     }
 
+    /// Loads the common Task header used to choose the type-specific detail endpoint.
+    pub(crate) async fn header(&self, task_id: &str) -> Result<Task, AppError> {
+        self.repository
+            .header(task_id)
+            .await
+            .map_err(|_| AppError::TaskDatabaseFailed)?
+            .ok_or(AppError::TaskNotFound)
+    }
+
     /// Restores one Task including all locked conditions and collected results.
     pub(crate) async fn get(&self, task_id: &str) -> Result<TaskDetail, AppError> {
         self.repository
