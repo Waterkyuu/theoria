@@ -41,6 +41,16 @@ Use the narrowest command that covers the change, then expand when risk crosses 
 - Flag async React Query/Jotai state changes that can show stale data after mutations or route transitions.
 - Flag internationalized UI changes that add user-facing text without updating both English and Simplified Chinese paths when the surrounding feature is localized.
 
+### Maintainability and readability
+
+- Flag code that mixes unrelated responsibilities, such as UI rendering, persistence, process control, and validation in one function or component when it makes future changes risky.
+- Flag unclear names for domain concepts like agents, runs, skills, benchmarks, workspaces, snapshots, sessions, and artifacts when the ambiguity can cause misuse.
+- Flag duplicated business logic across frontend and Tauri/Rust layers when one side can drift from the other, especially lifecycle state transitions and path validation.
+- Flag deeply nested conditionals, large components, or long functions when they obscure error handling, state transitions, or user-visible side effects.
+- Flag abstractions that hide important side effects or make data ownership unclear, particularly around local files, SQLite records, child processes, and streaming output.
+- Prefer comments that explain non-obvious invariants or cross-layer contracts; do not ask for comments that merely restate what code already says.
+- Avoid personal style feedback. Only raise readability issues when they affect correctness, onboarding, reviewability, or long-term maintenance.
+
 ### Tests and verification
 
 - For behavior changes in agent lifecycle, benchmark comparison, skill mounting, persistence, or Tauri commands, flag missing tests or manual validation notes.
