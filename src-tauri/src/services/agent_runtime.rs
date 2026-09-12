@@ -1,4 +1,6 @@
-use crate::adapters::agent::{AgentAdapter, AgentExecutionConfig, AgentSessionRunOutput};
+use crate::adapters::agent::{
+    AgentAdapter, AgentExecutionConfig, AgentSessionRunOutput, AgentStatusAdapter,
+};
 use crate::adapters::claude::{ClaudeRuntimeSettingsCache, SystemClaudeAdapter};
 use crate::adapters::codex::{CodexRuntimeDefaultsCache, SystemCodexAdapter};
 use crate::adapters::opencode::SystemOpenCodeAdapter;
@@ -57,5 +59,18 @@ pub(crate) fn run_agent_turn(
             session_id,
             cancelled,
         ),
+    }
+}
+
+/// Checks executable and authentication availability without loading or overriding model settings.
+pub(crate) fn check_local_agent_login(
+    agent_kind: AgentKind,
+    caches: &AgentRuntimeCaches,
+) -> Result<crate::domain::agent_status::AgentLoginStatus, AppError> {
+    match agent_kind {
+        AgentKind::Codex => SystemCodexAdapter::new(caches.codex.clone()).check_login(),
+        AgentKind::Claude => SystemClaudeAdapter::new(caches.claude.clone()).check_login(),
+        AgentKind::OpenCode => SystemOpenCodeAdapter.check_login(),
+        AgentKind::WorkBuddy => SystemWorkBuddyAdapter.check_login(),
     }
 }

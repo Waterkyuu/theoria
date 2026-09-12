@@ -346,6 +346,19 @@ impl BenchmarkRepository {
         Ok(Some(mount_from_model(row)))
     }
 
+    /// Looks up a mount only inside its owning workspace.
+    pub(crate) async fn workspace_mount(
+        &self,
+        workspace_id: &str,
+        mount_id: &str,
+    ) -> Result<Option<BenchmarkMount>, DbErr> {
+        Ok(mount::Entity::find_by_id(mount_id)
+            .filter(mount::Column::WorkspaceId.eq(workspace_id))
+            .one(&self.database)
+            .await?
+            .map(mount_from_model))
+    }
+
     /// Loads bounded relationship pages without copying inputs into workspace sources.
     pub(crate) async fn mounts(
         &self,

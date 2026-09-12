@@ -11,6 +11,7 @@ mod commands {
     pub(crate) mod activity;
     pub(crate) mod agent;
     pub(crate) mod benchmark;
+    pub(crate) mod benchmark_task;
     pub(crate) mod claude;
     pub(crate) mod codex;
     pub(crate) mod comparison;
@@ -28,6 +29,7 @@ mod db {
 mod dto {
     pub(crate) mod agent;
     pub(crate) mod benchmark;
+    pub(crate) mod benchmark_task;
     pub(crate) mod comparison;
     pub(crate) mod skill;
     pub(crate) mod task;
@@ -39,6 +41,7 @@ mod domain {
     pub(crate) mod agent_run;
     pub(crate) mod agent_status;
     pub(crate) mod benchmark;
+    pub(crate) mod benchmark_task;
     pub(crate) mod comparison;
     pub(crate) mod skill;
     pub(crate) mod task;
@@ -73,6 +76,7 @@ mod services {
     pub(crate) mod agent;
     pub(crate) mod agent_runtime;
     pub(crate) mod benchmark;
+    pub(crate) mod benchmark_task;
     pub(crate) mod cleanup;
     pub(crate) mod comparison;
     pub(crate) mod process;
@@ -115,6 +119,7 @@ use crate::repositories::task::TaskRepository;
 use crate::repositories::workspace::WorkspaceRepository;
 use crate::services::activity::SystemAgentActivityMonitor;
 use crate::services::benchmark::BenchmarkService;
+use crate::services::benchmark_task::BenchmarkTaskService;
 use crate::services::cleanup::{TaskCleanupService, WorkspaceCleanupService};
 use crate::services::comparison::ComparisonService;
 use crate::services::process::AgentProcessMonitor;
@@ -158,6 +163,10 @@ pub fn run() {
                     .map_err(std::io::Error::other)?;
                 Ok::<_, std::io::Error>(database)
             })?;
+            app.manage(BenchmarkTaskService::new(
+                BenchmarkRepository::new(comparison_database.clone()),
+                app_data_directory.clone(),
+            ));
             app.manage(BenchmarkService::new(
                 BenchmarkRepository::new(comparison_database.clone()),
                 app_data_directory.clone(),
@@ -335,6 +344,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::benchmark_task::preview_benchmark_task,
             commands::benchmark::list_benchmark_tags,
             commands::benchmark::create_benchmark_tag,
             commands::benchmark::save_benchmark_draft,
