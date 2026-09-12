@@ -21,6 +21,12 @@ const getTask = (taskId: string) =>
 		request: { taskId },
 	});
 
+/** Loads common metadata before selecting a type-specific Task detail endpoint. */
+const getTaskHeader = (taskId: string) =>
+	invokeWithResponseSchema("get_task_header", CompiledTaskSchema, {
+		request: { taskId },
+	});
+
 /** Freezes one Composer payload into a prepared Task and isolated Agent workspaces. */
 const createTask = (request: CreateTaskRequest) =>
 	invokeWithResponseSchema("create_task", CompiledTaskDetailSchema, {
@@ -68,6 +74,7 @@ export {
 	createTask,
 	deleteTask,
 	getTask,
+	getTaskHeader,
 	listTasks,
 	renameTask,
 	runTaskExecutions,

@@ -1,13 +1,30 @@
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
+	useInfiniteQuery,
+	useMutation,
+	useQuery,
+	useQueryClient,
+} from "@tanstack/react-query";
+import {
+	getBenchmarkTask,
 	getBenchmark,
 	getBenchmarkDraft,
 	listBenchmarkDrafts,
 	listBenchmarks,
 	listBenchmarkTags,
 	listWorkspaceBenchmarks,
+	startBenchmarkTask,
 } from "@/api/benchmark";
-import type { BenchmarkFilters } from "@/types/benchmark";
+import type {
+	BenchmarkFilters,
+	StartBenchmarkTaskInput,
+} from "@/types/benchmark";
+
+const BENCHMARK_TASK_POLL_INTERVAL_MS = 750;
+
+const benchmarkTaskKey = (taskId: string | null) => [
+	"benchmark-tasks",
+	taskId ?? "none",
+];
 
 /**
  * Fetches catalog pages without client-side sorting of partial results.
@@ -80,6 +97,36 @@ const useWorkspaceBenchmarks = (workspaceId: string) =>
 			last.length === 30 ? pages.length : undefined,
 	});
 
+/** Polls only while the persisted Benchmark matrix can still change. */
+const useBenchmarkTask = (taskId: string | null) =>
+	useQuery({
+		queryKey: benchmarkTaskKey(taskId),
+		queryFn: () => {
+			if (!taskId) throw new Error("A Benchmark Task id is required");
+			return getBenchmarkTask(taskId);
+		},
+		enabled: taskId !== null,
+		refetchInterval: (query) => {
+			const status = query.state.data?.task.status;
+			return status === "preparing" || status === "running"
+				? BENCHMARK_TASK_POLL_INTERVAL_MS
+				: false;
+		},
+	});
+
+/** Starts a Benchmark Task and seeds its polling cache immediately. */
+const useStartBenchmarkTask = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (request: StartBenchmarkTaskInput) =>
+			startBenchmarkTask(request),
+		onSuccess: (detail) => {
+			queryClient.setQueryData(benchmarkTaskKey(detail.task.id), detail);
+			queryClient.invalidateQueries({ queryKey: ["tasks"] });
+		},
+	});
+};
+
 export {
 	useBenchmarks,
 	useBenchmarkTags,
@@ -87,4 +134,6 @@ export {
 	useBenchmarkDraft,
 	useBenchmarkDrafts,
 	useWorkspaceBenchmarks,
+	useBenchmarkTask,
+	useStartBenchmarkTask,
 };

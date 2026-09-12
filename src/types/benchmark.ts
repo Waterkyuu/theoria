@@ -191,6 +191,86 @@ const BenchmarkPreviewSchema = z.object({
 	),
 });
 
+const BenchmarkTaskDetailSchema = z.object({
+	task: z.object({
+		id: z.string().min(1),
+		workspaceId: z.string().min(1).nullable(),
+		title: z.string().min(1),
+		kind: z.literal("benchmark"),
+		status: z.literal([
+			"preparing",
+			"running",
+			"waiting",
+			"completed",
+			"failed",
+			"stopped",
+		]),
+		configurationLockedAtMs: z.number().int().nullable(),
+		pinnedAtMs: z.number().int().nullable(),
+		createdAtMs: z.number().int(),
+		updatedAtMs: z.number().int(),
+	}),
+	benchmarkId: z.string().min(1),
+	benchmarkName: z.string().min(1),
+	versionId: z.string().min(1),
+	versionNumber: z.number().int().positive(),
+	rerunOfTaskId: z.string().min(1).nullable(),
+	resultCompleteness: z.enum(["complete", "incomplete"]),
+	completionReason: z.string().nullable(),
+	cancelRequested: z.boolean(),
+	fileAccess: z.enum(["read_only", "allow_edits"]),
+	commandExecution: z.enum(["deny", "ask", "allow"]),
+	progress: z.object({
+		total: z.number().int().nonnegative(),
+		finished: z.number().int().nonnegative(),
+		passed: z.number().int().nonnegative(),
+		failed: z.number().int().nonnegative(),
+		errors: z.number().int().nonnegative(),
+	}),
+	agents: z.array(
+		z.object({
+			id: z.string().min(1),
+			agentKind: AgentKindSchema,
+			position: z.number().int().nonnegative(),
+			passed: z.number().int().nonnegative(),
+			failed: z.number().int().nonnegative(),
+			total: z.number().int().nonnegative(),
+			passRate: z.number().min(0).max(1).nullable(),
+			totalDurationMs: z.number().nonnegative(),
+			durationCoverage: z.number().int().nonnegative(),
+			totalTokens: z.number().nonnegative(),
+			tokenCoverage: z.number().int().nonnegative(),
+			toolCallCount: z.number().int().nonnegative(),
+		}),
+	),
+	cases: z.array(
+		z.object({
+			id: z.string().min(1),
+			caseId: z.string().min(1),
+			position: z.number().int().nonnegative(),
+			name: z.string().min(1),
+			prompt: z.string(),
+			timeoutMinutes: z.number().int().positive(),
+		}),
+	),
+	executions: z.array(
+		z.object({
+			id: z.string().min(1),
+			taskCaseId: z.string().min(1),
+			taskAgentId: z.string().min(1),
+			phase: z.string().min(1),
+			result: z.string().min(1),
+			terminationReason: z.string().nullable(),
+			responseText: z.string().nullable(),
+			metrics: z.record(z.string(), z.unknown()).nullable(),
+			startedAtMs: z.number().int().nullable(),
+			finishedAtMs: z.number().int().nullable(),
+			verdict: z.enum(["passed", "failed"]).nullable(),
+			report: z.record(z.string(), z.unknown()).nullable(),
+		}),
+	),
+});
+
 type BenchmarkDocument = z.infer<typeof BenchmarkDocumentSchema>;
 
 type BenchmarkDetail = z.infer<typeof BenchmarkDetailSchema>;
@@ -204,6 +284,8 @@ type BenchmarkMount = z.infer<typeof BenchmarkMountSchema>;
 type BenchmarkTag = z.infer<typeof BenchmarkTagSchema>;
 
 type BenchmarkPreview = z.infer<typeof BenchmarkPreviewSchema>;
+
+type BenchmarkTaskDetail = z.infer<typeof BenchmarkTaskDetailSchema>;
 
 type BenchmarkFilters = {
 	/** Literal name/description query. */
@@ -228,6 +310,10 @@ type BenchmarkPreviewInput = Pick<
 	expectedVersionId: string;
 };
 
+type StartBenchmarkTaskInput = BenchmarkPreviewInput & {
+	idempotencyKey: string;
+};
+
 export type {
 	BenchmarkDocument,
 	BenchmarkDetail,
@@ -238,6 +324,8 @@ export type {
 	BenchmarkPreview,
 	BenchmarkFilters,
 	BenchmarkPreviewInput,
+	BenchmarkTaskDetail,
+	StartBenchmarkTaskInput,
 };
 
 export {
@@ -247,4 +335,5 @@ export {
 	BenchmarkMountSchema,
 	BenchmarkTagSchema,
 	BenchmarkPreviewSchema,
+	BenchmarkTaskDetailSchema,
 };
