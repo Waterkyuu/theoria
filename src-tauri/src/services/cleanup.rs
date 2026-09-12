@@ -157,12 +157,13 @@ mod tests {
     fn task_detail(id: &str, workspace_id: Option<&str>, created_at_ms: i64) -> TaskDetail {
         let agent_id = format!("{id}-agent");
         TaskDetail {
+            prompt: "Remove files".to_string(),
+            baseline_relative_path: format!("task-runs/{id}/baseline"),
             task: Task {
+                kind: crate::domain::task::TaskKind::Work,
                 id: id.to_string(),
                 workspace_id: workspace_id.map(str::to_string),
                 title: "Cleanup".to_string(),
-                prompt: "Remove files".to_string(),
-                baseline_relative_path: format!("task-runs/{id}/baseline"),
                 status: TaskStatus::Preparing,
                 configuration_locked_at_ms: Some(created_at_ms),
                 pinned_at_ms: None,

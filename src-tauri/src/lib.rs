@@ -10,6 +10,8 @@ mod adapters {
 mod commands {
     pub(crate) mod activity;
     pub(crate) mod agent;
+    pub(crate) mod benchmark;
+    pub(crate) mod benchmark_task;
     pub(crate) mod claude;
     pub(crate) mod codex;
     pub(crate) mod comparison;
@@ -26,6 +28,8 @@ mod db {
 }
 mod dto {
     pub(crate) mod agent;
+    pub(crate) mod benchmark;
+    pub(crate) mod benchmark_task;
     pub(crate) mod comparison;
     pub(crate) mod skill;
     pub(crate) mod task;
@@ -36,6 +40,8 @@ mod domain {
     pub(crate) mod agent_kind;
     pub(crate) mod agent_run;
     pub(crate) mod agent_status;
+    pub(crate) mod benchmark;
+    pub(crate) mod benchmark_task;
     pub(crate) mod comparison;
     pub(crate) mod skill;
     pub(crate) mod task;
@@ -52,12 +58,14 @@ mod platform {
     pub(crate) mod workbuddy_config;
 }
 mod models {
+    pub(crate) mod benchmark;
     pub(crate) mod comparison;
     pub(crate) mod skill;
     pub(crate) mod task;
     pub(crate) mod workspace;
 }
 mod repositories {
+    pub(crate) mod benchmark;
     pub(crate) mod comparison;
     pub(crate) mod skill;
     pub(crate) mod task;
@@ -66,6 +74,9 @@ mod repositories {
 mod services {
     pub(crate) mod activity;
     pub(crate) mod agent;
+    pub(crate) mod agent_runtime;
+    pub(crate) mod benchmark;
+    pub(crate) mod benchmark_task;
     pub(crate) mod cleanup;
     pub(crate) mod comparison;
     pub(crate) mod process;
@@ -101,11 +112,14 @@ use crate::platform::opencode_config::{
     opencode_config_paths, OpenCodeConfigWatchEvent, OpenCodeConfigWatcher,
 };
 use crate::platform::workbuddy_config::WorkBuddyConfigWatcherState;
+use crate::repositories::benchmark::BenchmarkRepository;
 use crate::repositories::comparison::ComparisonRepository;
 use crate::repositories::skill::SkillRepository;
 use crate::repositories::task::TaskRepository;
 use crate::repositories::workspace::WorkspaceRepository;
 use crate::services::activity::SystemAgentActivityMonitor;
+use crate::services::benchmark::BenchmarkService;
+use crate::services::benchmark_task::BenchmarkTaskService;
 use crate::services::cleanup::{TaskCleanupService, WorkspaceCleanupService};
 use crate::services::comparison::ComparisonService;
 use crate::services::process::AgentProcessMonitor;
@@ -149,6 +163,14 @@ pub fn run() {
                     .map_err(std::io::Error::other)?;
                 Ok::<_, std::io::Error>(database)
             })?;
+            app.manage(BenchmarkTaskService::new(
+                BenchmarkRepository::new(comparison_database.clone()),
+                app_data_directory.clone(),
+            ));
+            app.manage(BenchmarkService::new(
+                BenchmarkRepository::new(comparison_database.clone()),
+                app_data_directory.clone(),
+            ));
             app.manage(WorkspaceService::new(
                 WorkspaceRepository::new(comparison_database.clone()),
                 app_data_directory.clone(),
@@ -322,6 +344,18 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::benchmark_task::preview_benchmark_task,
+            commands::benchmark::list_benchmark_tags,
+            commands::benchmark::create_benchmark_tag,
+            commands::benchmark::save_benchmark_draft,
+            commands::benchmark::get_benchmark_draft,
+            commands::benchmark::list_benchmark_drafts,
+            commands::benchmark::publish_benchmark,
+            commands::benchmark::list_benchmarks,
+            commands::benchmark::get_benchmark,
+            commands::benchmark::mount_benchmark,
+            commands::benchmark::list_workspace_benchmarks,
+            commands::benchmark::unmount_benchmark,
             commands::activity::check_agent_activities,
             commands::agent::check_agent_processes,
             commands::claude::check_claude_init_status,

@@ -15,6 +15,8 @@ const queryMocks = vi.hoisted(() => ({
 	setWorkspacePin: vi.fn(),
 	unmountWorkspaceSkill: vi.fn(),
 	useTasks: vi.fn(),
+	useWorkspaceBenchmarks: vi.fn(),
+	useBenchmark: vi.fn(),
 	useWorkspaces: vi.fn(),
 	useWorkspaceSkills: vi.fn(),
 }));
@@ -59,6 +61,10 @@ vi.mock("@/queries/workspace", () => ({
 	}),
 	useWorkspaces: queryMocks.useWorkspaces,
 }));
+vi.mock("@/queries/benchmark", () => ({
+	useWorkspaceBenchmarks: queryMocks.useWorkspaceBenchmarks,
+	useBenchmark: queryMocks.useBenchmark,
+}));
 vi.mock("@/queries/skill", () => ({
 	useUnmountWorkspaceSkill: () => ({
 		mutateAsync: queryMocks.unmountWorkspaceSkill,
@@ -90,6 +96,16 @@ const RECENT_TASK = {
 describe("AppSidebar", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		queryMocks.useWorkspaceBenchmarks.mockReturnValue({
+			data: { pages: [[]] },
+			isLoading: false,
+			isError: false,
+			hasNextPage: false,
+		});
+		queryMocks.useBenchmark.mockReturnValue({
+			data: { document: { name: "Pinned suite" } },
+			isLoading: false,
+		});
 		dialogMocks.open.mockResolvedValue("/Users/me/projects/local-kit");
 		queryMocks.createWorkspace.mockResolvedValue({
 			id: "workspace-created",
@@ -153,6 +169,37 @@ describe("AppSidebar", () => {
 			isLoading: false,
 			error: null,
 		});
+	});
+	it("opens a mounted benchmark through its workspace relationship", async () => {
+		queryMocks.useWorkspaceBenchmarks.mockReturnValue({
+			data: {
+				pages: [
+					[
+						{
+							id: "mount-1",
+							workspaceId: "workspace-1",
+							benchmarkId: "suite",
+							versionId: "v1",
+						},
+					],
+				],
+			},
+			isLoading: false,
+			isError: false,
+			hasNextPage: false,
+		});
+		const user = userEvent.setup();
+		const onNavigate = vi.fn();
+		render(
+			<AppSidebar currentPath="/task" onNavigate={onNavigate}>
+				<main>content</main>
+			</AppSidebar>,
+		);
+		await user.click(screen.getByRole("button", { name: "基准测试1" }));
+		await user.click(screen.getByRole("button", { name: "Pinned suite" }));
+		expect(onNavigate).toHaveBeenCalledWith(
+			"/workspaces/workspace-1/benchmark/mount-1",
+		);
 	});
 	it("renders the sidebar navigation regions", () => {
 		render(

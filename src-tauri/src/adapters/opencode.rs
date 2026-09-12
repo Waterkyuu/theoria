@@ -647,6 +647,33 @@ mod tests {
     use std::time::{Duration, Instant};
 
     #[test]
+    fn native_local_command_preserves_product_configuration_and_starts_a_new_session() {
+        let command = build_opencode_task_command(
+            "opencode".as_ref(),
+            "test prompt",
+            AgentExecutionConfig::default(),
+            None,
+        );
+        let args = command.get_args().collect::<Vec<_>>();
+
+        for option in ["--model", "--variant", "--session"] {
+            assert!(
+                !args.iter().any(|arg| *arg == option),
+                "unexpected override: {option}"
+            );
+        }
+        assert!(args.windows(2).any(|args| args == ["--format", "json"]));
+        assert_eq!(command.get_envs().count(), 0);
+        assert_eq!(
+            opencode_permission_config(
+                AgentExecutionConfig::default(),
+                Some(r#"{"model":"local/model","permission":{"bash":"ask"}}"#),
+            ),
+            None,
+        );
+    }
+
+    #[test]
     fn task_command_uses_the_frozen_model_and_variant() {
         let command = build_opencode_task_command(
             "opencode".as_ref(),

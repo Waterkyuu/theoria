@@ -159,12 +159,13 @@ impl TaskService {
             });
         }
         let detail = TaskDetail {
+            prompt,
+            baseline_relative_path: prepared.baseline_relative_path,
             task: Task {
+                kind: crate::domain::task::TaskKind::Work,
                 id: task_id.clone(),
                 workspace_id: input.workspace_id,
                 title,
-                prompt,
-                baseline_relative_path: prepared.baseline_relative_path,
                 status: TaskStatus::Preparing,
                 configuration_locked_at_ms: Some(created_at_ms),
                 pinned_at_ms: None,
@@ -421,7 +422,7 @@ mod tests {
                 .create(input())
                 .await
                 .expect("Task A should prepare");
-            let task_a_baseline = app_data.join(&task_a.task.baseline_relative_path);
+            let task_a_baseline = app_data.join(&task_a.baseline_relative_path);
             let first_execution = app_data.join(&task_a.agents[0].execution_relative_path);
             let second_execution = app_data.join(&task_a.agents[1].execution_relative_path);
             std::fs::write(first_execution.join("input.txt"), "agent-a")
@@ -432,7 +433,7 @@ mod tests {
                 .create(input())
                 .await
                 .expect("Task B should prepare");
-            let task_b_baseline = app_data.join(&task_b.task.baseline_relative_path);
+            let task_b_baseline = app_data.join(&task_b.baseline_relative_path);
 
             assert_eq!(task_a.task.status, TaskStatus::Preparing);
             assert!(task_a.task.configuration_locked_at_ms.is_some());
@@ -547,7 +548,7 @@ mod tests {
             let manifest = |task: &TaskDetail| {
                 std::fs::read_to_string(
                     app_data
-                        .join(&task.task.baseline_relative_path)
+                        .join(&task.baseline_relative_path)
                         .join(".agents/skills/frozen/SKILL.md"),
                 )
                 .expect("frozen manifest should exist")

@@ -1,14 +1,12 @@
-use crate::adapters::agent::{AgentAdapter, AgentExecutionConfig};
+use crate::adapters::agent::AgentExecutionConfig;
 use crate::adapters::agent::{AgentSessionRunOutput, AgentTurnOutcome};
-use crate::adapters::claude::{ClaudeRuntimeSettingsCache, SystemClaudeAdapter};
-use crate::adapters::codex::{CodexRuntimeDefaultsCache, SystemCodexAdapter};
-use crate::adapters::opencode::SystemOpenCodeAdapter;
-use crate::adapters::workbuddy::SystemWorkBuddyAdapter;
-use crate::domain::agent_kind::AgentKind;
+use crate::adapters::claude::ClaudeRuntimeSettingsCache;
+use crate::adapters::codex::CodexRuntimeDefaultsCache;
 use crate::domain::agent_run::{AgentRunMetrics, AgentRunOutput, TokenUsage, ToolCallMetric};
 use crate::domain::task::{TaskAgent, TaskAgentResult, TaskDetail, TaskStatus};
 use crate::error::{AppError, IpcError};
 use crate::repositories::task::TaskRepository;
+use crate::services::agent_runtime::{run_agent_turn, AgentRuntimeCaches};
 use crate::services::result::{CollectedChanges, ResultCollector};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -193,7 +191,7 @@ impl TaskExecutionService {
             .map_err(|_| AppError::TaskDatabaseFailed)?;
         let mut executions = Vec::with_capacity(detail.agents.len());
         for agent in detail.agents.clone() {
-            let prompt = detail.task.prompt.clone();
+            let prompt = detail.prompt.clone();
             let execution_directory = self.app_data_directory.join(&agent.execution_relative_path);
             let model_snapshot = agent.model_snapshot.clone();
             let mode_snapshot = agent.mode_snapshot.clone();
@@ -204,7 +202,7 @@ impl TaskExecutionService {
             let cancellation = self.active_executions.register(&agent.id);
             let runner_cancellation = cancellation.clone();
             let handle = tokio::task::spawn_blocking(move || {
-                run_one_agent(
+                run_agent_turn(
                     agent.agent_kind,
                     &prompt,
                     &execution_directory,
@@ -229,7 +227,7 @@ impl TaskExecutionService {
             });
         }
         let final_statuses = self
-            .collect_executions(&detail, &detail.task.prompt, executions)
+            .collect_executions(&detail, &detail.prompt, executions)
             .await?;
         let task_status = aggregate_status(&final_statuses);
         self.repository
@@ -288,7 +286,7 @@ impl TaskExecutionService {
             let cancellation = self.active_executions.register(&agent.id);
             let runner_cancellation = cancellation.clone();
             let handle = tokio::task::spawn_blocking(move || {
-                run_one_agent(
+                run_agent_turn(
                     agent.agent_kind,
                     &prompt,
                     &execution_directory,
@@ -396,7 +394,7 @@ impl TaskExecutionService {
             .collect(
                 &detail.task.id,
                 &agent.id,
-                Path::new(&detail.task.baseline_relative_path),
+                Path::new(&detail.baseline_relative_path),
                 Path::new(&agent.execution_relative_path),
             )
             .await;
@@ -460,58 +458,6 @@ impl TaskExecutionService {
     }
 }
 
-/// Runtime configuration caches shared with one blocking Agent adapter call.
-struct AgentRuntimeCaches {
-    /// Cached Codex configuration monitor state.
-    codex: CodexRuntimeDefaultsCache,
-    /// Cached Claude configuration monitor state.
-    claude: ClaudeRuntimeSettingsCache,
-}
-
-/// Dispatches one local Agent while preserving the exact prepared cwd.
-fn run_one_agent(
-    agent_kind: AgentKind,
-    prompt: &str,
-    execution_directory: &Path,
-    config: AgentExecutionConfig<'_>,
-    caches: AgentRuntimeCaches,
-    session_id: Option<&str>,
-    cancelled: &AtomicBool,
-) -> Result<AgentSessionRunOutput, AppError> {
-    match agent_kind {
-        AgentKind::Codex => SystemCodexAdapter::new(caches.codex)
-            .run_session_turn_with_config_cancellable(
-                prompt,
-                execution_directory,
-                config,
-                session_id,
-                cancelled,
-            ),
-        AgentKind::Claude => SystemClaudeAdapter::new(caches.claude)
-            .run_session_turn_with_config_cancellable(
-                prompt,
-                execution_directory,
-                config,
-                session_id,
-                cancelled,
-            ),
-        AgentKind::OpenCode => SystemOpenCodeAdapter.run_session_turn_with_config_cancellable(
-            prompt,
-            execution_directory,
-            config,
-            session_id,
-            cancelled,
-        ),
-        AgentKind::WorkBuddy => SystemWorkBuddyAdapter.run_session_turn_with_config_cancellable(
-            prompt,
-            execution_directory,
-            config,
-            session_id,
-            cancelled,
-        ),
-    }
-}
-
 /// Trims one follow-up prompt while enforcing the shared request bound.
 fn validate_follow_up(prompt: &str) -> Result<String, AppError> {
     let prompt = prompt.trim();
@@ -526,7 +472,7 @@ fn validate_frozen_paths(detail: &TaskDetail) -> Result<(), AppError> {
     let expected_baseline = PathBuf::from("task-runs")
         .join(&detail.task.id)
         .join("baseline");
-    if Path::new(&detail.task.baseline_relative_path) != expected_baseline {
+    if Path::new(&detail.baseline_relative_path) != expected_baseline {
         return Err(AppError::TaskPreparationFailed);
     }
     for agent in &detail.agents {
@@ -815,7 +761,7 @@ mod tests {
                 std::fs::create_dir_all(root.join(&agent.execution_relative_path))
                     .expect("create workspace");
             }
-            std::fs::create_dir_all(root.join(&detail.task.baseline_relative_path))
+            std::fs::create_dir_all(root.join(&detail.baseline_relative_path))
                 .expect("create baseline");
             let detail = repository.create(detail).await.expect("save task");
             let service = TaskExecutionService::new(
@@ -1077,7 +1023,7 @@ mod tests {
 
         detail.agents[0].execution_relative_path =
             "task-runs/task-1/executions/agent-1/workspace".to_string();
-        detail.task.baseline_relative_path = "task-runs/task-2/baseline".to_string();
+        detail.baseline_relative_path = "task-runs/task-2/baseline".to_string();
         assert_eq!(
             validate_frozen_paths(&detail),
             Err(AppError::TaskPreparationFailed)
@@ -1087,12 +1033,13 @@ mod tests {
     /// Builds a terminal Task with one resumable and two ineligible sessions.
     fn resumable_task_detail() -> TaskDetail {
         TaskDetail {
+            prompt: "Initial".to_string(),
+            baseline_relative_path: "task-runs/task-1/baseline".to_string(),
             task: Task {
+                kind: crate::domain::task::TaskKind::Work,
                 id: "task-1".to_string(),
                 workspace_id: None,
                 title: "Task".to_string(),
-                prompt: "Initial".to_string(),
-                baseline_relative_path: "task-runs/task-1/baseline".to_string(),
                 status: TaskStatus::Failed,
                 configuration_locked_at_ms: Some(1),
                 pinned_at_ms: None,

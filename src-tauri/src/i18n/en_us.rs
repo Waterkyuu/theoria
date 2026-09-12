@@ -66,6 +66,19 @@ pub(super) fn message(key: ErrorMessageKey) -> &'static str {
         ErrorMessageKey::TaskDatabaseFailed => {
             "The local task history database could not be accessed"
         }
+        ErrorMessageKey::InvalidBenchmark => "The Benchmark document or configuration is invalid",
+        ErrorMessageKey::BenchmarkDatabaseFailed => {
+            "The local Benchmark database could not be accessed"
+        }
+        ErrorMessageKey::BenchmarkNotFound => "The requested Benchmark resource was not found",
+        ErrorMessageKey::BenchmarkConflict => {
+            "The Benchmark changed; reload it before saving or publishing"
+        }
+        ErrorMessageKey::BenchmarkReadOnly => "This Benchmark is read-only or archived",
+        ErrorMessageKey::BenchmarkAssetUnavailable => "A Benchmark material file is unavailable",
+        ErrorMessageKey::BenchmarkVerifierUnavailable => {
+            "The required Benchmark verification environment is unavailable"
+        }
         ErrorMessageKey::InvalidTask => {
             "The task configuration must contain 1 to 6 Agents and valid permissions"
         }

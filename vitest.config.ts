@@ -13,6 +13,8 @@ export default defineConfig({
 		exclude: [...configDefaults.exclude, ".github/scripts/**"],
 		css: true,
 		environment: "jsdom",
+		maxWorkers: 5,
+		pool: "vmThreads",
 		setupFiles: ["./test-setup.ts"],
 		coverage: {
 			provider: "v8",

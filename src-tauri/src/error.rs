@@ -42,6 +42,14 @@ pub(crate) enum AppError {
     SkillFilesystemFailed,
     TaskDatabaseFailed,
     InvalidTask,
+    InvalidBenchmark,
+    BenchmarkDatabaseFailed,
+    BenchmarkNotFound,
+    BenchmarkConflict,
+    BenchmarkReadOnly,
+    BenchmarkAssetUnavailable,
+    BenchmarkVerifierUnavailable,
+
     TaskNotFound,
     TaskPreparationFailed,
     TaskResultFailed,
@@ -229,6 +237,39 @@ impl IpcError {
             AppError::TaskDatabaseFailed => (
                 "TASK_DATABASE_FAILED",
                 ErrorMessageKey::TaskDatabaseFailed,
+                None,
+            ),
+            AppError::InvalidBenchmark => {
+                ("INVALID_BENCHMARK", ErrorMessageKey::InvalidBenchmark, None)
+            }
+            AppError::BenchmarkDatabaseFailed => (
+                "BENCHMARK_DATABASE_FAILED",
+                ErrorMessageKey::BenchmarkDatabaseFailed,
+                None,
+            ),
+            AppError::BenchmarkNotFound => (
+                "BENCHMARK_NOT_FOUND",
+                ErrorMessageKey::BenchmarkNotFound,
+                None,
+            ),
+            AppError::BenchmarkConflict => (
+                "BENCHMARK_CONFLICT",
+                ErrorMessageKey::BenchmarkConflict,
+                None,
+            ),
+            AppError::BenchmarkReadOnly => (
+                "BENCHMARK_READ_ONLY",
+                ErrorMessageKey::BenchmarkReadOnly,
+                None,
+            ),
+            AppError::BenchmarkAssetUnavailable => (
+                "BENCHMARK_ASSET_UNAVAILABLE",
+                ErrorMessageKey::BenchmarkAssetUnavailable,
+                None,
+            ),
+            AppError::BenchmarkVerifierUnavailable => (
+                "BENCHMARK_VERIFIER_UNAVAILABLE",
+                ErrorMessageKey::BenchmarkVerifierUnavailable,
                 None,
             ),
             AppError::InvalidTask => ("INVALID_TASK", ErrorMessageKey::InvalidTask, None),

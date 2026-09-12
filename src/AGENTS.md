@@ -44,11 +44,6 @@ src/
 
 ## Coding Rules
 
-### UI / UX Design
-
-@DESIGN.md
-@reference/react/ux.md
-
 ### Avoid Redundant Type Guards
 
 1. Do not write large numbers of unnecessary type guards that make maintenance difficult. Handle responses strictly according to their declared types.
@@ -211,8 +206,7 @@ cn("px-2 py-1", isActive && "px-4", { "text-red-500": hasError });
 1. Place unit test files in the same directory as the files they test. Do not create a separate `_test_` directory. Place integration and end-to-end tests in the `intergration` and `e2e` directories under `test`.
 2. Tests must follow the red-green-refactor development cycle. Do not write tests afterward based on the existing implementation.
 3. Do not use TDD or add tests for minor changes, such as styling updates, additional logging, icon replacements, or comment additions. Implement these changes directly.
-4. Test code rule `reference/react/test-code-rule.md`
-5. Do not write tests that inspect or assert `className`, CSS class names, or Tailwind utility classes. Test user-observable behavior instead.
+4. Do not write tests that inspect or assert `className`, CSS class names, or Tailwind utility classes. Test user-observable behavior instead.
 
 ### Comments
 
@@ -290,9 +284,18 @@ const [dialogVisible, setDialogVisible] = useState(false);
 
 ### Reference Documentation
 
-1. **Test code rule:** `reference/react/test-code-rule.md`
-2. **Tailwind CSS styling rules:** `reference/react/tailwindcss.md`
-3. **Zod new version 4.5 feature** `reference/typescript/zod-4.5.md`
-4. **ModalProvider usage rules:** `reference/react/modal-provider.md`
-5. **AlertDialog usage rules:** `reference/react/alert-dialog.md`
-6. **UX rules for user-facing React flows:** `reference/react/ux.md`
+Before editing, read only the references relevant to the planned change. If the scope expands, read
+the newly relevant reference before continuing.
+
+| Change                                       | Required reference                  |
+| -------------------------------------------- | ----------------------------------- |
+| Designing or changing visual UI              | `src/DESIGN.md`                     |
+| Adding, changing, or deleting tests          | `reference/react/test-code-rule.md` |
+| Styling with Tailwind CSS                    | `reference/react/tailwindcss.md`    |
+| Using Zod 4.5 schemas or APIs                | `reference/typescript/zod-v4.5.md`  |
+| Using or changing `ModalProvider`            | `reference/react/modal-provider.md` |
+| Using or changing `AlertDialog`              | `reference/react/alert-dialog.md`   |
+| Building or changing user-facing React flows | `reference/react/ux.md`             |
+
+Do not read unrelated references preemptively. Multiple references are required when a change
+crosses multiple rows.

@@ -216,8 +216,8 @@ struct AppServerThread {
 struct CodexRuntimeDefaults {
     /// Temporary thread identifier used while resolving runtime defaults.
     thread_id: String,
-    /// Model selected by App Server for the temporary thread.
-    model: String,
+    /// Model reported by App Server, when the thread response exposes it.
+    model: Option<String>,
     /// Reasoning effort selected by App Server for the temporary thread.
     reasoning_effort: Option<String>,
 }
@@ -392,9 +392,11 @@ fn resolve_codex_runtime_settings(executable: &OsStr) -> Result<CodexRuntimeSett
         return Ok(settings);
     }
 
-    resolve_codex_runtime_defaults(executable).map(|defaults| CodexRuntimeSettings {
-        model: defaults.model,
-        reasoning_effort: defaults.reasoning_effort,
+    resolve_codex_runtime_defaults(executable).and_then(|defaults| {
+        Ok(CodexRuntimeSettings {
+            model: defaults.model.ok_or(AppError::CodexProtocolFailed)?,
+            reasoning_effort: defaults.reasoning_effort,
+        })
     })
 }
 
@@ -543,7 +545,7 @@ fn initialize_app_server_thread(
             .thread
             .map(|thread| thread.id)
             .ok_or(AppError::CodexProtocolFailed)?,
-        model: result.model.ok_or(AppError::CodexProtocolFailed)?,
+        model: result.model,
         reasoning_effort: result.reasoning_effort,
     })
 }
@@ -554,20 +556,23 @@ fn build_codex_thread_request(
     session_id: Option<&str>,
     ephemeral: bool,
 ) -> serde_json::Value {
-    let sandbox = match config.file_access {
-        Some("read_only") => "read-only",
-        _ => "workspace-write",
-    };
-    let approval_policy = match config.command_execution {
-        Some("deny") => "untrusted",
-        Some("ask") => "on-request",
-        _ => "never",
-    };
     let mut params = serde_json::json!({
-        "approvalPolicy": approval_policy,
-        "sandbox": sandbox,
         "serviceName": "agent_gauge"
     });
+    // Omitted settings belong to the local product, not to Theoria defaults.
+    if let Some(file_access) = config.file_access {
+        params["sandbox"] = serde_json::json!(match file_access {
+            "read_only" => "read-only",
+            _ => "workspace-write",
+        });
+    }
+    if let Some(command_execution) = config.command_execution {
+        params["approvalPolicy"] = serde_json::json!(match command_execution {
+            "deny" => "untrusted",
+            "ask" => "on-request",
+            _ => "never",
+        });
+    }
     if let Some(model) = config.model {
         params["model"] = serde_json::Value::String(model.to_string());
     }
@@ -859,6 +864,19 @@ mod tests {
     use std::time::{Duration, Instant};
 
     #[test]
+    fn native_local_request_inherits_product_settings_without_overrides() {
+        let request = build_codex_thread_request(AgentExecutionConfig::default(), None, false);
+
+        assert_eq!(request["method"], "thread/start");
+        for field in ["model", "effort", "sandbox", "approvalPolicy", "threadId"] {
+            assert!(
+                request["params"].get(field).is_none(),
+                "unexpected override: {field}"
+            );
+        }
+    }
+
+    #[test]
     fn starts_task_thread_with_the_frozen_model_and_effort() {
         let request = build_codex_thread_request(
             AgentExecutionConfig {
@@ -968,6 +986,45 @@ wait "$reader_pid"
 
         std::fs::remove_dir_all(root).expect("fixture should be removable");
         assert_eq!(result, Ok(()));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn native_local_turn_completes_when_the_product_omits_model_metadata() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = std::env::temp_dir().join(format!(
+            "theoria-codex-native-metadata-test-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&root).expect("fixture directory should be created");
+        let executable = root.join("codex-fixture");
+        std::fs::write(
+            &executable,
+            r#"#!/bin/sh
+printf '%s\n' '{"id":0,"result":{}}' '{"id":1,"result":{"thread":{"id":"native-thread"}}}' '{"method":"item/agentMessage/delta","params":{"delta":"done"}}' '{"method":"turn/completed","params":{"turn":{"status":"completed"}}}'
+cat <&0 >/dev/null
+"#,
+        )
+        .expect("protocol fixture should be written");
+        std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700))
+            .expect("fixture should be executable");
+
+        let result = with_app_server(executable.as_os_str(), Some(&root), |stdin, receiver| {
+            super::run_app_server_task(
+                stdin,
+                receiver,
+                "test prompt",
+                AgentExecutionConfig::default(),
+                None,
+                &AtomicBool::new(false),
+            )
+        });
+        std::fs::remove_dir_all(root).expect("fixture should be removable");
+        let run = result.expect("missing observational metadata must not prevent execution");
+        assert_eq!(run.output.response, "done");
+        assert_eq!(run.session_id.as_deref(), Some("native-thread"));
+        assert_eq!(run.outcome, AgentTurnOutcome::Completed);
     }
 
     #[cfg(target_os = "macos")]

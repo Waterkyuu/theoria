@@ -303,7 +303,7 @@ const WorkspacePage = ({ workspaceId, taskId }: WorkspacePageProps) => {
 									agent={agent}
 									key={agent.id}
 									onStop={stopTaskAgent}
-									prompt={task.task.prompt}
+									prompt={task.prompt}
 									result={task.results.find(
 										(result) => result.taskAgentId === agent.id,
 									)}

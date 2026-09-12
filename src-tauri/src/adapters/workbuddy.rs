@@ -457,13 +457,17 @@ fn build_workbuddy_task_command(
     session_id: Option<&str>,
 ) -> Command {
     let mut command = Command::new(executable);
-    let permission_mode = match (config.file_access, config.command_execution) {
-        (Some("read_only"), _) => "plan",
-        (Some("allow_edits"), Some("allow")) => "bypassPermissions",
-        (Some("allow_edits"), Some("ask")) => "default",
-        (Some("allow_edits"), Some("deny")) => "acceptEdits",
-        _ => "acceptEdits",
-    };
+    // Native calls inherit the product policy; configured Tasks keep their explicit policy.
+    if config.file_access.is_some() || config.command_execution.is_some() {
+        let permission_mode = match (config.file_access, config.command_execution) {
+            (Some("read_only"), _) => "plan",
+            (Some("allow_edits"), Some("allow")) => "bypassPermissions",
+            (Some("allow_edits"), Some("ask")) => "default",
+            (Some("allow_edits"), Some("deny")) => "acceptEdits",
+            _ => "acceptEdits",
+        };
+        command.args(["--permission-mode", permission_mode]);
+    }
     if let Some(model) = config.model {
         command.args(["--model", model]);
     }
@@ -486,8 +490,6 @@ fn build_workbuddy_task_command(
             "stream-json",
             "--include-partial-messages",
             "--verbose",
-            "--permission-mode",
-            permission_mode,
         ])
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -918,6 +920,28 @@ mod tests {
     use std::sync::atomic::AtomicBool;
     use std::sync::mpsc;
     use std::time::Instant;
+
+    #[test]
+    fn native_local_command_inherits_product_settings_without_overrides() {
+        let command = build_workbuddy_task_command(
+            "codebuddy".as_ref(),
+            "test prompt",
+            AgentExecutionConfig::default(),
+            None,
+        );
+        let args = command.get_args().collect::<Vec<_>>();
+
+        for option in ["--model", "--effort", "--permission-mode", "--resume"] {
+            assert!(
+                !args.iter().any(|arg| *arg == option),
+                "unexpected override: {option}"
+            );
+        }
+        assert!(args
+            .windows(2)
+            .any(|args| args == ["--output-format", "stream-json"]));
+        assert_eq!(command.get_envs().count(), 0);
+    }
 
     #[test]
     fn task_command_uses_the_frozen_model_and_effort() {
