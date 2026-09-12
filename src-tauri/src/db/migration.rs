@@ -33,7 +33,7 @@ impl MigrationTrait for CreateBenchmarks {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .get_connection()
-            .execute_unprepared(include_str!("benchmark.sql"))
+            .execute_unprepared(include_str!("sql/benchmark.sql"))
             .await?;
         Ok(())
     }
