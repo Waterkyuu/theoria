@@ -1,6 +1,7 @@
 use crate::domain::agent_kind::AgentKind;
-use crate::domain::benchmark::BenchmarkDetail;
-use crate::domain::task::TaskPermissions;
+use crate::domain::benchmark::{BenchmarkCase, BenchmarkDetail};
+use crate::domain::task::{Task, TaskPermissions};
+use serde::{Deserialize, Serialize};
 
 /// Explicit choices for a complete mounted benchmark; models belong to the local product.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -47,4 +48,85 @@ pub(crate) struct BenchmarkTaskPreview {
     pub(crate) benchmark: BenchmarkDetail,
     /// Known missing prerequisites; execution must recheck mutable conditions.
     pub(crate) issues: Vec<BenchmarkPreflightIssue>,
+}
+
+/// One local product participating in every case of a benchmark task.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BenchmarkTaskAgent {
+    pub(crate) id: String,
+    pub(crate) agent_kind: AgentKind,
+    pub(crate) position: usize,
+}
+
+/// Immutable case snapshot kept beneath one benchmark task.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BenchmarkTaskCase {
+    pub(crate) id: String,
+    pub(crate) case_id: String,
+    pub(crate) position: usize,
+    pub(crate) content: BenchmarkCase,
+}
+
+/// One cell in the complete Case × Agent execution matrix.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BenchmarkCaseExecution {
+    pub(crate) id: String,
+    pub(crate) task_case_id: String,
+    pub(crate) task_agent_id: String,
+    pub(crate) phase: String,
+    pub(crate) termination_reason: Option<String>,
+    pub(crate) session_id: Option<String>,
+    pub(crate) response_text: Option<String>,
+    pub(crate) metrics_json: Option<String>,
+    pub(crate) started_at_ms: Option<i64>,
+    pub(crate) finished_at_ms: Option<i64>,
+    pub(crate) verdict: Option<String>,
+    pub(crate) report_json: Option<String>,
+}
+
+/// Complete persisted launch plan and the execution state derived from it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BenchmarkTaskDetail {
+    pub(crate) task: Task,
+    pub(crate) benchmark_id: String,
+    pub(crate) benchmark_name: String,
+    pub(crate) version_id: String,
+    pub(crate) version_number: i64,
+    pub(crate) rerun_of_task_id: Option<String>,
+    pub(crate) result_completeness: String,
+    pub(crate) completion_reason: Option<String>,
+    pub(crate) cancel_requested: bool,
+    pub(crate) permissions: TaskPermissions,
+    pub(crate) agents: Vec<BenchmarkTaskAgent>,
+    pub(crate) cases: Vec<BenchmarkTaskCase>,
+    pub(crate) executions: Vec<BenchmarkCaseExecution>,
+}
+
+/// Public, stable result of one fixed validation rule.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct BenchmarkEvaluationCheck {
+    pub(crate) kind: String,
+    pub(crate) path: Option<String>,
+    pub(crate) passed: bool,
+    pub(crate) message: String,
+}
+
+/// All required checks contribute to one binary case verdict.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct BenchmarkEvaluationReport {
+    pub(crate) passed: bool,
+    pub(crate) checks: Vec<BenchmarkEvaluationCheck>,
+}
+
+/// Terminal values persisted together for one execution cell.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BenchmarkExecutionResult {
+    pub(crate) session_id: Option<String>,
+    pub(crate) response_text: Option<String>,
+    pub(crate) metrics_json: Option<String>,
+    pub(crate) termination_reason: Option<String>,
+    pub(crate) report: Option<BenchmarkEvaluationReport>,
+    pub(crate) finished_at_ms: i64,
 }
