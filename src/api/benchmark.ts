@@ -7,6 +7,7 @@ import {
 	BenchmarkMountSchema,
 	BenchmarkMountsSchema,
 	BenchmarkTagSchema,
+	BenchmarkTagUsageSchema,
 	BenchmarkTagsSchema,
 	BenchmarkPreviewSchema,
 	BenchmarkTaskDetailSchema,
@@ -42,6 +43,12 @@ const getBenchmark = (benchmarkId: string, versionId: string | null = null) =>
 		request: { benchmarkId, versionId },
 	});
 
+/** Hides one personal definition from the default catalog without deleting history. */
+const archiveBenchmark = (benchmarkId: string) =>
+	invokeWithResponseSchema("archive_benchmark", BenchmarkDetailSchema, {
+		request: { benchmarkId },
+	});
+
 /** Loads available classifications. */
 const listBenchmarkTags = () =>
 	invokeWithResponseSchema("list_benchmark_tags", BenchmarkTagsSchema);
@@ -55,6 +62,24 @@ const listBenchmarkTags = () =>
 const createBenchmarkTag = (name: string, icon: string) =>
 	invokeWithResponseSchema("create_benchmark_tag", BenchmarkTagSchema, {
 		request: { name, icon },
+	});
+
+/** Loads the reassignment count displayed before deleting a personal Tag. */
+const getBenchmarkTagUsage = (tagId: string) =>
+	invokeWithResponseSchema("get_benchmark_tag_usage", BenchmarkTagUsageSchema, {
+		request: { tagId },
+	});
+
+/** Changes a personal Tag without changing its stable identifier. */
+const updateBenchmarkTag = (tagId: string, name: string, icon: string) =>
+	invokeWithResponseSchema("update_benchmark_tag", BenchmarkTagSchema, {
+		request: { tagId, name, icon },
+	});
+
+/** Reassigns dependent definitions and removes one personal Tag. */
+const deleteBenchmarkTag = (tagId: string) =>
+	invokeWithResponseSchema("delete_benchmark_tag", BenchmarkTagUsageSchema, {
+		request: { tagId },
 	});
 
 /**
@@ -137,6 +162,16 @@ const mountBenchmark = (
 		request: { workspaceId, benchmarkId, versionId },
 	});
 
+/** Explicitly changes the version pinned by an existing workspace mount. */
+const updateBenchmarkMount = (
+	workspaceId: string,
+	mountId: string,
+	versionId: string,
+) =>
+	invokeWithResponseSchema("update_benchmark_mount", BenchmarkMountSchema, {
+		request: { workspaceId, mountId, versionId },
+	});
+
 /**
  * Removes only the relationship.
  *
@@ -180,14 +215,19 @@ const getBenchmarkTask = (taskId: string) =>
 export {
 	listBenchmarks,
 	getBenchmark,
+	archiveBenchmark,
 	listBenchmarkTags,
 	createBenchmarkTag,
+	getBenchmarkTagUsage,
+	updateBenchmarkTag,
+	deleteBenchmarkTag,
 	saveBenchmarkDraft,
 	publishBenchmark,
 	getBenchmarkDraft,
 	listBenchmarkDrafts,
 	listWorkspaceBenchmarks,
 	mountBenchmark,
+	updateBenchmarkMount,
 	unmountBenchmark,
 	previewBenchmarkTask,
 	startBenchmarkTask,

@@ -206,6 +206,11 @@ const BenchmarkValidationErrorSchema = z.object({
 	}),
 });
 
+const BenchmarkTagUsageSchema = z.object({
+	/** Definitions reassigned when the selected Tag is deleted. */
+	benchmarkCount: z.number().int().nonnegative(),
+});
+
 const BenchmarkTaskDetailSchema = z.object({
 	task: z.object({
 		id: z.string().min(1),
@@ -310,6 +315,8 @@ type BenchmarkTaskDetail = z.infer<typeof BenchmarkTaskDetailSchema>;
 
 type BenchmarkValidationIssue = z.infer<typeof BenchmarkValidationIssueSchema>;
 
+type BenchmarkTagUsage = z.infer<typeof BenchmarkTagUsageSchema>;
+
 type BenchmarkFilters = {
 	/** Literal name/description query. */
 	search: string;
@@ -363,6 +370,7 @@ export type {
 	BenchmarkPreviewInput,
 	BenchmarkTaskDetail,
 	BenchmarkValidationIssue,
+	BenchmarkTagUsage,
 	RerunBenchmarkTaskInput,
 	StartBenchmarkTaskInput,
 };
@@ -376,6 +384,7 @@ export {
 	BenchmarkPreviewSchema,
 	BenchmarkTaskDetailSchema,
 	BenchmarkValidationErrorSchema,
+	BenchmarkTagUsageSchema,
 	BenchmarkSummariesSchema,
 	BenchmarkMountsSchema,
 	BenchmarkTagsSchema,
