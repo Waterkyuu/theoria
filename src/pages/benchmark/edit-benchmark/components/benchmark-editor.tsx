@@ -232,7 +232,7 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 						{document.cases.map((item, index) => (
 							<section
 								key={index}
-								className="space-y-lg rounded-xl border border-hairline p-lg"
+								className="rounded-xl border border-hairline p-lg"
 							>
 								<div className="flex items-center justify-between gap-md">
 									<span className="text-body-sm font-semibold">
@@ -256,55 +256,90 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 										}
 									/>
 								</div>
-								<label className="flex flex-col gap-sm text-body-sm">
-									{t("benchmark.caseName")}
-									<input
-										required
-										maxLength={120}
-										className={FIELD}
-										value={item.name}
-										onChange={(event) =>
-											setDocument({
-												...document,
-												cases: document.cases.map((value, position) =>
-													position === index
-														? { ...value, name: event.target.value }
-														: value,
-												),
-											})
-										}
-									/>
-								</label>
-								<label className="flex flex-col gap-sm text-body-sm">
-									{t("benchmark.prompt")}
-									<textarea
-										required
-										rows={4}
-										maxLength={16000}
-										className={FIELD}
-										value={item.prompt}
-										onChange={(event) =>
-											setDocument({
-												...document,
-												cases: document.cases.map((value, position) =>
-													position === index
-														? { ...value, prompt: event.target.value }
-														: value,
-												),
-											})
-										}
-									/>
-								</label>
-								{item.checks.length === 1 &&
-								item.checks[0].kind === "answer" ? (
+								<div className="mt-lg space-y-xl">
 									<label className="flex flex-col gap-sm text-body-sm">
-										{t("benchmark.expected")}
+										{t("benchmark.caseName")}
+										<input
+											required
+											maxLength={120}
+											className={FIELD}
+											value={item.name}
+											onChange={(event) =>
+												setDocument({
+													...document,
+													cases: document.cases.map((value, position) =>
+														position === index
+															? { ...value, name: event.target.value }
+															: value,
+													),
+												})
+											}
+										/>
+									</label>
+									<label className="flex flex-col gap-sm text-body-sm">
+										{t("benchmark.prompt")}
 										<textarea
 											required
-											rows={2}
-											maxLength={65536}
+											rows={4}
+											maxLength={16000}
 											className={FIELD}
-											value={item.checks[0].expected}
+											value={item.prompt}
+											onChange={(event) =>
+												setDocument({
+													...document,
+													cases: document.cases.map((value, position) =>
+														position === index
+															? { ...value, prompt: event.target.value }
+															: value,
+													),
+												})
+											}
+										/>
+									</label>
+									{item.checks.length === 1 &&
+									item.checks[0].kind === "answer" ? (
+										<label className="flex flex-col gap-sm text-body-sm">
+											{t("benchmark.expected")}
+											<textarea
+												required
+												rows={2}
+												maxLength={65536}
+												className={FIELD}
+												value={item.checks[0].expected}
+												onChange={(event) =>
+													setDocument({
+														...document,
+														cases: document.cases.map((value, position) =>
+															position === index
+																? {
+																		...value,
+																		checks: [
+																			{
+																				kind: "answer",
+																				expected: event.target.value,
+																			},
+																		],
+																	}
+																: value,
+														),
+													})
+												}
+											/>
+										</label>
+									) : (
+										<p className="text-body-sm text-body">
+											{t("benchmark.structuredCase")}
+										</p>
+									)}
+									<label className="flex max-w-60 flex-col gap-sm text-body-sm">
+										{t("benchmark.timeout")}
+										<input
+											required
+											type="number"
+											min={1}
+											max={60}
+											className={FIELD}
+											value={item.timeoutMinutes}
 											onChange={(event) =>
 												setDocument({
 													...document,
@@ -312,12 +347,7 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 														position === index
 															? {
 																	...value,
-																	checks: [
-																		{
-																			kind: "answer",
-																			expected: event.target.value,
-																		},
-																	],
+																	timeoutMinutes: Number(event.target.value),
 																}
 															: value,
 													),
@@ -325,35 +355,7 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 											}
 										/>
 									</label>
-								) : (
-									<p className="text-body-sm text-body">
-										{t("benchmark.structuredCase")}
-									</p>
-								)}
-								<label className="flex max-w-60 flex-col gap-sm text-body-sm">
-									{t("benchmark.timeout")}
-									<input
-										required
-										type="number"
-										min={1}
-										max={60}
-										className={FIELD}
-										value={item.timeoutMinutes}
-										onChange={(event) =>
-											setDocument({
-												...document,
-												cases: document.cases.map((value, position) =>
-													position === index
-														? {
-																...value,
-																timeoutMinutes: Number(event.target.value),
-															}
-														: value,
-												),
-											})
-										}
-									/>
-								</label>
+								</div>
 							</section>
 						))}
 						<Button
