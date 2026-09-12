@@ -11,6 +11,7 @@ import { BenchmarkFeedback } from "./components/feedback";
 import { BenchmarkFiltersBar } from "./components/filters";
 import { BenchmarkMountModal } from "./components/mount-modal";
 import { TagIcon } from "./components/tag-icon";
+
 const BenchmarkPage = () => {
 	const { t } = useTranslation();
 	const navigate = useNavigate();
@@ -140,4 +141,5 @@ const BenchmarkPage = () => {
 		</main>
 	);
 };
+
 export default BenchmarkPage;
