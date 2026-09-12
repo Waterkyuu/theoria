@@ -11,7 +11,9 @@ import { BenchmarkTaskView } from "./benchmark-task-view";
 const { invoke } = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
 
-const task = (status: BenchmarkTaskDetail["task"]["status"]) =>
+const task = (
+	status: BenchmarkTaskDetail["task"]["status"],
+): BenchmarkTaskDetail =>
 	({
 		task: {
 			id: "task-1",
@@ -159,4 +161,47 @@ it("reruns a terminal task and confirms restoration of a missing mount", async (
 			}),
 		);
 	});
+});
+
+it("shows the selected case requirements and every public validation check", async () => {
+	const completed = task("completed");
+	completed.executions = [
+		{
+			id: "execution-1",
+			taskCaseId: "task-case-1",
+			taskAgentId: "task-agent-1",
+			phase: "finished",
+			result: "passed",
+			terminationReason: null,
+			responseText: "42",
+			metrics: { totalDurationMs: 10 },
+			startedAtMs: 10,
+			finishedAtMs: 20,
+			verdict: "passed",
+			report: {
+				passed: true,
+				checks: [
+					{
+						kind: "answer",
+						path: null,
+						passed: true,
+						message: "Exact answer matched",
+					},
+				],
+			},
+		},
+	];
+	invoke.mockImplementation(async (command: string) => {
+		if (command === "get_benchmark_task") return completed;
+		throw new Error(`Unexpected command: ${command}`);
+	});
+	const user = userEvent.setup();
+	renderTask();
+
+	await user.click(await screen.findByRole("button", { name: "Passed" }));
+
+	expect(screen.getByText("Return 42")).toBeInTheDocument();
+	expect(screen.getByText("42")).toBeInTheDocument();
+	expect(screen.getByText("Exact answer matched")).toBeInTheDocument();
+	expect(screen.getByText(/Execution duration.*10 ms/)).toBeInTheDocument();
 });

@@ -257,6 +257,20 @@ const BenchmarkTagUsageSchema = z.object({
 	benchmarkCount: z.number().int().nonnegative(),
 });
 
+const BenchmarkEvaluationReportSchema = z.object({
+	/** Overall result; true only when every public check passed. */
+	passed: z.boolean(),
+	/** Bounded public checks returned by built-in or controlled validators. */
+	checks: z.array(
+		z.object({
+			kind: z.string().min(1),
+			path: z.string().nullable(),
+			passed: z.boolean(),
+			message: z.string().min(1),
+		}),
+	),
+});
+
 const BenchmarkTaskDetailSchema = z.object({
 	task: z.object({
 		id: z.string().min(1),
@@ -332,7 +346,7 @@ const BenchmarkTaskDetailSchema = z.object({
 			startedAtMs: z.number().int().nullable(),
 			finishedAtMs: z.number().int().nullable(),
 			verdict: z.enum(["passed", "failed"]).nullable(),
-			report: z.record(z.string(), z.unknown()).nullable(),
+			report: BenchmarkEvaluationReportSchema.nullable(),
 		}),
 	),
 });

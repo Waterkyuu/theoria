@@ -169,6 +169,11 @@ const zhCN = {
 				incompleteCoverage: "结果覆盖不完整",
 				metrics: "{{duration}} 毫秒 · {{tokens}} tokens · {{tools}} 次工具调用",
 				executionDetail: "执行详情",
+				requirements: "Case 要求",
+				response: "Agent 回答",
+				noResponse: "没有保存到回答。",
+				duration: "执行耗时",
+				checks: "验证结果",
 				state: {
 					passed: "通过",
 					failed: "未通过",
@@ -203,6 +208,7 @@ const zhCN = {
 				duplicate_path: "文件路径不能重复",
 				invalid_expected: "请填写有效的预期值",
 				invalid_json: "请填写有效 JSON",
+				invalid_python: "请提供有效的 validate(workspace) Python 入口",
 			},
 			sort: {
 				newest: "最新创建",
