@@ -81,6 +81,18 @@ const zhCN = {
 			checked: "运行条件检查完成",
 			start: "开始评测",
 			started: "评测已启动",
+			cancelRun: "取消运行",
+			cancelling: "正在取消",
+			cancelRequested: "已请求取消评测",
+			rerun: "重新运行",
+			rerunDescription:
+				"发布版本与完整 Case 集保持不变，可以重新选择 Agent 和权限。",
+			startRerun: "开始重新运行",
+			rerunStarted: "重新运行已启动",
+			restoreMountTitle: "恢复历史挂载？",
+			restoreMountDescription:
+				"此 Benchmark 已不在工作区中。是否先恢复当时的精确版本，再重新运行？",
+			restoreAndRerun: "恢复并重新运行",
 			planned: "{{cases}} 个 Case × {{agents}} 个 Agent = {{count}} 次执行",
 			checkPassed: "未发现缺失的运行条件。",
 			taskStatus: {

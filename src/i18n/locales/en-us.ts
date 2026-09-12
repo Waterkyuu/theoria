@@ -83,6 +83,18 @@ const enUS = {
 			checked: "Prerequisites checked",
 			start: "Start",
 			started: "Benchmark started",
+			cancelRun: "Cancel run",
+			cancelling: "Cancelling",
+			cancelRequested: "Cancellation requested",
+			rerun: "Rerun",
+			rerunDescription:
+				"The published version and complete case set stay fixed. You can change Agents and permissions.",
+			startRerun: "Start rerun",
+			rerunStarted: "Rerun started",
+			restoreMountTitle: "Restore historical mount?",
+			restoreMountDescription:
+				"This Benchmark is no longer mounted. Restore the exact historical version to this Workspace before rerunning it?",
+			restoreAndRerun: "Restore and rerun",
 			planned: "{{cases}} cases × {{agents}} Agents = {{count}} executions",
 			checkPassed: "No missing prerequisites found.",
 			taskStatus: {

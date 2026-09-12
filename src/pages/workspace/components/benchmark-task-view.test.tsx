@@ -1,0 +1,162 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import "@testing-library/jest-dom/vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter, Route, Routes } from "react-router";
+import { beforeEach, expect, it, vi } from "vitest";
+import i18n from "@/i18n";
+import type { BenchmarkTaskDetail } from "@/types/benchmark";
+import { BenchmarkTaskView } from "./benchmark-task-view";
+
+const { invoke } = vi.hoisted(() => ({ invoke: vi.fn() }));
+vi.mock("@tauri-apps/api/core", () => ({ invoke }));
+
+const task = (status: BenchmarkTaskDetail["task"]["status"]) =>
+	({
+		task: {
+			id: "task-1",
+			workspaceId: "workspace-1",
+			title: "Answer suite",
+			kind: "benchmark",
+			status,
+			configurationLockedAtMs: 1,
+			pinnedAtMs: null,
+			createdAtMs: 1,
+			updatedAtMs: 1,
+		},
+		benchmarkId: "benchmark-1",
+		benchmarkName: "Answer suite",
+		versionId: "version-1",
+		versionNumber: 1,
+		rerunOfTaskId: null,
+		resultCompleteness: status === "completed" ? "complete" : "incomplete",
+		completionReason: null,
+		cancelRequested: false,
+		fileAccess: "allow_edits",
+		commandExecution: "allow",
+		progress: {
+			total: 1,
+			finished: status === "completed" ? 1 : 0,
+			passed: status === "completed" ? 1 : 0,
+			failed: 0,
+			errors: 0,
+		},
+		agents: [
+			{
+				id: "task-agent-1",
+				agentKind: "codex",
+				position: 0,
+				passed: status === "completed" ? 1 : 0,
+				failed: 0,
+				total: 1,
+				passRate: status === "completed" ? 1 : null,
+				totalDurationMs: 10,
+				durationCoverage: status === "completed" ? 1 : 0,
+				totalTokens: 4,
+				tokenCoverage: status === "completed" ? 1 : 0,
+				toolCallCount: 0,
+			},
+		],
+		cases: [
+			{
+				id: "task-case-1",
+				caseId: "case-1",
+				position: 0,
+				name: "Count",
+				prompt: "Return 42",
+				timeoutMinutes: 1,
+			},
+		],
+		executions: [],
+	}) satisfies BenchmarkTaskDetail;
+
+const renderTask = () =>
+	render(
+		<QueryClientProvider
+			client={
+				new QueryClient({ defaultOptions: { queries: { retry: false } } })
+			}
+		>
+			<MemoryRouter initialEntries={["/workspaces/workspace-1/task/task-1"]}>
+				<Routes>
+					<Route
+						path="/workspaces/:workspaceId/task/:taskId"
+						element={<BenchmarkTaskView taskId="task-1" />}
+					/>
+					<Route path="/task/:taskId" element={<p>New run</p>} />
+				</Routes>
+			</MemoryRouter>
+		</QueryClientProvider>,
+	);
+
+beforeEach(async () => {
+	invoke.mockReset();
+	await i18n.changeLanguage("en-US");
+});
+
+it("cancels an active Benchmark Task through the unified command", async () => {
+	invoke.mockImplementation(async (command: string) => {
+		if (command === "get_benchmark_task") return task("running");
+		if (command === "cancel_task") return null;
+		throw new Error(`Unexpected command: ${command}`);
+	});
+	const user = userEvent.setup();
+	renderTask();
+
+	await user.click(await screen.findByRole("button", { name: "Cancel run" }));
+
+	await waitFor(() => {
+		expect(invoke).toHaveBeenCalledWith("cancel_task", {
+			request: { taskId: "task-1" },
+		});
+	});
+});
+
+it("reruns a terminal task and confirms restoration of a missing mount", async () => {
+	let rerunCalls = 0;
+	invoke.mockImplementation(async (command: string) => {
+		if (command === "get_benchmark_task") return task("completed");
+		if (command === "rerun_benchmark_task") {
+			rerunCalls += 1;
+			if (rerunCalls === 1) {
+				throw {
+					code: "BENCHMARK_MOUNT_REQUIRED",
+					message: "Mount required",
+				};
+			}
+			return {
+				...task("completed"),
+				task: { ...task("completed").task, id: "task-2" },
+			};
+		}
+		throw new Error(`Unexpected command: ${command}`);
+	});
+	const user = userEvent.setup();
+	renderTask();
+
+	await user.click(await screen.findByRole("button", { name: "Rerun" }));
+	await user.click(screen.getByRole("button", { name: "Start rerun" }));
+	await user.click(
+		await screen.findByRole("button", { name: "Restore and rerun" }),
+	);
+
+	await waitFor(() => {
+		const calls = invoke.mock.calls.filter(
+			([command]) => command === "rerun_benchmark_task",
+		);
+		expect(calls).toHaveLength(2);
+		expect(calls[0]?.[1].request).toEqual(
+			expect.objectContaining({
+				sourceTaskId: "task-1",
+				agentKinds: ["codex"],
+				restoreMount: false,
+			}),
+		);
+		expect(calls[1]?.[1].request).toEqual(
+			expect.objectContaining({
+				restoreMount: true,
+				idempotencyKey: calls[0]?.[1].request.idempotencyKey,
+			}),
+		);
+	});
+});
