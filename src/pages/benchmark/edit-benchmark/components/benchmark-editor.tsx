@@ -140,7 +140,11 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 					<Popover
 						title={t("benchmark.newTag")}
 						trigger={
-							<Button size="sm" variant="secondary">
+							<Button
+								size="sm"
+								variant="secondary"
+								className="border border-hairline bg-canvas shadow-none"
+							>
 								{t("benchmark.newTag")}
 							</Button>
 						}
@@ -250,7 +254,11 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 											})
 										}
 										trigger={
-											<Button variant="tertiary" size="sm">
+											<Button
+												variant="secondary"
+												size="sm"
+												className="border border-hairline bg-canvas shadow-none"
+											>
 												{t("benchmark.removeCase")}
 											</Button>
 										}
@@ -369,7 +377,7 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 						))}
 						<Button
 							variant="secondary"
-							className="self-start"
+							className="self-start border border-hairline bg-canvas shadow-none"
 							isDisabled={document.cases.length >= 100}
 							onPress={() =>
 								setDocument({
@@ -397,6 +405,7 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 							value="save"
 							isPending={pending}
 							variant="secondary"
+							className="border border-hairline bg-canvas shadow-none"
 						>
 							{t("benchmark.save")}
 						</Button>
