@@ -28,6 +28,14 @@ const LAST_TASK_CONTEXT_KEY = "theoria:last-task-context";
 const WorkspacePage = lazy(() => import("@/pages/workspace"));
 const AgentsPage = lazy(() => import("@/pages/agents"));
 const BenchmarkPage = lazy(() => import("@/pages/benchmark"));
+const BenchmarkDetailPage = lazy(() => import("@/pages/benchmark/detail"));
+const BenchmarkEditorPage = lazy(() => import("@/pages/benchmark/editor"));
+const BenchmarkDraftsPage = lazy(() => import("@/pages/benchmark/drafts"));
+const WorkspaceBenchmarkPage = lazy(() =>
+	import("@/pages/benchmark/detail").then((module) => ({
+		default: module.WorkspaceBenchmarkPage,
+	})),
+);
 const RunBoardPage = lazy(() => import("@/pages/run-board"));
 const SkillsPage = lazy(() => import("@/pages/skills"));
 const SimpleCreateSkillPage = lazy(
@@ -154,6 +162,20 @@ const RoutedApplication = () => {
 					/>
 					<Route element={<EditSkillPage />} path="/skills/edit-skill" />
 					<Route element={<BenchmarkPage />} path="/benchmark" />
+					<Route element={<BenchmarkEditorPage />} path="/benchmark/new" />
+					<Route element={<BenchmarkDraftsPage />} path="/benchmark/drafts" />
+					<Route
+						element={<BenchmarkEditorPage />}
+						path="/benchmark/drafts/:draftId"
+					/>
+					<Route
+						element={<BenchmarkDetailPage />}
+						path="/benchmark/:benchmarkId"
+					/>
+					<Route
+						element={<WorkspaceBenchmarkPage />}
+						path="/workspaces/:workspaceId/benchmark/:mountId"
+					/>
 					<Route element={<SettingsPage />} path="/settings" />
 					<Route element={<Navigate replace to="/" />} path="*" />
 				</Routes>
