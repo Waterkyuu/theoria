@@ -110,6 +110,7 @@ it("keeps selected tag chips on one compact fixed-height search row", async () =
 	expect(chip).toHaveClass(
 		"h-7",
 		"shrink-0",
+		"bg-[#3b82f6]",
 		"px-2",
 		"py-1",
 		"text-caption-sm",
