@@ -121,6 +121,23 @@ const enUS = {
 				"New cases use an expected final answer. Starting-file import and custom validators are not available in this editor yet.",
 			invalid:
 				"Complete the name, description, tag and every case before publishing.",
+			validation: {
+				title: "Fix these fields before publishing",
+				unsupported_schema: "This document format is not supported",
+				invalid_name: "Enter a name within the allowed length",
+				invalid_description: "Enter a description within the allowed length",
+				tag_required: "Choose a tag",
+				invalid_case_count: "Add between 1 and 100 cases",
+				duplicate_case: "Use a unique case name",
+				invalid_prompt: "Enter complete task requirements",
+				invalid_timeout: "Choose a time limit from 1 to 60 minutes",
+				checks_required: "Add at least one valid check",
+				too_many_files: "Use no more than 256 starting files",
+				unsafe_path: "Use a safe relative file path",
+				duplicate_path: "Use each file path only once",
+				invalid_expected: "Enter a valid expected value",
+				invalid_json: "Enter valid JSON",
+			},
 			sort: {
 				newest: "Newest",
 				updated: "Recently updated",

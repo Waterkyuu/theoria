@@ -32,7 +32,14 @@ it("retains the saved revision after publication fails so retry uses the latest 
 			return [{ id: "code", name: "Coding", icon: "Code", isSystem: false }];
 		if (command === "save_benchmark_draft") revision++;
 		if (command === "publish_benchmark")
-			throw new Error("publication unavailable");
+			throw {
+				code: "BENCHMARK_VALIDATION_FAILED",
+				message: "invalid benchmark",
+				details: {
+					kind: "benchmarkValidation",
+					issues: [{ field: "cases.0.prompt", code: "invalid_prompt" }],
+				},
+			};
 		return {
 			id: "draft",
 			benchmarkId: null,
@@ -65,6 +72,10 @@ it("retains the saved revision after publication fails so retry uses the latest 
 			request: { draftId: "draft", expectedRevision: 2 },
 		}),
 	);
+	expect(screen.getByText(/cases\.0\.prompt/)).toBeInTheDocument();
+	expect(
+		screen.getByText(/Enter complete task requirements/),
+	).toBeInTheDocument();
 	await user.click(screen.getByRole("button", { name: "Publish" }));
 	await waitFor(() =>
 		expect(invoke).toHaveBeenCalledWith("save_benchmark_draft", {
