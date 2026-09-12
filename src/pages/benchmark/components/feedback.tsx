@@ -38,10 +38,7 @@ const BenchmarkFeedback = ({
 		);
 	if (empty)
 		return (
-			<div
-				className="rounded-lg border border-dashed border-hairline p-xl text-body-sm text-body"
-				role="status"
-			>
+			<div className="p-xl text-center text-body-sm text-body" role="status">
 				{t("benchmark.empty")}
 			</div>
 		);

@@ -93,3 +93,31 @@ it("shows a retryable catalog failure instead of an empty library", async () => 
 		),
 	).toBeInTheDocument();
 });
+
+it("renders the empty catalog message without a border and centered", async () => {
+	invoke.mockImplementation(async (command: string) => {
+		if (command === "list_benchmark_tags") return [];
+		if (command === "list_benchmarks") return [];
+		return [];
+	});
+	render(
+		<QueryClientProvider
+			client={
+				new QueryClient({ defaultOptions: { queries: { retry: false } } })
+			}
+		>
+			<MemoryRouter>
+				<BenchmarkPage />
+			</MemoryRouter>
+		</QueryClientProvider>,
+	);
+	const emptyMessage = await screen.findByText(
+		"No benchmarks found. Create one or clear the filters.",
+	);
+	const emptyState = emptyMessage.closest('[role="status"]');
+	expect(emptyState).not.toBeNull();
+	expect(emptyState).toHaveClass("text-center");
+	expect(emptyState).not.toHaveClass("border");
+	expect(emptyState).not.toHaveClass("border-dashed");
+	expect(emptyState).not.toHaveClass("border-hairline");
+});
