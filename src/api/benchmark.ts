@@ -113,6 +113,12 @@ const previewBenchmarkAsset = (assetId: string) =>
 		{ request: { assetId } },
 	);
 
+/** Stores an editor buffer as a new immutable managed file revision. */
+const saveBenchmarkTextAsset = (path: string, text: string) =>
+	invokeWithResponseSchema("save_benchmark_text_asset", BenchmarkFileSchema, {
+		request: { path, text },
+	});
+
 /**
  * Saves with optimistic concurrency.
  *
@@ -256,6 +262,7 @@ export {
 	importBenchmarkFolder,
 	importBenchmarkAsset,
 	previewBenchmarkAsset,
+	saveBenchmarkTextAsset,
 	saveBenchmarkDraft,
 	publishBenchmark,
 	getBenchmarkDraft,
