@@ -16,6 +16,7 @@ import type {
 	BenchmarkDocument,
 	BenchmarkFilters,
 	BenchmarkPreviewInput,
+	RerunBenchmarkTaskInput,
 	StartBenchmarkTaskInput,
 } from "@/types/benchmark";
 
@@ -164,6 +165,12 @@ const startBenchmarkTask = (request: StartBenchmarkTaskInput) =>
 		request,
 	});
 
+/** Creates a fresh Task from one terminal run while preserving its published version. */
+const rerunBenchmarkTask = (request: RerunBenchmarkTaskInput) =>
+	invokeWithResponseSchema("rerun_benchmark_task", BenchmarkTaskDetailSchema, {
+		request,
+	});
+
 /** Restores the latest persisted matrix state for one Benchmark Task. */
 const getBenchmarkTask = (taskId: string) =>
 	invokeWithResponseSchema("get_benchmark_task", BenchmarkTaskDetailSchema, {
@@ -184,5 +191,6 @@ export {
 	unmountBenchmark,
 	previewBenchmarkTask,
 	startBenchmarkTask,
+	rerunBenchmarkTask,
 	getBenchmarkTask,
 };

@@ -49,6 +49,12 @@ const stopTaskAgent = (taskAgentId: string) =>
 		request: { taskAgentId },
 	});
 
+/** Requests cancellation through the orchestrator that owns the selected Task kind. */
+const cancelTask = (taskId: string) =>
+	invokeWithResponseSchema("cancel_task", EmptyTaskResponseSchema, {
+		request: { taskId },
+	});
+
 /** Stops all Task writers, deletes owned files, and then removes persisted records. */
 const deleteTask = (taskId: string) =>
 	invokeWithResponseSchema("delete_task", EmptyTaskResponseSchema, {
@@ -69,6 +75,7 @@ const setTaskPin = (taskId: string, isPinned: boolean) =>
 
 export {
 	continueTask,
+	cancelTask,
 	createTask,
 	deleteTask,
 	getTask,
