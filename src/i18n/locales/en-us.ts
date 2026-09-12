@@ -80,10 +80,10 @@ const enUS = {
 			allow: "Allow commands",
 			preflight: "Check prerequisites",
 			checked: "Prerequisites checked",
+			start: "Start",
+			started: "Benchmark started",
 			planned: "{{cases}} cases × {{agents}} Agents = {{count}} executions",
 			checkPassed: "No missing prerequisites found.",
-			executionPending:
-				"Evaluation execution is not available yet. This check does not start a Task.",
 			taskStatus: {
 				preparing: "Preparing",
 				running: "Running",

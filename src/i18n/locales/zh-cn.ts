@@ -78,9 +78,10 @@ const zhCN = {
 			allow: "允许执行命令",
 			preflight: "检查运行条件",
 			checked: "运行条件检查完成",
+			start: "开始评测",
+			started: "评测已启动",
 			planned: "{{cases}} 个 Case × {{agents}} 个 Agent = {{count}} 次执行",
 			checkPassed: "未发现缺失的运行条件。",
-			executionPending: "评测执行暂未开放，本次检查不会启动 Task。",
 			taskStatus: {
 				preparing: "准备中",
 				running: "运行中",
