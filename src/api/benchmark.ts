@@ -1,11 +1,14 @@
 import { invokeWithResponseSchema } from "@/api/ipc";
 import {
 	BenchmarkDraftIdsSchema,
+	BenchmarkAssetPreviewSchema,
 	BenchmarkSummariesSchema,
 	BenchmarkDetailSchema,
 	BenchmarkDraftSchema,
 	BenchmarkMountSchema,
 	BenchmarkMountsSchema,
+	BenchmarkFileSchema,
+	BenchmarkImportPreviewSchema,
 	BenchmarkTagSchema,
 	BenchmarkTagUsageSchema,
 	BenchmarkTagsSchema,
@@ -81,6 +84,34 @@ const deleteBenchmarkTag = (tagId: string) =>
 	invokeWithResponseSchema("delete_benchmark_tag", BenchmarkTagUsageSchema, {
 		request: { tagId },
 	});
+
+/** Inspects one picker-selected Theoria folder without creating persistence. */
+const previewBenchmarkImport = (sourcePath: string) =>
+	invokeWithResponseSchema(
+		"preview_benchmark_import",
+		BenchmarkImportPreviewSchema,
+		{ request: { sourcePath } },
+	);
+
+/** Copies a reviewed template folder into one editable personal draft. */
+const importBenchmarkFolder = (sourcePath: string, tagId: string) =>
+	invokeWithResponseSchema("import_benchmark_folder", BenchmarkDraftSchema, {
+		request: { sourcePath, tagId },
+	});
+
+/** Copies one picker-selected file into managed Benchmark storage. */
+const importBenchmarkAsset = (sourcePath: string, path: string) =>
+	invokeWithResponseSchema("import_benchmark_asset", BenchmarkFileSchema, {
+		request: { sourcePath, path },
+	});
+
+/** Returns a bounded managed-file preview without exposing its native path. */
+const previewBenchmarkAsset = (assetId: string) =>
+	invokeWithResponseSchema(
+		"preview_benchmark_asset",
+		BenchmarkAssetPreviewSchema,
+		{ request: { assetId } },
+	);
 
 /**
  * Saves with optimistic concurrency.
@@ -221,6 +252,10 @@ export {
 	getBenchmarkTagUsage,
 	updateBenchmarkTag,
 	deleteBenchmarkTag,
+	previewBenchmarkImport,
+	importBenchmarkFolder,
+	importBenchmarkAsset,
+	previewBenchmarkAsset,
 	saveBenchmarkDraft,
 	publishBenchmark,
 	getBenchmarkDraft,
