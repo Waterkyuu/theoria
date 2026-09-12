@@ -1,17 +1,17 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button, Toast } from "@heroui/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { PageHeader } from "@/components/share/page-header";
 import { AlertDialog } from "@/components/ui/alert-dialog";
 import { handleError } from "@/utils/error";
 import { saveBenchmarkDraft, unmountBenchmark } from "@/api/benchmark";
-import { useBenchmark, useWorkspaceBenchmarks } from "@/queries/benchmark";
+import { useBenchmark } from "@/queries/benchmark";
 import type { BenchmarkMount } from "@/types/benchmark";
-import { BenchmarkConfiguration } from "./components/configuration";
-import { BenchmarkFeedback } from "./components/feedback";
-import { BenchmarkMountModal } from "./components/mount-modal";
+import { BenchmarkConfiguration } from "./configuration";
+import { BenchmarkFeedback } from "./feedback";
+import { BenchmarkMountModal } from "./mount-modal";
 type DetailProps = {
 	/** Definition selected by catalog or workspace mount. */
 	benchmarkId: string;
@@ -207,33 +207,4 @@ const BenchmarkDetailView = ({ benchmarkId, mount }: DetailProps) => {
 		</main>
 	);
 };
-const BenchmarkDetailPage = () => {
-	const { benchmarkId = "" } = useParams();
-	return <BenchmarkDetailView benchmarkId={benchmarkId} />;
-};
-const WorkspaceBenchmarkPage = () => {
-	const { workspaceId = "", mountId = "" } = useParams();
-	const query = useWorkspaceBenchmarks(workspaceId);
-	const mount = query.data?.pages.flat().find((item) => item.id === mountId);
-	const { hasNextPage, isFetching, isError, fetchNextPage } = query;
-	useEffect(() => {
-		if (!mount && hasNextPage && !isFetching && !isError) fetchNextPage();
-	}, [mount, hasNextPage, isFetching, isError, fetchNextPage]);
-	if (!mount)
-		return (
-			<BenchmarkFeedback
-				loading={query.isLoading || query.isFetching || query.hasNextPage}
-				failed={query.isError || (!query.isLoading && !query.hasNextPage)}
-				retry={() => query.refetch()}
-			/>
-		);
-	return (
-		<BenchmarkDetailView
-			key={mount.id}
-			benchmarkId={mount.benchmarkId}
-			mount={mount}
-		/>
-	);
-};
-export { WorkspaceBenchmarkPage };
-export default BenchmarkDetailPage;
+export { BenchmarkDetailView };

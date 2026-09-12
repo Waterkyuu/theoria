@@ -29,12 +29,12 @@ const WorkspacePage = lazy(() => import("@/pages/workspace"));
 const AgentsPage = lazy(() => import("@/pages/agents"));
 const BenchmarkPage = lazy(() => import("@/pages/benchmark"));
 const BenchmarkDetailPage = lazy(() => import("@/pages/benchmark/detail"));
-const BenchmarkEditorPage = lazy(() => import("@/pages/benchmark/editor"));
+const BenchmarkEditorPage = lazy(
+	() => import("@/pages/benchmark/edit-benchmark"),
+);
 const BenchmarkDraftsPage = lazy(() => import("@/pages/benchmark/drafts"));
-const WorkspaceBenchmarkPage = lazy(() =>
-	import("@/pages/benchmark/detail").then((module) => ({
-		default: module.WorkspaceBenchmarkPage,
-	})),
+const WorkspaceBenchmarkPage = lazy(
+	() => import("@/pages/benchmark/workspace-benchmark"),
 );
 const RunBoardPage = lazy(() => import("@/pages/run-board"));
 const SkillsPage = lazy(() => import("@/pages/skills"));
