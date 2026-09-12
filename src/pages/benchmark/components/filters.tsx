@@ -27,16 +27,16 @@ const BenchmarkFiltersBar = ({ value, tags, onChange }: FiltersProps) => {
 	const [tagSearch, setTagSearch] = useState("");
 	const [sortOpen, setSortOpen] = useState(false);
 	const [authorOpen, setAuthorOpen] = useState(false);
+	const isAllSelected = !value.tagIds.length && !value.author && !value.search;
 	return (
 		<div className="flex flex-wrap items-center gap-sm">
 			<Button
 				size="sm"
-				className="rounded-full"
-				variant={
-					!value.tagIds.length && !value.author && !value.search
-						? "primary"
-						: "secondary"
-				}
+				className={cn(
+					"rounded-full",
+					!isAllSelected && "border border-hairline bg-canvas shadow-none",
+				)}
+				variant={isAllSelected ? "primary" : "secondary"}
 				onPress={() =>
 					onChange({ search: "", tagIds: [], author: null, sort: "newest" })
 				}
