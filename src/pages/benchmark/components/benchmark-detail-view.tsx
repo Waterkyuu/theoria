@@ -13,6 +13,7 @@ import {
 	useUpdateBenchmarkMount,
 } from "@/queries/benchmark";
 import type { BenchmarkMount } from "@/types/benchmark";
+import { BenchmarkFilePreview } from "./benchmark-file-preview";
 import { BenchmarkConfiguration } from "./configuration";
 import { BenchmarkFeedback } from "./feedback";
 import { BenchmarkMountModal } from "./mount-modal";
@@ -252,7 +253,10 @@ const BenchmarkDetailView = ({ benchmarkId, mount }: DetailProps) => {
 														)}
 														{"expected" in check && <p>{check.expected}</p>}
 														{check.kind === "python" && (
-															<p className="font-mono">{check.script.path}</p>
+															<div className="flex items-center justify-between gap-sm">
+																<p className="font-mono">{check.script.path}</p>
+																<BenchmarkFilePreview file={check.script} />
+															</div>
 														)}
 													</li>
 												))}
@@ -263,8 +267,12 @@ const BenchmarkDetailView = ({ benchmarkId, mount }: DetailProps) => {
 											{item.inputFiles.length ? (
 												<ul className="mt-sm font-mono">
 													{item.inputFiles.map((file) => (
-														<li key={file.path} className="break-all">
-															{file.path}
+														<li
+															key={file.path}
+															className="flex items-center justify-between gap-sm"
+														>
+															<span className="break-all">{file.path}</span>
+															<BenchmarkFilePreview file={file} />
 														</li>
 													))}
 												</ul>
