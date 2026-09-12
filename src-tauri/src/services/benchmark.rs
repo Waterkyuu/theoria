@@ -1,7 +1,9 @@
 use crate::domain::benchmark::{
-    safe_asset_id, BenchmarkCheck, BenchmarkDetail, BenchmarkDocument, BenchmarkDraft,
-    BenchmarkMount, BenchmarkSummary, BenchmarkTag,
+    safe_asset_id, safe_relative_path, BenchmarkAssetPreview, BenchmarkCase, BenchmarkCheck,
+    BenchmarkDetail, BenchmarkDocument, BenchmarkDraft, BenchmarkFile, BenchmarkImportPreview,
+    BenchmarkImportPreviewCase, BenchmarkMount, BenchmarkSummary, BenchmarkTag,
 };
+use crate::dto::benchmark::{BenchmarkImportCheck, BenchmarkImportFile, BenchmarkImportTemplate};
 use crate::error::AppError;
 use crate::repositories::benchmark::BenchmarkRepository;
 use std::path::PathBuf;
@@ -9,6 +11,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 static IDENTIFIER_SEQUENCE: AtomicU64 = AtomicU64::new(1);
+const MAX_TEMPLATE_BYTES: u64 = 2 * 1024 * 1024;
+const MAX_ASSET_BYTES: u64 = 5 * 1024 * 1024;
+const MAX_IMPORT_BYTES: u64 = 20 * 1024 * 1024;
+const MAX_PREVIEW_BYTES: usize = 256 * 1024;
 
 /// Catalog use cases own publication rules; they do not start Agent processes.
 #[derive(Clone)]
@@ -118,6 +124,301 @@ impl BenchmarkService {
             .await
             .map_err(|_| AppError::BenchmarkDatabaseFailed)?
             .ok_or(AppError::BenchmarkConflict)
+    }
+
+    /// Validates one portable folder and returns only display-safe metadata.
+    pub(crate) async fn preview_import(
+        &self,
+        source_path: PathBuf,
+    ) -> Result<BenchmarkImportPreview, AppError> {
+        let (root, template) = load_import_template(source_path).await?;
+        let document = preview_document(&template);
+        let mut issues = document
+            .publication_issues()
+            .into_iter()
+            .filter(|issue| issue.code != "tag_required")
+            .collect::<Vec<_>>();
+        let mut total_bytes = 0_u64;
+        let mut file_count = 0_usize;
+        for (case_index, case) in template.cases.iter().enumerate() {
+            for (file_index, file) in case.input_files.iter().enumerate() {
+                file_count += 1;
+                match inspect_template_file(&root, file).await {
+                    Ok(size) => total_bytes = total_bytes.saturating_add(size),
+                    Err(code) => issues.push(crate::domain::benchmark::BenchmarkValidationIssue {
+                        field: format!("cases.{case_index}.inputFiles.{file_index}"),
+                        code,
+                    }),
+                }
+            }
+            for (check_index, check) in case.checks.iter().enumerate() {
+                if let BenchmarkImportCheck::Python { script } = check {
+                    file_count += 1;
+                    match inspect_template_file(&root, script).await {
+                        Ok(size) => total_bytes = total_bytes.saturating_add(size),
+                        Err(code) => {
+                            issues.push(crate::domain::benchmark::BenchmarkValidationIssue {
+                                field: format!("cases.{case_index}.checks.{check_index}.script"),
+                                code,
+                            })
+                        }
+                    }
+                }
+            }
+        }
+        if file_count > 256 {
+            issues.push(crate::domain::benchmark::BenchmarkValidationIssue {
+                field: "cases".to_string(),
+                code: "too_many_files",
+            });
+        }
+        if total_bytes > MAX_IMPORT_BYTES {
+            issues.push(crate::domain::benchmark::BenchmarkValidationIssue {
+                field: "cases".to_string(),
+                code: "import_too_large",
+            });
+        }
+        Ok(BenchmarkImportPreview {
+            name: template.name,
+            description: template.description,
+            source: template.source,
+            cases: template
+                .cases
+                .into_iter()
+                .map(|case| BenchmarkImportPreviewCase {
+                    name: case.name,
+                    timeout_minutes: case.timeout_minutes,
+                    input_file_count: case.input_files.len(),
+                    check_kinds: case
+                        .checks
+                        .iter()
+                        .map(|check| check.kind().to_string())
+                        .collect(),
+                })
+                .collect(),
+            file_count,
+            issues,
+        })
+    }
+
+    /// Copies valid references and creates one editable draft from a recognized folder.
+    pub(crate) async fn import_folder(
+        &self,
+        source_path: PathBuf,
+        tag_id: &str,
+    ) -> Result<BenchmarkDraft, AppError> {
+        validate_id(tag_id)?;
+        let tag = self
+            .repository
+            .tag(tag_id)
+            .await
+            .map_err(|_| AppError::BenchmarkDatabaseFailed)?
+            .ok_or(AppError::BenchmarkNotFound)?;
+        if tag.is_system {
+            return Err(AppError::InvalidBenchmark);
+        }
+        let (root, template) = load_import_template(source_path).await?;
+        if template.cases.len() > 100 {
+            return Err(AppError::InvalidBenchmark);
+        }
+        let mut copied_ids = Vec::new();
+        let mut copied_bytes = 0_u64;
+        let result = async {
+            let mut cases = Vec::with_capacity(template.cases.len());
+            for case in template.cases {
+                let mut input_files = Vec::with_capacity(case.input_files.len());
+                for file in case.input_files {
+                    input_files.push(
+                        self.copy_template_reference(
+                            &root,
+                            file,
+                            &mut copied_ids,
+                            &mut copied_bytes,
+                        )
+                        .await?,
+                    );
+                }
+                let mut checks = Vec::with_capacity(case.checks.len());
+                for check in case.checks {
+                    checks.push(match check {
+                        BenchmarkImportCheck::Answer { expected } => {
+                            BenchmarkCheck::Answer { expected }
+                        }
+                        BenchmarkImportCheck::FileExists { path } => {
+                            BenchmarkCheck::FileExists { path }
+                        }
+                        BenchmarkImportCheck::FileText { path, expected } => {
+                            BenchmarkCheck::FileText { path, expected }
+                        }
+                        BenchmarkImportCheck::FileJson { path, expected } => {
+                            BenchmarkCheck::FileJson { path, expected }
+                        }
+                        BenchmarkImportCheck::Python { script } => BenchmarkCheck::Python {
+                            script: self
+                                .copy_template_reference(
+                                    &root,
+                                    script,
+                                    &mut copied_ids,
+                                    &mut copied_bytes,
+                                )
+                                .await?,
+                        },
+                    });
+                }
+                cases.push(BenchmarkCase {
+                    name: case.name,
+                    prompt: case.prompt,
+                    timeout_minutes: case.timeout_minutes,
+                    input_files,
+                    checks,
+                });
+            }
+            self.save_draft(
+                None,
+                None,
+                None,
+                BenchmarkDocument {
+                    schema_version: template.schema_version,
+                    name: template.name,
+                    description: template.description,
+                    tag_id: Some(tag_id.to_string()),
+                    source: template.source.or_else(|| {
+                        root.file_name()
+                            .and_then(|name| name.to_str())
+                            .map(|name| format!("Imported from {name}"))
+                    }),
+                    cases,
+                },
+            )
+            .await
+        }
+        .await;
+        if result.is_err() {
+            for asset_id in copied_ids {
+                if tokio::fs::remove_file(self.asset_directory.join(asset_id))
+                    .await
+                    .is_err()
+                {
+                    eprintln!("Benchmark asset cleanup failed");
+                }
+            }
+        }
+        result
+    }
+
+    /// Copies one explicitly selected file into opaque application-owned storage.
+    pub(crate) async fn import_asset(
+        &self,
+        source_path: PathBuf,
+        path: &str,
+    ) -> Result<BenchmarkFile, AppError> {
+        if !safe_relative_path(path) {
+            return Err(AppError::InvalidBenchmark);
+        }
+        let metadata = tokio::fs::symlink_metadata(&source_path)
+            .await
+            .map_err(|_| AppError::BenchmarkAssetUnavailable)?;
+        if !metadata.is_file()
+            || metadata.file_type().is_symlink()
+            || metadata.len() > MAX_ASSET_BYTES
+        {
+            return Err(AppError::BenchmarkAssetUnavailable);
+        }
+        let canonical = tokio::fs::canonicalize(source_path)
+            .await
+            .map_err(|_| AppError::BenchmarkAssetUnavailable)?;
+        self.copy_managed_asset(&canonical, path).await
+    }
+
+    /// Returns a bounded preview and never exposes a managed filesystem path.
+    pub(crate) async fn asset_preview(
+        &self,
+        asset_id: &str,
+    ) -> Result<BenchmarkAssetPreview, AppError> {
+        if !safe_asset_id(asset_id) {
+            return Err(AppError::InvalidBenchmark);
+        }
+        let path = self.asset_directory.join(asset_id);
+        let metadata = tokio::fs::symlink_metadata(&path)
+            .await
+            .map_err(|_| AppError::BenchmarkAssetUnavailable)?;
+        if !metadata.is_file()
+            || metadata.file_type().is_symlink()
+            || metadata.len() > MAX_ASSET_BYTES
+        {
+            return Err(AppError::BenchmarkAssetUnavailable);
+        }
+        let bytes = tokio::fs::read(path)
+            .await
+            .map_err(|_| AppError::BenchmarkAssetUnavailable)?;
+        let truncated = bytes.len() > MAX_PREVIEW_BYTES;
+        let prefix = &bytes[..bytes.len().min(MAX_PREVIEW_BYTES)];
+        Ok(BenchmarkAssetPreview {
+            asset_id: asset_id.to_string(),
+            size_bytes: metadata.len(),
+            text: std::str::from_utf8(prefix).ok().map(str::to_string),
+            truncated,
+        })
+    }
+
+    async fn copy_template_reference(
+        &self,
+        root: &std::path::Path,
+        file: BenchmarkImportFile,
+        copied_ids: &mut Vec<String>,
+        copied_bytes: &mut u64,
+    ) -> Result<BenchmarkFile, AppError> {
+        let size = match inspect_template_file(root, &file).await {
+            Ok(size) => size,
+            Err(_) => {
+                return Ok(BenchmarkFile {
+                    path: file.path,
+                    asset_id: String::new(),
+                })
+            }
+        };
+        if copied_bytes.saturating_add(size) > MAX_IMPORT_BYTES {
+            return Ok(BenchmarkFile {
+                path: file.path,
+                asset_id: String::new(),
+            });
+        }
+        let source = tokio::fs::canonicalize(root.join(&file.source))
+            .await
+            .map_err(|_| AppError::BenchmarkAssetUnavailable)?;
+        let managed = self.copy_managed_asset(&source, &file.path).await?;
+        *copied_bytes += size;
+        copied_ids.push(managed.asset_id.clone());
+        Ok(managed)
+    }
+
+    async fn copy_managed_asset(
+        &self,
+        source: &std::path::Path,
+        path: &str,
+    ) -> Result<BenchmarkFile, AppError> {
+        tokio::fs::create_dir_all(&self.asset_directory)
+            .await
+            .map_err(|_| AppError::BenchmarkAssetUnavailable)?;
+        let asset_id = new_id("asset")?;
+        let staging = self.asset_directory.join(format!(".{asset_id}.tmp"));
+        let destination = self.asset_directory.join(&asset_id);
+        if tokio::fs::copy(source, &staging).await.is_err() {
+            if tokio::fs::remove_file(&staging).await.is_err() {
+                eprintln!("Benchmark staging cleanup failed");
+            }
+            return Err(AppError::BenchmarkAssetUnavailable);
+        }
+        if tokio::fs::rename(&staging, &destination).await.is_err() {
+            if tokio::fs::remove_file(&staging).await.is_err() {
+                eprintln!("Benchmark staging cleanup failed");
+            }
+            return Err(AppError::BenchmarkAssetUnavailable);
+        }
+        Ok(BenchmarkFile {
+            path: path.to_string(),
+            asset_id,
+        })
     }
 
     /// Drafts may be incomplete but remain bounded and use the supported template format.
@@ -354,6 +655,111 @@ impl BenchmarkService {
             .unmount(workspace, id)
             .await
             .map_err(|_| AppError::BenchmarkDatabaseFailed)
+    }
+}
+
+async fn load_import_template(
+    source_path: PathBuf,
+) -> Result<(PathBuf, BenchmarkImportTemplate), AppError> {
+    let source_metadata = tokio::fs::symlink_metadata(&source_path)
+        .await
+        .map_err(|_| AppError::BenchmarkAssetUnavailable)?;
+    if !source_metadata.is_dir() || source_metadata.file_type().is_symlink() {
+        return Err(AppError::BenchmarkAssetUnavailable);
+    }
+    let root = tokio::fs::canonicalize(source_path)
+        .await
+        .map_err(|_| AppError::BenchmarkAssetUnavailable)?;
+    let manifest = root.join("benchmark.json");
+    let manifest_metadata = tokio::fs::symlink_metadata(&manifest)
+        .await
+        .map_err(|_| AppError::InvalidBenchmark)?;
+    if !manifest_metadata.is_file()
+        || manifest_metadata.file_type().is_symlink()
+        || manifest_metadata.len() > MAX_TEMPLATE_BYTES
+    {
+        return Err(AppError::InvalidBenchmark);
+    }
+    let contents = tokio::fs::read(manifest)
+        .await
+        .map_err(|_| AppError::InvalidBenchmark)?;
+    let template = serde_json::from_slice(&contents).map_err(|_| AppError::InvalidBenchmark)?;
+    Ok((root, template))
+}
+
+async fn inspect_template_file(
+    root: &std::path::Path,
+    file: &BenchmarkImportFile,
+) -> Result<u64, &'static str> {
+    if !safe_relative_path(&file.path) || !safe_relative_path(&file.source) {
+        return Err("unsafe_path");
+    }
+    let source = root.join(&file.source);
+    let metadata = tokio::fs::symlink_metadata(&source)
+        .await
+        .map_err(|_| "missing_file")?;
+    if !metadata.is_file() || metadata.file_type().is_symlink() {
+        return Err("unsafe_path");
+    }
+    if metadata.len() > MAX_ASSET_BYTES {
+        return Err("file_too_large");
+    }
+    let canonical = tokio::fs::canonicalize(source)
+        .await
+        .map_err(|_| "missing_file")?;
+    if !canonical.starts_with(root) {
+        return Err("unsafe_path");
+    }
+    Ok(metadata.len())
+}
+
+fn preview_document(template: &BenchmarkImportTemplate) -> BenchmarkDocument {
+    BenchmarkDocument {
+        schema_version: template.schema_version,
+        name: template.name.clone(),
+        description: template.description.clone(),
+        tag_id: Some("preview".to_string()),
+        source: template.source.clone(),
+        cases: template
+            .cases
+            .iter()
+            .map(|case| BenchmarkCase {
+                name: case.name.clone(),
+                prompt: case.prompt.clone(),
+                timeout_minutes: case.timeout_minutes,
+                input_files: case.input_files.iter().map(preview_file).collect(),
+                checks: case.checks.iter().map(preview_check).collect(),
+            })
+            .collect(),
+    }
+}
+
+fn preview_file(file: &BenchmarkImportFile) -> BenchmarkFile {
+    BenchmarkFile {
+        path: file.path.clone(),
+        asset_id: "pending".to_string(),
+    }
+}
+
+fn preview_check(check: &BenchmarkImportCheck) -> BenchmarkCheck {
+    match check {
+        BenchmarkImportCheck::Answer { expected } => BenchmarkCheck::Answer {
+            expected: expected.clone(),
+        },
+        BenchmarkImportCheck::FileExists { path } => {
+            BenchmarkCheck::FileExists { path: path.clone() }
+        }
+        BenchmarkImportCheck::FileText { path, expected } => BenchmarkCheck::FileText {
+            path: path.clone(),
+            expected: expected.clone(),
+        },
+        BenchmarkImportCheck::FileJson { path, expected } => BenchmarkCheck::FileJson {
+            path: path.clone(),
+            expected: expected.clone(),
+        },
+        BenchmarkImportCheck::Python { script } => BenchmarkCheck::Python {
+            script: preview_file(script),
+        },
     }
 }
 
@@ -688,6 +1094,85 @@ mod tests {
                 Err(AppError::BenchmarkReadOnly)
             );
             database.close().await.expect("database should close");
+        });
+    }
+
+    #[test]
+    fn imports_a_theoria_folder_and_copies_every_referenced_asset() {
+        tauri::async_runtime::block_on(async {
+            let database = connect_sqlite("sqlite::memory:")
+                .await
+                .expect("database should open");
+            Migrator::up(&database, None)
+                .await
+                .expect("schema should initialize");
+            let root = std::env::temp_dir().join(format!(
+                "theoria-benchmark-import-{}-{}",
+                std::process::id(),
+                super::IDENTIFIER_SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            ));
+            let source = root.join("source");
+            let storage = root.join("storage");
+            std::fs::create_dir_all(source.join("files")).expect("source directory");
+            std::fs::write(source.join("files/input.txt"), "fixture input").expect("input file");
+            std::fs::write(source.join("validator.py"), "print('validator')").expect("validator");
+            std::fs::write(
+                source.join("benchmark.json"),
+                serde_json::to_vec_pretty(&serde_json::json!({
+                    "schemaVersion": 1,
+                    "name": "Imported suite",
+                    "description": "Imported from a portable template",
+                    "source": "fixture-suite",
+                    "cases": [{
+                        "name": "One",
+                        "prompt": "Create output.json",
+                        "timeoutMinutes": 5,
+                        "inputFiles": [{"path": "input.txt", "source": "files/input.txt"}],
+                        "checks": [
+                            {"kind": "file_json", "path": "output.json", "expected": "{\"ok\":true}"},
+                            {"kind": "python", "script": {"path": "validator.py", "source": "validator.py"}}
+                        ]
+                    }]
+                }))
+                .expect("template JSON"),
+            )
+            .expect("template file");
+            let service =
+                BenchmarkService::new(BenchmarkRepository::new(database.clone()), storage.clone());
+            let tag = service.create_tag("Imported", "Folder").await.expect("tag");
+
+            let preview = service
+                .preview_import(source.clone())
+                .await
+                .expect("preview");
+            assert_eq!(preview.name, "Imported suite");
+            assert_eq!(preview.file_count, 2);
+            assert!(preview.issues.is_empty());
+            let draft = service
+                .import_folder(source.clone(), &tag.id)
+                .await
+                .expect("import");
+            assert_eq!(draft.document.tag_id, Some(tag.id));
+            assert_eq!(draft.document.cases[0].input_files.len(), 1);
+            let input = &draft.document.cases[0].input_files[0];
+            assert_eq!(input.path, "input.txt");
+            assert_eq!(
+                std::fs::read_to_string(storage.join("benchmark-assets").join(&input.asset_id))
+                    .expect("managed input"),
+                "fixture input"
+            );
+            let asset = service
+                .import_asset(source.join("files/input.txt"), "copy.txt")
+                .await
+                .expect("single file import");
+            let asset_preview = service
+                .asset_preview(&asset.asset_id)
+                .await
+                .expect("asset preview");
+            assert_eq!(asset_preview.text.as_deref(), Some("fixture input"));
+
+            database.close().await.expect("database should close");
+            std::fs::remove_dir_all(root).expect("temporary import should be removed");
         });
     }
 }
