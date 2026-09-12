@@ -166,21 +166,25 @@ impl BenchmarkService {
         self.detail(&benchmark_id, Some(&version)).await
     }
 
-    /// Shared catalog search is newest-first and only accepts the two supported authors.
+    /// Validates bounded catalog filters and the supported ordering choices.
     pub(crate) async fn list(
         &self,
         search: &str,
-        tag: Option<&str>,
+        tags: &[String],
         author: Option<&str>,
+        sort: &str,
         page: u32,
     ) -> Result<Vec<BenchmarkSummary>, AppError> {
         if search.len() > 1000
+            || tags.len() > 100
+            || tags.iter().any(|tag| tag.len() > 200)
+            || !matches!(sort, "newest" | "updated" | "oldest" | "alphabetical")
             || author.is_some_and(|author| !matches!(author, "platform" | "myself"))
         {
             return Err(AppError::InvalidBenchmark);
         }
         self.repository
-            .list(search.trim(), tag, author, page)
+            .list(search.trim(), tags, author, sort, page)
             .await
             .map_err(|_| AppError::BenchmarkDatabaseFailed)
     }
@@ -396,11 +400,22 @@ mod tests {
                 .await
                 .expect("second suite should publish");
             let filtered = service
-                .list("%", Some(&tag.id), Some("myself"), 0)
+                .list(
+                    "%",
+                    std::slice::from_ref(&tag.id),
+                    Some("myself"),
+                    "newest",
+                    0,
+                )
                 .await
                 .expect("literal search should run");
             assert_eq!(filtered.len(), 1);
             assert_eq!(filtered[0].id, published.summary.id);
+            let ordered = service
+                .list("", &[], None, "alphabetical", 0)
+                .await
+                .expect("sort");
+            assert_eq!(ordered[0].id, published.summary.id);
             let mounted = service
                 .mount(
                     "workspace-1".to_string(),

@@ -226,8 +226,9 @@ impl BenchmarkRepository {
     pub(crate) async fn list(
         &self,
         search: &str,
-        tag_id: Option<&str>,
+        tag_ids: &[String],
         author: Option<&str>,
+        sort: &str,
         page: u32,
     ) -> Result<Vec<BenchmarkSummary>, DbErr> {
         let mut query = summary_query().filter(definition::Column::Archived.eq(false));
@@ -251,14 +252,19 @@ impl BenchmarkRepository {
                     ),
             );
         }
-        if let Some(tag) = tag_id {
-            query = query.filter(definition::Column::TagId.eq(tag));
+        if !tag_ids.is_empty() {
+            query = query.filter(definition::Column::TagId.is_in(tag_ids));
         }
         if let Some(author) = author {
             query = query.filter(definition::Column::Author.eq(author));
         }
+        let query = match sort {
+            "updated" => query.order_by_desc(definition::Column::UpdatedAtMs),
+            "oldest" => query.order_by_asc(definition::Column::CreatedAtMs),
+            "alphabetical" => query.order_by_asc(definition::Column::Name),
+            _ => query.order_by_desc(definition::Column::CreatedAtMs),
+        };
         Ok(query
-            .order_by_desc(definition::Column::CreatedAtMs)
             .order_by_asc(definition::Column::Id)
             .limit(30)
             .offset(u64::from(page) * 30)

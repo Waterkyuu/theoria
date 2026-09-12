@@ -91,8 +91,9 @@ pub(crate) async fn list_benchmarks(
     service
         .list(
             &request.search,
-            request.tag_id.as_deref(),
+            &request.tag_ids,
             request.author.as_deref(),
+            &request.sort,
             request.page,
         )
         .await

@@ -168,8 +168,10 @@ pub(crate) struct SaveBenchmarkDraftRequest {
 pub(crate) struct ListBenchmarksRequest {
     /// Name and description search.
     pub(crate) search: String,
-    /// Optional local classification filter.
-    pub(crate) tag_id: Option<String>,
+    /// Selected classification filters, combined with OR.
+    pub(crate) tag_ids: Vec<String>,
+    /// Explicit catalog ordering.
+    pub(crate) sort: String,
     /// Optional platform or myself filter.
     pub(crate) author: Option<String>,
     /// Zero-based page in newest-first order.
