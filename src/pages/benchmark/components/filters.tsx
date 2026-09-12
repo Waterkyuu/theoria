@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { Check, PersonMagnifier, Tag, Timeline } from "@gravity-ui/icons";
+import {
+	Check,
+	Magnifier,
+	PersonMagnifier,
+	Tag,
+	Timeline,
+} from "@gravity-ui/icons";
 import { Button } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
@@ -70,6 +76,7 @@ const BenchmarkFiltersBar = ({ value, tags, onChange }: FiltersProps) => {
 								{tag.name}
 							</span>
 						))}
+					<Magnifier aria-hidden="true" className="size-4 shrink-0 text-mute" />
 					<input
 						aria-label={t("benchmark.searchTags")}
 						placeholder={t("benchmark.searchTags")}

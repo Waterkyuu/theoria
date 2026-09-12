@@ -39,3 +39,23 @@ it("localizes benchmark author labels in Chinese", async () => {
 	expect(screen.queryByText("Platform")).not.toBeInTheDocument();
 	expect(screen.queryByText("MySelf")).not.toBeInTheDocument();
 });
+
+it("shows a search icon inside the tag search field", async () => {
+	const user = userEvent.setup();
+	const value: BenchmarkFilters = {
+		search: "",
+		tagIds: [],
+		author: null,
+		sort: "newest",
+	};
+	render(<BenchmarkFiltersBar value={value} tags={tags} onChange={vi.fn()} />);
+
+	await user.click(screen.getByRole("button", { name: "标签" }));
+
+	const tagSearch = screen.getByLabelText("搜索标签…");
+	expect(tagSearch.previousElementSibling).toHaveClass("size-4");
+	expect(tagSearch.previousElementSibling).toHaveAttribute(
+		"aria-hidden",
+		"true",
+	);
+});
