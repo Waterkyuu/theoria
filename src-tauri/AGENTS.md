@@ -36,6 +36,23 @@ platform implementations -> repository or adapter traits
 lib.rs -> concrete implementations and dependency wiring
 ```
 
+## Reference Documentation
+
+Before editing, read only the references relevant to the planned change. If the scope expands, read
+the newly relevant reference before continuing.
+
+| Change                                                                                | Required reference                 |
+| ------------------------------------------------------------------------------------- | ---------------------------------- |
+| Any Rust source, module boundary, type, function, or style                            | `reference/rust/core.md`           |
+| Tauri commands, IPC DTOs, errors, managed state, async work, or channels              | `reference/rust/tauri-ipc.md`      |
+| Agent adapters, process discovery, log decoding, tailing, or child processes          | `reference/rust/adapters.md`       |
+| Filesystem, database, platform code, capabilities, permissions, privacy, or telemetry | `reference/rust/data-security.md`  |
+| Logging, performance, dependencies, manifests, build scripts, or configuration        | `reference/rust/operations.md`     |
+| Adding, changing, or deleting tests                                                   | `reference/rust/test-code-rule.md` |
+
+Do not read unrelated references preemptively. Multiple references are required when a change
+crosses multiple rows.
+
 ## Validation
 
 After changing Rust code, run from the repository root in this order:
@@ -63,20 +80,3 @@ Fix failures caused by the change and rerun the full sequence. Do not suppress w
 - Add deterministic tests for behavior changes and relevant failure paths.
 - Pass the required validation commands and document contract, schema, migration, permission, or
   compatibility changes.
-
-## Reference Documentation
-
-Before editing, read only the references relevant to the planned change. If the scope expands, read
-the newly relevant reference before continuing.
-
-| Change                                                                                | Required reference                 |
-| ------------------------------------------------------------------------------------- | ---------------------------------- |
-| Any Rust source, module boundary, type, function, or style                            | `reference/rust/core.md`           |
-| Tauri commands, IPC DTOs, errors, managed state, async work, or channels              | `reference/rust/tauri-ipc.md`      |
-| Agent adapters, process discovery, log decoding, tailing, or child processes          | `reference/rust/adapters.md`       |
-| Filesystem, database, platform code, capabilities, permissions, privacy, or telemetry | `reference/rust/data-security.md`  |
-| Logging, performance, dependencies, manifests, build scripts, or configuration        | `reference/rust/operations.md`     |
-| Adding, changing, or deleting tests                                                   | `reference/rust/test-code-rule.md` |
-
-Do not read unrelated references preemptively. Multiple references are required when a change
-crosses multiple rows.
