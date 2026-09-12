@@ -51,6 +51,20 @@ const errorCode = (error: unknown) =>
 		? String(error.code)
 		: null;
 
+const formatCoveredMetric = (
+	value: string,
+	coverage: number,
+	total: number,
+	translate: (key: string, values?: Record<string, unknown>) => string,
+) =>
+	coverage === 0
+		? translate("benchmark.results.noData")
+		: translate("benchmark.results.metricCoverage", {
+				value,
+				coverage,
+				total,
+			});
+
 /** Owns Task lifecycle actions separately from the read-only result matrix. */
 const BenchmarkTaskActions = ({ detail }: { detail: BenchmarkTaskDetail }) => {
 	const { t } = useTranslation();
@@ -329,9 +343,24 @@ const BenchmarkTaskView = ({ taskId }: BenchmarkTaskViewProps) => {
 							</p>
 							<p className="mt-xs text-caption-sm text-mute">
 								{t("benchmark.results.metrics", {
-									duration: agent.totalDurationMs,
-									tokens: agent.totalTokens,
-									tools: agent.toolCallCount,
+									duration: formatCoveredMetric(
+										`${agent.totalDurationMs} ms`,
+										agent.durationCoverage,
+										agent.total,
+										t,
+									),
+									tokens: formatCoveredMetric(
+										`${agent.totalTokens} tokens`,
+										agent.tokenCoverage,
+										agent.total,
+										t,
+									),
+									tools: formatCoveredMetric(
+										`${agent.toolCallCount} tools`,
+										agent.durationCoverage,
+										agent.total,
+										t,
+									),
 								})}
 							</p>
 						</article>
