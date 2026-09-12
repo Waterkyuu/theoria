@@ -1,11 +1,13 @@
 use crate::dto::benchmark::{
-    ArchiveBenchmarkRequest, BenchmarkDetailResponse, BenchmarkDraftResponse,
+    ArchiveBenchmarkRequest, BenchmarkAssetPreviewResponse, BenchmarkDetailResponse,
+    BenchmarkDraftResponse, BenchmarkFileResponse, BenchmarkImportPreviewResponse,
     BenchmarkMountResponse, BenchmarkSummaryResponse, BenchmarkTagRequest, BenchmarkTagResponse,
     BenchmarkTagUsageResponse, CreateBenchmarkTagRequest, GetBenchmarkDraftRequest,
-    GetBenchmarkRequest, ListBenchmarkDraftsRequest, ListBenchmarksRequest,
-    ListWorkspaceBenchmarksRequest, MountBenchmarkRequest, PublishBenchmarkRequest,
-    SaveBenchmarkDraftRequest, UnmountBenchmarkRequest, UpdateBenchmarkMountRequest,
-    UpdateBenchmarkTagRequest,
+    GetBenchmarkRequest, ImportBenchmarkAssetRequest, ImportBenchmarkFolderRequest,
+    ListBenchmarkDraftsRequest, ListBenchmarksRequest, ListWorkspaceBenchmarksRequest,
+    MountBenchmarkRequest, PreviewBenchmarkAssetRequest, PreviewBenchmarkImportRequest,
+    PublishBenchmarkRequest, SaveBenchmarkDraftRequest, UnmountBenchmarkRequest,
+    UpdateBenchmarkMountRequest, UpdateBenchmarkTagRequest,
 };
 use crate::error::IpcError;
 use crate::services::benchmark::BenchmarkService;
@@ -73,6 +75,59 @@ pub(crate) async fn create_benchmark_tag(
         .map(Into::into)
         .map_err(Into::into)
 }
+
+/// Inspects a Theoria folder before any file is copied or draft is created.
+#[tauri::command]
+pub(crate) async fn preview_benchmark_import(
+    request: PreviewBenchmarkImportRequest,
+    service: State<'_, BenchmarkService>,
+) -> Result<BenchmarkImportPreviewResponse, IpcError> {
+    service
+        .preview_import(request.source_path)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
+/// Copies a reviewed Theoria folder into one editable personal draft.
+#[tauri::command]
+pub(crate) async fn import_benchmark_folder(
+    request: ImportBenchmarkFolderRequest,
+    service: State<'_, BenchmarkService>,
+) -> Result<BenchmarkDraftResponse, IpcError> {
+    service
+        .import_folder(request.source_path, &request.tag_id)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
+/// Copies one picker-selected file into immutable application-owned storage.
+#[tauri::command]
+pub(crate) async fn import_benchmark_asset(
+    request: ImportBenchmarkAssetRequest,
+    service: State<'_, BenchmarkService>,
+) -> Result<BenchmarkFileResponse, IpcError> {
+    service
+        .import_asset(request.source_path, &request.path)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
+/// Returns a bounded text preview addressed only by an opaque managed identifier.
+#[tauri::command]
+pub(crate) async fn preview_benchmark_asset(
+    request: PreviewBenchmarkAssetRequest,
+    service: State<'_, BenchmarkService>,
+) -> Result<BenchmarkAssetPreviewResponse, IpcError> {
+    service
+        .asset_preview(&request.asset_id)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
 /// Persists an incomplete editor document with revision checking.
 #[tauri::command]
 pub(crate) async fn save_benchmark_draft(

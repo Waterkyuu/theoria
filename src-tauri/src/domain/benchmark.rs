@@ -45,6 +45,49 @@ pub(crate) struct BenchmarkFile {
     pub(crate) asset_id: String,
 }
 
+/// Bounded text preview for one application-owned Benchmark asset.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BenchmarkAssetPreview {
+    /// Opaque managed identifier requested by the caller.
+    pub(crate) asset_id: String,
+    /// Complete file size before preview truncation.
+    pub(crate) size_bytes: u64,
+    /// UTF-8 prefix, or absent for binary content.
+    pub(crate) text: Option<String>,
+    /// Whether the displayed text omits trailing bytes.
+    pub(crate) truncated: bool,
+}
+
+/// Safe import summary shown before copying files or creating a draft.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BenchmarkImportPreview {
+    /// Template name displayed in the confirmation dialog.
+    pub(crate) name: String,
+    /// Template description displayed in the confirmation dialog.
+    pub(crate) description: String,
+    /// Optional attribution retained by the imported draft.
+    pub(crate) source: Option<String>,
+    /// Bounded Case summaries in template order.
+    pub(crate) cases: Vec<BenchmarkImportPreviewCase>,
+    /// Total number of public inputs and private verifier files.
+    pub(crate) file_count: usize,
+    /// Field-addressable problems the editor can repair after import.
+    pub(crate) issues: Vec<BenchmarkValidationIssue>,
+}
+
+/// One imported Case summary without machine-specific source paths.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BenchmarkImportPreviewCase {
+    /// Case title from the portable template.
+    pub(crate) name: String,
+    /// Configured execution deadline.
+    pub(crate) timeout_minutes: u32,
+    /// Number of public input files for this Case.
+    pub(crate) input_file_count: usize,
+    /// Stable check discriminants without private verifier content.
+    pub(crate) check_kinds: Vec<String>,
+}
+
 /// Saved grading criteria; the Agent cannot supply or replace these rules.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
