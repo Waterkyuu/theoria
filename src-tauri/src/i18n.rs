@@ -50,6 +50,7 @@ pub(crate) enum ErrorMessageKey {
     BenchmarkDatabaseFailed,
     BenchmarkNotFound,
     BenchmarkConflict,
+    BenchmarkMountRequired,
     BenchmarkReadOnly,
     BenchmarkAssetUnavailable,
     BenchmarkVerifierUnavailable,

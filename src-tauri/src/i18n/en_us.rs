@@ -74,6 +74,9 @@ pub(super) fn message(key: ErrorMessageKey) -> &'static str {
         ErrorMessageKey::BenchmarkConflict => {
             "The Benchmark changed; reload it before saving or publishing"
         }
+        ErrorMessageKey::BenchmarkMountRequired => {
+            "This historical Benchmark must be mounted before it can be rerun"
+        }
         ErrorMessageKey::BenchmarkReadOnly => "This Benchmark is read-only or archived",
         ErrorMessageKey::BenchmarkAssetUnavailable => "A Benchmark material file is unavailable",
         ErrorMessageKey::BenchmarkVerifierUnavailable => {

@@ -48,6 +48,7 @@ pub(crate) enum AppError {
     BenchmarkDatabaseFailed,
     BenchmarkNotFound,
     BenchmarkConflict,
+    BenchmarkMountRequired,
     BenchmarkReadOnly,
     BenchmarkAssetUnavailable,
     BenchmarkVerifierUnavailable,
@@ -286,6 +287,11 @@ impl IpcError {
                 ErrorMessageKey::BenchmarkConflict,
                 None,
             ),
+            AppError::BenchmarkMountRequired => (
+                "BENCHMARK_MOUNT_REQUIRED",
+                ErrorMessageKey::BenchmarkMountRequired,
+                None,
+            ),
             AppError::BenchmarkReadOnly => (
                 "BENCHMARK_READ_ONLY",
                 ErrorMessageKey::BenchmarkReadOnly,
@@ -357,6 +363,17 @@ mod tests {
 
         assert_eq!(error.code, "TASK_NOT_FOUND");
         assert_eq!(error.message, "未找到对应的任务记录");
+    }
+
+    #[test]
+    fn identifies_a_missing_rerun_mount_separately_from_a_write_conflict() {
+        let error = IpcError::from_app_error(AppError::BenchmarkMountRequired, "en-US");
+
+        assert_eq!(error.code, "BENCHMARK_MOUNT_REQUIRED");
+        assert_eq!(
+            error.message,
+            "This historical Benchmark must be mounted before it can be rerun"
+        );
     }
 
     #[test]
