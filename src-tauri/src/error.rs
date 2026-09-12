@@ -1,6 +1,7 @@
 use serde::Serialize;
 use std::path::PathBuf;
 
+use crate::domain::benchmark::BenchmarkValidationIssue;
 use crate::i18n::{self, ErrorMessageKey};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -43,6 +44,7 @@ pub(crate) enum AppError {
     TaskDatabaseFailed,
     InvalidTask,
     InvalidBenchmark,
+    BenchmarkValidationFailed(Vec<BenchmarkValidationIssue>),
     BenchmarkDatabaseFailed,
     BenchmarkNotFound,
     BenchmarkConflict,
@@ -66,6 +68,19 @@ pub(crate) struct IpcError {
     pub(crate) code: &'static str,
     /// Safe user-facing explanation without local paths or process details.
     pub(crate) message: String,
+    /// Optional typed context used by a matching product surface.
+    pub(crate) details: Option<IpcErrorDetails>,
+}
+
+/// Bounded product-specific context that is safe to expose to the local frontend.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub(crate) enum IpcErrorDetails {
+    /// Field-addressable Benchmark publication failures.
+    BenchmarkValidation {
+        /// Stable field paths and validation codes produced by the domain model.
+        issues: Vec<BenchmarkValidationIssue>,
+    },
 }
 
 impl From<AppError> for IpcError {
@@ -81,6 +96,14 @@ impl IpcError {
     }
 
     fn map(error: AppError, translate: impl FnOnce(ErrorMessageKey) -> &'static str) -> Self {
+        let details = match &error {
+            AppError::BenchmarkValidationFailed(issues) => {
+                Some(IpcErrorDetails::BenchmarkValidation {
+                    issues: issues.clone(),
+                })
+            }
+            _ => None,
+        };
         let (code, key, path) = match error {
             AppError::ClaudeNotInstalled => (
                 "CLAUDE_NOT_INSTALLED",
@@ -243,6 +266,11 @@ impl IpcError {
             AppError::InvalidBenchmark => {
                 ("INVALID_BENCHMARK", ErrorMessageKey::InvalidBenchmark, None)
             }
+            AppError::BenchmarkValidationFailed(_) => (
+                "BENCHMARK_VALIDATION_FAILED",
+                ErrorMessageKey::InvalidBenchmark,
+                None,
+            ),
             AppError::BenchmarkDatabaseFailed => (
                 "BENCHMARK_DATABASE_FAILED",
                 ErrorMessageKey::BenchmarkDatabaseFailed,
@@ -303,7 +331,11 @@ impl IpcError {
             None => translated_message.to_string(),
         };
 
-        Self { code, message }
+        Self {
+            code,
+            message,
+            details,
+        }
     }
 }
 
@@ -325,5 +357,25 @@ mod tests {
 
         assert_eq!(error.code, "TASK_NOT_FOUND");
         assert_eq!(error.message, "未找到对应的任务记录");
+    }
+
+    #[test]
+    fn preserves_benchmark_validation_paths_in_ipc_details() {
+        let error = IpcError::from_app_error(
+            AppError::BenchmarkValidationFailed(vec![
+                crate::domain::benchmark::BenchmarkValidationIssue {
+                    field: "cases.2.prompt".to_string(),
+                    code: "invalid_prompt",
+                },
+            ]),
+            "en-US",
+        );
+
+        assert_eq!(error.code, "BENCHMARK_VALIDATION_FAILED");
+        assert_eq!(
+            serde_json::to_value(error).expect("IPC error should serialize")["details"]["issues"]
+                [0]["field"],
+            "cases.2.prompt"
+        );
     }
 }

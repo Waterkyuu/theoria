@@ -152,7 +152,7 @@ impl BenchmarkService {
         }
         let issues = draft.document.publication_issues();
         if !issues.is_empty() {
-            return Err(AppError::InvalidBenchmark);
+            return Err(AppError::BenchmarkValidationFailed(issues));
         }
         for case in &draft.document.cases {
             for file in &case.input_files {
@@ -317,10 +317,19 @@ mod tests {
                 )
                 .await
                 .expect("incomplete draft should save");
-            assert!(matches!(
-                service.publish(&draft.id, draft.revision).await,
-                Err(AppError::InvalidBenchmark)
-            ));
+            let error = service
+                .publish(&draft.id, draft.revision)
+                .await
+                .expect_err("incomplete draft must not publish");
+            let AppError::BenchmarkValidationFailed(issues) = error else {
+                panic!("publication should preserve validation issues");
+            };
+            assert!(issues
+                .iter()
+                .any(|issue| issue.field == "name" && issue.code == "invalid_name"));
+            assert!(issues
+                .iter()
+                .any(|issue| issue.field == "cases" && issue.code == "invalid_case_count"));
             assert_eq!(
                 service
                     .draft(&draft.id)
