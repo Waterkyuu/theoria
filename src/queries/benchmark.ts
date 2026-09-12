@@ -13,6 +13,8 @@ import {
 	listBenchmarkDrafts,
 	listBenchmarks,
 	listBenchmarkTags,
+	listBenchmarkExecutionArtifacts,
+	previewBenchmarkExecutionArtifact,
 	listWorkspaceBenchmarks,
 	rerunBenchmarkTask,
 	startBenchmarkTask,
@@ -187,6 +189,36 @@ const useBenchmarkTask = (taskId: string | null) =>
 		},
 	});
 
+/** Loads the final file index only after the user selects one execution. */
+const useBenchmarkExecutionArtifacts = (
+	taskId: string,
+	executionId: string | null,
+) =>
+	useQuery({
+		queryKey: ["benchmark-execution-artifacts", taskId, executionId],
+		queryFn: () => {
+			if (!executionId) throw new Error("An execution id is required");
+			return listBenchmarkExecutionArtifacts(taskId, executionId);
+		},
+		enabled: executionId !== null,
+	});
+
+/** Loads one bounded artifact body independently from the file index. */
+const useBenchmarkExecutionArtifactPreview = (
+	taskId: string,
+	executionId: string | null,
+	path: string | null,
+) =>
+	useQuery({
+		queryKey: ["benchmark-execution-artifact", taskId, executionId, path],
+		queryFn: () => {
+			if (!executionId || !path)
+				throw new Error("An artifact selection is required");
+			return previewBenchmarkExecutionArtifact(taskId, executionId, path);
+		},
+		enabled: executionId !== null && path !== null,
+	});
+
 /** Starts a Benchmark Task and seeds its polling cache immediately. */
 const useStartBenchmarkTask = () => {
 	const queryClient = useQueryClient();
@@ -240,6 +272,8 @@ export {
 	useWorkspaceBenchmarks,
 	useUpdateBenchmarkMount,
 	useBenchmarkTask,
+	useBenchmarkExecutionArtifacts,
+	useBenchmarkExecutionArtifactPreview,
 	useCancelBenchmarkTask,
 	useRerunBenchmarkTask,
 	useStartBenchmarkTask,

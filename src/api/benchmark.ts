@@ -14,6 +14,8 @@ import {
 	BenchmarkTagsSchema,
 	BenchmarkPreviewSchema,
 	BenchmarkTaskDetailSchema,
+	BenchmarkArtifactFilesSchema,
+	BenchmarkArtifactPreviewSchema,
 	EmptyBenchmarkResponseSchema,
 } from "@/types/benchmark";
 import type {
@@ -237,6 +239,26 @@ const startBenchmarkTask = (request: StartBenchmarkTaskInput) =>
 		request,
 	});
 
+/** Lists final files for one execution with changes from its Case baseline. */
+const listBenchmarkExecutionArtifacts = (taskId: string, executionId: string) =>
+	invokeWithResponseSchema(
+		"list_benchmark_execution_artifacts",
+		BenchmarkArtifactFilesSchema,
+		{ request: { taskId, executionId } },
+	);
+
+/** Reads one bounded final-file preview without exposing its native path. */
+const previewBenchmarkExecutionArtifact = (
+	taskId: string,
+	executionId: string,
+	path: string,
+) =>
+	invokeWithResponseSchema(
+		"preview_benchmark_execution_artifact",
+		BenchmarkArtifactPreviewSchema,
+		{ request: { taskId, executionId, path } },
+	);
+
 /** Creates a fresh Task from one terminal run while preserving its published version. */
 const rerunBenchmarkTask = (request: RerunBenchmarkTaskInput) =>
 	invokeWithResponseSchema("rerun_benchmark_task", BenchmarkTaskDetailSchema, {
@@ -273,6 +295,8 @@ export {
 	unmountBenchmark,
 	previewBenchmarkTask,
 	startBenchmarkTask,
+	listBenchmarkExecutionArtifacts,
+	previewBenchmarkExecutionArtifact,
 	rerunBenchmarkTask,
 	getBenchmarkTask,
 };
