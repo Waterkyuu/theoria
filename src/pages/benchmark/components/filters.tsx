@@ -11,7 +11,15 @@ import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { Popover } from "@/components/ui/popover";
 import type { BenchmarkFilters, BenchmarkTag } from "@/types/benchmark";
-import { TagIcon } from "./tag-icon";
+
+const TAG_DOT_COLORS = [
+	"bg-[#3b82f6]",
+	"bg-[#8b5cf6]",
+	"bg-[#10b981]",
+	"bg-[#ef4444]",
+	"bg-[#f59e0b]",
+	"bg-[#06b6d4]",
+] as const;
 
 type FiltersProps = {
 	/** Query values reset catalog pagination when changed. */
@@ -34,6 +42,13 @@ const BenchmarkFiltersBar = ({ value, tags, onChange }: FiltersProps) => {
 	const [sortOpen, setSortOpen] = useState(false);
 	const [authorOpen, setAuthorOpen] = useState(false);
 	const isAllSelected = !value.tagIds.length && !value.author && !value.search;
+	const tagsWithDotColors = tags.map((tag, index) => ({
+		color: TAG_DOT_COLORS[index % TAG_DOT_COLORS.length],
+		tag,
+	}));
+	const selectedTags = tagsWithDotColors.filter(({ tag }) =>
+		value.tagIds.includes(tag.id),
+	);
 	return (
 		<div className="flex flex-wrap items-center gap-sm">
 			<Button
@@ -66,17 +81,20 @@ const BenchmarkFiltersBar = ({ value, tags, onChange }: FiltersProps) => {
 				}
 			>
 				<div className="flex flex-wrap items-center gap-1.5 rounded-md border border-hairline p-2">
-					{tags
-						.filter((tag) => value.tagIds.includes(tag.id))
-						.map((tag) => (
-							<span
-								key={tag.id}
-								className="rounded-full border border-hairline px-2.5 py-1.75 text-caption-sm text-charcoal"
-							>
-								{tag.name}
-							</span>
-						))}
-					<Magnifier aria-hidden="true" className="size-4 shrink-0 text-mute" />
+					{selectedTags.map(({ tag }) => (
+						<span
+							key={tag.id}
+							className="rounded-full border border-hairline px-2.5 py-1.75 text-caption-sm text-charcoal"
+						>
+							{tag.name}
+						</span>
+					))}
+					{!selectedTags.length && (
+						<Magnifier
+							aria-hidden="true"
+							className="size-4 shrink-0 text-mute"
+						/>
+					)}
 					<input
 						aria-label={t("benchmark.searchTags")}
 						placeholder={t("benchmark.searchTags")}
@@ -90,11 +108,11 @@ const BenchmarkFiltersBar = ({ value, tags, onChange }: FiltersProps) => {
 					role="group"
 					aria-label={t("benchmark.tags")}
 				>
-					{tags
-						.filter((tag) =>
+					{tagsWithDotColors
+						.filter(({ tag }) =>
 							tag.name.toLowerCase().includes(tagSearch.toLowerCase()),
 						)
-						.map((tag) => (
+						.map(({ tag, color }) => (
 							<button
 								type="button"
 								key={tag.id}
@@ -117,7 +135,10 @@ const BenchmarkFiltersBar = ({ value, tags, onChange }: FiltersProps) => {
 										!value.tagIds.includes(tag.id) && "invisible",
 									)}
 								/>
-								<TagIcon name={tag.icon} />
+								<span
+									aria-hidden="true"
+									className={cn("size-2.5 shrink-0 rounded-full", color)}
+								/>
 								{tag.name}
 							</button>
 						))}

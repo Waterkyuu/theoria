@@ -8,6 +8,16 @@ const tags: BenchmarkTag[] = [
 	{ id: "code", name: "Coding", icon: "Code", isSystem: false },
 ];
 
+const paletteTags: BenchmarkTag[] = [
+	{ id: "code", name: "Coding", icon: "Code", isSystem: false },
+	{ id: "reasoning", name: "Reasoning", icon: "Brain", isSystem: false },
+	{ id: "data", name: "Data", icon: "Database", isSystem: false },
+	{ id: "debugging", name: "Debugging", icon: "Bug", isSystem: false },
+	{ id: "refactoring", name: "Refactoring", icon: "Code", isSystem: false },
+	{ id: "testing", name: "Testing", icon: "Check", isSystem: false },
+	{ id: "frontend", name: "Frontend", icon: "Globe", isSystem: false },
+];
+
 it("keeps the all benchmarks button white when another benchmark filter is active", () => {
 	const value: BenchmarkFilters = {
 		search: "",
@@ -58,4 +68,46 @@ it("shows a search icon inside the tag search field", async () => {
 		"aria-hidden",
 		"true",
 	);
+});
+
+it("hides the tag search icon after selected tag chips", async () => {
+	const user = userEvent.setup();
+	const value: BenchmarkFilters = {
+		search: "",
+		tagIds: ["code"],
+		author: null,
+		sort: "newest",
+	};
+	render(<BenchmarkFiltersBar value={value} tags={tags} onChange={vi.fn()} />);
+
+	await user.click(screen.getByRole("button", { name: "标签 (1)" }));
+
+	const tagSearch = screen.getByLabelText("搜索标签…");
+	expect(tagSearch.previousElementSibling).toHaveTextContent("Coding");
+	expect(tagSearch.previousElementSibling).not.toHaveClass("size-4");
+});
+
+it("uses fixed color dots instead of tag icons in the tag dropdown", async () => {
+	const user = userEvent.setup();
+	const value: BenchmarkFilters = {
+		search: "",
+		tagIds: ["code"],
+		author: null,
+		sort: "newest",
+	};
+	render(
+		<BenchmarkFiltersBar value={value} tags={paletteTags} onChange={vi.fn()} />,
+	);
+
+	await user.click(screen.getByRole("button", { name: "标签 (1)" }));
+
+	const firstOption = screen.getByRole("checkbox", { name: "Coding" });
+	const seventhOption = screen.getByRole("checkbox", { name: "Frontend" });
+	expect(firstOption.querySelectorAll("svg")).toHaveLength(1);
+
+	const firstDot = firstOption.querySelector("span");
+	const seventhDot = seventhOption.querySelector("span");
+	expect(firstDot).toHaveClass("size-2.5", "rounded-full");
+	expect(seventhDot).toHaveClass("size-2.5", "rounded-full");
+	expect(seventhDot?.className).toBe(firstDot?.className);
 });
