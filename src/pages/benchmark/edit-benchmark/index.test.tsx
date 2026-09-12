@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { expect, it, vi } from "vitest";
 import i18n from "@/i18n";
-import BenchmarkEditorPage from "./editor";
+import BenchmarkEditorPage from ".";
 const { invoke } = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
 it("retains the saved revision after publication fails so retry uses the latest draft", async () => {

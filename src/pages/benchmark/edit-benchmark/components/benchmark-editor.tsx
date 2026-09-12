@@ -3,7 +3,7 @@ import type { FormEvent } from "react";
 import { Button, Toast } from "@heroui/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { PageHeader } from "@/components/share/page-header";
 import { AlertDialog } from "@/components/ui/alert-dialog";
 import { Popover } from "@/components/ui/popover";
@@ -14,10 +14,10 @@ import {
 	saveBenchmarkDraft,
 	publishBenchmark,
 } from "@/api/benchmark";
-import { useBenchmarkDraft, useBenchmarkTags } from "@/queries/benchmark";
+import { useBenchmarkTags } from "@/queries/benchmark";
 import type { BenchmarkDocument, BenchmarkDraft } from "@/types/benchmark";
-import { BenchmarkFeedback } from "./components/feedback";
-import { BENCHMARK_ICONS, TagIcon } from "./components/tag-icon";
+import { BenchmarkFeedback } from "../../components/feedback";
+import { BENCHMARK_ICONS, TagIcon } from "../../components/tag-icon";
 const FIELD =
 	"w-full rounded-md border border-hairline bg-canvas px-md py-sm text-body-sm outline-none focus-visible:ring-2 focus-visible:ring-focus-ring";
 type EditorProps = {
@@ -398,17 +398,4 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 		</main>
 	);
 };
-const BenchmarkEditorPage = () => {
-	const { draftId = "" } = useParams();
-	const query = useBenchmarkDraft(draftId);
-	if (draftId && !query.data)
-		return (
-			<BenchmarkFeedback
-				loading={query.isLoading}
-				failed={query.isError}
-				retry={() => query.refetch()}
-			/>
-		);
-	return <BenchmarkEditor key={draftId || "new"} initial={query.data} />;
-};
-export default BenchmarkEditorPage;
+export { BenchmarkEditor };
