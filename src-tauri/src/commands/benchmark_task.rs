@@ -2,9 +2,10 @@ use crate::adapters::agent::{AgentExecutionConfig, AgentSessionRunOutput};
 use crate::adapters::claude::ClaudeRuntimeSettingsCache;
 use crate::adapters::codex::CodexRuntimeDefaultsCache;
 use crate::dto::benchmark_task::{
-    BenchmarkAgentRequest, BenchmarkTaskDetailResponse, BenchmarkTaskPreviewResponse,
-    GetBenchmarkTaskRequest, PreviewBenchmarkTaskRequest, RerunBenchmarkTaskRequest,
-    StartBenchmarkTaskRequest,
+    BenchmarkAgentRequest, BenchmarkArtifactFileResponse, BenchmarkArtifactPreviewResponse,
+    BenchmarkTaskDetailResponse, BenchmarkTaskPreviewResponse, GetBenchmarkTaskRequest,
+    ListBenchmarkExecutionArtifactsRequest, PreviewBenchmarkExecutionArtifactRequest,
+    PreviewBenchmarkTaskRequest, RerunBenchmarkTaskRequest, StartBenchmarkTaskRequest,
 };
 use crate::error::{AppError, IpcError};
 use crate::services::agent_runtime::{check_local_agent_login, run_agent_turn, AgentRuntimeCaches};
@@ -159,6 +160,32 @@ pub(crate) async fn get_benchmark_task(
 ) -> Result<BenchmarkTaskDetailResponse, IpcError> {
     service
         .get(&request.task_id)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
+/// Lists the read-only final files for one finished matrix cell.
+#[tauri::command]
+pub(crate) async fn list_benchmark_execution_artifacts(
+    request: ListBenchmarkExecutionArtifactsRequest,
+    service: State<'_, BenchmarkTaskService>,
+) -> Result<Vec<BenchmarkArtifactFileResponse>, IpcError> {
+    service
+        .execution_artifacts(&request.task_id, &request.execution_id)
+        .await
+        .map(|files| files.into_iter().map(Into::into).collect())
+        .map_err(Into::into)
+}
+
+/// Returns one bounded text preview without returning a machine-local path.
+#[tauri::command]
+pub(crate) async fn preview_benchmark_execution_artifact(
+    request: PreviewBenchmarkExecutionArtifactRequest,
+    service: State<'_, BenchmarkTaskService>,
+) -> Result<BenchmarkArtifactPreviewResponse, IpcError> {
+    service
+        .execution_artifact_preview(&request.task_id, &request.execution_id, &request.path)
         .await
         .map(Into::into)
         .map_err(Into::into)

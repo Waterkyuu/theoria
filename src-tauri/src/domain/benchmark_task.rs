@@ -154,6 +154,23 @@ pub(crate) struct BenchmarkEvaluationReport {
     pub(crate) checks: Vec<BenchmarkEvaluationCheck>,
 }
 
+/// One read-only file from a finished execution compared with its Case baseline.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BenchmarkArtifactFile {
+    pub(crate) path: String,
+    pub(crate) size_bytes: u64,
+    pub(crate) change: String,
+}
+
+/// Bounded UTF-8 preview of one final execution artifact.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BenchmarkArtifactPreview {
+    pub(crate) path: String,
+    pub(crate) size_bytes: u64,
+    pub(crate) text: Option<String>,
+    pub(crate) truncated: bool,
+}
+
 /// Terminal values persisted together for one execution cell.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct BenchmarkExecutionResult {

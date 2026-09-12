@@ -4,8 +4,9 @@ use crate::domain::agent_kind::AgentKind;
 use crate::domain::agent_status::AgentLoginStatus;
 use crate::domain::benchmark::{safe_asset_id, safe_relative_path, BenchmarkCheck};
 use crate::domain::benchmark_task::{
-    BenchmarkEvaluationCheck, BenchmarkEvaluationReport, BenchmarkExecutionResult,
-    BenchmarkRerunConfiguration, BenchmarkTaskDetail, NewBenchmarkTaskPlan,
+    BenchmarkArtifactFile, BenchmarkArtifactPreview, BenchmarkEvaluationCheck,
+    BenchmarkEvaluationReport, BenchmarkExecutionResult, BenchmarkRerunConfiguration,
+    BenchmarkTaskDetail, NewBenchmarkTaskPlan,
 };
 use crate::domain::benchmark_task::{
     BenchmarkPreflightIssue, BenchmarkPreflightIssueKind, BenchmarkTaskConfiguration,
@@ -17,7 +18,8 @@ use crate::error::AppError;
 use crate::repositories::benchmark::BenchmarkRepository;
 use crate::repositories::benchmark_task::BenchmarkTaskRepository;
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::io::Read;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
@@ -145,6 +147,74 @@ impl BenchmarkTaskService {
             .recover_interrupted(now_ms()?)
             .await
             .map_err(|_| AppError::BenchmarkDatabaseFailed)
+    }
+
+    /// Lists final regular files and their change from the immutable Case baseline.
+    pub(crate) async fn execution_artifacts(
+        &self,
+        task_id: &str,
+        execution_id: &str,
+    ) -> Result<Vec<BenchmarkArtifactFile>, AppError> {
+        let (baseline, workspace, finished) = self.execution_roots(task_id, execution_id).await?;
+        if !finished {
+            return Ok(Vec::new());
+        }
+        tokio::task::spawn_blocking(move || compare_artifacts(&baseline, &workspace))
+            .await
+            .map_err(|_| AppError::WorkerFailed)?
+    }
+
+    /// Reads only one bounded regular file owned by the selected execution.
+    pub(crate) async fn execution_artifact_preview(
+        &self,
+        task_id: &str,
+        execution_id: &str,
+        path: &str,
+    ) -> Result<BenchmarkArtifactPreview, AppError> {
+        if !safe_relative_path(path) {
+            return Err(AppError::InvalidBenchmark);
+        }
+        let (baseline, workspace, finished) = self.execution_roots(task_id, execution_id).await?;
+        drop(baseline);
+        if !finished {
+            return Err(AppError::InvalidTask);
+        }
+        let path = path.to_string();
+        tokio::task::spawn_blocking(move || preview_artifact(&workspace, &path))
+            .await
+            .map_err(|_| AppError::WorkerFailed)?
+    }
+
+    async fn execution_roots(
+        &self,
+        task_id: &str,
+        execution_id: &str,
+    ) -> Result<(PathBuf, PathBuf, bool), AppError> {
+        let detail = self.get(task_id).await?;
+        let execution = detail
+            .executions
+            .iter()
+            .find(|execution| execution.id == execution_id)
+            .ok_or(AppError::TaskNotFound)?;
+        let case = detail
+            .cases
+            .iter()
+            .find(|case| case.id == execution.task_case_id)
+            .ok_or(AppError::BenchmarkDatabaseFailed)?;
+        let case_root = self
+            .app_data_directory
+            .join("task-runs")
+            .join(task_id)
+            .join("cases")
+            .join(&case.id);
+        Ok((
+            case_root.join("baseline"),
+            case_root
+                .join("executions")
+                .join(execution_id)
+                .join("workspace"),
+            execution.phase == "finished",
+        ))
     }
 
     /// Creates a new complete Task from a terminal Task's immutable published version.
@@ -854,6 +924,137 @@ fn evaluate_checks(
     })
 }
 
+const MAX_ARTIFACT_FILES: usize = 2_000;
+const MAX_ARTIFACT_PREVIEW_BYTES: u64 = 256 * 1024;
+
+fn compare_artifacts(
+    baseline: &Path,
+    workspace: &Path,
+) -> Result<Vec<BenchmarkArtifactFile>, AppError> {
+    let baseline_files = list_regular_files(baseline)?;
+    let workspace_files = list_regular_files(workspace)?;
+    let mut artifacts = workspace_files
+        .iter()
+        .map(|(path, size)| {
+            let change = match baseline_files.get(path) {
+                None => "added",
+                Some(_) if files_equal(&baseline.join(path), &workspace.join(path))? => "unchanged",
+                Some(_) => "modified",
+            };
+            Ok(BenchmarkArtifactFile {
+                path: path.clone(),
+                size_bytes: *size,
+                change: change.to_string(),
+            })
+        })
+        .collect::<Result<Vec<_>, AppError>>()?;
+    artifacts.extend(
+        baseline_files
+            .iter()
+            .filter(|(path, _)| !workspace_files.contains_key(*path))
+            .map(|(path, size)| BenchmarkArtifactFile {
+                path: path.clone(),
+                size_bytes: *size,
+                change: "deleted".to_string(),
+            }),
+    );
+    artifacts.sort_by(|left, right| left.path.cmp(&right.path));
+    Ok(artifacts)
+}
+
+fn list_regular_files(root: &Path) -> Result<HashMap<String, u64>, AppError> {
+    if !root.exists() {
+        return Ok(HashMap::new());
+    }
+    let root = std::fs::canonicalize(root).map_err(|_| AppError::TaskResultFailed)?;
+    let mut directories = vec![root.clone()];
+    let mut files = HashMap::new();
+    while let Some(directory) = directories.pop() {
+        for entry in std::fs::read_dir(&directory).map_err(|_| AppError::TaskResultFailed)? {
+            let entry = entry.map_err(|_| AppError::TaskResultFailed)?;
+            let metadata =
+                std::fs::symlink_metadata(entry.path()).map_err(|_| AppError::TaskResultFailed)?;
+            if metadata.file_type().is_symlink() {
+                continue;
+            }
+            if metadata.is_dir() {
+                directories.push(entry.path());
+                continue;
+            }
+            if !metadata.is_file() {
+                continue;
+            }
+            let relative = entry
+                .path()
+                .strip_prefix(&root)
+                .map_err(|_| AppError::TaskResultFailed)?
+                .to_str()
+                .ok_or(AppError::TaskResultFailed)?
+                .replace(std::path::MAIN_SEPARATOR, "/");
+            if !safe_relative_path(&relative) || files.len() >= MAX_ARTIFACT_FILES {
+                return Err(AppError::TaskResultFailed);
+            }
+            files.insert(relative, metadata.len());
+        }
+    }
+    Ok(files)
+}
+
+fn files_equal(left: &Path, right: &Path) -> Result<bool, AppError> {
+    let left_metadata = std::fs::metadata(left).map_err(|_| AppError::TaskResultFailed)?;
+    let right_metadata = std::fs::metadata(right).map_err(|_| AppError::TaskResultFailed)?;
+    if left_metadata.len() != right_metadata.len() {
+        return Ok(false);
+    }
+    let mut left = std::fs::File::open(left).map_err(|_| AppError::TaskResultFailed)?;
+    let mut right = std::fs::File::open(right).map_err(|_| AppError::TaskResultFailed)?;
+    let mut left_chunk = [0_u8; 64 * 1024];
+    let mut right_chunk = [0_u8; 64 * 1024];
+    loop {
+        let left_read = left
+            .read(&mut left_chunk)
+            .map_err(|_| AppError::TaskResultFailed)?;
+        let right_read = right
+            .read(&mut right_chunk)
+            .map_err(|_| AppError::TaskResultFailed)?;
+        if left_read != right_read || left_chunk[..left_read] != right_chunk[..right_read] {
+            return Ok(false);
+        }
+        if left_read == 0 {
+            return Ok(true);
+        }
+    }
+}
+
+fn preview_artifact(root: &Path, path: &str) -> Result<BenchmarkArtifactPreview, AppError> {
+    let root = std::fs::canonicalize(root).map_err(|_| AppError::TaskResultFailed)?;
+    let candidate = root.join(path);
+    let metadata =
+        std::fs::symlink_metadata(&candidate).map_err(|_| AppError::BenchmarkAssetUnavailable)?;
+    if !metadata.is_file() || metadata.file_type().is_symlink() {
+        return Err(AppError::BenchmarkAssetUnavailable);
+    }
+    let candidate =
+        std::fs::canonicalize(candidate).map_err(|_| AppError::BenchmarkAssetUnavailable)?;
+    if !candidate.starts_with(&root) {
+        return Err(AppError::BenchmarkAssetUnavailable);
+    }
+    let mut bytes = Vec::new();
+    std::fs::File::open(candidate)
+        .map_err(|_| AppError::BenchmarkAssetUnavailable)?
+        .take(MAX_ARTIFACT_PREVIEW_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| AppError::BenchmarkAssetUnavailable)?;
+    let truncated = bytes.len() as u64 > MAX_ARTIFACT_PREVIEW_BYTES;
+    bytes.truncate(MAX_ARTIFACT_PREVIEW_BYTES as usize);
+    Ok(BenchmarkArtifactPreview {
+        path: path.to_string(),
+        size_bytes: metadata.len(),
+        text: String::from_utf8(bytes).ok(),
+        truncated,
+    })
+}
+
 /// Resolves only regular files contained by the execution workspace.
 fn checked_output_file(
     workspace: &std::path::Path,
@@ -1398,6 +1599,8 @@ mod tests {
                     assert_eq!(request.command_execution, "deny");
                     assert!(request.model.is_none());
                     assert!(request.session_id.is_none());
+                    std::fs::write(request.working_directory.join("result.txt"), "42")
+                        .expect("result artifact");
                     Ok(AgentSessionRunOutput {
                         output: AgentRunOutput {
                             response: "42".into(),
@@ -1419,6 +1622,21 @@ mod tests {
                 .executions
                 .iter()
                 .all(|execution| execution.verdict.as_deref() == Some("passed")));
+            let selected = &completed.executions[0];
+            let artifacts = service
+                .execution_artifacts(&completed.task.id, &selected.id)
+                .await
+                .expect("artifact list");
+            assert!(artifacts.iter().any(|artifact| {
+                artifact.path == "result.txt"
+                    && artifact.change == "added"
+                    && artifact.size_bytes == 2
+            }));
+            let preview = service
+                .execution_artifact_preview(&completed.task.id, &selected.id, "result.txt")
+                .await
+                .expect("artifact preview");
+            assert_eq!(preview.text.as_deref(), Some("42"));
             catalog
                 .unmount("workspace", &mount.id)
                 .await
