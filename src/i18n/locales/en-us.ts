@@ -64,11 +64,23 @@ const enUS = {
 			noFiles: "No starting files",
 			duplicate: "Duplicate",
 			edit: "Edit",
+			archive: "Archive",
+			archiveTitle: "Archive Benchmark?",
+			archiveDescription:
+				"It will leave the default catalog and cannot be mounted to new Workspaces. Existing mounts and results remain available.",
+			archiveConfirm: "Archive Benchmark",
+			archived: "Benchmark archived",
 			copied: "Editable copy created",
 			unmount: "Unmount",
 			unmountConfirm:
 				"Unmount this benchmark? Existing evaluation results are kept.",
 			unmounted: "Benchmark unmounted",
+			updateMount: "Update to version {{number}}",
+			updateMountTitle: "Update mounted version?",
+			updateMountDescription:
+				"Future runs will use version {{latest}} instead of version {{current}}. Existing Task results do not change.",
+			updateMountConfirm: "Update mount",
+			mountUpdated: "Mounted version updated",
 			configure: "Configure evaluation",
 			agents: "Local Agents",
 			modelHint: "Uses each local Agent product’s model settings.",
