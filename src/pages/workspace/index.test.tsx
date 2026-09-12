@@ -20,11 +20,12 @@ const apiMocks = vi.hoisted(() => ({
 }));
 
 const RESTORED_TASK = {
+	prompt: "Inspect repository",
 	task: {
 		id: "task-42",
 		workspaceId: null,
 		title: "Inspect repository",
-		prompt: "Inspect repository",
+		kind: "work",
 		status: "completed",
 		configurationLockedAtMs: 1,
 		pinnedAtMs: null,
