@@ -277,6 +277,7 @@ const enUS = {
 		common: {
 			done: "Done",
 			cancel: "Cancel",
+			delete: "Delete",
 			search: "Search",
 			clearSearch: "Clear search",
 			confirm: "Confirm",

@@ -272,6 +272,7 @@ const zhCN = {
 		common: {
 			done: "完成",
 			cancel: "取消",
+			delete: "删除",
 			search: "搜索",
 			clearSearch: "清除搜索",
 			confirm: "确认",

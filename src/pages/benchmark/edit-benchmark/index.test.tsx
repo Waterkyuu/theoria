@@ -163,6 +163,8 @@ it("uploads, previews, and edits files while preserving structured checks", asyn
 	);
 
 	await screen.findByDisplayValue('{"ok":true}');
+	expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
+	expect(screen.queryByText("common.delete")).not.toBeInTheDocument();
 	await user.click(screen.getByRole("button", { name: "Add input file" }));
 	await waitFor(() =>
 		expect(invoke).toHaveBeenCalledWith("import_benchmark_asset", {
