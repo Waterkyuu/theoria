@@ -2,10 +2,10 @@
 
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { extname, join } from "node:path";
+import { extname, join, resolve } from "node:path";
 
 const COMMIT_PATTERN =
-	/(?:^|[;&|]\s*)(?<reviewed>CODEX_AGENTS_REVIEWED=1\s+)?git(?:\s+-C\s+(?:'[^']*'|"[^"]*"|\S+))?\s+commit(?:\s|$)/;
+	/(?:^|[;&|]\s*)(?<reviewed>CODEX_AGENTS_REVIEWED=1\s+)?git(?:\s+-C\s+(?<directory>'[^']*'|"[^"]*"|\S+))?\s+commit(?:\s|$)/;
 const REACT_EXTENSIONS = new Set([".ts", ".tsx"]);
 const REACT_INSTRUCTIONS = "src/AGENTS.md";
 const RUST_INSTRUCTIONS = "src-tauri/AGENTS.md";
@@ -36,7 +36,13 @@ if (commitMatch === null) {
 	process.exit(0);
 }
 
-const cwd = event.cwd || process.cwd();
+const eventCwd = event.cwd || process.cwd();
+const matchedDirectory = commitMatch.groups?.directory;
+const gitDirectory =
+	matchedDirectory?.startsWith("'") || matchedDirectory?.startsWith('"')
+		? matchedDirectory.slice(1, -1)
+		: matchedDirectory;
+const cwd = resolve(eventCwd, gitDirectory ?? ".");
 let repository;
 let stagedFiles;
 

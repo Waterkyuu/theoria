@@ -63,6 +63,41 @@ describe("review_agents_before_commit", () => {
 		});
 	}
 
+	it("ignores non-source files in scoped directories", () => {
+		stage("src-tauri/tauri.conf.json");
+		stage("src/styles.css");
+
+		const completed = invokeHook("git commit -m 'chore: config and styles'");
+
+		assert.equal(completed.status, 0);
+		assert.equal(completed.stdout, "");
+	});
+
+	it("inspects the repository selected by git -C", () => {
+		stage("src-tauri/src/lib.rs");
+		const targetRepository = mkdtempSync(join(tmpdir(), "codex-hook-target-"));
+
+		try {
+			execFileSync("git", ["init", "--quiet", targetRepository]);
+			const targetInstructions = join(targetRepository, "src/AGENTS.md");
+			mkdirSync(dirname(targetInstructions), { recursive: true });
+			writeFileSync(targetInstructions, "TARGET_REACT_INSTRUCTIONS", "utf8");
+			const targetFile = join(targetRepository, "src/example.ts");
+			writeFileSync(targetFile, "change", "utf8");
+			execFileSync("git", ["-C", targetRepository, "add", "src/example.ts"]);
+
+			const result = runHook(
+				`git -C "${targetRepository}" commit -m 'feat: target'`,
+			);
+			const context = result.hookSpecificOutput.additionalContext;
+
+			assert.match(context, /TARGET_REACT_INSTRUCTIONS/);
+			assert.doesNotMatch(context, /RUST_INSTRUCTIONS/);
+		} finally {
+			rmSync(targetRepository, { recursive: true, force: true });
+		}
+	});
+
 	it("blocks mixed commits without injecting either instruction file", () => {
 		stage("src-tauri/src/lib.rs");
 		stage("src/example.ts");
