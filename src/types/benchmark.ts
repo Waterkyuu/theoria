@@ -132,7 +132,7 @@ const BenchmarkTagSchema = z.object({
 	name: z.string(),
 	/** Gravity icon export. */
 	icon: z.string(),
-	/** Protected fallback tag. */
+	/** Whether application rules protect this classification. */
 	isSystem: z.boolean(),
 });
 
@@ -260,11 +260,6 @@ const BenchmarkValidationErrorSchema = z.object({
 		/** Complete bounded publication issues. */
 		issues: z.array(BenchmarkValidationIssueSchema),
 	}),
-});
-
-const BenchmarkTagUsageSchema = z.object({
-	/** Definitions reassigned when the selected Tag is deleted. */
-	benchmarkCount: z.number().int().nonnegative(),
 });
 
 const BenchmarkEvaluationReportSchema = z.object({
@@ -526,8 +521,6 @@ type BenchmarkArtifactPreview = z.infer<typeof BenchmarkArtifactPreviewSchema>;
 
 type BenchmarkValidationIssue = z.infer<typeof BenchmarkValidationIssueSchema>;
 
-type BenchmarkTagUsage = z.infer<typeof BenchmarkTagUsageSchema>;
-
 type BenchmarkFilters = {
 	/** Literal name/description query. */
 	search: string;
@@ -588,7 +581,6 @@ export type {
 	BenchmarkArtifactFile,
 	BenchmarkArtifactPreview,
 	BenchmarkValidationIssue,
-	BenchmarkTagUsage,
 	RerunBenchmarkTaskInput,
 	StartBenchmarkTaskInput,
 };
@@ -607,7 +599,6 @@ export {
 	BenchmarkArtifactFilesSchema,
 	BenchmarkArtifactPreviewSchema,
 	BenchmarkValidationErrorSchema,
-	BenchmarkTagUsageSchema,
 	BenchmarkSummariesSchema,
 	BenchmarkMountsSchema,
 	BenchmarkTagsSchema,
