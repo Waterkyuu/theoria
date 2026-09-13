@@ -678,7 +678,7 @@ mod tests {
     use crate::db::connection::connect_sqlite;
     use crate::models::benchmark::tag;
     use sea_orm::{ConnectionTrait, DatabaseBackend, EntityTrait, PaginatorTrait, Statement};
-    use sea_orm_migration::MigratorTrait;
+    use sea_orm_migration::{MigratorTrait, SchemaManager};
     use std::sync::atomic::{AtomicU64, Ordering};
 
     static DATABASE_SEQUENCE: AtomicU64 = AtomicU64::new(1);
@@ -695,13 +695,14 @@ mod tests {
     }
 
     #[test]
-    fn does_not_seed_a_fallback_benchmark_tag() {
+    fn creates_only_user_defined_benchmark_tags() {
         tauri::async_runtime::block_on(async {
             let (path, url) = temporary_database_url();
             let database = connect_sqlite(&url).await.expect("database should connect");
             Migrator::up(&database, None)
                 .await
                 .expect("schema should initialize");
+            let manager = SchemaManager::new(&database);
 
             assert_eq!(
                 tag::Entity::find()
@@ -710,6 +711,10 @@ mod tests {
                     .expect("tags should be readable"),
                 0
             );
+            assert!(!manager
+                .has_column("benchmark_tags", "is_system")
+                .await
+                .expect("tag schema should be readable"));
 
             database.close().await.expect("database should close");
             std::fs::remove_file(path).expect("owned database should be removed");
