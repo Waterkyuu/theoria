@@ -9,8 +9,8 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { afterEach, beforeEach, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
+import { afterEach, beforeEach, describe, it } from "vitest";
 
 const HOOK_PATH = join(
 	dirname(fileURLToPath(import.meta.url)),

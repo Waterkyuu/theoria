@@ -121,7 +121,7 @@ jobs:
           set -euo pipefail
 
           changed_files="$({
-            git diff --name-only --diff-filter=ACMRTUXB
+            git diff --name-only --diff-filter=ACDMRTUXB HEAD
             git ls-files --others --exclude-standard
           } | sort -u)"
 
