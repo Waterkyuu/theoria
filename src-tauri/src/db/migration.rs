@@ -17,6 +17,7 @@ impl MigratorTrait for Migrator {
             Box::new(AllowWaitingTaskAgentTurns),
             Box::new(AddTaskPin),
             Box::new(CreateBenchmarks),
+            Box::new(RemoveBenchmarkFallbackTag),
         ]
     }
 }
@@ -39,6 +40,65 @@ impl MigrationTrait for CreateBenchmarks {
     }
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager.get_connection().execute_unprepared("DROP TABLE benchmark_evaluations; DROP TABLE benchmark_case_executions; DROP TABLE benchmark_task_cases; DROP TABLE benchmark_task_agents; DROP TABLE benchmark_tasks; DROP TABLE workspace_benchmarks; DROP TABLE benchmark_cases; DROP TABLE benchmark_versions; DROP TABLE benchmark_drafts; DROP TABLE benchmarks; DROP TABLE benchmark_tags;").await?;
+        Ok(())
+    }
+}
+
+/// Removes the fallback classification from databases that already applied the Benchmark schema.
+struct RemoveBenchmarkFallbackTag;
+
+impl MigrationName for RemoveBenchmarkFallbackTag {
+    fn name(&self) -> &str {
+        "m009_remove_benchmark_fallback_tag"
+    }
+}
+
+#[sea_orm_migration::async_trait::async_trait]
+impl MigrationTrait for RemoveBenchmarkFallbackTag {
+    fn use_transaction(&self) -> Option<bool> {
+        Some(true)
+    }
+
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(
+                r#"
+                DROP TRIGGER IF EXISTS benchmark_system_tag_update;
+                DROP TRIGGER IF EXISTS benchmark_system_tag_delete;
+                DELETE FROM benchmark_tags WHERE id = 'uncategorized';
+                "#,
+            )
+            .await?;
+        if manager.has_column("benchmark_tags", "is_system").await? {
+            manager
+                .get_connection()
+                .execute_unprepared("ALTER TABLE benchmark_tags DROP COLUMN is_system;")
+                .await?;
+        }
+        Ok(())
+    }
+
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        if !manager.has_column("benchmark_tags", "is_system").await? {
+            manager
+                .get_connection()
+                .execute_unprepared(
+                    r#"
+                    ALTER TABLE benchmark_tags ADD COLUMN is_system INTEGER NOT NULL DEFAULT 0
+                        CHECK (is_system IN (0, 1));
+                    INSERT INTO benchmark_tags (id, name, icon, is_system)
+                    VALUES ('uncategorized', 'Uncategorized', 'Tag', 1);
+                    CREATE TRIGGER benchmark_system_tag_update BEFORE UPDATE ON benchmark_tags
+                    WHEN OLD.is_system = 1
+                    BEGIN SELECT RAISE(ABORT, 'System tag is immutable'); END;
+                    CREATE TRIGGER benchmark_system_tag_delete BEFORE DELETE ON benchmark_tags
+                    WHEN OLD.is_system = 1
+                    BEGIN SELECT RAISE(ABORT, 'System tag is immutable'); END;
+                    "#,
+                )
+                .await?;
+        }
         Ok(())
     }
 }
@@ -711,6 +771,67 @@ mod tests {
                     .expect("tags should be readable"),
                 0
             );
+            assert!(!manager
+                .has_column("benchmark_tags", "is_system")
+                .await
+                .expect("tag schema should be readable"));
+
+            database.close().await.expect("database should close");
+            std::fs::remove_file(path).expect("owned database should be removed");
+        });
+    }
+
+    #[test]
+    fn upgrades_the_legacy_benchmark_tag_schema_without_a_fallback() {
+        tauri::async_runtime::block_on(async {
+            let (path, url) = temporary_database_url();
+            let database = connect_sqlite(&url).await.expect("database should connect");
+            Migrator::up(&database, Some(7))
+                .await
+                .expect("pre-benchmark schema should initialize");
+            database
+                .execute_unprepared(include_str!("sql/benchmark.sql"))
+                .await
+                .expect("benchmark schema fixture should initialize");
+            database
+                .execute_unprepared(
+                    r#"
+                    ALTER TABLE benchmark_tags ADD COLUMN is_system INTEGER NOT NULL DEFAULT 0
+                        CHECK (is_system IN (0, 1));
+                    CREATE TRIGGER benchmark_system_tag_update BEFORE UPDATE ON benchmark_tags
+                    WHEN OLD.is_system = 1
+                    BEGIN SELECT RAISE(ABORT, 'System tag is immutable'); END;
+                    CREATE TRIGGER benchmark_system_tag_delete BEFORE DELETE ON benchmark_tags
+                    WHEN OLD.is_system = 1
+                    BEGIN SELECT RAISE(ABORT, 'System tag is immutable'); END;
+                    INSERT INTO benchmark_tags (id, name, icon, is_system)
+                    VALUES ('uncategorized', 'Uncategorized', 'Tag', 1);
+                    INSERT INTO benchmark_tags (id, name, icon, is_system)
+                    VALUES ('coding', 'Coding', 'Code', 0);
+                    INSERT INTO seaql_migrations (version, applied_at)
+                    VALUES ('m008_create_benchmarks', 1);
+                    "#,
+                )
+                .await
+                .expect("legacy benchmark schema should be reproducible");
+
+            Migrator::up(&database, None)
+                .await
+                .expect("legacy benchmark schema should upgrade");
+
+            let manager = SchemaManager::new(&database);
+            assert_eq!(
+                tag::Entity::find()
+                    .count(&database)
+                    .await
+                    .expect("tags should be readable"),
+                1
+            );
+            assert!(tag::Entity::find_by_id("coding")
+                .one(&database)
+                .await
+                .expect("user-defined tag should be readable")
+                .is_some());
             assert!(!manager
                 .has_column("benchmark_tags", "is_system")
                 .await
