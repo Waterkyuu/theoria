@@ -13,7 +13,9 @@ const BenchmarkDraftsPage = () => {
 	return (
 		<main className="flex h-full min-h-0 flex-col">
 			<PageHeader>
-				<Link to="/benchmark">{t("benchmark.back")}</Link>
+				<Link className="text-body-sm" to="/benchmark">
+					{t("benchmark.back")}
+				</Link>
 			</PageHeader>
 			<div className="mx-auto w-full max-w-240 space-y-lg overflow-auto p-xl">
 				<h1 className="text-heading-lg font-semibold">
