@@ -132,8 +132,6 @@ const BenchmarkTagSchema = z.object({
 	name: z.string(),
 	/** Gravity icon export. */
 	icon: z.string(),
-	/** Whether application rules protect this classification. */
-	isSystem: z.boolean(),
 });
 
 const BenchmarkSummarySchema = z.object({
