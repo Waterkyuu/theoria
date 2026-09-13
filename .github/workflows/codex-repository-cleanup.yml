@@ -87,14 +87,27 @@ jobs:
         with:
           workspaces: ./src-tauri -> target
 
-      - name: Run Codex cleanup audit
+      - name: Check DeepSeek credentials
+        if: steps.preflight.outputs.should-run == 'true'
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        shell: bash
+        run: |
+          if [[ -z "${DEEPSEEK_API_KEY}" ]]; then
+            echo "DEEPSEEK_API_KEY repository secret is required." >&2
+            exit 1
+          fi
+
+      - name: Run Codex cleanup audit with DeepSeek
         if: steps.preflight.outputs.should-run == 'true'
         uses: openai/codex-action@v1
         with:
-          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          # This input supplies the proxy's Bearer token and can contain a non-OpenAI provider key.
+          openai-api-key: ${{ secrets.DEEPSEEK_API_KEY }}
+          responses-api-endpoint: https://api.deepseek.com/responses
           prompt-file: .github/codex/prompts/repository-cleanup.md
-          model: gpt-5.3-codex
-          effort: high
+          model: deepseek-v4-flash
+          effort: low
           sandbox: workspace-write
           safety-strategy: drop-sudo
           codex-args: '["--ephemeral"]'
@@ -200,7 +213,7 @@ jobs:
           {
             echo "## Summary"
             echo
-            echo "Codex identified and removed one bounded set of repository items with no verified callers."
+            echo "Codex with DeepSeek V4 Flash identified and removed one bounded set of repository items with no verified callers."
             echo
             echo "## Codex audit"
             echo
