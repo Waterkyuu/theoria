@@ -348,6 +348,55 @@ impl BenchmarkTaskRepository {
         }))
     }
 
+    /// Atomically exposes an unexpected worker exit without overwriting a terminal Task.
+    pub(crate) async fn finalize_interrupted(
+        &self,
+        task_id: &str,
+        now: i64,
+    ) -> Result<bool, DbErr> {
+        let transaction = self.database.begin().await?;
+        let task_update = task::Entity::update_many()
+            .col_expr(task::Column::Status, Expr::value("failed"))
+            .col_expr(task::Column::UpdatedAtMs, Expr::value(now))
+            .filter(task::Column::Id.eq(task_id))
+            .filter(task::Column::Status.is_in(["preparing", "running", "waiting"]))
+            .exec(&transaction)
+            .await?;
+        if task_update.rows_affected == 0 {
+            transaction.commit().await?;
+            return Ok(false);
+        }
+        let extension_update = benchmark_task::Entity::update_many()
+            .col_expr(
+                benchmark_task::Column::ResultCompleteness,
+                Expr::value("incomplete"),
+            )
+            .col_expr(
+                benchmark_task::Column::CompletionReason,
+                Expr::value("interrupted"),
+            )
+            .filter(benchmark_task::Column::TaskId.eq(task_id))
+            .exec(&transaction)
+            .await?;
+        if extension_update.rows_affected != 1 {
+            transaction.rollback().await?;
+            return Err(DbErr::Custom("Benchmark task extension is missing".into()));
+        }
+        benchmark_execution::Entity::update_many()
+            .col_expr(benchmark_execution::Column::Phase, Expr::value("finished"))
+            .col_expr(
+                benchmark_execution::Column::TerminationReason,
+                Expr::value("interrupted"),
+            )
+            .col_expr(benchmark_execution::Column::FinishedAtMs, Expr::value(now))
+            .filter(benchmark_execution::Column::TaskId.eq(task_id))
+            .filter(benchmark_execution::Column::Phase.ne("finished"))
+            .exec(&transaction)
+            .await?;
+        transaction.commit().await?;
+        Ok(true)
+    }
+
     /// Finalizes process-owned work left active by a previous application instance.
     pub(crate) async fn recover_interrupted(&self, now: i64) -> Result<u64, DbErr> {
         let task_ids = task::Entity::find()

@@ -394,7 +394,21 @@ impl BenchmarkTaskService {
     ) -> Result<(), AppError> {
         let cancellation = self.active_tasks.register(task_id);
         let result = self.execute_plan(task_id, runner, cancellation).await;
+        let finalization = if result.is_err() {
+            match now_ms() {
+                Ok(now) => self
+                    .task_repository
+                    .finalize_interrupted(task_id, now)
+                    .await
+                    .map(|_| ())
+                    .map_err(|_| AppError::BenchmarkDatabaseFailed),
+                Err(error) => Err(error),
+            }
+        } else {
+            Ok(())
+        };
         self.active_tasks.remove(task_id);
+        finalization?;
         result
     }
 
@@ -1248,7 +1262,13 @@ mod tests {
     use crate::domain::task::{TaskPermissions, TaskStatus};
     use crate::domain::workspace::{NewWorkspace, WorkspaceSourceKind};
     use crate::error::AppError;
-    use crate::models::{benchmark::evaluation as benchmark_evaluation, task as task_model};
+    use crate::models::{
+        benchmark::{
+            evaluation as benchmark_evaluation, execution as benchmark_execution,
+            task as benchmark_task,
+        },
+        task as task_model,
+    };
     use crate::repositories::{
         benchmark::BenchmarkRepository, benchmark_task::BenchmarkTaskRepository,
         task::TaskRepository, workspace::WorkspaceRepository,
@@ -1760,6 +1780,125 @@ mod tests {
                 .await
                 .expect("evaluation count");
             assert_eq!(count, 4);
+            database.close().await.expect("close");
+            std::fs::remove_dir_all(root).expect("cleanup");
+        });
+    }
+
+    #[test]
+    fn executor_failure_finalizes_the_persisted_task() {
+        tauri::async_runtime::block_on(async {
+            let database = connect_sqlite("sqlite::memory:").await.expect("database");
+            Migrator::up(&database, None).await.expect("schema");
+            WorkspaceRepository::new(database.clone())
+                .create(NewWorkspace {
+                    id: "workspace".into(),
+                    name: "Workspace".into(),
+                    source_kind: WorkspaceSourceKind::External,
+                    source_path: PathBuf::from("unused"),
+                    created_at_ms: 1,
+                })
+                .await
+                .expect("workspace");
+            let root = std::env::temp_dir().join(super::next_id("worker-failure").expect("id"));
+            std::fs::create_dir_all(&root).expect("app data");
+            let repository = BenchmarkRepository::new(database.clone());
+            let catalog = BenchmarkService::new(repository.clone(), root.clone(), verifier());
+            let tag = catalog.create_tag("Coding", "Code").await.expect("tag");
+            let draft = catalog
+                .save_draft(
+                    None,
+                    None,
+                    None,
+                    BenchmarkDocument {
+                        schema_version: 1,
+                        name: "Worker failure".into(),
+                        description: "Finalizes detached execution".into(),
+                        tag_id: Some(tag.id),
+                        source: None,
+                        cases: vec![BenchmarkCase {
+                            name: "Case".into(),
+                            prompt: "Return 42".into(),
+                            timeout_minutes: 1,
+                            input_files: Vec::new(),
+                            checks: vec![BenchmarkCheck::Answer {
+                                expected: "42".into(),
+                            }],
+                        }],
+                    },
+                )
+                .await
+                .expect("draft");
+            let published = catalog
+                .publish(&draft.id, draft.revision)
+                .await
+                .expect("publish");
+            let mount = catalog
+                .mount(
+                    "workspace".into(),
+                    published.summary.id,
+                    published.version_id.clone(),
+                )
+                .await
+                .expect("mount");
+            let service = BenchmarkTaskService::new(
+                repository,
+                BenchmarkTaskRepository::new(database.clone()),
+                root.clone(),
+                verifier(),
+            );
+            let planned = service
+                .start(
+                    BenchmarkTaskConfiguration {
+                        workspace_id: "workspace".into(),
+                        mount_id: mount.id,
+                        expected_version_id: published.version_id,
+                        agent_kinds: vec![AgentKind::Codex],
+                        permissions: TaskPermissions {
+                            file_access: "read_only".into(),
+                            command_execution: "deny".into(),
+                        },
+                    },
+                    "worker-failure-request",
+                )
+                .await
+                .expect("plan");
+            task_model::permissions::Entity::delete_by_id(&planned.task.id)
+                .exec(&database)
+                .await
+                .expect("remove required aggregate row");
+
+            assert_eq!(
+                service
+                    .execute_with(&planned.task.id, |_| {
+                        panic!("an invalid aggregate must fail before Agent execution")
+                    })
+                    .await,
+                Err(AppError::BenchmarkDatabaseFailed)
+            );
+            let task = task_model::Entity::find_by_id(&planned.task.id)
+                .one(&database)
+                .await
+                .expect("task query")
+                .expect("task row");
+            let extension = benchmark_task::Entity::find_by_id(&planned.task.id)
+                .one(&database)
+                .await
+                .expect("extension query")
+                .expect("extension row");
+            let executions = benchmark_execution::Entity::find()
+                .all(&database)
+                .await
+                .expect("execution query");
+
+            assert_eq!(task.status, "failed");
+            assert_eq!(extension.result_completeness, "incomplete");
+            assert_eq!(extension.completion_reason.as_deref(), Some("interrupted"));
+            assert!(executions.iter().all(|execution| {
+                execution.phase == "finished"
+                    && execution.termination_reason.as_deref() == Some("interrupted")
+            }));
+
             database.close().await.expect("close");
             std::fs::remove_dir_all(root).expect("cleanup");
         });
