@@ -1,38 +1,30 @@
-import { z } from "zod";
 import { invokeWithResponseSchema } from "@/api/ipc";
 import {
-	BenchmarkSummarySchema,
+	BenchmarkDraftIdsSchema,
+	BenchmarkAssetPreviewSchema,
+	BenchmarkSummariesSchema,
 	BenchmarkDetailSchema,
 	BenchmarkDraftSchema,
 	BenchmarkMountSchema,
+	BenchmarkMountsSchema,
+	BenchmarkFileSchema,
+	BenchmarkImportPreviewSchema,
 	BenchmarkTagSchema,
+	BenchmarkTagUsageSchema,
+	BenchmarkTagsSchema,
 	BenchmarkPreviewSchema,
+	BenchmarkTaskDetailSchema,
+	BenchmarkArtifactFilesSchema,
+	BenchmarkArtifactPreviewSchema,
+	EmptyBenchmarkResponseSchema,
 } from "@/types/benchmark";
 import type {
 	BenchmarkDocument,
 	BenchmarkFilters,
 	BenchmarkPreviewInput,
+	RerunBenchmarkTaskInput,
+	StartBenchmarkTaskInput,
 } from "@/types/benchmark";
-
-const summaries = z.compile(z.array(BenchmarkSummarySchema));
-
-const detail = z.compile(BenchmarkDetailSchema);
-
-const draft = z.compile(BenchmarkDraftSchema);
-
-const mounts = z.compile(z.array(BenchmarkMountSchema));
-
-const mount = z.compile(BenchmarkMountSchema);
-
-const tags = z.compile(z.array(BenchmarkTagSchema));
-
-const tag = z.compile(BenchmarkTagSchema);
-
-const ids = z.compile(z.array(z.string()));
-
-const empty = z.compile(z.null());
-
-const preview = z.compile(BenchmarkPreviewSchema);
 
 /**
  * Keeps sorting and filtering ahead of native pagination.
@@ -41,7 +33,7 @@ const preview = z.compile(BenchmarkPreviewSchema);
  * listBenchmarks(filters, 0);
  */
 const listBenchmarks = (filters: BenchmarkFilters, page: number) =>
-	invokeWithResponseSchema("list_benchmarks", summaries, {
+	invokeWithResponseSchema("list_benchmarks", BenchmarkSummariesSchema, {
 		request: { ...filters, page },
 	});
 
@@ -52,13 +44,19 @@ const listBenchmarks = (filters: BenchmarkFilters, page: number) =>
  * getBenchmark("suite", "v1");
  */
 const getBenchmark = (benchmarkId: string, versionId: string | null = null) =>
-	invokeWithResponseSchema("get_benchmark", detail, {
+	invokeWithResponseSchema("get_benchmark", BenchmarkDetailSchema, {
 		request: { benchmarkId, versionId },
+	});
+
+/** Hides one personal definition from the default catalog without deleting history. */
+const archiveBenchmark = (benchmarkId: string) =>
+	invokeWithResponseSchema("archive_benchmark", BenchmarkDetailSchema, {
+		request: { benchmarkId },
 	});
 
 /** Loads available classifications. */
 const listBenchmarkTags = () =>
-	invokeWithResponseSchema("list_benchmark_tags", tags);
+	invokeWithResponseSchema("list_benchmark_tags", BenchmarkTagsSchema);
 
 /**
  * Stores an allowed Gravity selection.
@@ -67,8 +65,60 @@ const listBenchmarkTags = () =>
  * createBenchmarkTag("Coding", "Code");
  */
 const createBenchmarkTag = (name: string, icon: string) =>
-	invokeWithResponseSchema("create_benchmark_tag", tag, {
+	invokeWithResponseSchema("create_benchmark_tag", BenchmarkTagSchema, {
 		request: { name, icon },
+	});
+
+/** Loads the reassignment count displayed before deleting a personal Tag. */
+const getBenchmarkTagUsage = (tagId: string) =>
+	invokeWithResponseSchema("get_benchmark_tag_usage", BenchmarkTagUsageSchema, {
+		request: { tagId },
+	});
+
+/** Changes a personal Tag without changing its stable identifier. */
+const updateBenchmarkTag = (tagId: string, name: string, icon: string) =>
+	invokeWithResponseSchema("update_benchmark_tag", BenchmarkTagSchema, {
+		request: { tagId, name, icon },
+	});
+
+/** Reassigns dependent definitions and removes one personal Tag. */
+const deleteBenchmarkTag = (tagId: string) =>
+	invokeWithResponseSchema("delete_benchmark_tag", BenchmarkTagUsageSchema, {
+		request: { tagId },
+	});
+
+/** Inspects one picker-selected Theoria folder without creating persistence. */
+const previewBenchmarkImport = (sourcePath: string) =>
+	invokeWithResponseSchema(
+		"preview_benchmark_import",
+		BenchmarkImportPreviewSchema,
+		{ request: { sourcePath } },
+	);
+
+/** Copies a reviewed template folder into one editable personal draft. */
+const importBenchmarkFolder = (sourcePath: string, tagId: string) =>
+	invokeWithResponseSchema("import_benchmark_folder", BenchmarkDraftSchema, {
+		request: { sourcePath, tagId },
+	});
+
+/** Copies one picker-selected file into managed Benchmark storage. */
+const importBenchmarkAsset = (sourcePath: string, path: string) =>
+	invokeWithResponseSchema("import_benchmark_asset", BenchmarkFileSchema, {
+		request: { sourcePath, path },
+	});
+
+/** Returns a bounded managed-file preview without exposing its native path. */
+const previewBenchmarkAsset = (assetId: string) =>
+	invokeWithResponseSchema(
+		"preview_benchmark_asset",
+		BenchmarkAssetPreviewSchema,
+		{ request: { assetId } },
+	);
+
+/** Stores an editor buffer as a new immutable managed file revision. */
+const saveBenchmarkTextAsset = (path: string, text: string) =>
+	invokeWithResponseSchema("save_benchmark_text_asset", BenchmarkFileSchema, {
+		request: { path, text },
 	});
 
 /**
@@ -81,9 +131,15 @@ const saveBenchmarkDraft = (
 	document: BenchmarkDocument,
 	draftId: string | null,
 	expectedRevision: number | null,
+	benchmarkId: string | null = null,
 ) =>
-	invokeWithResponseSchema("save_benchmark_draft", draft, {
-		request: { document, draftId, expectedRevision },
+	invokeWithResponseSchema("save_benchmark_draft", BenchmarkDraftSchema, {
+		request: {
+			document,
+			draftId,
+			expectedRevision,
+			...(benchmarkId ? { benchmarkId } : {}),
+		},
 	});
 
 /**
@@ -93,7 +149,7 @@ const saveBenchmarkDraft = (
  * publishBenchmark("draft", 2);
  */
 const publishBenchmark = (draftId: string, expectedRevision: number) =>
-	invokeWithResponseSchema("publish_benchmark", detail, {
+	invokeWithResponseSchema("publish_benchmark", BenchmarkDetailSchema, {
 		request: { draftId, expectedRevision },
 	});
 
@@ -104,7 +160,7 @@ const publishBenchmark = (draftId: string, expectedRevision: number) =>
  * getBenchmarkDraft("draft");
  */
 const getBenchmarkDraft = (draftId: string) =>
-	invokeWithResponseSchema("get_benchmark_draft", draft, {
+	invokeWithResponseSchema("get_benchmark_draft", BenchmarkDraftSchema, {
 		request: { draftId },
 	});
 
@@ -115,7 +171,9 @@ const getBenchmarkDraft = (draftId: string) =>
  * listBenchmarkDrafts(0);
  */
 const listBenchmarkDrafts = (page: number) =>
-	invokeWithResponseSchema("list_benchmark_drafts", ids, { request: { page } });
+	invokeWithResponseSchema("list_benchmark_drafts", BenchmarkDraftIdsSchema, {
+		request: { page },
+	});
 
 /**
  * Reads fixed workspace relationships.
@@ -124,7 +182,7 @@ const listBenchmarkDrafts = (page: number) =>
  * listWorkspaceBenchmarks("workspace", 0);
  */
 const listWorkspaceBenchmarks = (workspaceId: string, page: number) =>
-	invokeWithResponseSchema("list_workspace_benchmarks", mounts, {
+	invokeWithResponseSchema("list_workspace_benchmarks", BenchmarkMountsSchema, {
 		request: { workspaceId, page },
 	});
 
@@ -139,8 +197,18 @@ const mountBenchmark = (
 	benchmarkId: string,
 	versionId: string,
 ) =>
-	invokeWithResponseSchema("mount_benchmark", mount, {
+	invokeWithResponseSchema("mount_benchmark", BenchmarkMountSchema, {
 		request: { workspaceId, benchmarkId, versionId },
+	});
+
+/** Explicitly changes the version pinned by an existing workspace mount. */
+const updateBenchmarkMount = (
+	workspaceId: string,
+	mountId: string,
+	versionId: string,
+) =>
+	invokeWithResponseSchema("update_benchmark_mount", BenchmarkMountSchema, {
+		request: { workspaceId, mountId, versionId },
 	});
 
 /**
@@ -150,7 +218,7 @@ const mountBenchmark = (
  * unmountBenchmark("workspace", "mount");
  */
 const unmountBenchmark = (workspaceId: string, mountId: string) =>
-	invokeWithResponseSchema("unmount_benchmark", empty, {
+	invokeWithResponseSchema("unmount_benchmark", EmptyBenchmarkResponseSchema, {
 		request: { workspaceId, mountId },
 	});
 
@@ -161,19 +229,74 @@ const unmountBenchmark = (workspaceId: string, mountId: string) =>
  * previewBenchmarkTask(input);
  */
 const previewBenchmarkTask = (request: BenchmarkPreviewInput) =>
-	invokeWithResponseSchema("preview_benchmark_task", preview, { request });
+	invokeWithResponseSchema("preview_benchmark_task", BenchmarkPreviewSchema, {
+		request,
+	});
+
+/** Creates one immutable task plan and starts its background execution. */
+const startBenchmarkTask = (request: StartBenchmarkTaskInput) =>
+	invokeWithResponseSchema("start_benchmark_task", BenchmarkTaskDetailSchema, {
+		request,
+	});
+
+/** Lists final files for one execution with changes from its Case baseline. */
+const listBenchmarkExecutionArtifacts = (taskId: string, executionId: string) =>
+	invokeWithResponseSchema(
+		"list_benchmark_execution_artifacts",
+		BenchmarkArtifactFilesSchema,
+		{ request: { taskId, executionId } },
+	);
+
+/** Reads one bounded final-file preview without exposing its native path. */
+const previewBenchmarkExecutionArtifact = (
+	taskId: string,
+	executionId: string,
+	path: string,
+) =>
+	invokeWithResponseSchema(
+		"preview_benchmark_execution_artifact",
+		BenchmarkArtifactPreviewSchema,
+		{ request: { taskId, executionId, path } },
+	);
+
+/** Creates a fresh Task from one terminal run while preserving its published version. */
+const rerunBenchmarkTask = (request: RerunBenchmarkTaskInput) =>
+	invokeWithResponseSchema("rerun_benchmark_task", BenchmarkTaskDetailSchema, {
+		request,
+	});
+
+/** Restores the latest persisted matrix state for one Benchmark Task. */
+const getBenchmarkTask = (taskId: string) =>
+	invokeWithResponseSchema("get_benchmark_task", BenchmarkTaskDetailSchema, {
+		request: { taskId },
+	});
 
 export {
 	listBenchmarks,
 	getBenchmark,
+	archiveBenchmark,
 	listBenchmarkTags,
 	createBenchmarkTag,
+	getBenchmarkTagUsage,
+	updateBenchmarkTag,
+	deleteBenchmarkTag,
+	previewBenchmarkImport,
+	importBenchmarkFolder,
+	importBenchmarkAsset,
+	previewBenchmarkAsset,
+	saveBenchmarkTextAsset,
 	saveBenchmarkDraft,
 	publishBenchmark,
 	getBenchmarkDraft,
 	listBenchmarkDrafts,
 	listWorkspaceBenchmarks,
 	mountBenchmark,
+	updateBenchmarkMount,
 	unmountBenchmark,
 	previewBenchmarkTask,
+	startBenchmarkTask,
+	listBenchmarkExecutionArtifacts,
+	previewBenchmarkExecutionArtifact,
+	rerunBenchmarkTask,
+	getBenchmarkTask,
 };

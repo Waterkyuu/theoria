@@ -1,18 +1,15 @@
 import { invokeWithResponseSchema, listenWithResponseSchema } from "@/api/ipc";
 import {
 	type AgentRuntimeConfig,
-	CompiledAgentLoginStatusSchema,
-	CompiledAgentRunResultSchema,
-	CompiledAgentRuntimeConfigSchema,
-	CompiledAgentRuntimeStatusSchema,
+	AgentLoginStatusSchema,
+	AgentRunResultSchema,
+	AgentRuntimeConfigSchema,
+	AgentRuntimeStatusSchema,
 } from "@/types/agent";
 
 /** Checks the local WorkBuddy account state through the Tauri backend. */
 const checkWorkBuddyLogin = () =>
-	invokeWithResponseSchema(
-		"check_workbuddy_login",
-		CompiledAgentLoginStatusSchema,
-	);
+	invokeWithResponseSchema("check_workbuddy_login", AgentLoginStatusSchema);
 
 /**
  * Returns the complete WorkBuddy status needed for the first render.
@@ -23,7 +20,7 @@ const checkWorkBuddyLogin = () =>
 const checkWorkBuddyInitStatus = () =>
 	invokeWithResponseSchema(
 		"check_workbuddy_init_status",
-		CompiledAgentRuntimeStatusSchema,
+		AgentRuntimeStatusSchema,
 	);
 
 /**
@@ -35,7 +32,7 @@ const checkWorkBuddyInitStatus = () =>
 const getWorkBuddyRuntimeConfig = () =>
 	invokeWithResponseSchema(
 		"get_workbuddy_runtime_config",
-		CompiledAgentRuntimeConfigSchema,
+		AgentRuntimeConfigSchema,
 	);
 
 /**
@@ -49,7 +46,7 @@ const onWorkBuddyConfigChanged = (
 ) =>
 	listenWithResponseSchema(
 		"workbuddy-config-changed",
-		CompiledAgentRuntimeConfigSchema,
+		AgentRuntimeConfigSchema,
 		listener,
 	);
 
@@ -60,7 +57,7 @@ const onWorkBuddyConfigChanged = (
  * runWorkBuddyTask("解释这个仓库");
  */
 const runWorkBuddyTask = (query: string) =>
-	invokeWithResponseSchema("run_workbuddy_task", CompiledAgentRunResultSchema, {
+	invokeWithResponseSchema("run_workbuddy_task", AgentRunResultSchema, {
 		request: { query },
 	});
 

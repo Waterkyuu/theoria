@@ -1,11 +1,13 @@
 use crate::dto::benchmark::{
-    BenchmarkDetailResponse, BenchmarkDraftResponse, BenchmarkMountResponse,
-    BenchmarkSummaryResponse, BenchmarkTagResponse, ListBenchmarksRequest, MountBenchmarkRequest,
-    PublishBenchmarkRequest, SaveBenchmarkDraftRequest,
-};
-use crate::dto::benchmark::{
-    CreateBenchmarkTagRequest, GetBenchmarkDraftRequest, GetBenchmarkRequest,
-    ListBenchmarkDraftsRequest, ListWorkspaceBenchmarksRequest, UnmountBenchmarkRequest,
+    ArchiveBenchmarkRequest, BenchmarkAssetPreviewResponse, BenchmarkDetailResponse,
+    BenchmarkDraftResponse, BenchmarkFileResponse, BenchmarkImportPreviewResponse,
+    BenchmarkMountResponse, BenchmarkSummaryResponse, BenchmarkTagRequest, BenchmarkTagResponse,
+    BenchmarkTagUsageResponse, CreateBenchmarkTagRequest, GetBenchmarkDraftRequest,
+    GetBenchmarkRequest, ImportBenchmarkAssetRequest, ImportBenchmarkFolderRequest,
+    ListBenchmarkDraftsRequest, ListBenchmarksRequest, ListWorkspaceBenchmarksRequest,
+    MountBenchmarkRequest, PreviewBenchmarkAssetRequest, PreviewBenchmarkImportRequest,
+    PublishBenchmarkRequest, SaveBenchmarkDraftRequest, SaveBenchmarkTextAssetRequest,
+    UnmountBenchmarkRequest, UpdateBenchmarkMountRequest, UpdateBenchmarkTagRequest,
 };
 use crate::error::IpcError;
 use crate::services::benchmark::BenchmarkService;
@@ -22,6 +24,45 @@ pub(crate) async fn list_benchmark_tags(
         .map(|items| items.into_iter().map(Into::into).collect())
         .map_err(Into::into)
 }
+
+/// Returns the affected definition count before Tag deletion confirmation.
+#[tauri::command]
+pub(crate) async fn get_benchmark_tag_usage(
+    request: BenchmarkTagRequest,
+    service: State<'_, BenchmarkService>,
+) -> Result<BenchmarkTagUsageResponse, IpcError> {
+    service
+        .tag_usage(&request.tag_id)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
+/// Changes a personal Tag's display name and Gravity icon.
+#[tauri::command]
+pub(crate) async fn update_benchmark_tag(
+    request: UpdateBenchmarkTagRequest,
+    service: State<'_, BenchmarkService>,
+) -> Result<BenchmarkTagResponse, IpcError> {
+    service
+        .update_tag(&request.tag_id, &request.name, &request.icon)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
+/// Reassigns definitions to Uncategorized and deletes one personal Tag.
+#[tauri::command]
+pub(crate) async fn delete_benchmark_tag(
+    request: BenchmarkTagRequest,
+    service: State<'_, BenchmarkService>,
+) -> Result<BenchmarkTagUsageResponse, IpcError> {
+    service
+        .delete_tag(&request.tag_id)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
 /// Creates a tag for use by personal Benchmark definitions.
 #[tauri::command]
 pub(crate) async fn create_benchmark_tag(
@@ -34,6 +75,72 @@ pub(crate) async fn create_benchmark_tag(
         .map(Into::into)
         .map_err(Into::into)
 }
+
+/// Inspects a Theoria folder before any file is copied or draft is created.
+#[tauri::command]
+pub(crate) async fn preview_benchmark_import(
+    request: PreviewBenchmarkImportRequest,
+    service: State<'_, BenchmarkService>,
+) -> Result<BenchmarkImportPreviewResponse, IpcError> {
+    service
+        .preview_import(request.source_path)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
+/// Copies a reviewed Theoria folder into one editable personal draft.
+#[tauri::command]
+pub(crate) async fn import_benchmark_folder(
+    request: ImportBenchmarkFolderRequest,
+    service: State<'_, BenchmarkService>,
+) -> Result<BenchmarkDraftResponse, IpcError> {
+    service
+        .import_folder(request.source_path, &request.tag_id)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
+/// Copies one picker-selected file into immutable application-owned storage.
+#[tauri::command]
+pub(crate) async fn import_benchmark_asset(
+    request: ImportBenchmarkAssetRequest,
+    service: State<'_, BenchmarkService>,
+) -> Result<BenchmarkFileResponse, IpcError> {
+    service
+        .import_asset(request.source_path, &request.path)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
+/// Persists an editor buffer as a new immutable managed asset.
+#[tauri::command]
+pub(crate) async fn save_benchmark_text_asset(
+    request: SaveBenchmarkTextAssetRequest,
+    service: State<'_, BenchmarkService>,
+) -> Result<BenchmarkFileResponse, IpcError> {
+    service
+        .save_text_asset(&request.path, &request.text)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
+/// Returns a bounded text preview addressed only by an opaque managed identifier.
+#[tauri::command]
+pub(crate) async fn preview_benchmark_asset(
+    request: PreviewBenchmarkAssetRequest,
+    service: State<'_, BenchmarkService>,
+) -> Result<BenchmarkAssetPreviewResponse, IpcError> {
+    service
+        .asset_preview(&request.asset_id)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
 /// Persists an incomplete editor document with revision checking.
 #[tauri::command]
 pub(crate) async fn save_benchmark_draft(
@@ -44,6 +151,7 @@ pub(crate) async fn save_benchmark_draft(
         .save_draft(
             request.draft_id,
             request.expected_revision,
+            request.benchmark_id,
             request.document,
         )
         .await
@@ -112,6 +220,19 @@ pub(crate) async fn get_benchmark(
         .map(Into::into)
         .map_err(Into::into)
 }
+
+/// Archives a personal Benchmark while retaining every immutable reference.
+#[tauri::command]
+pub(crate) async fn archive_benchmark(
+    request: ArchiveBenchmarkRequest,
+    service: State<'_, BenchmarkService>,
+) -> Result<BenchmarkDetailResponse, IpcError> {
+    service
+        .archive(&request.benchmark_id)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
 /// Pins a published version in the selected workspace.
 #[tauri::command]
 pub(crate) async fn mount_benchmark(
@@ -138,6 +259,23 @@ pub(crate) async fn list_workspace_benchmarks(
         .mounts(&request.workspace_id, request.page)
         .await
         .map(|items| items.into_iter().map(Into::into).collect())
+        .map_err(Into::into)
+}
+
+/// Moves one existing relationship to an explicitly selected version.
+#[tauri::command]
+pub(crate) async fn update_benchmark_mount(
+    request: UpdateBenchmarkMountRequest,
+    service: State<'_, BenchmarkService>,
+) -> Result<BenchmarkMountResponse, IpcError> {
+    service
+        .update_mount(
+            &request.workspace_id,
+            &request.mount_id,
+            &request.version_id,
+        )
+        .await
+        .map(Into::into)
         .map_err(Into::into)
 }
 /// Removes a mount without removing content or results.

@@ -2,13 +2,13 @@ use crate::domain::benchmark::{
     BenchmarkDetail, BenchmarkDocument, BenchmarkDraft, BenchmarkMount, BenchmarkSummary,
     BenchmarkTag,
 };
-use crate::models::benchmark::{case, definition, draft, mount, tag, version};
+use crate::models::benchmark::{self as benchmark, case, draft, mount, tag, version};
 use sea_orm::sea_query::{Expr, ExprTrait, OnConflict, Query};
 use sea_orm::TransactionTrait;
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, Condition, DatabaseConnection, DbErr,
-    EntityTrait, FromQueryResult, JoinType, Order, QueryFilter, QueryOrder, QuerySelect,
-    RelationTrait, Select,
+    EntityTrait, FromQueryResult, JoinType, Order, PaginatorTrait, QueryFilter, QueryOrder,
+    QuerySelect, RelationTrait, Select,
 };
 
 /// Catalog operations share one SQLite transaction boundary and use SeaORM entities.
@@ -26,8 +26,7 @@ impl BenchmarkRepository {
     /// Returns classifications without loading benchmark documents.
     pub(crate) async fn tags(&self) -> Result<Vec<BenchmarkTag>, DbErr> {
         Ok(tag::Entity::find()
-            .filter(tag::Column::Id.ne("uncategorized"))
-            .order_by_asc(tag::Column::IsSystem)
+            .order_by_desc(tag::Column::IsSystem)
             .order_by_asc(tag::Column::Name)
             .all(&self.database)
             .await?
@@ -41,6 +40,27 @@ impl BenchmarkRepository {
             .collect())
     }
 
+    /// Finds one classification without loading related Benchmark documents.
+    pub(crate) async fn tag(&self, id: &str) -> Result<Option<BenchmarkTag>, DbErr> {
+        Ok(tag::Entity::find_by_id(id)
+            .one(&self.database)
+            .await?
+            .map(|row| BenchmarkTag {
+                id: row.id,
+                name: row.name,
+                icon: row.icon,
+                is_system: row.is_system,
+            }))
+    }
+
+    /// Counts definitions that will move to the protected fallback classification.
+    pub(crate) async fn tag_usage(&self, id: &str) -> Result<u64, DbErr> {
+        benchmark::Entity::find()
+            .filter(benchmark::Column::TagId.eq(id))
+            .count(&self.database)
+            .await
+    }
+
     /// Database uniqueness also protects simultaneous tag creation.
     pub(crate) async fn create_tag(&self, value: BenchmarkTag) -> Result<BenchmarkTag, DbErr> {
         tag::ActiveModel {
@@ -52,6 +72,43 @@ impl BenchmarkRepository {
         .insert(&self.database)
         .await?;
         Ok(value)
+    }
+
+    /// Updates only user-owned tags; the database trigger independently protects system rows.
+    pub(crate) async fn update_tag(
+        &self,
+        value: BenchmarkTag,
+    ) -> Result<Option<BenchmarkTag>, DbErr> {
+        let result = tag::Entity::update_many()
+            .col_expr(tag::Column::Name, Expr::value(value.name.clone()))
+            .col_expr(tag::Column::Icon, Expr::value(value.icon.clone()))
+            .filter(tag::Column::Id.eq(&value.id))
+            .filter(tag::Column::IsSystem.eq(false))
+            .exec(&self.database)
+            .await?;
+        Ok((result.rows_affected == 1).then_some(value))
+    }
+
+    /// Reassigns every dependent definition before deleting one user-owned tag atomically.
+    pub(crate) async fn delete_tag(&self, id: &str, now: i64) -> Result<Option<u64>, DbErr> {
+        let transaction = self.database.begin().await?;
+        let reassigned = benchmark::Entity::update_many()
+            .col_expr(benchmark::Column::TagId, Expr::value("uncategorized"))
+            .col_expr(benchmark::Column::UpdatedAtMs, Expr::value(now))
+            .filter(benchmark::Column::TagId.eq(id))
+            .exec(&transaction)
+            .await?;
+        let deleted = tag::Entity::delete_many()
+            .filter(tag::Column::Id.eq(id))
+            .filter(tag::Column::IsSystem.eq(false))
+            .exec(&transaction)
+            .await?;
+        if deleted.rows_affected != 1 {
+            transaction.rollback().await?;
+            return Ok(None);
+        }
+        transaction.commit().await?;
+        Ok(Some(reassigned.rows_affected))
     }
 
     /// Conditional updates reject stale editors without overwriting another save.
@@ -141,20 +198,20 @@ impl BenchmarkRepository {
         }
         let document = &value.document;
         if value.benchmark_id.is_some() {
-            let updated = definition::Entity::update_many()
-                .col_expr(definition::Column::Name, Expr::value(document.name.trim()))
+            let updated = benchmark::Entity::update_many()
+                .col_expr(benchmark::Column::Name, Expr::value(document.name.trim()))
                 .col_expr(
-                    definition::Column::Description,
+                    benchmark::Column::Description,
                     Expr::value(document.description.trim()),
                 )
                 .col_expr(
-                    definition::Column::TagId,
+                    benchmark::Column::TagId,
                     Expr::value(document.tag_id.clone()),
                 )
-                .col_expr(definition::Column::UpdatedAtMs, Expr::value(now))
-                .filter(definition::Column::Id.eq(benchmark_id))
-                .filter(definition::Column::Author.eq("myself"))
-                .filter(definition::Column::Archived.eq(false))
+                .col_expr(benchmark::Column::UpdatedAtMs, Expr::value(now))
+                .filter(benchmark::Column::Id.eq(benchmark_id))
+                .filter(benchmark::Column::Author.eq("myself"))
+                .filter(benchmark::Column::Archived.eq(false))
                 .exec(&transaction)
                 .await?;
             if updated.rows_affected != 1 {
@@ -162,7 +219,7 @@ impl BenchmarkRepository {
                 return Ok(None);
             }
         } else {
-            definition::ActiveModel {
+            benchmark::ActiveModel {
                 id: Set(benchmark_id.to_string()),
                 name: Set(document.name.trim().to_string()),
                 description: Set(document.description.trim().to_string()),
@@ -232,7 +289,7 @@ impl BenchmarkRepository {
         sort: &str,
         page: u32,
     ) -> Result<Vec<BenchmarkSummary>, DbErr> {
-        let mut query = summary_query().filter(definition::Column::Archived.eq(false));
+        let mut query = summary_query().filter(benchmark::Column::Archived.eq(false));
         if !search.is_empty() {
             let pattern = format!(
                 "%{}%",
@@ -244,29 +301,29 @@ impl BenchmarkRepository {
             query = query.filter(
                 Condition::any()
                     .add(
-                        Expr::col((definition::Entity, definition::Column::Name))
+                        Expr::col((benchmark::Entity, benchmark::Column::Name))
                             .like(sea_orm::sea_query::LikeExpr::new(&pattern).escape('\\')),
                     )
                     .add(
-                        Expr::col((definition::Entity, definition::Column::Description))
+                        Expr::col((benchmark::Entity, benchmark::Column::Description))
                             .like(sea_orm::sea_query::LikeExpr::new(&pattern).escape('\\')),
                     ),
             );
         }
         if !tag_ids.is_empty() {
-            query = query.filter(definition::Column::TagId.is_in(tag_ids));
+            query = query.filter(benchmark::Column::TagId.is_in(tag_ids));
         }
         if let Some(author) = author {
-            query = query.filter(definition::Column::Author.eq(author));
+            query = query.filter(benchmark::Column::Author.eq(author));
         }
         let query = match sort {
-            "updated" => query.order_by_desc(definition::Column::UpdatedAtMs),
-            "oldest" => query.order_by_asc(definition::Column::CreatedAtMs),
-            "alphabetical" => query.order_by_asc(definition::Column::Name),
-            _ => query.order_by_desc(definition::Column::CreatedAtMs),
+            "updated" => query.order_by_desc(benchmark::Column::UpdatedAtMs),
+            "oldest" => query.order_by_asc(benchmark::Column::CreatedAtMs),
+            "alphabetical" => query.order_by_asc(benchmark::Column::Name),
+            _ => query.order_by_desc(benchmark::Column::CreatedAtMs),
         };
         Ok(query
-            .order_by_asc(definition::Column::Id)
+            .order_by_asc(benchmark::Column::Id)
             .limit(30)
             .offset(u64::from(page) * 30)
             .into_model::<SummaryRow>()
@@ -284,7 +341,7 @@ impl BenchmarkRepository {
         selected: Option<&str>,
     ) -> Result<Option<BenchmarkDetail>, DbErr> {
         let summary = summary_query()
-            .filter(definition::Column::Id.eq(id))
+            .filter(benchmark::Column::Id.eq(id))
             .into_model::<SummaryRow>()
             .one(&self.database)
             .await?;
@@ -312,13 +369,27 @@ impl BenchmarkRepository {
         }))
     }
 
+    /// Marks one personal definition unavailable to the default catalog and future mounts.
+    pub(crate) async fn archive(&self, id: &str, now: i64) -> Result<bool, DbErr> {
+        Ok(benchmark::Entity::update_many()
+            .col_expr(benchmark::Column::Archived, Expr::value(true))
+            .col_expr(benchmark::Column::UpdatedAtMs, Expr::value(now))
+            .filter(benchmark::Column::Id.eq(id))
+            .filter(benchmark::Column::Author.eq("myself"))
+            .filter(benchmark::Column::Archived.eq(false))
+            .exec(&self.database)
+            .await?
+            .rows_affected
+            == 1)
+    }
+
     /// Repeating Mount never silently upgrades an existing workspace relationship.
     pub(crate) async fn mount(
         &self,
         value: BenchmarkMount,
     ) -> Result<Option<BenchmarkMount>, DbErr> {
         let transaction = self.database.begin().await?;
-        let definition = definition::Entity::find_by_id(&value.benchmark_id)
+        let definition = benchmark::Entity::find_by_id(&value.benchmark_id)
             .one(&transaction)
             .await?;
         let Some(definition) = definition else {
@@ -366,6 +437,45 @@ impl BenchmarkRepository {
             .map(mount_from_model))
     }
 
+    /// Replaces only the pinned version after proving it belongs to the mounted definition.
+    pub(crate) async fn update_mount(
+        &self,
+        workspace_id: &str,
+        mount_id: &str,
+        version_id: &str,
+    ) -> Result<Option<BenchmarkMount>, DbErr> {
+        let transaction = self.database.begin().await?;
+        let current = mount::Entity::find_by_id(mount_id)
+            .filter(mount::Column::WorkspaceId.eq(workspace_id))
+            .one(&transaction)
+            .await?;
+        let Some(current) = current else {
+            transaction.rollback().await?;
+            return Ok(None);
+        };
+        let version_exists = version::Entity::find_by_id(version_id)
+            .filter(version::Column::BenchmarkId.eq(&current.benchmark_id))
+            .one(&transaction)
+            .await?
+            .is_some();
+        if !version_exists {
+            transaction.rollback().await?;
+            return Ok(None);
+        }
+        mount::Entity::update_many()
+            .col_expr(mount::Column::VersionId, Expr::value(version_id))
+            .filter(mount::Column::Id.eq(mount_id))
+            .filter(mount::Column::WorkspaceId.eq(workspace_id))
+            .exec(&transaction)
+            .await?;
+        let updated = mount::Entity::find_by_id(mount_id)
+            .one(&transaction)
+            .await?
+            .map(mount_from_model);
+        transaction.commit().await?;
+        Ok(updated)
+    }
+
     /// Loads bounded relationship pages without copying inputs into workspace sources.
     pub(crate) async fn mounts(
         &self,
@@ -397,13 +507,13 @@ impl BenchmarkRepository {
 }
 
 /// Projects latest version metadata in one query; cases are counted without loading their content.
-fn summary_query() -> Select<definition::Entity> {
+fn summary_query() -> Select<benchmark::Entity> {
     let latest = Query::select()
         .column((version::Entity, version::Column::Id))
         .from(version::Entity)
         .and_where(
             Expr::col((version::Entity, version::Column::BenchmarkId))
-                .equals((definition::Entity, definition::Column::Id)),
+                .equals((benchmark::Entity, benchmark::Column::Id)),
         )
         .order_by(version::Column::Number, Order::Desc)
         .limit(1)
@@ -416,17 +526,17 @@ fn summary_query() -> Select<definition::Entity> {
                 .equals((version::Entity, version::Column::Id)),
         )
         .to_owned();
-    definition::Entity::find()
+    benchmark::Entity::find()
         .select_only()
         .columns([
-            definition::Column::Id,
-            definition::Column::Name,
-            definition::Column::Description,
-            definition::Column::TagId,
-            definition::Column::Author,
-            definition::Column::Source,
-            definition::Column::Archived,
-            definition::Column::CreatedAtMs,
+            benchmark::Column::Id,
+            benchmark::Column::Name,
+            benchmark::Column::Description,
+            benchmark::Column::TagId,
+            benchmark::Column::Author,
+            benchmark::Column::Source,
+            benchmark::Column::Archived,
+            benchmark::Column::CreatedAtMs,
         ])
         .column_as(
             Expr::col((version::Entity, version::Column::Id)),
@@ -437,7 +547,7 @@ fn summary_query() -> Select<definition::Entity> {
             "version_number",
         )
         .column_as(Expr::from(count), "case_count")
-        .join(JoinType::InnerJoin, definition::Relation::Versions.def())
+        .join(JoinType::InnerJoin, benchmark::Relation::Versions.def())
         .filter(version::Column::Id.in_subquery(latest))
 }
 

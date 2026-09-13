@@ -8,6 +8,52 @@ const BenchmarkFileSchema = z.object({
 	assetId: z.string(),
 });
 
+const BenchmarkAssetPreviewSchema = z.object({
+	/** Opaque managed identifier requested by the caller. */
+	assetId: z.string().min(1),
+	/** Complete file size before preview truncation. */
+	sizeBytes: z.number().int().nonnegative(),
+	/** UTF-8 prefix, or null for binary content. */
+	text: z.string().nullable(),
+	/** Whether trailing bytes were omitted. */
+	truncated: z.boolean(),
+});
+
+const BenchmarkCheckKindSchema = z.literal([
+	"answer",
+	"file_exists",
+	"file_text",
+	"file_json",
+	"python",
+]);
+
+const BenchmarkImportPreviewSchema = z.object({
+	/** Proposed catalog name. */
+	name: z.string(),
+	/** Proposed catalog description. */
+	description: z.string(),
+	/** Optional external attribution. */
+	source: z.string().nullable(),
+	/** Bounded Case summaries in template order. */
+	cases: z.array(
+		z.object({
+			name: z.string(),
+			timeoutMinutes: z.number().int(),
+			inputFileCount: z.number().int().nonnegative(),
+			checkKinds: z.array(BenchmarkCheckKindSchema),
+		}),
+	),
+	/** Total public inputs and private verifier files. */
+	fileCount: z.number().int().nonnegative(),
+	/** Field-addressable problems retained for draft repair. */
+	issues: z.array(
+		z.object({
+			field: z.string(),
+			code: z.string(),
+		}),
+	),
+});
+
 const BenchmarkCheckSchema = z.discriminatedUnion("kind", [
 	z.object({
 		/** Exact final answer check. */
@@ -191,7 +237,153 @@ const BenchmarkPreviewSchema = z.object({
 	),
 });
 
+const BenchmarkValidationIssueSchema = z.object({
+	/** Field path such as cases.0.prompt. */
+	field: z.string(),
+	/** Stable publication rule identifier. */
+	code: z.string(),
+});
+
+const BenchmarkValidationErrorSchema = z.object({
+	code: z.literal("BENCHMARK_VALIDATION_FAILED"),
+	details: z.object({
+		kind: z.literal("benchmarkValidation"),
+		issues: z.array(BenchmarkValidationIssueSchema),
+	}),
+});
+
+const BenchmarkTagUsageSchema = z.object({
+	/** Definitions reassigned when the selected Tag is deleted. */
+	benchmarkCount: z.number().int().nonnegative(),
+});
+
+const BenchmarkEvaluationReportSchema = z.object({
+	/** Overall result; true only when every public check passed. */
+	passed: z.boolean(),
+	/** Bounded public checks returned by built-in or controlled validators. */
+	checks: z.array(
+		z.object({
+			kind: z.string().min(1),
+			path: z.string().nullable(),
+			passed: z.boolean(),
+			message: z.string().min(1),
+		}),
+	),
+});
+
+const BenchmarkArtifactFileSchema = z.object({
+	/** Portable path within the final execution workspace. */
+	path: z.string().min(1),
+	/** Final size, or baseline size for a deleted file. */
+	sizeBytes: z.number().int().nonnegative(),
+	/** Exact comparison against the immutable Case baseline. */
+	change: z.enum(["added", "modified", "deleted", "unchanged"]),
+});
+
+const BenchmarkArtifactPreviewSchema = z.object({
+	path: z.string().min(1),
+	sizeBytes: z.number().int().nonnegative(),
+	text: z.string().nullable(),
+	truncated: z.boolean(),
+});
+
+const BenchmarkArtifactFilesSchema = z.array(BenchmarkArtifactFileSchema);
+
+const BenchmarkTaskDetailSchema = z.object({
+	task: z.object({
+		id: z.string().min(1),
+		workspaceId: z.string().min(1).nullable(),
+		title: z.string().min(1),
+		kind: z.literal("benchmark"),
+		status: z.literal([
+			"preparing",
+			"running",
+			"waiting",
+			"completed",
+			"failed",
+			"stopped",
+		]),
+		configurationLockedAtMs: z.number().int().nullable(),
+		pinnedAtMs: z.number().int().nullable(),
+		createdAtMs: z.number().int(),
+		updatedAtMs: z.number().int(),
+	}),
+	benchmarkId: z.string().min(1),
+	benchmarkName: z.string().min(1),
+	versionId: z.string().min(1),
+	versionNumber: z.number().int().positive(),
+	rerunOfTaskId: z.string().min(1).nullable(),
+	resultCompleteness: z.enum(["complete", "incomplete"]),
+	completionReason: z.string().nullable(),
+	cancelRequested: z.boolean(),
+	fileAccess: z.enum(["read_only", "allow_edits"]),
+	commandExecution: z.enum(["deny", "ask", "allow"]),
+	progress: z.object({
+		total: z.number().int().nonnegative(),
+		finished: z.number().int().nonnegative(),
+		passed: z.number().int().nonnegative(),
+		failed: z.number().int().nonnegative(),
+		errors: z.number().int().nonnegative(),
+	}),
+	agents: z.array(
+		z.object({
+			id: z.string().min(1),
+			agentKind: AgentKindSchema,
+			position: z.number().int().nonnegative(),
+			passed: z.number().int().nonnegative(),
+			failed: z.number().int().nonnegative(),
+			total: z.number().int().nonnegative(),
+			passRate: z.number().min(0).max(1).nullable(),
+			totalDurationMs: z.number().nonnegative(),
+			durationCoverage: z.number().int().nonnegative(),
+			totalTokens: z.number().nonnegative(),
+			tokenCoverage: z.number().int().nonnegative(),
+			toolCallCount: z.number().int().nonnegative(),
+		}),
+	),
+	cases: z.array(
+		z.object({
+			id: z.string().min(1),
+			caseId: z.string().min(1),
+			position: z.number().int().nonnegative(),
+			name: z.string().min(1),
+			prompt: z.string(),
+			timeoutMinutes: z.number().int().positive(),
+		}),
+	),
+	executions: z.array(
+		z.object({
+			id: z.string().min(1),
+			taskCaseId: z.string().min(1),
+			taskAgentId: z.string().min(1),
+			phase: z.string().min(1),
+			result: z.string().min(1),
+			terminationReason: z.string().nullable(),
+			responseText: z.string().nullable(),
+			metrics: z.record(z.string(), z.unknown()).nullable(),
+			startedAtMs: z.number().int().nullable(),
+			finishedAtMs: z.number().int().nullable(),
+			verdict: z.enum(["passed", "failed"]).nullable(),
+			report: BenchmarkEvaluationReportSchema.nullable(),
+		}),
+	),
+});
+
+const BenchmarkSummariesSchema = z.array(BenchmarkSummarySchema);
+const BenchmarkMountsSchema = z.array(BenchmarkMountSchema);
+const BenchmarkTagsSchema = z.array(BenchmarkTagSchema);
+const BenchmarkDraftIdsSchema = z.array(z.string());
+const EmptyBenchmarkResponseSchema = z.null();
+
 type BenchmarkDocument = z.infer<typeof BenchmarkDocumentSchema>;
+
+type BenchmarkFile = z.infer<typeof BenchmarkFileSchema>;
+
+type BenchmarkCheck = z.infer<typeof BenchmarkCheckSchema>;
+
+type BenchmarkAssetPreview = z.infer<typeof BenchmarkAssetPreviewSchema>;
+
+type BenchmarkImportPreview = z.infer<typeof BenchmarkImportPreviewSchema>;
 
 type BenchmarkDetail = z.infer<typeof BenchmarkDetailSchema>;
 
@@ -204,6 +396,16 @@ type BenchmarkMount = z.infer<typeof BenchmarkMountSchema>;
 type BenchmarkTag = z.infer<typeof BenchmarkTagSchema>;
 
 type BenchmarkPreview = z.infer<typeof BenchmarkPreviewSchema>;
+
+type BenchmarkTaskDetail = z.infer<typeof BenchmarkTaskDetailSchema>;
+
+type BenchmarkArtifactFile = z.infer<typeof BenchmarkArtifactFileSchema>;
+
+type BenchmarkArtifactPreview = z.infer<typeof BenchmarkArtifactPreviewSchema>;
+
+type BenchmarkValidationIssue = z.infer<typeof BenchmarkValidationIssueSchema>;
+
+type BenchmarkTagUsage = z.infer<typeof BenchmarkTagUsageSchema>;
 
 type BenchmarkFilters = {
 	/** Literal name/description query. */
@@ -228,8 +430,30 @@ type BenchmarkPreviewInput = Pick<
 	expectedVersionId: string;
 };
 
+type StartBenchmarkTaskInput = BenchmarkPreviewInput & {
+	idempotencyKey: string;
+};
+
+type RerunBenchmarkTaskInput = Pick<
+	BenchmarkTaskDetail,
+	"fileAccess" | "commandExecution"
+> & {
+	/** Terminal Benchmark Task whose immutable version is reused. */
+	sourceTaskId: string;
+	/** Local Agent products selected for the fresh execution matrix. */
+	agentKinds: BenchmarkPreview["agentKinds"];
+	/** Explicit approval to recreate an absent historical mount. */
+	restoreMount: boolean;
+	/** Retry identity for this exact submission. */
+	idempotencyKey: string;
+};
+
 export type {
 	BenchmarkDocument,
+	BenchmarkFile,
+	BenchmarkCheck,
+	BenchmarkAssetPreview,
+	BenchmarkImportPreview,
 	BenchmarkDetail,
 	BenchmarkSummary,
 	BenchmarkDraft,
@@ -238,13 +462,33 @@ export type {
 	BenchmarkPreview,
 	BenchmarkFilters,
 	BenchmarkPreviewInput,
+	BenchmarkTaskDetail,
+	BenchmarkArtifactFile,
+	BenchmarkArtifactPreview,
+	BenchmarkValidationIssue,
+	BenchmarkTagUsage,
+	RerunBenchmarkTaskInput,
+	StartBenchmarkTaskInput,
 };
 
 export {
+	BenchmarkFileSchema,
+	BenchmarkAssetPreviewSchema,
+	BenchmarkImportPreviewSchema,
 	BenchmarkSummarySchema,
 	BenchmarkDetailSchema,
 	BenchmarkDraftSchema,
 	BenchmarkMountSchema,
 	BenchmarkTagSchema,
 	BenchmarkPreviewSchema,
+	BenchmarkTaskDetailSchema,
+	BenchmarkArtifactFilesSchema,
+	BenchmarkArtifactPreviewSchema,
+	BenchmarkValidationErrorSchema,
+	BenchmarkTagUsageSchema,
+	BenchmarkSummariesSchema,
+	BenchmarkMountsSchema,
+	BenchmarkTagsSchema,
+	BenchmarkDraftIdsSchema,
+	EmptyBenchmarkResponseSchema,
 };

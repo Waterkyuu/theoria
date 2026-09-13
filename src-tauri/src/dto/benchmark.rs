@@ -1,8 +1,10 @@
 use crate::domain::benchmark::{
-    BenchmarkDetail, BenchmarkDocument, BenchmarkDraft, BenchmarkMount, BenchmarkSummary,
+    BenchmarkAssetPreview, BenchmarkDetail, BenchmarkDocument, BenchmarkDraft, BenchmarkFile,
+    BenchmarkImportPreview, BenchmarkImportPreviewCase, BenchmarkMount, BenchmarkSummary,
     BenchmarkTag,
 };
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 /// Explicit catalog response exposed to the local frontend.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -151,12 +153,114 @@ impl From<BenchmarkMount> for BenchmarkMountResponse {
     }
 }
 
+/// Managed file reference returned after an explicit picker selection is copied.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct BenchmarkFileResponse {
+    /// Portable destination inside the isolated Case directory.
+    pub(crate) path: String,
+    /// Opaque managed identifier stored in the draft.
+    pub(crate) asset_id: String,
+}
+
+impl From<BenchmarkFile> for BenchmarkFileResponse {
+    fn from(value: BenchmarkFile) -> Self {
+        Self {
+            path: value.path,
+            asset_id: value.asset_id,
+        }
+    }
+}
+
+/// Safe bounded content returned by the managed-asset preview endpoint.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct BenchmarkAssetPreviewResponse {
+    /// Opaque managed identifier requested by the caller.
+    pub(crate) asset_id: String,
+    /// Complete file size before preview truncation.
+    pub(crate) size_bytes: u64,
+    /// UTF-8 prefix, or absent for binary content.
+    pub(crate) text: Option<String>,
+    /// Whether bytes after the returned prefix were omitted.
+    pub(crate) truncated: bool,
+}
+
+impl From<BenchmarkAssetPreview> for BenchmarkAssetPreviewResponse {
+    fn from(value: BenchmarkAssetPreview) -> Self {
+        Self {
+            asset_id: value.asset_id,
+            size_bytes: value.size_bytes,
+            text: value.text,
+            truncated: value.truncated,
+        }
+    }
+}
+
+/// One Case row in a folder import preview.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct BenchmarkImportPreviewCaseResponse {
+    /// Case title from the portable template.
+    pub(crate) name: String,
+    /// Configured execution deadline.
+    pub(crate) timeout_minutes: u32,
+    /// Number of public input files for this Case.
+    pub(crate) input_file_count: usize,
+    /// Stable check discriminants without verifier content.
+    pub(crate) check_kinds: Vec<String>,
+}
+
+impl From<BenchmarkImportPreviewCase> for BenchmarkImportPreviewCaseResponse {
+    fn from(value: BenchmarkImportPreviewCase) -> Self {
+        Self {
+            name: value.name,
+            timeout_minutes: value.timeout_minutes,
+            input_file_count: value.input_file_count,
+            check_kinds: value.check_kinds,
+        }
+    }
+}
+
+/// Folder summary returned before the user chooses a local Tag and confirms import.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct BenchmarkImportPreviewResponse {
+    /// Proposed catalog name.
+    pub(crate) name: String,
+    /// Proposed catalog description.
+    pub(crate) description: String,
+    /// Optional external attribution.
+    pub(crate) source: Option<String>,
+    /// Bounded Case summaries in template order.
+    pub(crate) cases: Vec<BenchmarkImportPreviewCaseResponse>,
+    /// Total public inputs and private verifier files.
+    pub(crate) file_count: usize,
+    /// Field-addressable problems retained for draft repair.
+    pub(crate) issues: Vec<crate::domain::benchmark::BenchmarkValidationIssue>,
+}
+
+impl From<BenchmarkImportPreview> for BenchmarkImportPreviewResponse {
+    fn from(value: BenchmarkImportPreview) -> Self {
+        Self {
+            name: value.name,
+            description: value.description,
+            source: value.source,
+            cases: value.cases.into_iter().map(Into::into).collect(),
+            file_count: value.file_count,
+            issues: value.issues,
+        }
+    }
+}
+
 /// Editor save command; an existing draft requires its exact revision.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct SaveBenchmarkDraftRequest {
     /// Existing draft or absent for a new document.
     pub(crate) draft_id: Option<String>,
+    /// Personal published definition to update, only when creating a new draft.
+    pub(crate) benchmark_id: Option<String>,
     /// Revision currently displayed by the editor.
     pub(crate) expected_revision: Option<i64>,
     /// Complete editable template.
@@ -208,6 +312,51 @@ pub(crate) struct CreateBenchmarkTagRequest {
     pub(crate) icon: String,
 }
 
+/// Changes one user-owned Tag while keeping its identifier stable.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct UpdateBenchmarkTagRequest {
+    pub(crate) tag_id: String,
+    pub(crate) name: String,
+    pub(crate) icon: String,
+}
+
+/// Addresses one Tag for usage inspection or deletion.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct BenchmarkTagRequest {
+    pub(crate) tag_id: String,
+}
+
+/// Count returned before and after Tag reassignment.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct BenchmarkTagUsageResponse {
+    pub(crate) benchmark_count: u64,
+}
+
+impl From<u64> for BenchmarkTagUsageResponse {
+    fn from(benchmark_count: u64) -> Self {
+        Self { benchmark_count }
+    }
+}
+
+/// Archives one published personal Benchmark definition.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct ArchiveBenchmarkRequest {
+    pub(crate) benchmark_id: String,
+}
+
+/// Explicitly changes the immutable version pinned by one existing mount.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct UpdateBenchmarkMountRequest {
+    pub(crate) workspace_id: String,
+    pub(crate) mount_id: String,
+    pub(crate) version_id: String,
+}
+
 /// Typed request validated by the Benchmark application service.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -252,4 +401,150 @@ pub(crate) struct UnmountBenchmarkRequest {
     pub(crate) workspace_id: String,
     /// Relationship to remove without deleting results.
     pub(crate) mount_id: String,
+}
+
+/// Opens a Theoria template folder without creating persistence.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct PreviewBenchmarkImportRequest {
+    /// Folder explicitly selected by the native picker.
+    pub(crate) source_path: PathBuf,
+}
+
+/// Copies one recognized template folder into a tagged MySelf draft.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct ImportBenchmarkFolderRequest {
+    /// Folder previously shown in the import preview.
+    pub(crate) source_path: PathBuf,
+    /// Local non-system classification selected before import.
+    pub(crate) tag_id: String,
+}
+
+/// Copies one explicitly selected regular file into managed Benchmark storage.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct ImportBenchmarkAssetRequest {
+    /// Regular file explicitly selected by the native picker.
+    pub(crate) source_path: PathBuf,
+    /// Portable destination used inside a Case workspace.
+    pub(crate) path: String,
+}
+
+/// Stores an edited UTF-8 file as a new immutable managed asset.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct SaveBenchmarkTextAssetRequest {
+    /// Portable destination used inside a Case workspace.
+    pub(crate) path: String,
+    /// Complete UTF-8 file content from the bounded editor.
+    pub(crate) text: String,
+}
+
+/// Reads a bounded preview from one opaque managed asset identifier.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct PreviewBenchmarkAssetRequest {
+    /// Opaque identifier returned by a prior managed import.
+    pub(crate) asset_id: String,
+}
+
+/// Portable root document stored as `benchmark.json` in a Theoria template folder.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct BenchmarkImportTemplate {
+    /// Portable format version understood by this application.
+    pub(crate) schema_version: u32,
+    /// Proposed catalog title, defaulted for field-level preview validation.
+    #[serde(default)]
+    pub(crate) name: String,
+    /// Proposed purpose, defaulted for field-level preview validation.
+    #[serde(default)]
+    pub(crate) description: String,
+    /// Optional attribution retained by the imported draft.
+    pub(crate) source: Option<String>,
+    /// Independent Cases in display order.
+    #[serde(default)]
+    pub(crate) cases: Vec<BenchmarkImportCase>,
+}
+
+/// Portable Case whose file sources are relative to the selected template root.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct BenchmarkImportCase {
+    /// Case title, unique after publication.
+    #[serde(default)]
+    pub(crate) name: String,
+    /// Complete request sent to every selected Agent.
+    #[serde(default)]
+    pub(crate) prompt: String,
+    /// Execution deadline in minutes.
+    #[serde(default)]
+    pub(crate) timeout_minutes: u32,
+    /// Public files copied into this Case workspace.
+    #[serde(default)]
+    pub(crate) input_files: Vec<BenchmarkImportFile>,
+    /// Private grading criteria evaluated after execution.
+    #[serde(default)]
+    pub(crate) checks: Vec<BenchmarkImportCheck>,
+}
+
+/// Separates the execution path from the portable source path copied at import time.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct BenchmarkImportFile {
+    /// Portable destination path used by the Case or verifier.
+    #[serde(default)]
+    pub(crate) path: String,
+    /// Portable path relative to the selected template root.
+    #[serde(default)]
+    pub(crate) source: String,
+}
+
+/// Supported V1 checks without application-assigned asset identifiers.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub(crate) enum BenchmarkImportCheck {
+    Answer {
+        /// Expected final answer after edge-whitespace trimming.
+        #[serde(default)]
+        expected: String,
+    },
+    FileExists {
+        /// Required output path relative to the Case workspace.
+        #[serde(default)]
+        path: String,
+    },
+    FileText {
+        /// Output text file relative to the Case workspace.
+        #[serde(default)]
+        path: String,
+        /// Exact expected UTF-8 content.
+        #[serde(default)]
+        expected: String,
+    },
+    FileJson {
+        /// Output JSON file relative to the Case workspace.
+        #[serde(default)]
+        path: String,
+        /// Serialized JSON compared structurally.
+        #[serde(default)]
+        expected: String,
+    },
+    Python {
+        /// Private validator copied separately from public Case inputs.
+        script: BenchmarkImportFile,
+    },
+}
+
+impl BenchmarkImportCheck {
+    pub(crate) fn kind(&self) -> &'static str {
+        match self {
+            Self::Answer { .. } => "answer",
+            Self::FileExists { .. } => "file_exists",
+            Self::FileText { .. } => "file_text",
+            Self::FileJson { .. } => "file_json",
+            Self::Python { .. } => "python",
+        }
+    }
 }

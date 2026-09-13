@@ -1,6 +1,7 @@
 mod adapters {
     pub(crate) mod activity;
     pub(crate) mod agent;
+    pub(crate) mod benchmark_verifier;
     pub(crate) mod claude;
     pub(crate) mod codex;
     pub(crate) mod opencode;
@@ -66,6 +67,7 @@ mod models {
 }
 mod repositories {
     pub(crate) mod benchmark;
+    pub(crate) mod benchmark_task;
     pub(crate) mod comparison;
     pub(crate) mod skill;
     pub(crate) mod task;
@@ -93,6 +95,7 @@ mod utils {
 
 use crate::adapters::activity::SystemAgentActivityAdapter;
 use crate::adapters::agent::AgentStatusAdapter;
+use crate::adapters::benchmark_verifier::{BenchmarkVerifier, SystemBenchmarkVerifier};
 use crate::adapters::claude::{ClaudeRuntimeSettingsCache, SystemClaudeAdapter};
 use crate::adapters::codex::{CodexRuntimeDefaultsCache, SystemCodexAdapter};
 use crate::adapters::opencode::SystemOpenCodeAdapter;
@@ -113,6 +116,7 @@ use crate::platform::opencode_config::{
 };
 use crate::platform::workbuddy_config::WorkBuddyConfigWatcherState;
 use crate::repositories::benchmark::BenchmarkRepository;
+use crate::repositories::benchmark_task::BenchmarkTaskRepository;
 use crate::repositories::comparison::ComparisonRepository;
 use crate::repositories::skill::SkillRepository;
 use crate::repositories::task::TaskRepository;
@@ -130,6 +134,7 @@ use crate::services::task::TaskService;
 use crate::services::task_execution::TaskExecutionService;
 use crate::services::workspace::WorkspaceService;
 use sea_orm_migration::MigratorTrait;
+use std::sync::Arc;
 use std::time::Duration;
 use tauri::{Emitter, Manager};
 
@@ -163,13 +168,20 @@ pub fn run() {
                     .map_err(std::io::Error::other)?;
                 Ok::<_, std::io::Error>(database)
             })?;
-            app.manage(BenchmarkTaskService::new(
+            let benchmark_verifier: Arc<dyn BenchmarkVerifier> = Arc::new(SystemBenchmarkVerifier);
+            let benchmark_task_service = BenchmarkTaskService::new(
                 BenchmarkRepository::new(comparison_database.clone()),
+                BenchmarkTaskRepository::new(comparison_database.clone()),
                 app_data_directory.clone(),
-            ));
+                benchmark_verifier.clone(),
+            );
+            tauri::async_runtime::block_on(benchmark_task_service.recover_interrupted())
+                .map_err(|_| std::io::Error::other("Benchmark recovery failed"))?;
+            app.manage(benchmark_task_service);
             app.manage(BenchmarkService::new(
                 BenchmarkRepository::new(comparison_database.clone()),
                 app_data_directory.clone(),
+                benchmark_verifier,
             ));
             app.manage(WorkspaceService::new(
                 WorkspaceRepository::new(comparison_database.clone()),
@@ -344,9 +356,23 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::benchmark::archive_benchmark,
+            commands::benchmark_task::get_benchmark_task,
+            commands::benchmark_task::list_benchmark_execution_artifacts,
             commands::benchmark_task::preview_benchmark_task,
+            commands::benchmark_task::preview_benchmark_execution_artifact,
+            commands::benchmark_task::rerun_benchmark_task,
+            commands::benchmark_task::start_benchmark_task,
+            commands::task::cancel_task,
             commands::benchmark::list_benchmark_tags,
             commands::benchmark::create_benchmark_tag,
+            commands::benchmark::delete_benchmark_tag,
+            commands::benchmark::get_benchmark_tag_usage,
+            commands::benchmark::import_benchmark_asset,
+            commands::benchmark::import_benchmark_folder,
+            commands::benchmark::preview_benchmark_asset,
+            commands::benchmark::preview_benchmark_import,
+            commands::benchmark::save_benchmark_text_asset,
             commands::benchmark::save_benchmark_draft,
             commands::benchmark::get_benchmark_draft,
             commands::benchmark::list_benchmark_drafts,
@@ -354,6 +380,8 @@ pub fn run() {
             commands::benchmark::list_benchmarks,
             commands::benchmark::get_benchmark,
             commands::benchmark::mount_benchmark,
+            commands::benchmark::update_benchmark_mount,
+            commands::benchmark::update_benchmark_tag,
             commands::benchmark::list_workspace_benchmarks,
             commands::benchmark::unmount_benchmark,
             commands::activity::check_agent_activities,
@@ -383,6 +411,7 @@ pub fn run() {
             commands::skill::unmount_workspace_skill,
             commands::skill::update_git_skill,
             commands::task::continue_task,
+            commands::task::get_task_header,
             commands::task::get_task,
             commands::task::create_task,
             commands::task::delete_task,

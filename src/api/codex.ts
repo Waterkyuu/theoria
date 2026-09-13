@@ -1,15 +1,15 @@
 import { invokeWithResponseSchema, listenWithResponseSchema } from "@/api/ipc";
 import {
 	type AgentRuntimeConfig,
-	CompiledAgentLoginStatusSchema,
-	CompiledAgentRunResultSchema,
-	CompiledAgentRuntimeConfigSchema,
-	CompiledAgentRuntimeStatusSchema,
+	AgentLoginStatusSchema,
+	AgentRunResultSchema,
+	AgentRuntimeConfigSchema,
+	AgentRuntimeStatusSchema,
 } from "@/types/agent";
 
 /** Checks the local Codex credential state through the Tauri backend. */
 const checkCodexLogin = () =>
-	invokeWithResponseSchema("check_codex_login", CompiledAgentLoginStatusSchema);
+	invokeWithResponseSchema("check_codex_login", AgentLoginStatusSchema);
 
 /**
  * Returns the complete Codex status needed for the first render.
@@ -18,10 +18,7 @@ const checkCodexLogin = () =>
  * checkCodexInitStatus();
  */
 const checkCodexInitStatus = () =>
-	invokeWithResponseSchema(
-		"check_codex_init_status",
-		CompiledAgentRuntimeStatusSchema,
-	);
+	invokeWithResponseSchema("check_codex_init_status", AgentRuntimeStatusSchema);
 
 /**
  * Reads effective Codex defaults without repeating `codex login status`.
@@ -32,14 +29,14 @@ const checkCodexInitStatus = () =>
 const getCodexRuntimeConfig = () =>
 	invokeWithResponseSchema(
 		"get_codex_runtime_config",
-		CompiledAgentRuntimeConfigSchema,
+		AgentRuntimeConfigSchema,
 	);
 
 /** Subscribes to native changes in the effective local Codex configuration. */
 const onCodexConfigChanged = (listener: (config: AgentRuntimeConfig) => void) =>
 	listenWithResponseSchema(
 		"codex-config-changed",
-		CompiledAgentRuntimeConfigSchema,
+		AgentRuntimeConfigSchema,
 		listener,
 	);
 
@@ -50,7 +47,7 @@ const onCodexConfigChanged = (listener: (config: AgentRuntimeConfig) => void) =>
  * runCodexTask("解释这个仓库");
  */
 const runCodexTask = (query: string) =>
-	invokeWithResponseSchema("run_codex_task", CompiledAgentRunResultSchema, {
+	invokeWithResponseSchema("run_codex_task", AgentRunResultSchema, {
 		request: { query },
 	});
 

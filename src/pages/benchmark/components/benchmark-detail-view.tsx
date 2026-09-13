@@ -7,8 +7,13 @@ import { PageHeader } from "@/components/share/page-header";
 import { AlertDialog } from "@/components/ui/alert-dialog";
 import { handleError } from "@/utils/error";
 import { saveBenchmarkDraft, unmountBenchmark } from "@/api/benchmark";
-import { useBenchmark } from "@/queries/benchmark";
+import {
+	useArchiveBenchmark,
+	useBenchmark,
+	useUpdateBenchmarkMount,
+} from "@/queries/benchmark";
 import type { BenchmarkMount } from "@/types/benchmark";
+import { BenchmarkFilePreview } from "./benchmark-file-preview";
 import { BenchmarkConfiguration } from "./configuration";
 import { BenchmarkFeedback } from "./feedback";
 import { BenchmarkMountModal } from "./mount-modal";
@@ -31,15 +36,22 @@ const BenchmarkDetailView = ({ benchmarkId, mount }: DetailProps) => {
 	const query = useBenchmark(benchmarkId, mount?.versionId ?? null);
 	const [mountOpen, setMountOpen] = useState(false);
 	const [pending, setPending] = useState(false);
+	const archiveMutation = useArchiveBenchmark();
+	const updateMountMutation = useUpdateBenchmarkMount();
 	const navigate = useNavigate();
 	const client = useQueryClient();
 
-	/** Copies immutable case content into a separate personal draft. */
-	const duplicate = async () => {
+	/** Opens immutable content as either a linked personal edit or an independent copy. */
+	const createDraft = async (definitionId: string | null) => {
 		if (!query.data || pending) return;
 		setPending(true);
 		try {
-			const draft = await saveBenchmarkDraft(query.data.document, null, null);
+			const draft = await saveBenchmarkDraft(
+				query.data.document,
+				null,
+				null,
+				definitionId,
+			);
 			await client.invalidateQueries({ queryKey: ["benchmarks", "drafts"] });
 			Toast.toast.success(t("benchmark.copied"));
 			navigate(`/benchmark/drafts/${encodeURIComponent(draft.id)}`);
@@ -68,6 +80,28 @@ const BenchmarkDetailView = ({ benchmarkId, mount }: DetailProps) => {
 		}
 	};
 	const detail = query.data;
+	const archive = async () => {
+		if (!detail || archiveMutation.isPending) return;
+		try {
+			await archiveMutation.mutateAsync(detail.summary.id);
+			Toast.toast.success(t("benchmark.archived"));
+		} catch (error) {
+			handleError(error, "Benchmark archive failed", true);
+		}
+	};
+	const updateMount = async () => {
+		if (!detail || !mount || updateMountMutation.isPending) return;
+		try {
+			await updateMountMutation.mutateAsync({
+				workspaceId: mount.workspaceId,
+				mountId: mount.id,
+				versionId: detail.summary.versionId,
+			});
+			Toast.toast.success(t("benchmark.mountUpdated"));
+		} catch (error) {
+			handleError(error, "Benchmark mount update failed", true);
+		}
+	};
 	return (
 		<main className="flex h-full min-h-0 flex-col">
 			<PageHeader>
@@ -94,15 +128,65 @@ const BenchmarkDetailView = ({ benchmarkId, mount }: DetailProps) => {
 								</p>
 							</div>
 							<div className="flex flex-wrap gap-sm">
-								<Button
-									variant="secondary"
-									isPending={pending}
-									onPress={duplicate}
-								>
-									{t("benchmark.duplicate")}
-								</Button>
+								{!mount && (
+									<>
+										<Button
+											variant="secondary"
+											isDisabled={detail.summary.archived}
+											isPending={pending}
+											onPress={() =>
+												createDraft(
+													detail.summary.author === "myself"
+														? detail.summary.id
+														: null,
+												)
+											}
+										>
+											{t(
+												detail.summary.author === "myself"
+													? "benchmark.edit"
+													: "benchmark.duplicate",
+											)}
+										</Button>
+										{detail.summary.author === "myself" &&
+										!detail.summary.archived ? (
+											<AlertDialog
+												confirmText={t("benchmark.archiveConfirm")}
+												description={t("benchmark.archiveDescription")}
+												isConfirmDisabled={archiveMutation.isPending}
+												onConfirm={archive}
+												title={t("benchmark.archiveTitle")}
+												trigger={
+													<Button variant="tertiary">
+														{t("benchmark.archive")}
+													</Button>
+												}
+											/>
+										) : null}
+									</>
+								)}
 								{mount ? (
 									<>
+										{mount.versionId !== detail.summary.versionId ? (
+											<AlertDialog
+												confirmText={t("benchmark.updateMountConfirm")}
+												description={t("benchmark.updateMountDescription", {
+													current: detail.versionNumber,
+													latest: detail.summary.versionNumber,
+												})}
+												isConfirmDisabled={updateMountMutation.isPending}
+												onConfirm={updateMount}
+												status="warning"
+												title={t("benchmark.updateMountTitle")}
+												trigger={
+													<Button variant="secondary">
+														{t("benchmark.updateMount", {
+															number: detail.summary.versionNumber,
+														})}
+													</Button>
+												}
+											/>
+										) : null}
 										<BenchmarkConfiguration mount={mount} />
 										<AlertDialog
 											title={t("benchmark.unmountConfirm")}
@@ -169,7 +253,10 @@ const BenchmarkDetailView = ({ benchmarkId, mount }: DetailProps) => {
 														)}
 														{"expected" in check && <p>{check.expected}</p>}
 														{check.kind === "python" && (
-															<p className="font-mono">{check.script.path}</p>
+															<div className="flex items-center justify-between gap-sm">
+																<p className="font-mono">{check.script.path}</p>
+																<BenchmarkFilePreview file={check.script} />
+															</div>
 														)}
 													</li>
 												))}
@@ -180,8 +267,12 @@ const BenchmarkDetailView = ({ benchmarkId, mount }: DetailProps) => {
 											{item.inputFiles.length ? (
 												<ul className="mt-sm font-mono">
 													{item.inputFiles.map((file) => (
-														<li key={file.path} className="break-all">
-															{file.path}
+														<li
+															key={file.path}
+															className="flex items-center justify-between gap-sm"
+														>
+															<span className="break-all">{file.path}</span>
+															<BenchmarkFilePreview file={file} />
 														</li>
 													))}
 												</ul>

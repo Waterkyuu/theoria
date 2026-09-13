@@ -433,6 +433,15 @@ impl TaskRepository {
             .collect()
     }
 
+    /// Loads only the common Task header so callers can dispatch by business kind.
+    pub(crate) async fn header(&self, task_id: &str) -> Result<Option<Task>, DbErr> {
+        task::Entity::find_by_id(task_id)
+            .one(&self.database)
+            .await?
+            .map(task_from_model)
+            .transpose()
+    }
+
     /// Restores immutable configuration, Executions, Skills, and results for one Task.
     pub(crate) async fn get(&self, task_id: &str) -> Result<Option<TaskDetail>, DbErr> {
         let task = task::Entity::find_by_id(task_id)

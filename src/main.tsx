@@ -1,5 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import "zod/compile";
 import App from "./App";
 import { initializeBackendI18n } from "./i18n/backend";
 import { initializeTheme } from "./theme";

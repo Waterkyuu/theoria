@@ -26,9 +26,6 @@ const AgentActivitiesResponseSchema = z.object({
 	/** Recent task summaries ordered by latest source activity. */
 	activities: z.array(AgentActivitySchema),
 });
-const CompiledAgentActivitiesResponseSchema = z.compile(
-	AgentActivitiesResponseSchema,
-);
 
 const AgentProcessStatesSchema = z.object({
 	/** Whether a Claude Code process is currently running. */
@@ -40,7 +37,6 @@ const AgentProcessStatesSchema = z.object({
 	/** Whether a WorkBuddy process is currently running. */
 	workbuddy: z.boolean(),
 });
-const CompiledAgentProcessStatesSchema = z.compile(AgentProcessStatesSchema);
 
 const AgentLoginStatusSchema = z.object({
 	/** Whether the local agent product was discovered. */
@@ -50,7 +46,6 @@ const AgentLoginStatusSchema = z.object({
 	/** Safe authentication mode reported by the agent. */
 	authenticationMethod: z.string().nullable(),
 });
-const CompiledAgentLoginStatusSchema = z.compile(AgentLoginStatusSchema);
 
 const AgentRuntimeConfigSchema = z.object({
 	/** Effective model selected for new tasks. */
@@ -58,13 +53,11 @@ const AgentRuntimeConfigSchema = z.object({
 	/** Effective reasoning effort selected for new tasks. */
 	reasoningEffort: z.string().nullable(),
 });
-const CompiledAgentRuntimeConfigSchema = z.compile(AgentRuntimeConfigSchema);
 
 const AgentRuntimeStatusSchema = z.object({
 	...AgentLoginStatusSchema.shape,
 	...AgentRuntimeConfigSchema.shape,
 });
-const CompiledAgentRuntimeStatusSchema = z.compile(AgentRuntimeStatusSchema);
 
 const TokenUsageSchema = z.object({
 	/** Total tokens consumed by the task. */
@@ -108,7 +101,6 @@ const AgentRunResultSchema = z.object({
 	/** Tool invocations retained in source start order. */
 	toolCalls: z.array(ToolCallMetricSchema),
 });
-const CompiledAgentRunResultSchema = z.compile(AgentRunResultSchema);
 
 type AgentKind = z.infer<typeof AgentKindSchema>;
 type AgentActivityStatus = z.infer<typeof AgentActivityStatusSchema>;
@@ -156,10 +148,9 @@ export type {
 export {
 	AgentKindSchema,
 	AgentRunResultSchema,
-	CompiledAgentActivitiesResponseSchema,
-	CompiledAgentLoginStatusSchema,
-	CompiledAgentProcessStatesSchema,
-	CompiledAgentRunResultSchema,
-	CompiledAgentRuntimeConfigSchema,
-	CompiledAgentRuntimeStatusSchema,
+	AgentActivitiesResponseSchema,
+	AgentLoginStatusSchema,
+	AgentProcessStatesSchema,
+	AgentRuntimeConfigSchema,
+	AgentRuntimeStatusSchema,
 };

@@ -1,13 +1,39 @@
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
+	useInfiniteQuery,
+	useMutation,
+	useQuery,
+	useQueryClient,
+} from "@tanstack/react-query";
+import {
+	archiveBenchmark,
+	deleteBenchmarkTag,
+	getBenchmarkTask,
 	getBenchmark,
 	getBenchmarkDraft,
 	listBenchmarkDrafts,
 	listBenchmarks,
 	listBenchmarkTags,
+	listBenchmarkExecutionArtifacts,
+	previewBenchmarkExecutionArtifact,
 	listWorkspaceBenchmarks,
+	rerunBenchmarkTask,
+	startBenchmarkTask,
+	updateBenchmarkMount,
+	updateBenchmarkTag,
 } from "@/api/benchmark";
-import type { BenchmarkFilters } from "@/types/benchmark";
+import { cancelTask } from "@/api/task";
+import type {
+	BenchmarkFilters,
+	RerunBenchmarkTaskInput,
+	StartBenchmarkTaskInput,
+} from "@/types/benchmark";
+
+const BENCHMARK_TASK_POLL_INTERVAL_MS = 750;
+
+const benchmarkTaskKey = (taskId: string | null) => [
+	"benchmark-tasks",
+	taskId ?? "none",
+];
 
 /**
  * Fetches catalog pages without client-side sorting of partial results.
@@ -28,6 +54,36 @@ const useBenchmarks = (filters: BenchmarkFilters) =>
 const useBenchmarkTags = () =>
 	useQuery({ queryKey: ["benchmarks", "tags"], queryFn: listBenchmarkTags });
 
+/** Updates one Tag and refreshes every surface that displays its metadata. */
+const useUpdateBenchmarkTag = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({
+			id,
+			name,
+			icon,
+		}: {
+			id: string;
+			name: string;
+			icon: string;
+		}) => updateBenchmarkTag(id, name, icon),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["benchmarks"] });
+		},
+	});
+};
+
+/** Deletes a personal Tag after the caller has shown its usage count. */
+const useDeleteBenchmarkTag = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: deleteBenchmarkTag,
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["benchmarks"] });
+		},
+	});
+};
+
 /**
  * Keys workspace details by immutable version.
  *
@@ -40,6 +96,21 @@ const useBenchmark = (id: string, versionId: string | null = null) =>
 		queryFn: () => getBenchmark(id, versionId),
 		enabled: Boolean(id),
 	});
+
+/** Archives a personal definition and removes it from cached catalog pages. */
+const useArchiveBenchmark = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: archiveBenchmark,
+		onSuccess: (detail) => {
+			queryClient.setQueryData(
+				["benchmarks", "detail", detail.summary.id, null],
+				detail,
+			);
+			queryClient.invalidateQueries({ queryKey: ["benchmarks", "catalog"] });
+		},
+	});
+};
 
 /**
  * Restores exactly one saved revision.
@@ -80,11 +151,130 @@ const useWorkspaceBenchmarks = (workspaceId: string) =>
 			last.length === 30 ? pages.length : undefined,
 	});
 
+/** Applies an explicit version update to one mounted relationship. */
+const useUpdateBenchmarkMount = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({
+			workspaceId,
+			mountId,
+			versionId,
+		}: {
+			workspaceId: string;
+			mountId: string;
+			versionId: string;
+		}) => updateBenchmarkMount(workspaceId, mountId, versionId),
+		onSuccess: (mount) => {
+			queryClient.invalidateQueries({
+				queryKey: ["benchmarks", "mounts", mount.workspaceId],
+			});
+		},
+	});
+};
+
+/** Polls only while the persisted Benchmark matrix can still change. */
+const useBenchmarkTask = (taskId: string | null) =>
+	useQuery({
+		queryKey: benchmarkTaskKey(taskId),
+		queryFn: () => {
+			if (!taskId) throw new Error("A Benchmark Task id is required");
+			return getBenchmarkTask(taskId);
+		},
+		enabled: taskId !== null,
+		refetchInterval: (query) => {
+			const status = query.state.data?.task.status;
+			return status === "preparing" || status === "running"
+				? BENCHMARK_TASK_POLL_INTERVAL_MS
+				: false;
+		},
+	});
+
+/** Loads the final file index only after the user selects one execution. */
+const useBenchmarkExecutionArtifacts = (
+	taskId: string,
+	executionId: string | null,
+) =>
+	useQuery({
+		queryKey: ["benchmark-execution-artifacts", taskId, executionId],
+		queryFn: () => {
+			if (!executionId) throw new Error("An execution id is required");
+			return listBenchmarkExecutionArtifacts(taskId, executionId);
+		},
+		enabled: executionId !== null,
+	});
+
+/** Loads one bounded artifact body independently from the file index. */
+const useBenchmarkExecutionArtifactPreview = (
+	taskId: string,
+	executionId: string | null,
+	path: string | null,
+) =>
+	useQuery({
+		queryKey: ["benchmark-execution-artifact", taskId, executionId, path],
+		queryFn: () => {
+			if (!executionId || !path)
+				throw new Error("An artifact selection is required");
+			return previewBenchmarkExecutionArtifact(taskId, executionId, path);
+		},
+		enabled: executionId !== null && path !== null,
+	});
+
+/** Starts a Benchmark Task and seeds its polling cache immediately. */
+const useStartBenchmarkTask = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (request: StartBenchmarkTaskInput) =>
+			startBenchmarkTask(request),
+		onSuccess: (detail) => {
+			queryClient.setQueryData(benchmarkTaskKey(detail.task.id), detail);
+			queryClient.invalidateQueries({ queryKey: ["tasks"] });
+		},
+	});
+};
+
+/** Requests cancellation and lets the persisted task poll reveal the terminal state. */
+const useCancelBenchmarkTask = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (taskId: string) => cancelTask(taskId).then(() => taskId),
+		onSuccess: (taskId) => {
+			queryClient.invalidateQueries({ queryKey: benchmarkTaskKey(taskId) });
+			queryClient.invalidateQueries({ queryKey: ["tasks"] });
+		},
+	});
+};
+
+/** Creates a new historical-version run and seeds its independent polling cache. */
+const useRerunBenchmarkTask = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (request: RerunBenchmarkTaskInput) =>
+			rerunBenchmarkTask(request),
+		onSuccess: (detail) => {
+			queryClient.setQueryData(benchmarkTaskKey(detail.task.id), detail);
+			queryClient.invalidateQueries({ queryKey: ["tasks"] });
+			queryClient.invalidateQueries({
+				queryKey: ["benchmarks", "mounts", detail.task.workspaceId],
+			});
+		},
+	});
+};
+
 export {
 	useBenchmarks,
 	useBenchmarkTags,
+	useUpdateBenchmarkTag,
+	useDeleteBenchmarkTag,
 	useBenchmark,
+	useArchiveBenchmark,
 	useBenchmarkDraft,
 	useBenchmarkDrafts,
 	useWorkspaceBenchmarks,
+	useUpdateBenchmarkMount,
+	useBenchmarkTask,
+	useBenchmarkExecutionArtifacts,
+	useBenchmarkExecutionArtifactPreview,
+	useCancelBenchmarkTask,
+	useRerunBenchmarkTask,
+	useStartBenchmarkTask,
 };
