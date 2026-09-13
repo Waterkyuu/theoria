@@ -7,7 +7,7 @@
 				"hooks": [
 					{
 						"type": "command",
-						"command": "/usr/bin/python3 \"$(git rev-parse --show-toplevel)/.codex/hooks/review_agents_before_commit.py\"",
+						"command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/review_agents_before_commit.mjs\"",
 						"timeout": 10,
 						"statusMessage": "Loading scoped commit instructions",
 						"additionalContextLimit": 65536
