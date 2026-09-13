@@ -15,7 +15,7 @@ beforeEach(async () => {
 	invoke.mockReset();
 	invoke.mockImplementation(async (command: string) => {
 		if (command === "list_benchmark_tags")
-			return [{ id: "code", name: "Coding", icon: "Code", isSystem: false }];
+			return [{ id: "code", name: "Coding", icon: "Code" }];
 		if (command === "list_benchmarks")
 			return [
 				{
