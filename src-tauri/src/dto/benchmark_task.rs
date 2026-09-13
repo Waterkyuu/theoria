@@ -1,8 +1,8 @@
 use crate::domain::agent_kind::AgentKind;
 use crate::domain::benchmark_task::{
-    BenchmarkArtifactFile, BenchmarkArtifactPreview, BenchmarkPreflightIssueKind,
-    BenchmarkRerunConfiguration, BenchmarkTaskConfiguration, BenchmarkTaskDetail,
-    BenchmarkTaskPreview,
+    BenchmarkArtifactFile, BenchmarkArtifactPreview, BenchmarkEvaluationReport,
+    BenchmarkExecutionMetrics, BenchmarkPreflightIssueKind, BenchmarkRerunConfiguration,
+    BenchmarkTaskConfiguration, BenchmarkTaskDetail, BenchmarkTaskPreview,
 };
 use crate::domain::task::TaskPermissions;
 use crate::dto::task::TaskResponse;
@@ -82,12 +82,19 @@ impl TryFrom<PreviewBenchmarkTaskRequest> for BenchmarkTaskConfiguration {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct StartBenchmarkTaskRequest {
+    /// Owning workspace.
     pub(crate) workspace_id: String,
+    /// Mount selected inside that workspace.
     pub(crate) mount_id: String,
+    /// Fixed version shown by the form.
     pub(crate) expected_version_id: String,
+    /// Ordered unique local product identifiers.
     pub(crate) agent_kinds: Vec<String>,
+    /// Explicit file permission.
     pub(crate) file_access: String,
+    /// Explicit command permission.
     pub(crate) command_execution: String,
+    /// Client retry identity for this exact launch request.
     pub(crate) idempotency_key: String,
 }
 
@@ -111,6 +118,7 @@ impl TryFrom<&StartBenchmarkTaskRequest> for BenchmarkTaskConfiguration {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct GetBenchmarkTaskRequest {
+    /// Benchmark Task selected by the shared workspace route.
     pub(crate) task_id: String,
 }
 
@@ -118,7 +126,9 @@ pub(crate) struct GetBenchmarkTaskRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct ListBenchmarkExecutionArtifactsRequest {
+    /// Benchmark Task that owns the execution cell.
     pub(crate) task_id: String,
+    /// Finished execution whose final files are requested.
     pub(crate) execution_id: String,
 }
 
@@ -126,8 +136,11 @@ pub(crate) struct ListBenchmarkExecutionArtifactsRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct PreviewBenchmarkExecutionArtifactRequest {
+    /// Benchmark Task that owns the execution cell.
     pub(crate) task_id: String,
+    /// Finished execution that owns the requested file.
     pub(crate) execution_id: String,
+    /// Portable final-workspace path selected by the user.
     pub(crate) path: String,
 }
 
@@ -269,20 +282,35 @@ impl From<BenchmarkTaskPreview> for BenchmarkTaskPreviewResponse {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct BenchmarkTaskDetailResponse {
+    /// Common Task identity and lifecycle.
     task: TaskResponse,
+    /// Published definition used by the Task.
     benchmark_id: String,
+    /// Display name captured for the result header.
     benchmark_name: String,
+    /// Immutable published version executed by the Task.
     version_id: String,
+    /// User-visible version number.
     version_number: i64,
+    /// Historical Task that initiated this Rerun, when present.
     rerun_of_task_id: Option<String>,
+    /// Whether every planned cell has a complete normal result.
     result_completeness: String,
+    /// Stable reason for an incomplete result matrix.
     completion_reason: Option<String>,
+    /// Whether the user requested cancellation.
     cancel_requested: bool,
+    /// Frozen file access policy.
     file_access: String,
+    /// Frozen command execution policy.
     command_execution: String,
+    /// Aggregate matrix completion counts.
     progress: BenchmarkTaskProgressResponse,
+    /// Matrix columns and per-Agent aggregates.
     agents: Vec<BenchmarkTaskAgentResponse>,
+    /// Frozen matrix rows in published order.
     cases: Vec<BenchmarkTaskCaseResponse>,
+    /// Complete Case × Agent result matrix.
     executions: Vec<BenchmarkCaseExecutionResponse>,
 }
 
@@ -290,8 +318,11 @@ pub(crate) struct BenchmarkTaskDetailResponse {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct BenchmarkArtifactFileResponse {
+    /// Portable path within the final execution workspace.
     path: String,
+    /// Final size, or baseline size for a deleted file.
     size_bytes: u64,
+    /// Exact comparison against the immutable Case baseline.
     change: String,
 }
 
@@ -309,9 +340,13 @@ impl From<BenchmarkArtifactFile> for BenchmarkArtifactFileResponse {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct BenchmarkArtifactPreviewResponse {
+    /// Portable path within the final execution workspace.
     path: String,
+    /// Complete file size before preview truncation.
     size_bytes: u64,
+    /// UTF-8 prefix, or absent for binary content.
     text: Option<String>,
+    /// Whether trailing bytes were omitted.
     truncated: bool,
 }
 
@@ -329,56 +364,91 @@ impl From<BenchmarkArtifactPreview> for BenchmarkArtifactPreviewResponse {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct BenchmarkTaskProgressResponse {
+    /// Number of planned matrix cells.
     total: usize,
+    /// Number of terminal matrix cells.
     finished: usize,
+    /// Number of passing evaluations.
     passed: usize,
+    /// Number of failing evaluations.
     failed: usize,
+    /// Number of terminal cells without an evaluation verdict.
     errors: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct BenchmarkTaskAgentResponse {
+    /// Stable Task Agent row identifier.
     id: String,
+    /// Local Agent product selected for this column.
     agent_kind: &'static str,
+    /// Stable matrix column order.
     position: usize,
+    /// Number of passing evaluations for this Agent.
     passed: usize,
+    /// Number of failing evaluations for this Agent.
     failed: usize,
+    /// Number of planned Cases for this Agent.
     total: usize,
+    /// Complete pass rate, absent until every Case is countable.
     pass_rate: Option<f64>,
+    /// Sum of reported execution durations.
     total_duration_ms: u64,
+    /// Number of executions contributing duration data.
     duration_coverage: usize,
+    /// Sum of reported token totals.
     total_tokens: u64,
+    /// Number of executions contributing token data.
     token_coverage: usize,
+    /// Sum of reported tool-call counts.
     tool_call_count: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct BenchmarkTaskCaseResponse {
+    /// Stable Task Case row identifier.
     id: String,
+    /// Published immutable Case identifier.
     case_id: String,
+    /// Stable matrix row order.
     position: usize,
+    /// User-visible Case name.
     name: String,
+    /// Complete requirements sent to every selected Agent.
     prompt: String,
+    /// Per-execution deadline in minutes.
     timeout_minutes: u32,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct BenchmarkCaseExecutionResponse {
+    /// Stable execution cell identifier.
     id: String,
+    /// Frozen Task Case row used by this cell.
     task_case_id: String,
+    /// Frozen Task Agent row used by this cell.
     task_agent_id: String,
+    /// Stable preparation, running, or finished phase.
     phase: String,
+    /// Verdict, terminal reason, or current phase displayed in the matrix.
     result: String,
+    /// Terminal reason when the cell has no verdict.
     termination_reason: Option<String>,
+    /// Final Agent response when one was produced.
     response_text: Option<String>,
-    metrics: Option<serde_json::Value>,
+    /// Typed normalized metrics when the Agent reported them.
+    metrics: Option<BenchmarkExecutionMetrics>,
+    /// Execution start time in Unix milliseconds.
     started_at_ms: Option<i64>,
+    /// Execution completion time in Unix milliseconds.
     finished_at_ms: Option<i64>,
+    /// Passed or failed evaluation verdict.
     verdict: Option<String>,
-    report: Option<serde_json::Value>,
+    /// Typed deterministic evaluation report.
+    report: Option<BenchmarkEvaluationReport>,
 }
 
 impl From<BenchmarkTaskDetail> for BenchmarkTaskDetailResponse {
@@ -425,29 +495,20 @@ impl From<BenchmarkTaskDetail> for BenchmarkTaskDetailResponse {
                     .count();
                 let metrics = cells
                     .iter()
-                    .filter_map(|execution| execution.metrics_json.as_deref())
-                    .filter_map(|value| serde_json::from_str::<serde_json::Value>(value).ok())
+                    .filter_map(|execution| execution.metrics.as_ref())
                     .collect::<Vec<_>>();
-                let total_duration_ms = metrics
-                    .iter()
-                    .filter_map(|metric| metric["totalDurationMs"].as_u64())
-                    .sum();
-                let duration_coverage = metrics
-                    .iter()
-                    .filter(|metric| metric["totalDurationMs"].is_u64())
-                    .count();
+                let total_duration_ms = metrics.iter().map(|metric| metric.total_duration_ms).sum();
+                let duration_coverage = metrics.len();
                 let total_tokens = metrics
                     .iter()
-                    .filter_map(|metric| metric["tokenUsage"]["totalTokens"].as_u64())
+                    .filter_map(|metric| metric.token_usage.as_ref())
+                    .map(|usage| usage.total_tokens)
                     .sum();
                 let token_coverage = metrics
                     .iter()
-                    .filter(|metric| metric["tokenUsage"]["totalTokens"].is_u64())
+                    .filter(|metric| metric.token_usage.is_some())
                     .count();
-                let tool_call_count = metrics
-                    .iter()
-                    .filter_map(|metric| metric["toolCallCount"].as_u64())
-                    .sum();
+                let tool_call_count = metrics.iter().map(|metric| metric.tool_call_count).sum();
                 let countable = passed + failed;
                 BenchmarkTaskAgentResponse {
                     id: agent.id.clone(),
@@ -515,15 +576,11 @@ impl From<BenchmarkTaskDetail> for BenchmarkTaskDetailResponse {
                         result,
                         termination_reason: execution.termination_reason,
                         response_text: execution.response_text,
-                        metrics: execution
-                            .metrics_json
-                            .and_then(|value| serde_json::from_str(&value).ok()),
+                        metrics: execution.metrics,
                         started_at_ms: execution.started_at_ms,
                         finished_at_ms: execution.finished_at_ms,
                         verdict: execution.verdict,
-                        report: execution
-                            .report_json
-                            .and_then(|value| serde_json::from_str(&value).ok()),
+                        report: execution.report,
                     }
                 })
                 .collect(),
