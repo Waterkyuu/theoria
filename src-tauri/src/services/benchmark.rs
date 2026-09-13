@@ -304,12 +304,19 @@ impl BenchmarkService {
             .await
         }
         .await;
-        if result.is_err() {
-            for asset_id in copied_ids {
-                remove_managed_file(&self.asset_directory.join(asset_id)).await?;
+        match result {
+            Ok(draft) => Ok(draft),
+            Err(error) => {
+                // The import failure remains authoritative; rollback still attempts every asset.
+                let _cleanup_result = remove_managed_files(
+                    copied_ids
+                        .into_iter()
+                        .map(|asset_id| self.asset_directory.join(asset_id)),
+                )
+                .await;
+                Err(error)
             }
         }
-        result
     }
 
     /// Copies one explicitly selected file into opaque application-owned storage.
@@ -736,6 +743,20 @@ async fn remove_managed_file(path: &Path) -> Result<(), AppError> {
     }
 }
 
+/// Attempts every managed-file deletion and reports whether any cleanup failed.
+async fn remove_managed_files(paths: impl IntoIterator<Item = PathBuf>) -> Result<(), AppError> {
+    let mut first_error = None;
+    for path in paths {
+        if let Err(error) = remove_managed_file(&path).await {
+            first_error.get_or_insert(error);
+        }
+    }
+    match first_error {
+        Some(error) => Err(error),
+        None => Ok(()),
+    }
+}
+
 async fn load_import_template(
     source_path: PathBuf,
 ) -> Result<(PathBuf, BenchmarkImportTemplate), AppError> {
@@ -883,7 +904,7 @@ fn now_ms() -> Result<i64, AppError> {
 
 #[cfg(test)]
 mod tests {
-    use super::BenchmarkService;
+    use super::{remove_managed_files, BenchmarkService};
     use crate::adapters::benchmark_verifier::{BenchmarkVerifier, SystemBenchmarkVerifier};
     use crate::db::{connection::connect_sqlite, migration::Migrator};
     use crate::domain::benchmark::{
@@ -900,6 +921,31 @@ mod tests {
 
     fn verifier() -> Arc<dyn BenchmarkVerifier> {
         Arc::new(SystemBenchmarkVerifier)
+    }
+
+    #[test]
+    fn managed_file_cleanup_attempts_every_path_after_a_failure() {
+        tauri::async_runtime::block_on(async {
+            let root = std::env::temp_dir().join(format!(
+                "theoria-benchmark-cleanup-{}-{}",
+                std::process::id(),
+                super::IDENTIFIER_SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            ));
+            let undeletable_as_file = root.join("directory");
+            let later_file = root.join("later-file");
+            std::fs::create_dir_all(&undeletable_as_file).expect("directory fixture");
+            std::fs::write(&later_file, "fixture").expect("file fixture");
+
+            let result = remove_managed_files([undeletable_as_file, later_file.clone()]).await;
+            let later_file_exists = later_file.exists();
+            std::fs::remove_dir_all(root).expect("fixture cleanup");
+
+            assert_eq!(result, Err(AppError::BenchmarkAssetUnavailable));
+            assert!(
+                !later_file_exists,
+                "cleanup must continue after one failure"
+            );
+        });
     }
 
     #[derive(Debug)]
