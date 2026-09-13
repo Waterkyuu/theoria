@@ -259,7 +259,7 @@ fn issue(issues: &mut Vec<BenchmarkValidationIssue>, field: &str, code: &'static
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{BenchmarkCase, BenchmarkCheck, BenchmarkDocument, BenchmarkFile};
 
     #[test]
     fn publication_rejects_missing_criteria_duplicate_cases_and_escaping_paths() {
