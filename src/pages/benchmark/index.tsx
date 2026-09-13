@@ -9,7 +9,6 @@ import { SearchBox } from "@/components/ui/search-box";
 import { useBenchmarks, useBenchmarkTags } from "@/queries/benchmark";
 import type { BenchmarkFilters, BenchmarkSummary } from "@/types/benchmark";
 import { BenchmarkImportModal } from "./components/benchmark-import-modal";
-import { BenchmarkTagManager } from "./components/benchmark-tag-manager";
 import { BenchmarkFeedback } from "./components/feedback";
 import { BenchmarkFiltersBar } from "./components/filters";
 import { BenchmarkMountModal } from "./components/mount-modal";
@@ -47,7 +46,6 @@ const BenchmarkPage = () => {
 						</p>
 					</div>
 					<div className="flex items-center gap-sm">
-						<BenchmarkTagManager />
 						<DropdownMenu
 							items={[
 								{ id: "new", labelKey: "benchmark.newTitle" },

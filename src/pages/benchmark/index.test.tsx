@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "@testing-library/jest-dom/vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { beforeEach, expect, it, vi } from "vitest";
@@ -89,29 +89,7 @@ it("styles the new benchmark trigger as the dark primary action", async () => {
 	expect(addButton).toHaveClass("text-on-dark");
 });
 
-it("updates personal Tags from the catalog management entry", async () => {
-	invoke.mockImplementation(async (command: string) => {
-		if (command === "list_benchmark_tags")
-			return [
-				{
-					id: "uncategorized",
-					name: "Uncategorized",
-					icon: "Tag",
-					isSystem: true,
-				},
-				{ id: "code", name: "Coding", icon: "Code", isSystem: false },
-			];
-		if (command === "list_benchmarks") return [];
-		if (command === "update_benchmark_tag")
-			return {
-				id: "code",
-				name: "Engineering",
-				icon: "Gear",
-				isSystem: false,
-			};
-		return [];
-	});
-	const user = userEvent.setup();
+it("does not expose tag management from the Benchmark catalog", async () => {
 	render(
 		<QueryClientProvider client={new QueryClient()}>
 			<MemoryRouter>
@@ -120,56 +98,10 @@ it("updates personal Tags from the catalog management entry", async () => {
 		</QueryClientProvider>,
 	);
 
-	await user.click(await screen.findByRole("button", { name: "Manage tags" }));
-	await user.click(screen.getByRole("button", { name: "Edit Coding" }));
-	const name = screen.getByRole("textbox", { name: "Tag name" });
-	await user.clear(name);
-	await user.type(name, "Engineering");
-	await user.click(screen.getByRole("button", { name: "Gear" }));
-	await user.click(screen.getByRole("button", { name: "Save changes" }));
-
-	await waitFor(() => {
-		expect(invoke).toHaveBeenCalledWith("update_benchmark_tag", {
-			request: {
-				tagId: "code",
-				name: "Engineering",
-				icon: "Gear",
-			},
-		});
-	});
-});
-
-it("shows affected Benchmark count before deleting a Tag", async () => {
-	invoke.mockImplementation(async (command: string) => {
-		if (command === "list_benchmark_tags")
-			return [{ id: "code", name: "Coding", icon: "Code", isSystem: false }];
-		if (command === "list_benchmarks") return [];
-		if (command === "get_benchmark_tag_usage") return { benchmarkCount: 3 };
-		if (command === "delete_benchmark_tag") return { benchmarkCount: 3 };
-		return [];
-	});
-	const user = userEvent.setup();
-	render(
-		<QueryClientProvider client={new QueryClient()}>
-			<MemoryRouter>
-				<BenchmarkPage />
-			</MemoryRouter>
-		</QueryClientProvider>,
-	);
-
-	await user.click(await screen.findByRole("button", { name: "Manage tags" }));
-	await user.click(screen.getByRole("button", { name: "Delete Coding" }));
-	const dialog = await screen.findByRole("alertdialog", {
-		name: "Delete tag?",
-	});
-	expect(dialog).toHaveTextContent("3 Benchmarks will move to Uncategorized");
-	await user.click(within(dialog).getByRole("button", { name: "Delete tag" }));
-
-	await waitFor(() => {
-		expect(invoke).toHaveBeenCalledWith("delete_benchmark_tag", {
-			request: { tagId: "code" },
-		});
-	});
+	await screen.findByRole("button", { name: "Add new" });
+	expect(
+		screen.queryByRole("button", { name: "Manage tags" }),
+	).not.toBeInTheDocument();
 });
 
 it("shows a retryable catalog failure instead of an empty library", async () => {
