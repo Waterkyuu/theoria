@@ -4,10 +4,14 @@ use sea_orm::entity::prelude::*;
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
 #[sea_orm(table_name = "benchmark_tags")]
 pub(crate) struct Model {
+    /// Stable local classification identifier.
     #[sea_orm(primary_key, auto_increment = false)]
     pub(crate) id: String,
+    /// User-visible classification name.
     pub(crate) name: String,
+    /// Allowlisted Gravity icon export name.
     pub(crate) icon: String,
+    /// Whether application rules prevent editing or deletion.
     pub(crate) is_system: bool,
 }
 
