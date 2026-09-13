@@ -64,77 +64,9 @@ impl BenchmarkService {
                 id: new_id("tag")?,
                 name: name.trim().to_string(),
                 icon: icon.to_string(),
-                is_system: false,
             })
             .await
             .map_err(|_| AppError::BenchmarkDatabaseFailed)
-    }
-
-    /// Reports the exact number shown before a destructive tag operation.
-    pub(crate) async fn tag_usage(&self, id: &str) -> Result<u64, AppError> {
-        validate_id(id)?;
-        let tag = self
-            .repository
-            .tag(id)
-            .await
-            .map_err(|_| AppError::BenchmarkDatabaseFailed)?
-            .ok_or(AppError::BenchmarkNotFound)?;
-        if tag.is_system {
-            return Err(AppError::BenchmarkReadOnly);
-        }
-        self.repository
-            .tag_usage(id)
-            .await
-            .map_err(|_| AppError::BenchmarkDatabaseFailed)
-    }
-
-    /// Renames or changes the Gravity icon for one user-owned tag.
-    pub(crate) async fn update_tag(
-        &self,
-        id: &str,
-        name: &str,
-        icon: &str,
-    ) -> Result<BenchmarkTag, AppError> {
-        validate_id(id)?;
-        validate_tag_fields(name, icon)?;
-        let current = self
-            .repository
-            .tag(id)
-            .await
-            .map_err(|_| AppError::BenchmarkDatabaseFailed)?
-            .ok_or(AppError::BenchmarkNotFound)?;
-        if current.is_system {
-            return Err(AppError::BenchmarkReadOnly);
-        }
-        self.repository
-            .update_tag(BenchmarkTag {
-                id: id.to_string(),
-                name: name.trim().to_string(),
-                icon: icon.to_string(),
-                is_system: false,
-            })
-            .await
-            .map_err(|_| AppError::BenchmarkDatabaseFailed)?
-            .ok_or(AppError::BenchmarkConflict)
-    }
-
-    /// Deletes one user tag after atomically reassigning its definitions to Uncategorized.
-    pub(crate) async fn delete_tag(&self, id: &str) -> Result<u64, AppError> {
-        validate_id(id)?;
-        let current = self
-            .repository
-            .tag(id)
-            .await
-            .map_err(|_| AppError::BenchmarkDatabaseFailed)?
-            .ok_or(AppError::BenchmarkNotFound)?;
-        if current.is_system {
-            return Err(AppError::BenchmarkReadOnly);
-        }
-        self.repository
-            .delete_tag(id, now_ms()?)
-            .await
-            .map_err(|_| AppError::BenchmarkDatabaseFailed)?
-            .ok_or(AppError::BenchmarkConflict)
     }
 
     /// Validates one portable folder and returns only display-safe metadata.
@@ -219,15 +151,11 @@ impl BenchmarkService {
         tag_id: &str,
     ) -> Result<BenchmarkDraft, AppError> {
         validate_id(tag_id)?;
-        let tag = self
-            .repository
+        self.repository
             .tag(tag_id)
             .await
             .map_err(|_| AppError::BenchmarkDatabaseFailed)?
             .ok_or(AppError::BenchmarkNotFound)?;
-        if tag.is_system {
-            return Err(AppError::InvalidBenchmark);
-        }
         let (root, template) = load_import_template(source_path).await?;
         if template.cases.len() > 100 {
             return Err(AppError::InvalidBenchmark);
@@ -1204,13 +1132,6 @@ mod tests {
                 .publish(&other.id, 1)
                 .await
                 .expect("second suite should publish");
-            assert_eq!(service.tag_usage(&tag.id).await.expect("tag usage"), 2);
-            let renamed_tag = service
-                .update_tag(&tag.id, "Engineering", "Wrench")
-                .await
-                .expect("personal tag should update");
-            assert_eq!(renamed_tag.name, "Engineering");
-            assert_eq!(renamed_tag.icon, "Wrench");
             let filtered = service
                 .list(
                     "%",
@@ -1228,32 +1149,6 @@ mod tests {
                 .await
                 .expect("sort");
             assert_eq!(ordered[0].id, published.summary.id);
-            assert_eq!(
-                service
-                    .delete_tag(&tag.id)
-                    .await
-                    .expect("tag should delete"),
-                2
-            );
-            assert_eq!(
-                service
-                    .detail(&published.summary.id, None)
-                    .await
-                    .expect("retagged benchmark")
-                    .summary
-                    .tag_id,
-                "uncategorized"
-            );
-            assert!(service
-                .tags()
-                .await
-                .expect("tags")
-                .iter()
-                .any(|item| item.id == "uncategorized" && item.is_system));
-            assert_eq!(
-                service.delete_tag("uncategorized").await,
-                Err(AppError::BenchmarkReadOnly)
-            );
             let mounted = service
                 .mount(
                     "workspace-1".to_string(),

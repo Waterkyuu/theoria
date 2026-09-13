@@ -176,9 +176,10 @@ const BenchmarkEditor = ({ initial }: EditorProps) => {
 							placeholder={t("benchmark.chooseTag")}
 							value={document.tagId}
 							onChange={(tagId) => setDocument({ ...document, tagId })}
-							options={(tags.data ?? [])
-								.filter((tag) => !tag.isSystem)
-								.map((tag) => ({ label: tag.name, value: tag.id }))}
+							options={(tags.data ?? []).map((tag) => ({
+								label: tag.name,
+								value: tag.id,
+							}))}
 						/>
 						<BenchmarkFeedback
 							failed={tags.isError}

@@ -1,13 +1,13 @@
 use crate::dto::benchmark::{
     ArchiveBenchmarkRequest, BenchmarkAssetPreviewResponse, BenchmarkDetailResponse,
     BenchmarkDraftResponse, BenchmarkFileResponse, BenchmarkImportPreviewResponse,
-    BenchmarkMountResponse, BenchmarkSummaryResponse, BenchmarkTagRequest, BenchmarkTagResponse,
-    BenchmarkTagUsageResponse, CreateBenchmarkTagRequest, GetBenchmarkDraftRequest,
-    GetBenchmarkRequest, ImportBenchmarkAssetRequest, ImportBenchmarkFolderRequest,
-    ListBenchmarkDraftsRequest, ListBenchmarksRequest, ListWorkspaceBenchmarksRequest,
-    MountBenchmarkRequest, PreviewBenchmarkAssetRequest, PreviewBenchmarkImportRequest,
-    PublishBenchmarkRequest, SaveBenchmarkDraftRequest, SaveBenchmarkTextAssetRequest,
-    UnmountBenchmarkRequest, UpdateBenchmarkMountRequest, UpdateBenchmarkTagRequest,
+    BenchmarkMountResponse, BenchmarkSummaryResponse, BenchmarkTagResponse,
+    CreateBenchmarkTagRequest, GetBenchmarkDraftRequest, GetBenchmarkRequest,
+    ImportBenchmarkAssetRequest, ImportBenchmarkFolderRequest, ListBenchmarkDraftsRequest,
+    ListBenchmarksRequest, ListWorkspaceBenchmarksRequest, MountBenchmarkRequest,
+    PreviewBenchmarkAssetRequest, PreviewBenchmarkImportRequest, PublishBenchmarkRequest,
+    SaveBenchmarkDraftRequest, SaveBenchmarkTextAssetRequest, UnmountBenchmarkRequest,
+    UpdateBenchmarkMountRequest,
 };
 use crate::error::IpcError;
 use crate::services::benchmark::BenchmarkService;
@@ -25,44 +25,6 @@ pub(crate) async fn list_benchmark_tags(
         .map_err(Into::into)
 }
 
-/// Returns the affected definition count before Tag deletion confirmation.
-#[tauri::command]
-pub(crate) async fn get_benchmark_tag_usage(
-    request: BenchmarkTagRequest,
-    service: State<'_, BenchmarkService>,
-) -> Result<BenchmarkTagUsageResponse, IpcError> {
-    service
-        .tag_usage(&request.tag_id)
-        .await
-        .map(Into::into)
-        .map_err(Into::into)
-}
-
-/// Changes a personal Tag's display name and Gravity icon.
-#[tauri::command]
-pub(crate) async fn update_benchmark_tag(
-    request: UpdateBenchmarkTagRequest,
-    service: State<'_, BenchmarkService>,
-) -> Result<BenchmarkTagResponse, IpcError> {
-    service
-        .update_tag(&request.tag_id, &request.name, &request.icon)
-        .await
-        .map(Into::into)
-        .map_err(Into::into)
-}
-
-/// Reassigns definitions to Uncategorized and deletes one personal Tag.
-#[tauri::command]
-pub(crate) async fn delete_benchmark_tag(
-    request: BenchmarkTagRequest,
-    service: State<'_, BenchmarkService>,
-) -> Result<BenchmarkTagUsageResponse, IpcError> {
-    service
-        .delete_tag(&request.tag_id)
-        .await
-        .map(Into::into)
-        .map_err(Into::into)
-}
 /// Creates a tag for use by personal Benchmark definitions.
 #[tauri::command]
 pub(crate) async fn create_benchmark_tag(

@@ -685,7 +685,7 @@ impl BenchmarkTaskService {
             .await
             .map_err(|_| AppError::BenchmarkDatabaseFailed)?
             .ok_or(AppError::BenchmarkNotFound)?;
-        // A deleted tag may become Uncategorized; that metadata change does not invalidate a published version.
+        // Catalog metadata changes do not invalidate a published version.
         if benchmark.document.schema_version != 1
             || benchmark.document.cases.is_empty()
             || benchmark.document.cases.len() > 100

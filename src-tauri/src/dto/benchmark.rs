@@ -16,8 +16,6 @@ pub(crate) struct BenchmarkTagResponse {
     name: String,
     /// Gravity icon export name.
     icon: String,
-    /// Whether this immutable fallback tag is owned by the application.
-    is_system: bool,
 }
 impl From<BenchmarkTag> for BenchmarkTagResponse {
     fn from(value: BenchmarkTag) -> Self {
@@ -25,7 +23,6 @@ impl From<BenchmarkTag> for BenchmarkTagResponse {
             id: value.id,
             name: value.name,
             icon: value.icon,
-            is_system: value.is_system,
         }
     }
 }
@@ -310,40 +307,6 @@ pub(crate) struct CreateBenchmarkTagRequest {
     pub(crate) name: String,
     /// Selected Gravity icon export.
     pub(crate) icon: String,
-}
-
-/// Changes one user-owned Tag while keeping its identifier stable.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub(crate) struct UpdateBenchmarkTagRequest {
-    /// Personal Tag whose stable identifier is retained.
-    pub(crate) tag_id: String,
-    /// Replacement user-visible classification name.
-    pub(crate) name: String,
-    /// Replacement allowlisted Gravity icon export.
-    pub(crate) icon: String,
-}
-
-/// Addresses one Tag for usage inspection or deletion.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub(crate) struct BenchmarkTagRequest {
-    /// Personal Tag selected for inspection or deletion.
-    pub(crate) tag_id: String,
-}
-
-/// Count returned before and after Tag reassignment.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct BenchmarkTagUsageResponse {
-    /// Number of definitions reassigned during Tag deletion.
-    pub(crate) benchmark_count: u64,
-}
-
-impl From<u64> for BenchmarkTagUsageResponse {
-    fn from(benchmark_count: u64) -> Self {
-        Self { benchmark_count }
-    }
 }
 
 /// Archives one published personal Benchmark definition.

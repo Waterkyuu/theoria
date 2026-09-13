@@ -63,9 +63,7 @@ it("previews a selected folder and allows repairable issues into a tagged draft"
 				<BenchmarkImportModal
 					isOpen
 					onClose={vi.fn()}
-					tags={[
-						{ id: "coding", name: "Coding", icon: "Code", isSystem: false },
-					]}
+					tags={[{ id: "coding", name: "Coding", icon: "Code" }]}
 				/>
 			</MemoryRouter>
 		</QueryClientProvider>,

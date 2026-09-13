@@ -6,7 +6,6 @@ import {
 } from "@tanstack/react-query";
 import {
 	archiveBenchmark,
-	deleteBenchmarkTag,
 	getBenchmarkTask,
 	getBenchmark,
 	getBenchmarkDraft,
@@ -19,7 +18,6 @@ import {
 	rerunBenchmarkTask,
 	startBenchmarkTask,
 	updateBenchmarkMount,
-	updateBenchmarkTag,
 } from "@/api/benchmark";
 import { cancelTask } from "@/api/task";
 import type {
@@ -56,36 +54,6 @@ const useBenchmarks = (filters: BenchmarkFilters) =>
 /** Shares the tag picker cache with cards and editors. */
 const useBenchmarkTags = () =>
 	useQuery({ queryKey: ["benchmarks", "tags"], queryFn: listBenchmarkTags });
-
-/** Updates one Tag and refreshes every surface that displays its metadata. */
-const useUpdateBenchmarkTag = () => {
-	const queryClient = useQueryClient();
-	return useMutation({
-		mutationFn: ({
-			id,
-			name,
-			icon,
-		}: {
-			id: string;
-			name: string;
-			icon: string;
-		}) => updateBenchmarkTag(id, name, icon),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["benchmarks"] });
-		},
-	});
-};
-
-/** Deletes a personal Tag after the caller has shown its usage count. */
-const useDeleteBenchmarkTag = () => {
-	const queryClient = useQueryClient();
-	return useMutation({
-		mutationFn: deleteBenchmarkTag,
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["benchmarks"] });
-		},
-	});
-};
 
 /**
  * Keys workspace details by immutable version.
@@ -272,8 +240,6 @@ const useRerunBenchmarkTask = () => {
 export {
 	useBenchmarks,
 	useBenchmarkTags,
-	useUpdateBenchmarkTag,
-	useDeleteBenchmarkTag,
 	useBenchmark,
 	useArchiveBenchmark,
 	useBenchmarkDraft,

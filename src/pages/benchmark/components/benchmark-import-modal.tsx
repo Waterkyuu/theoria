@@ -180,9 +180,7 @@ const BenchmarkImportModal = ({
 					<Select
 						label={t("benchmark.tag")}
 						onChange={setTagId}
-						options={tags
-							.filter((tag) => !tag.isSystem)
-							.map((tag) => ({ label: tag.name, value: tag.id }))}
+						options={tags.map((tag) => ({ label: tag.name, value: tag.id }))}
 						placeholder={t("benchmark.chooseTag")}
 						value={tagId}
 					/>

@@ -4,18 +4,16 @@ import { expect, it, vi } from "vitest";
 import type { BenchmarkFilters, BenchmarkTag } from "@/types/benchmark";
 import { BenchmarkFiltersBar } from "./filters";
 
-const tags: BenchmarkTag[] = [
-	{ id: "code", name: "Coding", icon: "Code", isSystem: false },
-];
+const tags: BenchmarkTag[] = [{ id: "code", name: "Coding", icon: "Code" }];
 
 const paletteTags: BenchmarkTag[] = [
-	{ id: "code", name: "Coding", icon: "Code", isSystem: false },
-	{ id: "reasoning", name: "Reasoning", icon: "Brain", isSystem: false },
-	{ id: "data", name: "Data", icon: "Database", isSystem: false },
-	{ id: "debugging", name: "Debugging", icon: "Bug", isSystem: false },
-	{ id: "refactoring", name: "Refactoring", icon: "Code", isSystem: false },
-	{ id: "testing", name: "Testing", icon: "Check", isSystem: false },
-	{ id: "frontend", name: "Frontend", icon: "Globe", isSystem: false },
+	{ id: "code", name: "Coding", icon: "Code" },
+	{ id: "reasoning", name: "Reasoning", icon: "Brain" },
+	{ id: "data", name: "Data", icon: "Database" },
+	{ id: "debugging", name: "Debugging", icon: "Bug" },
+	{ id: "refactoring", name: "Refactoring", icon: "Code" },
+	{ id: "testing", name: "Testing", icon: "Check" },
+	{ id: "frontend", name: "Frontend", icon: "Globe" },
 ];
 
 it("keeps the all benchmarks button white when another benchmark filter is active", () => {

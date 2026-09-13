@@ -10,7 +10,6 @@ import {
 	BenchmarkFileSchema,
 	BenchmarkImportPreviewSchema,
 	BenchmarkTagSchema,
-	BenchmarkTagUsageSchema,
 	BenchmarkTagsSchema,
 	BenchmarkPreviewSchema,
 	BenchmarkTaskDetailSchema,
@@ -69,30 +68,6 @@ const listBenchmarkTags = () =>
 const createBenchmarkTag = (name: string, icon: string) =>
 	invokeWithResponseSchema("create_benchmark_tag", BenchmarkTagSchema, {
 		request: { name, icon },
-	});
-
-/** Loads the reassignment count displayed before deleting a personal Tag.
- * @example getBenchmarkTagUsage("tag-1")
- */
-const getBenchmarkTagUsage = (tagId: string) =>
-	invokeWithResponseSchema("get_benchmark_tag_usage", BenchmarkTagUsageSchema, {
-		request: { tagId },
-	});
-
-/** Changes a personal Tag without changing its stable identifier.
- * @example updateBenchmarkTag("tag-1", "Coding", "Code")
- */
-const updateBenchmarkTag = (tagId: string, name: string, icon: string) =>
-	invokeWithResponseSchema("update_benchmark_tag", BenchmarkTagSchema, {
-		request: { tagId, name, icon },
-	});
-
-/** Reassigns dependent definitions and removes one personal Tag.
- * @example deleteBenchmarkTag("tag-1")
- */
-const deleteBenchmarkTag = (tagId: string) =>
-	invokeWithResponseSchema("delete_benchmark_tag", BenchmarkTagUsageSchema, {
-		request: { tagId },
 	});
 
 /** Inspects one picker-selected Theoria folder without creating persistence.
@@ -307,9 +282,6 @@ export {
 	archiveBenchmark,
 	listBenchmarkTags,
 	createBenchmarkTag,
-	getBenchmarkTagUsage,
-	updateBenchmarkTag,
-	deleteBenchmarkTag,
 	previewBenchmarkImport,
 	importBenchmarkFolder,
 	importBenchmarkAsset,

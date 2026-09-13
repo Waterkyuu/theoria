@@ -30,7 +30,7 @@ it("retains the saved revision after publication fails so retry uses the latest 
 	let revision = 1;
 	invoke.mockImplementation(async (command: string) => {
 		if (command === "list_benchmark_tags")
-			return [{ id: "code", name: "Coding", icon: "Code", isSystem: false }];
+			return [{ id: "code", name: "Coding", icon: "Code" }];
 		if (command === "save_benchmark_draft") revision++;
 		if (command === "publish_benchmark")
 			throw {
@@ -115,7 +115,7 @@ it("uploads, previews, and edits files while preserving structured checks", asyn
 	};
 	invoke.mockImplementation(async (command: string, args?: unknown) => {
 		if (command === "list_benchmark_tags")
-			return [{ id: "code", name: "Coding", icon: "Code", isSystem: false }];
+			return [{ id: "code", name: "Coding", icon: "Code" }];
 		if (command === "get_benchmark_draft")
 			return {
 				id: "draft-files",
@@ -163,6 +163,8 @@ it("uploads, previews, and edits files while preserving structured checks", asyn
 	);
 
 	await screen.findByDisplayValue('{"ok":true}');
+	expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
+	expect(screen.queryByText("common.delete")).not.toBeInTheDocument();
 	await user.click(screen.getByRole("button", { name: "Add input file" }));
 	await waitFor(() =>
 		expect(invoke).toHaveBeenCalledWith("import_benchmark_asset", {

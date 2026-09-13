@@ -141,11 +141,7 @@ impl BenchmarkDocument {
         if self.description.trim().is_empty() || self.description.chars().count() > 1000 {
             issue(&mut issues, "description", "invalid_description");
         }
-        if self
-            .tag_id
-            .as_deref()
-            .is_none_or(|id| id.is_empty() || id == "uncategorized")
-        {
+        if self.tag_id.as_deref().is_none_or(str::is_empty) {
             issue(&mut issues, "tagId", "tag_required");
         }
         if self.cases.is_empty() || self.cases.len() > 100 {
@@ -321,8 +317,6 @@ pub(crate) struct BenchmarkTag {
     pub(crate) name: String,
     /// Gravity icon export name.
     pub(crate) icon: String,
-    /// Whether this immutable fallback tag is owned by the application.
-    pub(crate) is_system: bool,
 }
 
 /// Benchmark catalog value exchanged between persistence and application services.

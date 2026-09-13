@@ -11,8 +11,6 @@ pub(crate) struct Model {
     pub(crate) name: String,
     /// Allowlisted Gravity icon export name.
     pub(crate) icon: String,
-    /// Whether application rules prevent editing or deletion.
-    pub(crate) is_system: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
