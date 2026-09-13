@@ -7,8 +7,8 @@ use sea_orm::sea_query::{Expr, ExprTrait, OnConflict, Query};
 use sea_orm::TransactionTrait;
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, Condition, DatabaseConnection, DbErr,
-    EntityTrait, FromQueryResult, JoinType, Order, PaginatorTrait, QueryFilter, QueryOrder,
-    QuerySelect, RelationTrait, Select,
+    EntityTrait, FromQueryResult, JoinType, Order, QueryFilter, QueryOrder, QuerySelect,
+    RelationTrait, Select,
 };
 
 /// Catalog operations share one SQLite transaction boundary and use SeaORM entities.
@@ -53,14 +53,6 @@ impl BenchmarkRepository {
             }))
     }
 
-    /// Counts definitions that will move to the protected fallback classification.
-    pub(crate) async fn tag_usage(&self, id: &str) -> Result<u64, DbErr> {
-        benchmark::Entity::find()
-            .filter(benchmark::Column::TagId.eq(id))
-            .count(&self.database)
-            .await
-    }
-
     /// Database uniqueness also protects simultaneous tag creation.
     pub(crate) async fn create_tag(&self, value: BenchmarkTag) -> Result<BenchmarkTag, DbErr> {
         tag::ActiveModel {
@@ -72,43 +64,6 @@ impl BenchmarkRepository {
         .insert(&self.database)
         .await?;
         Ok(value)
-    }
-
-    /// Updates only user-owned tags; the database trigger independently protects system rows.
-    pub(crate) async fn update_tag(
-        &self,
-        value: BenchmarkTag,
-    ) -> Result<Option<BenchmarkTag>, DbErr> {
-        let result = tag::Entity::update_many()
-            .col_expr(tag::Column::Name, Expr::value(value.name.clone()))
-            .col_expr(tag::Column::Icon, Expr::value(value.icon.clone()))
-            .filter(tag::Column::Id.eq(&value.id))
-            .filter(tag::Column::IsSystem.eq(false))
-            .exec(&self.database)
-            .await?;
-        Ok((result.rows_affected == 1).then_some(value))
-    }
-
-    /// Reassigns every dependent definition before deleting one user-owned tag atomically.
-    pub(crate) async fn delete_tag(&self, id: &str, now: i64) -> Result<Option<u64>, DbErr> {
-        let transaction = self.database.begin().await?;
-        let reassigned = benchmark::Entity::update_many()
-            .col_expr(benchmark::Column::TagId, Expr::value("uncategorized"))
-            .col_expr(benchmark::Column::UpdatedAtMs, Expr::value(now))
-            .filter(benchmark::Column::TagId.eq(id))
-            .exec(&transaction)
-            .await?;
-        let deleted = tag::Entity::delete_many()
-            .filter(tag::Column::Id.eq(id))
-            .filter(tag::Column::IsSystem.eq(false))
-            .exec(&transaction)
-            .await?;
-        if deleted.rows_affected != 1 {
-            transaction.rollback().await?;
-            return Ok(None);
-        }
-        transaction.commit().await?;
-        Ok(Some(reassigned.rows_affected))
     }
 
     /// Conditional updates reject stale editors without overwriting another save.
