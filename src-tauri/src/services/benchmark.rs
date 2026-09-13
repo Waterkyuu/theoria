@@ -1228,32 +1228,6 @@ mod tests {
                 .await
                 .expect("sort");
             assert_eq!(ordered[0].id, published.summary.id);
-            assert_eq!(
-                service
-                    .delete_tag(&tag.id)
-                    .await
-                    .expect("tag should delete"),
-                2
-            );
-            assert_eq!(
-                service
-                    .detail(&published.summary.id, None)
-                    .await
-                    .expect("retagged benchmark")
-                    .summary
-                    .tag_id,
-                "uncategorized"
-            );
-            assert!(service
-                .tags()
-                .await
-                .expect("tags")
-                .iter()
-                .any(|item| item.id == "uncategorized" && item.is_system));
-            assert_eq!(
-                service.delete_tag("uncategorized").await,
-                Err(AppError::BenchmarkReadOnly)
-            );
             let mounted = service
                 .mount(
                     "workspace-1".to_string(),

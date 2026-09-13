@@ -676,7 +676,8 @@ impl MigrationTrait for CreateComparisonHistory {
 mod tests {
     use super::Migrator;
     use crate::db::connection::connect_sqlite;
-    use sea_orm::{ConnectionTrait, DatabaseBackend, Statement};
+    use crate::models::benchmark::tag;
+    use sea_orm::{ConnectionTrait, DatabaseBackend, EntityTrait, PaginatorTrait, Statement};
     use sea_orm_migration::MigratorTrait;
     use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -691,6 +692,28 @@ mod tests {
         ));
         let url = format!("sqlite://{}?mode=rwc", path.display());
         (path, url)
+    }
+
+    #[test]
+    fn does_not_seed_a_fallback_benchmark_tag() {
+        tauri::async_runtime::block_on(async {
+            let (path, url) = temporary_database_url();
+            let database = connect_sqlite(&url).await.expect("database should connect");
+            Migrator::up(&database, None)
+                .await
+                .expect("schema should initialize");
+
+            assert_eq!(
+                tag::Entity::find()
+                    .count(&database)
+                    .await
+                    .expect("tags should be readable"),
+                0
+            );
+
+            database.close().await.expect("database should close");
+            std::fs::remove_file(path).expect("owned database should be removed");
+        });
     }
 
     #[test]
