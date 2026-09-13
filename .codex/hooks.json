@@ -1,0 +1,19 @@
+{
+	"description": "Refresh the relevant scoped AGENTS.md before each code commit.",
+	"hooks": {
+		"PreToolUse": [
+			{
+				"matcher": "^Bash$",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "/usr/bin/python3 \"$(git rev-parse --show-toplevel)/.codex/hooks/review_agents_before_commit.py\"",
+						"timeout": 10,
+						"statusMessage": "Loading scoped commit instructions",
+						"additionalContextLimit": 65536
+					}
+				]
+			}
+		]
+	}
+}
