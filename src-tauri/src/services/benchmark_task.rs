@@ -5,8 +5,9 @@ use crate::domain::agent_status::AgentLoginStatus;
 use crate::domain::benchmark::{safe_asset_id, safe_relative_path, BenchmarkCheck};
 use crate::domain::benchmark_task::{
     BenchmarkArtifactFile, BenchmarkArtifactPreview, BenchmarkEvaluationCheck,
-    BenchmarkEvaluationReport, BenchmarkExecutionResult, BenchmarkRerunConfiguration,
-    BenchmarkTaskDetail, NewBenchmarkTaskPlan,
+    BenchmarkEvaluationReport, BenchmarkExecutionMetrics, BenchmarkExecutionResult,
+    BenchmarkRerunConfiguration, BenchmarkTaskDetail, BenchmarkTokenUsage, BenchmarkToolCall,
+    NewBenchmarkTaskPlan,
 };
 use crate::domain::benchmark_task::{
     BenchmarkPreflightIssue, BenchmarkPreflightIssueKind, BenchmarkTaskConfiguration,
@@ -17,11 +18,17 @@ use crate::dto::benchmark_task::BenchmarkAgentRequest;
 use crate::error::AppError;
 use crate::repositories::benchmark::BenchmarkRepository;
 use crate::repositories::benchmark_task::BenchmarkTaskRepository;
+use crate::services::agent_runtime::{
+    check_local_agent_login, run_benchmark_agent, AgentRuntimeCaches,
+};
 use std::collections::{HashMap, HashSet};
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+static IDENTIFIER_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 
 /// Benchmark execution configuration is independent of catalog editing and work Task inputs.
 #[derive(Clone)]
@@ -61,7 +68,57 @@ impl BenchmarkTaskService {
         }
     }
 
-    /// Creates the complete immutable plan; execution is scheduled separately by the command.
+    /// Runs preflight through the shared local Agent login boundary.
+    pub(crate) async fn preview_with_runtime(
+        &self,
+        configuration: BenchmarkTaskConfiguration,
+        caches: AgentRuntimeCaches,
+    ) -> Result<BenchmarkTaskPreview, AppError> {
+        self.preview(configuration, move |kind| {
+            check_local_agent_login(kind, &caches)
+        })
+        .await
+    }
+
+    /// Creates one immutable plan and detaches its service-owned background worker.
+    pub(crate) async fn start_and_execute(
+        &self,
+        configuration: BenchmarkTaskConfiguration,
+        idempotency_key: &str,
+        caches: AgentRuntimeCaches,
+    ) -> Result<BenchmarkTaskDetail, AppError> {
+        let detail = self.start(configuration, idempotency_key).await?;
+        self.dispatch(detail.task.id.clone(), caches);
+        Ok(detail)
+    }
+
+    /// Creates one exact-version Rerun and detaches its service-owned background worker.
+    pub(crate) async fn rerun_and_execute(
+        &self,
+        configuration: BenchmarkRerunConfiguration,
+        idempotency_key: &str,
+        caches: AgentRuntimeCaches,
+    ) -> Result<BenchmarkTaskDetail, AppError> {
+        let detail = self.rerun(configuration, idempotency_key).await?;
+        self.dispatch(detail.task.id.clone(), caches);
+        Ok(detail)
+    }
+
+    /// Keeps execution ownership in the service after the initiating webview request returns.
+    fn dispatch(&self, task_id: String, caches: AgentRuntimeCaches) {
+        let worker = self.clone();
+        // Dropping a Tokio JoinHandle detaches the task. Its lifecycle remains observable through
+        // the persisted matrix and the service-owned cancellation registry.
+        std::mem::drop(tokio::spawn(async move {
+            worker
+                .execute_with(&task_id, move |request| {
+                    run_benchmark_agent(request, caches.clone())
+                })
+                .await
+        }));
+    }
+
+    /// Creates the complete immutable plan before the service schedules execution.
     pub(crate) async fn start(
         &self,
         configuration: BenchmarkTaskConfiguration,
@@ -437,7 +494,7 @@ impl BenchmarkTaskService {
                         })
                         .await
                         .map_err(|_| AppError::WorkerFailed)?;
-                        let metrics = metrics_json(&output.output.metrics);
+                        let metrics = execution_metrics(&output.output.metrics);
                         match report {
                             Ok(report) => self
                                 .task_repository
@@ -446,7 +503,7 @@ impl BenchmarkTaskService {
                                     BenchmarkExecutionResult {
                                         session_id: output.session_id,
                                         response_text: Some(output.output.response),
-                                        metrics_json: Some(metrics),
+                                        metrics: Some(metrics),
                                         termination_reason: None,
                                         report: Some(report),
                                         finished_at_ms: now_ms()?,
@@ -461,14 +518,14 @@ impl BenchmarkTaskService {
                         self.finish_cancelled(&execution.id).await?;
                     }
                     Ok(output) => {
-                        let metrics = metrics_json(&output.output.metrics);
+                        let metrics = execution_metrics(&output.output.metrics);
                         self.task_repository
                             .finish_execution(
                                 &execution.id,
                                 BenchmarkExecutionResult {
                                     session_id: output.session_id,
                                     response_text: Some(output.output.response),
-                                    metrics_json: Some(metrics),
+                                    metrics: Some(metrics),
                                     termination_reason: Some("interaction_required".into()),
                                     report: None,
                                     finished_at_ms: now_ms()?,
@@ -504,7 +561,7 @@ impl BenchmarkTaskService {
                 BenchmarkExecutionResult {
                     session_id: None,
                     response_text: None,
-                    metrics_json: None,
+                    metrics: None,
                     termination_reason: Some("cancelled".into()),
                     report: None,
                     finished_at_ms: now_ms()?,
@@ -533,7 +590,7 @@ impl BenchmarkTaskService {
                 BenchmarkExecutionResult {
                     session_id: None,
                     response_text: Some(ipc.message),
-                    metrics_json: None,
+                    metrics: None,
                     termination_reason: Some(reason.into()),
                     report: None,
                     finished_at_ms: now_ms()?,
@@ -808,17 +865,14 @@ fn rerun_configuration_json(
 }
 
 fn next_id(prefix: &str) -> Result<String, AppError> {
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static SEQUENCE: AtomicU64 = AtomicU64::new(1);
     Ok(format!(
         "{prefix}-{}-{}",
         now_ms()?,
-        SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        IDENTIFIER_SEQUENCE.fetch_add(1, Ordering::Relaxed)
     ))
 }
 
 fn now_ms() -> Result<i64, AppError> {
-    use std::time::{SystemTime, UNIX_EPOCH};
     i64::try_from(
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -1104,24 +1158,36 @@ fn copy_directory(source: &std::path::Path, target: &std::path::Path) -> Result<
     Ok(())
 }
 
-fn metrics_json(metrics: &crate::domain::agent_run::AgentRunMetrics) -> String {
-    serde_json::json!({
-        "totalDurationMs": u64::try_from(metrics.total_duration.as_millis()).unwrap_or(u64::MAX),
-        "timeToFirstTokenMs": metrics.time_to_first_token.map(|value| u64::try_from(value.as_millis()).unwrap_or(u64::MAX)),
-        "tokenUsage": metrics.token_usage.as_ref().map(|usage| serde_json::json!({
-            "totalTokens": usage.total_tokens,
-            "inputTokens": usage.input_tokens,
-            "cachedInputTokens": usage.cached_input_tokens,
-            "cacheWriteInputTokens": usage.cache_write_input_tokens,
-            "outputTokens": usage.output_tokens,
-            "reasoningOutputTokens": usage.reasoning_output_tokens,
-        })),
-        "toolCallCount": metrics.tool_calls.len(),
-        "toolCalls": metrics.tool_calls.iter().map(|call| serde_json::json!({
-            "name": call.name,
-            "durationMs": u64::try_from(call.duration.as_millis()).unwrap_or(u64::MAX),
-        })).collect::<Vec<_>>(),
-    }).to_string()
+/// Converts source runtime measurements into the stable Benchmark persistence contract.
+fn execution_metrics(
+    metrics: &crate::domain::agent_run::AgentRunMetrics,
+) -> BenchmarkExecutionMetrics {
+    BenchmarkExecutionMetrics {
+        total_duration_ms: u64::try_from(metrics.total_duration.as_millis()).unwrap_or(u64::MAX),
+        time_to_first_token_ms: metrics
+            .time_to_first_token
+            .map(|value| u64::try_from(value.as_millis()).unwrap_or(u64::MAX)),
+        token_usage: metrics
+            .token_usage
+            .as_ref()
+            .map(|usage| BenchmarkTokenUsage {
+                total_tokens: usage.total_tokens,
+                input_tokens: usage.input_tokens,
+                cached_input_tokens: usage.cached_input_tokens,
+                cache_write_input_tokens: usage.cache_write_input_tokens,
+                output_tokens: usage.output_tokens,
+                reasoning_output_tokens: usage.reasoning_output_tokens,
+            }),
+        tool_call_count: u64::try_from(metrics.tool_calls.len()).unwrap_or(u64::MAX),
+        tool_calls: metrics
+            .tool_calls
+            .iter()
+            .map(|call| BenchmarkToolCall {
+                name: call.name.clone(),
+                duration_ms: u64::try_from(call.duration.as_millis()).unwrap_or(u64::MAX),
+            })
+            .collect(),
+    }
 }
 
 /// Thread-safe registry shared by background execution and Cancel IPC calls.
@@ -1167,19 +1233,34 @@ impl ActiveBenchmarkTasks {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::adapters::benchmark_verifier::SystemBenchmarkVerifier;
+    use super::BenchmarkTaskService;
+    use crate::adapters::agent::{AgentSessionRunOutput, AgentTurnOutcome};
+    use crate::adapters::benchmark_verifier::{BenchmarkVerifier, SystemBenchmarkVerifier};
     use crate::db::{connection::connect_sqlite, migration::Migrator};
+    use crate::domain::agent_kind::AgentKind;
+    use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput};
+    use crate::domain::agent_status::AgentLoginStatus;
     use crate::domain::benchmark::{
         BenchmarkCase, BenchmarkCheck, BenchmarkDocument, BenchmarkFile,
     };
-    use crate::domain::task::TaskPermissions;
+    use crate::domain::benchmark_task::{
+        BenchmarkPreflightIssueKind, BenchmarkRerunConfiguration, BenchmarkTaskConfiguration,
+    };
+    use crate::domain::task::{TaskPermissions, TaskStatus};
     use crate::domain::workspace::{NewWorkspace, WorkspaceSourceKind};
+    use crate::error::AppError;
     use crate::models::{benchmark::evaluation as benchmark_evaluation, task as task_model};
-    use crate::repositories::{task::TaskRepository, workspace::WorkspaceRepository};
+    use crate::repositories::{
+        benchmark::BenchmarkRepository, benchmark_task::BenchmarkTaskRepository,
+        task::TaskRepository, workspace::WorkspaceRepository,
+    };
     use crate::services::benchmark::BenchmarkService;
     use sea_orm::{EntityTrait, PaginatorTrait};
     use sea_orm_migration::MigratorTrait;
+    use std::path::PathBuf;
+    use std::sync::atomic::Ordering;
+    use std::sync::Arc;
+    use std::time::Duration;
 
     fn verifier() -> Arc<dyn BenchmarkVerifier> {
         Arc::new(SystemBenchmarkVerifier)
@@ -1508,10 +1589,6 @@ mod tests {
     #[test]
     fn executor_runs_every_planned_cell_with_permissions_and_without_model_overrides() {
         tauri::async_runtime::block_on(async {
-            use crate::adapters::agent::{AgentSessionRunOutput, AgentTurnOutcome};
-            use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput};
-            use std::time::Duration;
-
             let database = connect_sqlite("sqlite::memory:").await.expect("database");
             Migrator::up(&database, None).await.expect("schema");
             WorkspaceRepository::new(database.clone())
@@ -1692,11 +1769,6 @@ mod tests {
     #[test]
     fn cancel_stops_the_active_execution_and_finishes_the_remaining_matrix() {
         tauri::async_runtime::block_on(async {
-            use crate::adapters::agent::{AgentSessionRunOutput, AgentTurnOutcome};
-            use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput};
-            use std::sync::atomic::Ordering;
-            use std::time::Duration;
-
             let database = connect_sqlite("sqlite::memory:").await.expect("database");
             Migrator::up(&database, None).await.expect("schema");
             WorkspaceRepository::new(database.clone())
