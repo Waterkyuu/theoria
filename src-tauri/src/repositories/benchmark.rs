@@ -26,7 +26,6 @@ impl BenchmarkRepository {
     /// Returns classifications without loading benchmark documents.
     pub(crate) async fn tags(&self) -> Result<Vec<BenchmarkTag>, DbErr> {
         Ok(tag::Entity::find()
-            .order_by_desc(tag::Column::IsSystem)
             .order_by_asc(tag::Column::Name)
             .all(&self.database)
             .await?
@@ -35,7 +34,6 @@ impl BenchmarkRepository {
                 id: row.id,
                 name: row.name,
                 icon: row.icon,
-                is_system: row.is_system,
             })
             .collect())
     }
@@ -49,7 +47,6 @@ impl BenchmarkRepository {
                 id: row.id,
                 name: row.name,
                 icon: row.icon,
-                is_system: row.is_system,
             }))
     }
 
@@ -59,7 +56,6 @@ impl BenchmarkRepository {
             id: Set(value.id.clone()),
             name: Set(value.name.clone()),
             icon: Set(value.icon.clone()),
-            is_system: Set(false),
         }
         .insert(&self.database)
         .await?;

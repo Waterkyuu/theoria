@@ -64,7 +64,6 @@ impl BenchmarkService {
                 id: new_id("tag")?,
                 name: name.trim().to_string(),
                 icon: icon.to_string(),
-                is_system: false,
             })
             .await
             .map_err(|_| AppError::BenchmarkDatabaseFailed)
@@ -152,15 +151,11 @@ impl BenchmarkService {
         tag_id: &str,
     ) -> Result<BenchmarkDraft, AppError> {
         validate_id(tag_id)?;
-        let tag = self
-            .repository
+        self.repository
             .tag(tag_id)
             .await
             .map_err(|_| AppError::BenchmarkDatabaseFailed)?
             .ok_or(AppError::BenchmarkNotFound)?;
-        if tag.is_system {
-            return Err(AppError::InvalidBenchmark);
-        }
         let (root, template) = load_import_template(source_path).await?;
         if template.cases.len() > 100 {
             return Err(AppError::InvalidBenchmark);

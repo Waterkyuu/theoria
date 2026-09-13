@@ -16,8 +16,6 @@ pub(crate) struct BenchmarkTagResponse {
     name: String,
     /// Gravity icon export name.
     icon: String,
-    /// Whether this immutable fallback tag is owned by the application.
-    is_system: bool,
 }
 impl From<BenchmarkTag> for BenchmarkTagResponse {
     fn from(value: BenchmarkTag) -> Self {
@@ -25,7 +23,6 @@ impl From<BenchmarkTag> for BenchmarkTagResponse {
             id: value.id,
             name: value.name,
             icon: value.icon,
-            is_system: value.is_system,
         }
     }
 }
