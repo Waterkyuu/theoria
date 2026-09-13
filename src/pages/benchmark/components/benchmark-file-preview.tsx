@@ -15,7 +15,9 @@ type BenchmarkFilePreviewProps = {
 	onChange?: (file: BenchmarkFile) => void;
 };
 
-/** Loads bounded content only when the user asks to inspect one managed Benchmark file. */
+/** Loads bounded content only when the user asks to inspect one managed Benchmark file.
+ * @example <BenchmarkFilePreview file={file} />
+ */
 const BenchmarkFilePreview = ({
 	editable = false,
 	file,
@@ -27,6 +29,7 @@ const BenchmarkFilePreview = ({
 	const [preview, setPreview] = useState<BenchmarkAssetPreview | null>(null);
 	const [text, setText] = useState("");
 
+	/** Defers managed-file reads until the user explicitly opens the preview. */
 	const openPreview = async () => {
 		if (pending) return;
 		setIsOpen(true);
@@ -42,6 +45,7 @@ const BenchmarkFilePreview = ({
 		}
 	};
 
+	/** Replaces the draft reference instead of mutating an immutable managed asset. */
 	const save = async () => {
 		if (!preview || preview.text === null || pending) return;
 		setPending(true);
