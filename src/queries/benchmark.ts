@@ -30,6 +30,9 @@ import type {
 
 const BENCHMARK_TASK_POLL_INTERVAL_MS = 750;
 
+/** Keeps an absent selection in a stable disabled-query cache bucket.
+ * @example benchmarkTaskKey("task-1")
+ */
 const benchmarkTaskKey = (taskId: string | null) => [
 	"benchmark-tasks",
 	taskId ?? "none",
@@ -172,7 +175,9 @@ const useUpdateBenchmarkMount = () => {
 	});
 };
 
-/** Polls only while the persisted Benchmark matrix can still change. */
+/** Polls only while the persisted Benchmark matrix can still change.
+ * @example useBenchmarkTask("task-1")
+ */
 const useBenchmarkTask = (taskId: string | null) =>
 	useQuery({
 		queryKey: benchmarkTaskKey(taskId),
@@ -189,7 +194,9 @@ const useBenchmarkTask = (taskId: string | null) =>
 		},
 	});
 
-/** Loads the final file index only after the user selects one execution. */
+/** Loads the final file index only after the user selects one execution.
+ * @example useBenchmarkExecutionArtifacts("task-1", "execution-1")
+ */
 const useBenchmarkExecutionArtifacts = (
 	taskId: string,
 	executionId: string | null,
@@ -203,7 +210,9 @@ const useBenchmarkExecutionArtifacts = (
 		enabled: executionId !== null,
 	});
 
-/** Loads one bounded artifact body independently from the file index. */
+/** Loads one bounded artifact body independently from the file index.
+ * @example useBenchmarkExecutionArtifactPreview("task-1", "execution-1", "result.txt")
+ */
 const useBenchmarkExecutionArtifactPreview = (
 	taskId: string,
 	executionId: string | null,
