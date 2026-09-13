@@ -66,6 +66,15 @@ impl MigrationTrait for RemoveBenchmarkFallbackTag {
                 r#"
                 DROP TRIGGER IF EXISTS benchmark_system_tag_update;
                 DROP TRIGGER IF EXISTS benchmark_system_tag_delete;
+                UPDATE benchmarks
+                SET tag_id = (
+                    SELECT id
+                    FROM benchmark_tags
+                    WHERE id != 'uncategorized'
+                    ORDER BY name, id
+                    LIMIT 1
+                )
+                WHERE tag_id = 'uncategorized';
                 DELETE FROM benchmark_tags WHERE id = 'uncategorized';
                 "#,
             )
@@ -736,7 +745,7 @@ impl MigrationTrait for CreateComparisonHistory {
 mod tests {
     use super::Migrator;
     use crate::db::connection::connect_sqlite;
-    use crate::models::benchmark::tag;
+    use crate::models::benchmark::{self as benchmark, tag};
     use sea_orm::{ConnectionTrait, DatabaseBackend, EntityTrait, PaginatorTrait, Statement};
     use sea_orm_migration::{MigratorTrait, SchemaManager};
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -808,6 +817,11 @@ mod tests {
                     VALUES ('uncategorized', 'Uncategorized', 'Tag', 1);
                     INSERT INTO benchmark_tags (id, name, icon, is_system)
                     VALUES ('coding', 'Coding', 'Code', 0);
+                    INSERT INTO benchmarks
+                        (id, name, description, tag_id, author, created_at_ms, updated_at_ms)
+                    VALUES
+                        ('legacy-benchmark', 'Legacy', 'Legacy definition', 'uncategorized',
+                         'myself', 1, 1);
                     INSERT INTO seaql_migrations (version, applied_at)
                     VALUES ('m008_create_benchmarks', 1);
                     "#,
@@ -832,6 +846,15 @@ mod tests {
                 .await
                 .expect("user-defined tag should be readable")
                 .is_some());
+            assert_eq!(
+                benchmark::Entity::find_by_id("legacy-benchmark")
+                    .one(&database)
+                    .await
+                    .expect("legacy benchmark should be readable")
+                    .expect("legacy benchmark should be preserved")
+                    .tag_id,
+                "coding"
+            );
             assert!(!manager
                 .has_column("benchmark_tags", "is_system")
                 .await
