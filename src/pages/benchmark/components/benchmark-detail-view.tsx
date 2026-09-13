@@ -41,7 +41,9 @@ const BenchmarkDetailView = ({ benchmarkId, mount }: DetailProps) => {
 	const navigate = useNavigate();
 	const client = useQueryClient();
 
-	/** Opens immutable content as either a linked personal edit or an independent copy. */
+	/** Opens immutable content as either a linked personal edit or an independent copy.
+	 * @example createDraft(detail.summary.id)
+	 */
 	const createDraft = async (definitionId: string | null) => {
 		if (!query.data || pending) return;
 		setPending(true);
@@ -80,6 +82,7 @@ const BenchmarkDetailView = ({ benchmarkId, mount }: DetailProps) => {
 		}
 	};
 	const detail = query.data;
+	/** Archives only the currently loaded personal definition. */
 	const archive = async () => {
 		if (!detail || archiveMutation.isPending) return;
 		try {
@@ -89,6 +92,7 @@ const BenchmarkDetailView = ({ benchmarkId, mount }: DetailProps) => {
 			handleError(error, "Benchmark archive failed", true);
 		}
 	};
+	/** Updates an existing mount only when its displayed version is stale. */
 	const updateMount = async () => {
 		if (!detail || !mount || updateMountMutation.isPending) return;
 		try {

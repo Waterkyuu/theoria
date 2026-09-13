@@ -20,6 +20,13 @@ use std::time::{Duration, Instant};
 const MAX_REPORT_BYTES: u64 = 256 * 1024;
 #[cfg(target_os = "macos")]
 const VALIDATION_TIMEOUT: Duration = Duration::from_secs(10);
+
+#[cfg(target_os = "macos")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ChildCleanupOperation {
+    Kill,
+    Wait,
+}
 #[cfg(target_os = "macos")]
 const PYTHON_RUNNER: &str = r#"import json, pathlib, runpy, sys
 namespace = runpy.run_path(sys.argv[1], run_name="theoria_validator")
@@ -223,11 +230,26 @@ fn wait_for_child(child: &mut Child) -> Result<ExitStatus, AppError> {
             return Ok(status);
         }
         if Instant::now() >= deadline {
-            let _ = child.kill();
-            child.wait().map_err(|_| AppError::InvalidBenchmark)?;
+            terminate_and_reap(|operation| match operation {
+                ChildCleanupOperation::Kill => child.kill(),
+                ChildCleanupOperation::Wait => child.wait().map(|_| ()),
+            })?;
             return Err(AppError::InvalidBenchmark);
         }
         std::thread::sleep(Duration::from_millis(10));
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn terminate_and_reap(
+    mut operation: impl FnMut(ChildCleanupOperation) -> std::io::Result<()>,
+) -> Result<(), AppError> {
+    let termination = operation(ChildCleanupOperation::Kill);
+    let reaping = operation(ChildCleanupOperation::Wait);
+    if termination.is_err() || reaping.is_err() {
+        Err(AppError::InvalidBenchmark)
+    } else {
+        Ok(())
     }
 }
 
@@ -326,10 +348,33 @@ fn parse_report(bytes: &[u8]) -> Result<BenchmarkEvaluationReport, AppError> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(target_os = "macos")]
+    use super::{terminate_and_reap, ChildCleanupOperation};
     use super::{BenchmarkVerifier, SystemBenchmarkVerifier};
+    #[cfg(target_os = "macos")]
+    use crate::error::AppError;
     use std::sync::atomic::{AtomicU64, Ordering};
 
     static SEQUENCE: AtomicU64 = AtomicU64::new(1);
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn validator_cleanup_reaps_after_termination_fails() {
+        let mut operations = Vec::new();
+        let result = terminate_and_reap(|operation| {
+            operations.push(operation);
+            match operation {
+                ChildCleanupOperation::Kill => Err(std::io::Error::other("kill failed")),
+                ChildCleanupOperation::Wait => Ok(()),
+            }
+        });
+
+        assert_eq!(result, Err(AppError::InvalidBenchmark));
+        assert_eq!(
+            operations,
+            [ChildCleanupOperation::Kill, ChildCleanupOperation::Wait]
+        );
+    }
 
     #[cfg(target_os = "macos")]
     #[test]

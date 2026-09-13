@@ -1,18 +1,14 @@
-use crate::adapters::agent::{AgentExecutionConfig, AgentSessionRunOutput};
 use crate::adapters::claude::ClaudeRuntimeSettingsCache;
 use crate::adapters::codex::CodexRuntimeDefaultsCache;
 use crate::dto::benchmark_task::{
-    BenchmarkAgentRequest, BenchmarkArtifactFileResponse, BenchmarkArtifactPreviewResponse,
-    BenchmarkTaskDetailResponse, BenchmarkTaskPreviewResponse, GetBenchmarkTaskRequest,
-    ListBenchmarkExecutionArtifactsRequest, PreviewBenchmarkExecutionArtifactRequest,
-    PreviewBenchmarkTaskRequest, RerunBenchmarkTaskRequest, StartBenchmarkTaskRequest,
+    BenchmarkArtifactFileResponse, BenchmarkArtifactPreviewResponse, BenchmarkTaskDetailResponse,
+    BenchmarkTaskPreviewResponse, GetBenchmarkTaskRequest, ListBenchmarkExecutionArtifactsRequest,
+    PreviewBenchmarkExecutionArtifactRequest, PreviewBenchmarkTaskRequest,
+    RerunBenchmarkTaskRequest, StartBenchmarkTaskRequest,
 };
-use crate::error::{AppError, IpcError};
-use crate::services::agent_runtime::{check_local_agent_login, run_agent_turn, AgentRuntimeCaches};
+use crate::error::IpcError;
+use crate::services::agent_runtime::AgentRuntimeCaches;
 use crate::services::benchmark_task::BenchmarkTaskService;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use std::time::Instant;
 use tauri::State;
 
 /// Checks launch prerequisites without creating a Task or invoking an Agent execution.
@@ -28,9 +24,7 @@ pub(crate) async fn preview_benchmark_task(
         claude: claude_cache.inner().clone(),
     };
     service
-        .preview(request.try_into()?, move |kind| {
-            check_local_agent_login(kind, &caches)
-        })
+        .preview_with_runtime(request.try_into()?, caches)
         .await
         .map(Into::into)
         .map_err(Into::into)
@@ -45,17 +39,18 @@ pub(crate) async fn start_benchmark_task(
     claude_cache: State<'_, ClaudeRuntimeSettingsCache>,
 ) -> Result<BenchmarkTaskDetailResponse, IpcError> {
     let configuration = (&request).try_into()?;
-    let detail = service
-        .start(configuration, &request.idempotency_key)
+    service
+        .start_and_execute(
+            configuration,
+            &request.idempotency_key,
+            AgentRuntimeCaches {
+                codex: codex_cache.inner().clone(),
+                claude: claude_cache.inner().clone(),
+            },
+        )
         .await
-        .map_err(IpcError::from)?;
-    dispatch_benchmark_task(
-        detail.task.id.clone(),
-        service.inner().clone(),
-        codex_cache.inner().clone(),
-        claude_cache.inner().clone(),
-    );
-    Ok(detail.into())
+        .map(Into::into)
+        .map_err(Into::into)
 }
 
 /// Creates a new Task from a terminal Benchmark Task and preserves its historical version.
@@ -67,89 +62,18 @@ pub(crate) async fn rerun_benchmark_task(
     claude_cache: State<'_, ClaudeRuntimeSettingsCache>,
 ) -> Result<BenchmarkTaskDetailResponse, IpcError> {
     let configuration = (&request).try_into()?;
-    let detail = service
-        .rerun(configuration, &request.idempotency_key)
-        .await
-        .map_err(IpcError::from)?;
-    dispatch_benchmark_task(
-        detail.task.id.clone(),
-        service.inner().clone(),
-        codex_cache.inner().clone(),
-        claude_cache.inner().clone(),
-    );
-    Ok(detail.into())
-}
-
-/// Owns one background worker independently of the page that initiated the Task.
-fn dispatch_benchmark_task(
-    task_id: String,
-    worker: BenchmarkTaskService,
-    codex_cache: CodexRuntimeDefaultsCache,
-    claude_cache: ClaudeRuntimeSettingsCache,
-) {
-    tauri::async_runtime::spawn(async move {
-        if worker
-            .execute_with(&task_id, move |invocation| {
-                run_benchmark_agent(
-                    invocation,
-                    AgentRuntimeCaches {
-                        codex: codex_cache.clone(),
-                        claude: claude_cache.clone(),
-                    },
-                )
-            })
-            .await
-            .is_err()
-        {
-            eprintln!("Benchmark worker ended before reaching a terminal Task state");
-        }
-    });
-}
-
-/// Applies the per-case deadline while dispatching through the shared Agent runtime.
-fn run_benchmark_agent(
-    request: BenchmarkAgentRequest,
-    caches: AgentRuntimeCaches,
-) -> Result<AgentSessionRunOutput, AppError> {
-    let cancelled = request.cancellation.clone();
-    let timed_out = Arc::new(AtomicBool::new(false));
-    let (finished_sender, finished_receiver) = std::sync::mpsc::channel();
-    std::thread::scope(|scope| {
-        let cancellation = cancelled.clone();
-        let timeout_signal = timed_out.clone();
-        scope.spawn(move || {
-            if finished_receiver.recv_timeout(request.timeout).is_err() {
-                timeout_signal.store(true, Ordering::Release);
-                cancellation.store(true, Ordering::Release);
-            }
-        });
-        let started_at = Instant::now();
-        let result = run_agent_turn(
-            request.agent_kind,
-            &request.prompt,
-            &request.working_directory,
-            AgentExecutionConfig {
-                model: request.model.as_deref(),
-                mode: request.mode.as_deref(),
-                file_access: Some(&request.file_access),
-                command_execution: Some(&request.command_execution),
+    service
+        .rerun_and_execute(
+            configuration,
+            &request.idempotency_key,
+            AgentRuntimeCaches {
+                codex: codex_cache.inner().clone(),
+                claude: claude_cache.inner().clone(),
             },
-            caches,
-            request.session_id.as_deref(),
-            &cancelled,
-        );
-        let _ = finished_sender.send(());
-        if timed_out.load(Ordering::Acquire) && started_at.elapsed() >= request.timeout {
-            Err(match request.agent_kind {
-                crate::domain::agent_kind::AgentKind::Codex => AppError::CodexTimedOut,
-                crate::domain::agent_kind::AgentKind::Claude => AppError::ClaudeTimedOut,
-                crate::domain::agent_kind::AgentKind::OpenCode => AppError::OpenCodeTimedOut,
-                crate::domain::agent_kind::AgentKind::WorkBuddy => AppError::WorkBuddyTimedOut,
-            })
-        } else {
-            result
-        }
-    })
+        )
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
 }
 
 /// Returns the current matrix, aggregate metrics, and terminal results for one Benchmark Task.

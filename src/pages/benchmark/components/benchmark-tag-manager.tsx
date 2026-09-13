@@ -15,9 +15,11 @@ import type { BenchmarkTag } from "@/types/benchmark";
 import { BENCHMARK_ICONS, TagIcon } from "./tag-icon";
 
 type TagEditor = Pick<BenchmarkTag, "name" | "icon"> & {
+	/** Existing Tag identity, or null while creating a new Tag. */
 	id: string | null;
 };
 
+/** Supplies the allowlisted default icon for a new Tag editor. */
 const emptyEditor = (): TagEditor => ({ id: null, name: "", icon: "Tag" });
 
 /** Provides catalog-level Tag creation, editing, and safe fallback deletion. */
@@ -34,6 +36,7 @@ const BenchmarkTagManager = () => {
 	const [loadingUsage, setLoadingUsage] = useState(false);
 	const saving = creating || updateMutation.isPending;
 
+	/** Uses one editor state for create and update while preserving stable Tag ids. */
 	const save = async () => {
 		if (!editor || saving || !editor.name.trim()) return;
 		try {
@@ -57,6 +60,9 @@ const BenchmarkTagManager = () => {
 		}
 	};
 
+	/** Loads the reassignment count before exposing the destructive confirmation.
+	 * @example inspectDeletion(tag)
+	 */
 	const inspectDeletion = async (tag: BenchmarkTag) => {
 		if (loadingUsage) return;
 		setLoadingUsage(true);
@@ -71,6 +77,7 @@ const BenchmarkTagManager = () => {
 		}
 	};
 
+	/** Deletes only the Tag currently covered by the visible usage confirmation. */
 	const deleteTag = async () => {
 		if (!deleteTarget || deleteMutation.isPending) return;
 		try {

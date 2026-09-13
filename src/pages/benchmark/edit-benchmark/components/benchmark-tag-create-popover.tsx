@@ -31,6 +31,9 @@ const BenchmarkTagCreatePopover = ({
 	const [pending, setPending] = useState(false);
 	const [icon, setIcon] = useState("Code");
 
+	/** Persists one allowlisted icon and returns the created Tag to its parent editor.
+	 * @example submit(event)
+	 */
 	const submit = async (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
 		if (pending) return;

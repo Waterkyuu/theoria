@@ -316,8 +316,11 @@ pub(crate) struct CreateBenchmarkTagRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct UpdateBenchmarkTagRequest {
+    /// Personal Tag whose stable identifier is retained.
     pub(crate) tag_id: String,
+    /// Replacement user-visible classification name.
     pub(crate) name: String,
+    /// Replacement allowlisted Gravity icon export.
     pub(crate) icon: String,
 }
 
@@ -325,6 +328,7 @@ pub(crate) struct UpdateBenchmarkTagRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct BenchmarkTagRequest {
+    /// Personal Tag selected for inspection or deletion.
     pub(crate) tag_id: String,
 }
 
@@ -332,6 +336,7 @@ pub(crate) struct BenchmarkTagRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct BenchmarkTagUsageResponse {
+    /// Number of definitions reassigned during Tag deletion.
     pub(crate) benchmark_count: u64,
 }
 
@@ -345,6 +350,7 @@ impl From<u64> for BenchmarkTagUsageResponse {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct ArchiveBenchmarkRequest {
+    /// Personal published definition to hide from the default catalog.
     pub(crate) benchmark_id: String,
 }
 
@@ -352,8 +358,11 @@ pub(crate) struct ArchiveBenchmarkRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct UpdateBenchmarkMountRequest {
+    /// Workspace that owns the existing mount.
     pub(crate) workspace_id: String,
+    /// Existing mount whose pinned version changes.
     pub(crate) mount_id: String,
+    /// Immutable published version selected by the user.
     pub(crate) version_id: String,
 }
 

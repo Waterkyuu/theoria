@@ -8,7 +8,8 @@ use crate::domain::benchmark::{
 use crate::dto::benchmark::{BenchmarkImportCheck, BenchmarkImportFile, BenchmarkImportTemplate};
 use crate::error::AppError;
 use crate::repositories::benchmark::BenchmarkRepository;
-use std::path::PathBuf;
+use std::io::ErrorKind;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -303,17 +304,19 @@ impl BenchmarkService {
             .await
         }
         .await;
-        if result.is_err() {
-            for asset_id in copied_ids {
-                if tokio::fs::remove_file(self.asset_directory.join(asset_id))
-                    .await
-                    .is_err()
-                {
-                    eprintln!("Benchmark asset cleanup failed");
-                }
+        match result {
+            Ok(draft) => Ok(draft),
+            Err(error) => {
+                // The import failure remains authoritative; rollback still attempts every asset.
+                let _cleanup_result = remove_managed_files(
+                    copied_ids
+                        .into_iter()
+                        .map(|asset_id| self.asset_directory.join(asset_id)),
+                )
+                .await;
+                Err(error)
             }
         }
-        result
     }
 
     /// Copies one explicitly selected file into opaque application-owned storage.
@@ -358,9 +361,7 @@ impl BenchmarkService {
         if tokio::fs::write(&staging, text.as_bytes()).await.is_err()
             || tokio::fs::rename(&staging, destination).await.is_err()
         {
-            if tokio::fs::remove_file(staging).await.is_err() {
-                eprintln!("Benchmark staging cleanup failed");
-            }
+            remove_managed_file(&staging).await?;
             return Err(AppError::BenchmarkAssetUnavailable);
         }
         Ok(BenchmarkFile {
@@ -443,15 +444,11 @@ impl BenchmarkService {
         let staging = self.asset_directory.join(format!(".{asset_id}.tmp"));
         let destination = self.asset_directory.join(&asset_id);
         if tokio::fs::copy(source, &staging).await.is_err() {
-            if tokio::fs::remove_file(&staging).await.is_err() {
-                eprintln!("Benchmark staging cleanup failed");
-            }
+            remove_managed_file(&staging).await?;
             return Err(AppError::BenchmarkAssetUnavailable);
         }
         if tokio::fs::rename(&staging, &destination).await.is_err() {
-            if tokio::fs::remove_file(&staging).await.is_err() {
-                eprintln!("Benchmark staging cleanup failed");
-            }
+            remove_managed_file(&staging).await?;
             return Err(AppError::BenchmarkAssetUnavailable);
         }
         Ok(BenchmarkFile {
@@ -737,6 +734,29 @@ impl BenchmarkService {
     }
 }
 
+/// Treats an already-absent staging file as cleaned while surfacing real filesystem failures.
+async fn remove_managed_file(path: &Path) -> Result<(), AppError> {
+    match tokio::fs::remove_file(path).await {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == ErrorKind::NotFound => Ok(()),
+        Err(_) => Err(AppError::BenchmarkAssetUnavailable),
+    }
+}
+
+/// Attempts every managed-file deletion and reports whether any cleanup failed.
+async fn remove_managed_files(paths: impl IntoIterator<Item = PathBuf>) -> Result<(), AppError> {
+    let mut first_error = None;
+    for path in paths {
+        if let Err(error) = remove_managed_file(&path).await {
+            first_error.get_or_insert(error);
+        }
+    }
+    match first_error {
+        Some(error) => Err(error),
+        None => Ok(()),
+    }
+}
+
 async fn load_import_template(
     source_path: PathBuf,
 ) -> Result<(PathBuf, BenchmarkImportTemplate), AppError> {
@@ -884,21 +904,48 @@ fn now_ms() -> Result<i64, AppError> {
 
 #[cfg(test)]
 mod tests {
-    use super::BenchmarkService;
+    use super::{remove_managed_files, BenchmarkService};
     use crate::adapters::benchmark_verifier::{BenchmarkVerifier, SystemBenchmarkVerifier};
     use crate::db::{connection::connect_sqlite, migration::Migrator};
     use crate::domain::benchmark::{
         BenchmarkCase, BenchmarkCheck, BenchmarkDocument, BenchmarkFile,
     };
     use crate::domain::benchmark_task::BenchmarkEvaluationReport;
+    use crate::domain::workspace::{NewWorkspace, WorkspaceSourceKind};
     use crate::error::AppError;
     use crate::repositories::benchmark::BenchmarkRepository;
+    use crate::repositories::workspace::WorkspaceRepository;
     use sea_orm_migration::MigratorTrait;
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
 
     fn verifier() -> Arc<dyn BenchmarkVerifier> {
         Arc::new(SystemBenchmarkVerifier)
+    }
+
+    #[test]
+    fn managed_file_cleanup_attempts_every_path_after_a_failure() {
+        tauri::async_runtime::block_on(async {
+            let root = std::env::temp_dir().join(format!(
+                "theoria-benchmark-cleanup-{}-{}",
+                std::process::id(),
+                super::IDENTIFIER_SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            ));
+            let undeletable_as_file = root.join("directory");
+            let later_file = root.join("later-file");
+            std::fs::create_dir_all(&undeletable_as_file).expect("directory fixture");
+            std::fs::write(&later_file, "fixture").expect("file fixture");
+
+            let result = remove_managed_files([undeletable_as_file, later_file.clone()]).await;
+            let later_file_exists = later_file.exists();
+            std::fs::remove_dir_all(root).expect("fixture cleanup");
+
+            assert_eq!(result, Err(AppError::BenchmarkAssetUnavailable));
+            assert!(
+                !later_file_exists,
+                "cleanup must continue after one failure"
+            );
+        });
     }
 
     #[derive(Debug)]
@@ -1049,10 +1096,6 @@ mod tests {
     #[test]
     fn publishes_complete_cases_and_mounts_one_fixed_version() {
         tauri::async_runtime::block_on(async {
-            use crate::domain::benchmark::{BenchmarkCase, BenchmarkCheck};
-            use crate::domain::workspace::{NewWorkspace, WorkspaceSourceKind};
-            use crate::repositories::workspace::WorkspaceRepository;
-
             let database = connect_sqlite("sqlite::memory:")
                 .await
                 .expect("database should open");

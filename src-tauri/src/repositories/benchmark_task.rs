@@ -21,6 +21,7 @@ use std::collections::HashMap;
 /// Transactional persistence for one top-level Benchmark Task and its execution matrix.
 #[derive(Clone)]
 pub(crate) struct BenchmarkTaskRepository {
+    /// Shared SeaORM connection used for transactional task persistence.
     database: DatabaseConnection,
 }
 
@@ -295,7 +296,22 @@ impl BenchmarkTaskRepository {
             .into_iter()
             .map(|row| {
                 let evaluation = evaluations_by_execution.remove(&row.id);
-                BenchmarkCaseExecution {
+                let metrics = row
+                    .metrics_json
+                    .map(|value| serde_json::from_str(&value))
+                    .transpose()
+                    .map_err(|error| DbErr::Json(error.to_string()))?;
+                let (verdict, report) = match evaluation {
+                    Some(value) => (
+                        Some(value.verdict),
+                        Some(
+                            serde_json::from_str(&value.report_json)
+                                .map_err(|error| DbErr::Json(error.to_string()))?,
+                        ),
+                    ),
+                    None => (None, None),
+                };
+                Ok(BenchmarkCaseExecution {
                     id: row.id,
                     task_case_id: row.task_case_id,
                     task_agent_id: row.task_agent_id,
@@ -303,14 +319,14 @@ impl BenchmarkTaskRepository {
                     termination_reason: row.termination_reason,
                     session_id: row.session_id,
                     response_text: row.response_text,
-                    metrics_json: row.metrics_json,
+                    metrics,
                     started_at_ms: row.started_at_ms,
                     finished_at_ms: row.finished_at_ms,
-                    verdict: evaluation.as_ref().map(|value| value.verdict.clone()),
-                    report_json: evaluation.map(|value| value.report_json),
-                }
+                    verdict,
+                    report,
+                })
             })
-            .collect();
+            .collect::<Result<Vec<_>, DbErr>>()?;
 
         Ok(Some(BenchmarkTaskDetail {
             task,
@@ -330,6 +346,55 @@ impl BenchmarkTaskRepository {
             cases,
             executions,
         }))
+    }
+
+    /// Atomically exposes an unexpected worker exit without overwriting a terminal Task.
+    pub(crate) async fn finalize_interrupted(
+        &self,
+        task_id: &str,
+        now: i64,
+    ) -> Result<bool, DbErr> {
+        let transaction = self.database.begin().await?;
+        let task_update = task::Entity::update_many()
+            .col_expr(task::Column::Status, Expr::value("failed"))
+            .col_expr(task::Column::UpdatedAtMs, Expr::value(now))
+            .filter(task::Column::Id.eq(task_id))
+            .filter(task::Column::Status.is_in(["preparing", "running", "waiting"]))
+            .exec(&transaction)
+            .await?;
+        if task_update.rows_affected == 0 {
+            transaction.commit().await?;
+            return Ok(false);
+        }
+        let extension_update = benchmark_task::Entity::update_many()
+            .col_expr(
+                benchmark_task::Column::ResultCompleteness,
+                Expr::value("incomplete"),
+            )
+            .col_expr(
+                benchmark_task::Column::CompletionReason,
+                Expr::value("interrupted"),
+            )
+            .filter(benchmark_task::Column::TaskId.eq(task_id))
+            .exec(&transaction)
+            .await?;
+        if extension_update.rows_affected != 1 {
+            transaction.rollback().await?;
+            return Err(DbErr::Custom("Benchmark task extension is missing".into()));
+        }
+        benchmark_execution::Entity::update_many()
+            .col_expr(benchmark_execution::Column::Phase, Expr::value("finished"))
+            .col_expr(
+                benchmark_execution::Column::TerminationReason,
+                Expr::value("interrupted"),
+            )
+            .col_expr(benchmark_execution::Column::FinishedAtMs, Expr::value(now))
+            .filter(benchmark_execution::Column::TaskId.eq(task_id))
+            .filter(benchmark_execution::Column::Phase.ne("finished"))
+            .exec(&transaction)
+            .await?;
+        transaction.commit().await?;
+        Ok(true)
     }
 
     /// Finalizes process-owned work left active by a previous application instance.
@@ -473,6 +538,11 @@ impl BenchmarkTaskRepository {
         execution_id: &str,
         result: BenchmarkExecutionResult,
     ) -> Result<(), DbErr> {
+        let metrics_json = result
+            .metrics
+            .map(|metrics| serde_json::to_string(&metrics))
+            .transpose()
+            .map_err(|error| DbErr::Json(error.to_string()))?;
         let transaction = self.database.begin().await?;
         let updated = benchmark_execution::Entity::update_many()
             .col_expr(benchmark_execution::Column::Phase, Expr::value("finished"))
@@ -490,7 +560,7 @@ impl BenchmarkTaskRepository {
             )
             .col_expr(
                 benchmark_execution::Column::MetricsJson,
-                Expr::value(result.metrics_json),
+                Expr::value(metrics_json),
             )
             .col_expr(
                 benchmark_execution::Column::FinishedAtMs,

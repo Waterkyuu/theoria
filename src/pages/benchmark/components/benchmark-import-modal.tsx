@@ -21,7 +21,9 @@ type BenchmarkImportModalProps = {
 
 const BLOCKING_ISSUES = new Set(["too_many_files", "import_too_large"]);
 
-/** Previews a portable template before copying it into managed storage. */
+/** Previews a portable template before copying it into managed storage.
+ * @example <BenchmarkImportModal isOpen onClose={close} tags={tags} />
+ */
 const BenchmarkImportModal = ({
 	isOpen,
 	onClose,
@@ -40,6 +42,7 @@ const BenchmarkImportModal = ({
 		BLOCKING_ISSUES.has(issue.code),
 	);
 
+	/** Clears picker state so reopening cannot accidentally import an earlier folder. */
 	const close = () => {
 		setSourcePath(null);
 		setPreview(null);
@@ -48,6 +51,7 @@ const BenchmarkImportModal = ({
 		onClose();
 	};
 
+	/** Reads only the folder explicitly selected through the native picker. */
 	const chooseFolder = async () => {
 		if (pending) return;
 		try {
@@ -70,6 +74,7 @@ const BenchmarkImportModal = ({
 		}
 	};
 
+	/** Imports only a reviewed preview with a selected personal Tag. */
 	const importDraft = async () => {
 		if (!sourcePath || !tagId || !preview || pending || hasBlockingIssue)
 			return;
