@@ -119,11 +119,7 @@ const BenchmarkCaseEditor = ({
 					onConfirm={onRemove}
 					title={t("benchmark.removeCaseConfirm")}
 					trigger={
-						<Button
-							className="border border-terminal-red bg-canvas text-terminal-red shadow-none"
-							size="sm"
-							variant="secondary"
-						>
+						<Button size="sm" variant="danger">
 							{t("benchmark.removeCase")}
 						</Button>
 					}
@@ -243,7 +239,7 @@ const BenchmarkCaseEditor = ({
 										})
 									}
 									size="sm"
-									variant="tertiary"
+									variant="danger"
 								>
 									{t("common.delete")}
 								</Button>
@@ -276,7 +272,7 @@ const BenchmarkCaseEditor = ({
 											})
 										}
 										size="sm"
-										variant="tertiary"
+										variant="danger"
 									>
 										{t("common.delete")}
 									</Button>
