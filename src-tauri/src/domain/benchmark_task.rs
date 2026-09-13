@@ -117,7 +117,8 @@ pub(crate) struct BenchmarkCaseExecution {
     pub(crate) task_case_id: String,
     /// Frozen Task Agent row used by this cell.
     pub(crate) task_agent_id: String,
-    /// Stable preparation, running, or finished phase.
+    /// Lifecycle phase constrained by persistence to queued, preparing, running,
+    /// waiting_permission, collecting, evaluating, stopping, or finished.
     pub(crate) phase: String,
     /// Terminal reason when no evaluation verdict exists.
     pub(crate) termination_reason: Option<String>,
