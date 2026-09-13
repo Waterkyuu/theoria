@@ -8,35 +8,6 @@ use crate::domain::task::TaskPermissions;
 use crate::dto::task::TaskResponse;
 use crate::error::AppError;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
-use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
-use std::time::Duration;
-
-/// Complete owned request passed from the Benchmark orchestrator to the Agent runtime.
-#[derive(Debug, Clone)]
-pub(crate) struct BenchmarkAgentRequest {
-    /// Local product selected for this matrix column.
-    pub(crate) agent_kind: AgentKind,
-    /// Immutable Case prompt.
-    pub(crate) prompt: String,
-    /// Isolated workspace owned by this execution cell.
-    pub(crate) working_directory: PathBuf,
-    /// Optional product model override; Benchmark calls always leave this empty.
-    pub(crate) model: Option<String>,
-    /// Optional product mode override; Benchmark calls always leave this empty.
-    pub(crate) mode: Option<String>,
-    /// Frozen file access policy.
-    pub(crate) file_access: String,
-    /// Frozen command execution policy.
-    pub(crate) command_execution: String,
-    /// Optional prior product session; each V1 Case starts without one.
-    pub(crate) session_id: Option<String>,
-    /// Case-owned execution deadline.
-    pub(crate) timeout: Duration,
-    /// Task-owned signal shared with the Agent runtime and deadline watcher.
-    pub(crate) cancellation: Arc<AtomicBool>,
-}
 
 /// A complete suite and explicit permissions; model overrides and case subsets are not accepted.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]

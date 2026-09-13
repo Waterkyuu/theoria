@@ -4,17 +4,16 @@ use crate::domain::agent_kind::AgentKind;
 use crate::domain::agent_status::AgentLoginStatus;
 use crate::domain::benchmark::{safe_asset_id, safe_relative_path, BenchmarkCheck};
 use crate::domain::benchmark_task::{
-    BenchmarkArtifactFile, BenchmarkArtifactPreview, BenchmarkEvaluationCheck,
-    BenchmarkEvaluationReport, BenchmarkExecutionMetrics, BenchmarkExecutionResult,
-    BenchmarkRerunConfiguration, BenchmarkTaskDetail, BenchmarkTokenUsage, BenchmarkToolCall,
-    NewBenchmarkTaskPlan,
+    BenchmarkAgentInvocation, BenchmarkArtifactFile, BenchmarkArtifactPreview,
+    BenchmarkEvaluationCheck, BenchmarkEvaluationReport, BenchmarkExecutionMetrics,
+    BenchmarkExecutionResult, BenchmarkRerunConfiguration, BenchmarkTaskDetail,
+    BenchmarkTokenUsage, BenchmarkToolCall, NewBenchmarkTaskPlan,
 };
 use crate::domain::benchmark_task::{
     BenchmarkPreflightIssue, BenchmarkPreflightIssueKind, BenchmarkTaskConfiguration,
     BenchmarkTaskPreview,
 };
 use crate::domain::task::{Task, TaskKind, TaskStatus};
-use crate::dto::benchmark_task::BenchmarkAgentRequest;
 use crate::error::AppError;
 use crate::repositories::benchmark::BenchmarkRepository;
 use crate::repositories::benchmark_task::BenchmarkTaskRepository;
@@ -389,7 +388,7 @@ impl BenchmarkTaskService {
     pub(crate) async fn execute_with(
         &self,
         task_id: &str,
-        runner: impl FnMut(BenchmarkAgentRequest) -> Result<AgentSessionRunOutput, AppError>
+        runner: impl FnMut(BenchmarkAgentInvocation) -> Result<AgentSessionRunOutput, AppError>
             + Send
             + 'static,
     ) -> Result<(), AppError> {
@@ -402,7 +401,7 @@ impl BenchmarkTaskService {
     async fn execute_plan(
         &self,
         task_id: &str,
-        runner: impl FnMut(BenchmarkAgentRequest) -> Result<AgentSessionRunOutput, AppError>
+        runner: impl FnMut(BenchmarkAgentInvocation) -> Result<AgentSessionRunOutput, AppError>
             + Send
             + 'static,
         cancellation: Arc<AtomicBool>,
@@ -452,7 +451,7 @@ impl BenchmarkTaskService {
                 {
                     continue;
                 }
-                let request = BenchmarkAgentRequest {
+                let invocation = BenchmarkAgentInvocation {
                     agent_kind: agent.agent_kind,
                     prompt: case.content.prompt.clone(),
                     working_directory: workspace.clone(),
@@ -472,7 +471,7 @@ impl BenchmarkTaskService {
                         Ok(call) => call,
                         Err(poisoned) => poisoned.into_inner(),
                     };
-                    call(request)
+                    call(invocation)
                 })
                 .await
                 .map_err(|_| AppError::WorkerFailed)?;

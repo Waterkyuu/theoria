@@ -6,7 +6,7 @@ use crate::adapters::codex::{CodexRuntimeDefaultsCache, SystemCodexAdapter};
 use crate::adapters::opencode::SystemOpenCodeAdapter;
 use crate::adapters::workbuddy::SystemWorkBuddyAdapter;
 use crate::domain::agent_kind::AgentKind;
-use crate::dto::benchmark_task::BenchmarkAgentRequest;
+use crate::domain::benchmark_task::BenchmarkAgentInvocation;
 use crate::error::AppError;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -24,22 +24,22 @@ pub(crate) struct AgentRuntimeCaches {
 
 /// Applies one Benchmark Case deadline around the shared Agent runtime call.
 pub(crate) fn run_benchmark_agent(
-    request: BenchmarkAgentRequest,
+    invocation: BenchmarkAgentInvocation,
     caches: AgentRuntimeCaches,
 ) -> Result<AgentSessionRunOutput, AppError> {
-    run_benchmark_agent_with(request, move |request, cancelled| {
+    run_benchmark_agent_with(invocation, move |invocation, cancelled| {
         run_agent_turn(
-            request.agent_kind,
-            &request.prompt,
-            &request.working_directory,
+            invocation.agent_kind,
+            &invocation.prompt,
+            &invocation.working_directory,
             AgentExecutionConfig {
-                model: request.model.as_deref(),
-                mode: request.mode.as_deref(),
-                file_access: Some(&request.file_access),
-                command_execution: Some(&request.command_execution),
+                model: invocation.model.as_deref(),
+                mode: invocation.mode.as_deref(),
+                file_access: Some(&invocation.file_access),
+                command_execution: Some(&invocation.command_execution),
             },
             caches,
-            request.session_id.as_deref(),
+            invocation.session_id.as_deref(),
             cancelled,
         )
     })
@@ -47,10 +47,10 @@ pub(crate) fn run_benchmark_agent(
 
 /// Combines Task cancellation with a Case-local deadline without cancelling later matrix cells.
 fn run_benchmark_agent_with(
-    request: BenchmarkAgentRequest,
-    call: impl FnOnce(&BenchmarkAgentRequest, &AtomicBool) -> Result<AgentSessionRunOutput, AppError>,
+    invocation: BenchmarkAgentInvocation,
+    call: impl FnOnce(&BenchmarkAgentInvocation, &AtomicBool) -> Result<AgentSessionRunOutput, AppError>,
 ) -> Result<AgentSessionRunOutput, AppError> {
-    let task_cancelled = request.cancellation.clone();
+    let task_cancelled = invocation.cancellation.clone();
     let call_cancelled = Arc::new(AtomicBool::new(task_cancelled.load(Ordering::Acquire)));
     let timed_out = Arc::new(AtomicBool::new(false));
     let (finished_sender, finished_receiver) = std::sync::mpsc::channel();
@@ -58,7 +58,7 @@ fn run_benchmark_agent_with(
         let task_cancellation = task_cancelled.clone();
         let call_cancellation = call_cancelled.clone();
         let timeout_signal = timed_out.clone();
-        let timeout = request.timeout;
+        let timeout = invocation.timeout;
         scope.spawn(move || {
             let deadline = Instant::now() + timeout;
             loop {
@@ -78,10 +78,10 @@ fn run_benchmark_agent_with(
                 }
             }
         });
-        let result = call(&request, &call_cancelled);
+        let result = call(&invocation, &call_cancelled);
         let completion_announced = finished_sender.send(()).is_ok();
         if timed_out.load(Ordering::Acquire) {
-            Err(match request.agent_kind {
+            Err(match invocation.agent_kind {
                 AgentKind::Codex => AppError::CodexTimedOut,
                 AgentKind::Claude => AppError::ClaudeTimedOut,
                 AgentKind::OpenCode => AppError::OpenCodeTimedOut,
@@ -158,7 +158,7 @@ mod tests {
     use crate::adapters::agent::{AgentSessionRunOutput, AgentTurnOutcome};
     use crate::domain::agent_kind::AgentKind;
     use crate::domain::agent_run::{AgentRunMetricsCollector, AgentRunOutput};
-    use crate::dto::benchmark_task::BenchmarkAgentRequest;
+    use crate::domain::benchmark_task::BenchmarkAgentInvocation;
     use crate::error::AppError;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicBool, Ordering};
@@ -168,7 +168,7 @@ mod tests {
     #[test]
     fn case_timeout_does_not_cancel_the_parent_task() {
         let task_cancellation = Arc::new(AtomicBool::new(false));
-        let request = BenchmarkAgentRequest {
+        let invocation = BenchmarkAgentInvocation {
             agent_kind: AgentKind::Codex,
             prompt: "test".to_string(),
             working_directory: PathBuf::from("."),
@@ -180,7 +180,7 @@ mod tests {
             timeout: Duration::from_millis(5),
             cancellation: task_cancellation.clone(),
         };
-        let result = run_benchmark_agent_with(request, |_, cancelled| {
+        let result = run_benchmark_agent_with(invocation, |_, cancelled| {
             while !cancelled.load(Ordering::Acquire) {
                 std::thread::yield_now();
             }
