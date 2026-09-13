@@ -8,7 +8,8 @@ use crate::domain::benchmark::{
 use crate::dto::benchmark::{BenchmarkImportCheck, BenchmarkImportFile, BenchmarkImportTemplate};
 use crate::error::AppError;
 use crate::repositories::benchmark::BenchmarkRepository;
-use std::path::PathBuf;
+use std::io::ErrorKind;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -305,12 +306,7 @@ impl BenchmarkService {
         .await;
         if result.is_err() {
             for asset_id in copied_ids {
-                if tokio::fs::remove_file(self.asset_directory.join(asset_id))
-                    .await
-                    .is_err()
-                {
-                    eprintln!("Benchmark asset cleanup failed");
-                }
+                remove_managed_file(&self.asset_directory.join(asset_id)).await?;
             }
         }
         result
@@ -358,9 +354,7 @@ impl BenchmarkService {
         if tokio::fs::write(&staging, text.as_bytes()).await.is_err()
             || tokio::fs::rename(&staging, destination).await.is_err()
         {
-            if tokio::fs::remove_file(staging).await.is_err() {
-                eprintln!("Benchmark staging cleanup failed");
-            }
+            remove_managed_file(&staging).await?;
             return Err(AppError::BenchmarkAssetUnavailable);
         }
         Ok(BenchmarkFile {
@@ -443,15 +437,11 @@ impl BenchmarkService {
         let staging = self.asset_directory.join(format!(".{asset_id}.tmp"));
         let destination = self.asset_directory.join(&asset_id);
         if tokio::fs::copy(source, &staging).await.is_err() {
-            if tokio::fs::remove_file(&staging).await.is_err() {
-                eprintln!("Benchmark staging cleanup failed");
-            }
+            remove_managed_file(&staging).await?;
             return Err(AppError::BenchmarkAssetUnavailable);
         }
         if tokio::fs::rename(&staging, &destination).await.is_err() {
-            if tokio::fs::remove_file(&staging).await.is_err() {
-                eprintln!("Benchmark staging cleanup failed");
-            }
+            remove_managed_file(&staging).await?;
             return Err(AppError::BenchmarkAssetUnavailable);
         }
         Ok(BenchmarkFile {
@@ -737,6 +727,15 @@ impl BenchmarkService {
     }
 }
 
+/// Treats an already-absent staging file as cleaned while surfacing real filesystem failures.
+async fn remove_managed_file(path: &Path) -> Result<(), AppError> {
+    match tokio::fs::remove_file(path).await {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == ErrorKind::NotFound => Ok(()),
+        Err(_) => Err(AppError::BenchmarkAssetUnavailable),
+    }
+}
+
 async fn load_import_template(
     source_path: PathBuf,
 ) -> Result<(PathBuf, BenchmarkImportTemplate), AppError> {
@@ -891,8 +890,10 @@ mod tests {
         BenchmarkCase, BenchmarkCheck, BenchmarkDocument, BenchmarkFile,
     };
     use crate::domain::benchmark_task::BenchmarkEvaluationReport;
+    use crate::domain::workspace::{NewWorkspace, WorkspaceSourceKind};
     use crate::error::AppError;
     use crate::repositories::benchmark::BenchmarkRepository;
+    use crate::repositories::workspace::WorkspaceRepository;
     use sea_orm_migration::MigratorTrait;
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
@@ -1049,10 +1050,6 @@ mod tests {
     #[test]
     fn publishes_complete_cases_and_mounts_one_fixed_version() {
         tauri::async_runtime::block_on(async {
-            use crate::domain::benchmark::{BenchmarkCase, BenchmarkCheck};
-            use crate::domain::workspace::{NewWorkspace, WorkspaceSourceKind};
-            use crate::repositories::workspace::WorkspaceRepository;
-
             let database = connect_sqlite("sqlite::memory:")
                 .await
                 .expect("database should open");

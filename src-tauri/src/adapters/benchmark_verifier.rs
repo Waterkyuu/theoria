@@ -223,7 +223,7 @@ fn wait_for_child(child: &mut Child) -> Result<ExitStatus, AppError> {
             return Ok(status);
         }
         if Instant::now() >= deadline {
-            let _ = child.kill();
+            child.kill().map_err(|_| AppError::InvalidBenchmark)?;
             child.wait().map_err(|_| AppError::InvalidBenchmark)?;
             return Err(AppError::InvalidBenchmark);
         }
