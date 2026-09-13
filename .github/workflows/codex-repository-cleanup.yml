@@ -1,0 +1,227 @@
+name: Codex Repository Cleanup
+
+on:
+  schedule:
+    # GitHub cron uses UTC. The cadence gate below makes this 10:00 Asia/Shanghai every two days.
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: codex-repository-cleanup
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  cleanup:
+    name: Audit repository
+    runs-on: macos-latest
+    timeout-minutes: 90
+    env:
+      HUSKY: 0
+    steps:
+      - name: Check cadence and existing pull requests
+        id: preflight
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_EVENT_NAME}" == "schedule" ]]; then
+            utc_day="$(( $(date -u +%s) / 86400 ))"
+            if (( utc_day % 2 != 0 )); then
+              echo "Skipping the alternate day."
+              echo "should-run=false" >> "${GITHUB_OUTPUT}"
+              exit 0
+            fi
+          fi
+
+          open_cleanup_prs="$(gh pr list \
+            --state open \
+            --json headRefName \
+            --jq '[.[] | select(.headRefName | startswith("waterkyuu/codex-cleanup-"))] | length')"
+          if (( open_cleanup_prs > 0 )); then
+            echo "An automated cleanup pull request is already open."
+            echo "should-run=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          echo "should-run=true" >> "${GITHUB_OUTPUT}"
+
+      - name: Checkout repository
+        if: steps.preflight.outputs.should-run == 'true'
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install pnpm
+        if: steps.preflight.outputs.should-run == 'true'
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        if: steps.preflight.outputs.should-run == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        if: steps.preflight.outputs.should-run == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Set up Rust
+        if: steps.preflight.outputs.should-run == 'true'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Restore Rust cache
+        if: steps.preflight.outputs.should-run == 'true'
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri -> target
+
+      - name: Run Codex cleanup audit
+        if: steps.preflight.outputs.should-run == 'true'
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: .github/codex/prompts/repository-cleanup.md
+          model: gpt-5.3-codex
+          effort: high
+          sandbox: workspace-write
+          safety-strategy: drop-sudo
+          codex-args: '["--ephemeral"]'
+          output-file: ${{ runner.temp }}/codex-output.md
+
+      - name: Inspect proposed cleanup
+        if: steps.preflight.outputs.should-run == 'true'
+        id: changes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          changed_files="$({
+            git diff --name-only --diff-filter=ACMRTUXB
+            git ls-files --others --exclude-standard
+          } | sort -u)"
+
+          if [[ -z "${changed_files}" ]]; then
+            echo "Codex found no safe cleanup."
+            echo "has-changes=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          changed_count="$(printf '%s\n' "${changed_files}" | wc -l | tr -d ' ')"
+          if (( changed_count > 6 )); then
+            echo "Codex changed ${changed_count} files; the limit is 6." >&2
+            exit 1
+          fi
+
+          frontend=false
+          rust=false
+          tauri_build=false
+          while IFS= read -r file; do
+            case "${file}" in
+              .github/workflows/* | .github/codex/*)
+                echo "Codex changed protected automation file: ${file}" >&2
+                exit 1
+                ;;
+              src-tauri/*)
+                rust=true
+                ;;
+              *)
+                frontend=true
+                ;;
+            esac
+
+            case "${file}" in
+              src-tauri/Cargo.toml | src-tauri/Cargo.lock | src-tauri/tauri.conf.json | \
+                src-tauri/build.rs | src-tauri/capabilities/* | src-tauri/permissions/* | \
+                src-tauri/src/platform/*)
+                tauri_build=true
+                ;;
+            esac
+          done <<< "${changed_files}"
+
+          git diff --check
+          printf '%s\n' "${changed_files}"
+          echo "has-changes=true" >> "${GITHUB_OUTPUT}"
+          echo "frontend=${frontend}" >> "${GITHUB_OUTPUT}"
+          echo "rust=${rust}" >> "${GITHUB_OUTPUT}"
+          echo "tauri-build=${tauri_build}" >> "${GITHUB_OUTPUT}"
+
+      - name: Validate frontend cleanup
+        if: steps.changes.outputs.frontend == 'true'
+        run: |
+          pnpm typecheck
+          pnpm check
+          pnpm test
+          pnpm build
+
+      - name: Validate Rust cleanup
+        if: steps.changes.outputs.rust == 'true'
+        run: |
+          cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+          cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+          cargo test --manifest-path src-tauri/Cargo.toml --all-features
+          cargo check --manifest-path src-tauri/Cargo.toml --all-targets --all-features
+
+      - name: Validate Tauri build
+        if: steps.changes.outputs.tauri-build == 'true'
+        run: pnpm tauri build --no-bundle
+
+      - name: Commit and open draft pull request
+        if: steps.changes.outputs.has-changes == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          branch="waterkyuu/codex-cleanup-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git switch -c "${branch}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add --all
+          git commit \
+            -m "chore(repo): remove verified redundancy" \
+            -m $'- remove repository items confirmed unused\n- preserve existing runtime behavior\n- pass applicable project validation'
+          gh auth setup-git
+          git push origin "HEAD:refs/heads/${branch}"
+
+          pull_request_body="${RUNNER_TEMP}/codex-cleanup-pr.md"
+          {
+            echo "## Summary"
+            echo
+            echo "Codex identified and removed one bounded set of repository items with no verified callers."
+            echo
+            echo "## Codex audit"
+            echo
+            cat "${RUNNER_TEMP}/codex-output.md"
+            echo
+            echo "## Changed files"
+            echo
+            git show --stat --oneline --format= HEAD
+            echo
+            echo "## Validation"
+            echo
+            echo "Applicable frontend, Rust, and Tauri checks completed successfully before this PR was opened."
+            echo
+            echo "## Risk review"
+            echo
+            echo "This is a draft PR. Review dynamic runtime references and platform-specific behavior before merging."
+          } > "${pull_request_body}"
+
+          gh pr create \
+            --draft \
+            --base main \
+            --head "${branch}" \
+            --title "chore(repo): remove verified redundancy" \
+            --body-file "${pull_request_body}"
