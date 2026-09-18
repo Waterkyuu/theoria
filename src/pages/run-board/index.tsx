@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Clock, Grip, LayoutColumns3, LayoutRows3 } from "@gravity-ui/icons";
-import { Button, Card, Chip, Tooltip } from "@heroui/react";
+import { Clock, Grip } from "@gravity-ui/icons";
+import { Card, Chip } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { AgentIcon } from "@/components/share/agent-icon";
@@ -9,8 +9,6 @@ import { SearchBox } from "@/components/ui/search-box";
 import { debounce } from "@/utils/common";
 import { checkAgentActivities, onAgentActivitiesChanged } from "@/api/agent";
 import type { AgentActivity, AgentActivityStatus } from "@/types/agent";
-
-type RunBoardLayout = "vertical" | "horizontal";
 
 type StatusPresentation = {
 	/** Tailwind color class for the status marker. */
@@ -48,7 +46,6 @@ const STATUS_PRESENTATIONS: Record<AgentActivityStatus, StatusPresentation> = {
 
 const RunBoardPage = () => {
 	const { i18n, t } = useTranslation();
-	const [layout, setLayout] = useState<RunBoardLayout>("vertical");
 	const [statusOrder, setStatusOrder] = useState(BOARD_STATUSES);
 	const [draggedStatus, setDraggedStatus] =
 		useState<AgentActivityStatus | null>(null);
@@ -117,7 +114,7 @@ const RunBoardPage = () => {
 
 			<div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-6 sm:px-6 sm:pb-10 sm:pt-7 lg:px-8">
 				<div className="mx-auto max-w-330">
-					<div className="mb-5 flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+					<div className="mb-5 flex w-full justify-end">
 						<div className="w-full sm:w-72">
 							<SearchBox
 								onValueChange={setAgentInput}
@@ -125,55 +122,10 @@ const RunBoardPage = () => {
 								value={agentInput}
 							/>
 						</div>
-						<fieldset
-							aria-label={t("runBoard.layoutSelection")}
-							className="flex shrink-0 items-center gap-xs self-start rounded-lg bg-surface-soft p-xs sm:self-auto"
-						>
-							<Tooltip delay={0}>
-								<Button
-									aria-pressed={layout === "vertical"}
-									aria-label={t("runBoard.verticalLayout")}
-									className="rounded-md px-2.5 text-caption-sm text-body shadow-none aria-pressed:bg-canvas aria-pressed:text-ink aria-pressed:shadow-sm"
-									onPress={() => setLayout("vertical")}
-									size="sm"
-									variant="ghost"
-								>
-									<LayoutColumns3 aria-hidden="true" className="size-4" />
-								</Button>
-								<Tooltip.Content
-									className="w-max max-w-none whitespace-nowrap break-normal"
-									placement="bottom"
-								>
-									{t("runBoard.verticalLayout")}
-								</Tooltip.Content>
-							</Tooltip>
-							<Tooltip delay={0}>
-								<Button
-									aria-pressed={layout === "horizontal"}
-									aria-label={t("runBoard.horizontalLayout")}
-									className="rounded-md px-2.5 text-caption-sm text-body shadow-none aria-pressed:bg-canvas aria-pressed:text-ink aria-pressed:shadow-sm"
-									onPress={() => setLayout("horizontal")}
-									size="sm"
-									variant="ghost"
-								>
-									<LayoutRows3 aria-hidden="true" className="size-4" />
-								</Button>
-								<Tooltip.Content
-									className="w-max max-w-none whitespace-nowrap break-normal"
-									placement="bottom"
-								>
-									{t("runBoard.horizontalLayout")}
-								</Tooltip.Content>
-							</Tooltip>
-						</fieldset>
 					</div>
 
 					<div
-						className={cn(
-							"grid gap-4",
-							layout === "vertical" && "lg:grid-cols-2 xl:grid-cols-4",
-						)}
-						data-layout={layout}
+						className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4"
 						data-testid="run-board"
 					>
 						{statusOrder.map((status) => {
@@ -191,7 +143,6 @@ const RunBoardPage = () => {
 									aria-labelledby={`board-${status}`}
 									className={cn(
 										"flex min-w-0 cursor-grab flex-col overflow-hidden rounded-2xl bg-surface-soft p-2 active:cursor-grabbing",
-										layout === "horizontal" && "lg:flex-row",
 										draggedStatus === status && "opacity-50",
 									)}
 									draggable
@@ -222,12 +173,7 @@ const RunBoardPage = () => {
 										setDraggedStatus(null);
 									}}
 								>
-									<header
-										className={cn(
-											"flex items-center gap-2 px-2 py-2.5",
-											layout === "horizontal" && "lg:w-56 lg:shrink-0",
-										)}
-									>
+									<header className="flex items-center gap-2 px-2 py-2.5">
 										<button
 											aria-label={t("runBoard.dragStatus", {
 												status: t(`runBoard.status.${status}`),
@@ -279,11 +225,7 @@ const RunBoardPage = () => {
 									</header>
 
 									<div
-										className={cn(
-											"min-h-48 max-h-[60vh] flex-1 space-y-3 overflow-y-auto overscroll-contain p-1",
-											layout === "horizontal" &&
-												"lg:flex lg:max-h-none lg:flex-nowrap lg:items-start lg:gap-3 lg:space-y-0 lg:overflow-x-auto lg:overflow-y-hidden",
-										)}
+										className="min-h-48 max-h-[60vh] flex-1 space-y-3 overflow-y-auto overscroll-contain p-1"
 										data-testid={`run-board-list-${status}`}
 									>
 										{items.length > 0 ? (
@@ -306,10 +248,7 @@ const RunBoardPage = () => {
 
 												return (
 													<Card
-														className={cn(
-															"h-40 w-72 max-w-full overflow-hidden rounded-xl border border-hairline bg-surface-card shadow-none transition-colors hover:border-hairline-strong",
-															layout === "horizontal" && "lg:shrink-0",
-														)}
+														className="h-40 w-72 max-w-full overflow-hidden rounded-xl border border-hairline bg-surface-card shadow-none transition-colors hover:border-hairline-strong"
 														key={item.id}
 														role="article"
 													>
