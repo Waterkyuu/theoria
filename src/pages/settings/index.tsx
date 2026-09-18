@@ -3,6 +3,7 @@ import { Check, ChevronDown } from "@gravity-ui/icons";
 import { Button, Toast } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
+import { Layout } from "@/components/share/layout";
 import { PageHeader } from "@/components/share/page-header";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { handleError } from "@/utils/error";
@@ -68,7 +69,7 @@ const SettingsPage = () => {
 				</p>
 			</PageHeader>
 
-			<div className="min-h-0 flex-1 overflow-y-auto px-4 py-8 sm:px-10 sm:py-10">
+			<Layout className="overflow-y-auto">
 				<div className="mx-auto max-w-3xl">
 					<h1 className="font-primary text-[28px] font-semibold leading-[34px] text-ink">
 						{t("settings.title")}
@@ -169,7 +170,7 @@ const SettingsPage = () => {
 						</section>
 					</div>
 				</div>
-			</div>
+			</Layout>
 		</main>
 	);
 };

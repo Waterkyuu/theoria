@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
+import { Layout } from "@/components/share/layout";
 import { PageHeader } from "@/components/share/page-header";
 import { SkillCreateForm } from "./components/skill-create-form";
 
@@ -17,7 +18,7 @@ const SimpleCreateSkillPage = () => {
 					/simple-create-skill
 				</p>
 			</PageHeader>
-			<div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-10 sm:py-8">
+			<Layout className="overflow-y-auto">
 				<div className="mx-auto max-w-190">
 					<button
 						className="text-body-sm font-medium text-charcoal outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-focus-ring"
@@ -35,7 +36,7 @@ const SimpleCreateSkillPage = () => {
 
 					<SkillCreateForm />
 				</div>
-			</div>
+			</Layout>
 		</main>
 	);
 };
