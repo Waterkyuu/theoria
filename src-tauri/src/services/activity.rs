@@ -158,7 +158,9 @@ fn event_affects_agent_activity(event: &Event) -> bool {
                 || path
                     .file_name()
                     .and_then(OsStr::to_str)
-                    .is_some_and(|name| name == "CURRENT" || name.ends_with(".db-wal"))
+                    .is_some_and(|name| {
+                        name == "CURRENT" || name == "models.json" || name.ends_with(".db-wal")
+                    })
         })
 }
 
@@ -196,6 +198,7 @@ mod tests {
                     AgentActivityStatus::Error
                 },
                 updated_at_ms: 1,
+                context_usage: None,
             }]
         }
 
@@ -212,6 +215,14 @@ mod tests {
 
             assert!(event_affects_agent_activity(&event));
         }
+    }
+
+    #[test]
+    fn opencode_model_catalog_writes_refresh_context_occupancy() {
+        let event = Event::new(EventKind::Any)
+            .add_path(PathBuf::from("/home/test/.cache/opencode/models.json"));
+
+        assert!(event_affects_agent_activity(&event));
     }
 
     #[test]

@@ -1,5 +1,5 @@
 use crate::adapters::process::AgentProcessStates;
-use crate::domain::agent_activity::{AgentActivity, AgentActivityStatus};
+use crate::domain::agent_activity::{AgentActivity, AgentActivityStatus, ContextUsage};
 use crate::domain::agent_kind::AgentKind;
 use leveldb_forensic::{decode_local_storage, LocalStorageRecord};
 use rusqlite::{Connection, OpenFlags, OptionalExtension};
@@ -17,6 +17,7 @@ const MAX_BOARD_ACTIVITIES: usize = 48;
 const MAX_SCAN_ENTRIES: usize = 10_000;
 const MAX_TRANSCRIPTS_PER_PRODUCT: usize = 16;
 const MAX_TRANSCRIPT_BYTES: u64 = 2 * 1024 * 1024;
+const MAX_MODEL_CATALOG_BYTES: u64 = 16 * 1024 * 1024;
 const WORKBUDDY_STATUS_SNAPSHOT_KEY: &str = "codebuddy-conversation-status-snapshot";
 
 /// Allowed local roots used by the passive activity adapter.
@@ -30,6 +31,8 @@ pub(crate) struct AgentActivitySourcePaths {
     pub(crate) claude_projects: Option<PathBuf>,
     /// OpenCode's documented local data directory containing its session database.
     pub(crate) opencode_data: Option<PathBuf>,
+    /// OpenCode's local models.dev cache, used only when a session model has a known limit.
+    pub(crate) opencode_models: Option<PathBuf>,
     /// CodeBuddy transcript directory used by WorkBuddy's bundled Agent runtime.
     pub(crate) codebuddy_projects: Option<PathBuf>,
     /// WorkBuddy Chromium Local Storage directory containing conversation status snapshots.
@@ -58,6 +61,7 @@ impl Default for SystemAgentActivityAdapter {
                 codex_state_db: Some(codex_root.join("state_5.sqlite")),
                 claude_projects: Some(home.join(".claude").join("projects")),
                 opencode_data: Some(home.join(".local").join("share").join("opencode")),
+                opencode_models: Some(home.join(".cache").join("opencode").join("models.json")),
                 codebuddy_projects: Some(home.join(".codebuddy").join("projects")),
                 workbuddy_local_storage: Some(
                     home.join(".workbuddy-ai")
@@ -91,6 +95,7 @@ impl AgentActivityAdapter for SystemAgentActivityAdapter {
         if let Some(path) = self.sources.opencode_data.as_deref() {
             activities.extend(opencode_activities_from_database(
                 &path.join("opencode.db"),
+                self.sources.opencode_models.as_deref(),
                 processes.opencode,
             ));
         }
@@ -130,7 +135,7 @@ impl AgentActivityAdapter for SystemAgentActivityAdapter {
 
     /// Returns only existing product-owned directories suitable for native watching.
     fn watch_paths(&self) -> Vec<PathBuf> {
-        [
+        let mut paths: Vec<_> = [
             self.sources.codex_sessions.as_ref(),
             self.sources.claude_projects.as_ref(),
             self.sources.opencode_data.as_ref(),
@@ -141,7 +146,17 @@ impl AgentActivityAdapter for SystemAgentActivityAdapter {
         .flatten()
         .filter(|path| fs::symlink_metadata(path).is_ok_and(|metadata| metadata.is_dir()))
         .cloned()
-        .collect()
+        .collect();
+        if let Some(parent) = self
+            .sources
+            .opencode_models
+            .as_deref()
+            .and_then(Path::parent)
+            .filter(|path| fs::symlink_metadata(path).is_ok_and(|metadata| metadata.is_dir()))
+        {
+            paths.push(parent.to_path_buf());
+        }
+        paths
     }
 }
 
@@ -197,6 +212,22 @@ struct CodexRolloutPayload {
     name: Option<String>,
     /// Identifier that pairs a tool invocation with its output.
     call_id: Option<String>,
+    /// Token accounting attached to a token_count event.
+    info: Option<CodexTokenInfo>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CodexTokenInfo {
+    /// Most recent model call rather than all tokens spent by the thread.
+    last_token_usage: Option<CodexLastTokenUsage>,
+    /// Effective input context capacity reported by the runtime.
+    model_context_window: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CodexLastTokenUsage {
+    /// Current model input, including cached input tokens.
+    input_tokens: u64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -256,6 +287,22 @@ struct ClaudeTranscriptMessage {
     stop_reason: Option<String>,
     /// String or block-based message content.
     content: Option<ClaudeTranscriptContent>,
+    /// Exact model identifier used by the assistant response.
+    model: Option<String>,
+    /// Provider-reported input accounting for this response.
+    usage: Option<ClaudeInputUsage>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ClaudeInputUsage {
+    /// Uncached model input tokens.
+    input_tokens: u64,
+    /// Input tokens written to Claude's prompt cache.
+    #[serde(default)]
+    cache_creation_input_tokens: u64,
+    /// Input tokens read from Claude's prompt cache.
+    #[serde(default)]
+    cache_read_input_tokens: u64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -273,6 +320,50 @@ struct OpenCodeMessageData {
     time: OpenCodeMessageTime,
     /// Structured provider or interruption error retained on failed assistant messages.
     error: Option<serde_json::Value>,
+    /// Provider key used to find the effective model in OpenCode's local catalog.
+    #[serde(rename = "providerID")]
+    provider_id: Option<String>,
+    /// Model key used to find the effective context-window limit.
+    #[serde(rename = "modelID")]
+    model_id: Option<String>,
+    /// Latest request accounting, split by uncached and cached input.
+    tokens: Option<OpenCodeTokenUsage>,
+}
+
+#[derive(Debug, Deserialize)]
+struct OpenCodeTokenUsage {
+    /// Uncached input tokens in this model request.
+    input: u64,
+    /// Cached input token categories, when the provider reports them.
+    cache: Option<OpenCodeCachedInput>,
+}
+
+#[derive(Debug, Deserialize)]
+struct OpenCodeCachedInput {
+    /// Previously cached input tokens.
+    #[serde(default)]
+    read: u64,
+    /// Input tokens written to the provider cache.
+    #[serde(default)]
+    write: u64,
+}
+
+#[derive(Debug, Deserialize)]
+struct OpenCodeCatalogProvider {
+    /// Models known to this provider, keyed by the persisted model ID.
+    models: HashMap<String, OpenCodeCatalogModel>,
+}
+
+#[derive(Debug, Deserialize)]
+struct OpenCodeCatalogModel {
+    /// Maximum model context advertised by the cached catalog.
+    limit: OpenCodeModelLimit,
+}
+
+#[derive(Debug, Deserialize)]
+struct OpenCodeModelLimit {
+    /// Maximum input and output tokens in one model context.
+    context: u64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -514,6 +605,107 @@ fn claude_status_from_jsonl(contents: &str, process_running: bool) -> Option<Age
     }
 }
 
+/// Uses only recent model calls, so cumulative spend never masquerades as context occupancy.
+fn codex_context_usage_from_jsonl(contents: &str) -> Option<ContextUsage> {
+    let mut latest = None;
+    for event in contents
+        .lines()
+        .filter_map(|line| serde_json::from_str::<CodexRolloutEvent>(line).ok())
+    {
+        let Some(payload) = event.payload else {
+            continue;
+        };
+        if payload.event_type == "context_compacted" {
+            latest = None;
+        }
+        if payload.event_type != "token_count" {
+            continue;
+        }
+        let Some(info) = payload.info else {
+            continue;
+        };
+        latest = info.last_token_usage.and_then(|usage| {
+            let window_tokens = info.model_context_window.filter(|window| *window > 0)?;
+            Some(ContextUsage {
+                used_tokens: usage.input_tokens,
+                window_tokens,
+            })
+        });
+    }
+    latest
+}
+
+/// Restricts estimates to model families with a documented context-window size.
+fn claude_model_window_tokens(model: &str) -> Option<u64> {
+    const ONE_MILLION_MODELS: &[&str] = &[
+        "claude-sonnet-4-6",
+        "claude-sonnet-5",
+        "claude-opus-4-6",
+        "claude-opus-4-7",
+        "claude-opus-4-8",
+        "claude-opus-5",
+        "claude-mythos",
+        "claude-fable",
+    ];
+    const TWO_HUNDRED_THOUSAND_MODELS: &[&str] = &[
+        "claude-3-",
+        "claude-haiku-4-5",
+        "claude-sonnet-4-5",
+        "claude-sonnet-4-",
+        "claude-opus-4-5",
+        "claude-opus-4-",
+    ];
+
+    if ONE_MILLION_MODELS
+        .iter()
+        .any(|prefix| model.starts_with(prefix))
+    {
+        Some(1_000_000)
+    } else if TWO_HUNDRED_THOUSAND_MODELS
+        .iter()
+        .any(|prefix| model.starts_with(prefix))
+    {
+        Some(200_000)
+    } else {
+        None
+    }
+}
+
+/// Claude reports cached input separately, but all three input categories occupy context.
+fn claude_context_usage_from_jsonl(contents: &str) -> Option<ContextUsage> {
+    let mut latest = None;
+    for event in contents
+        .lines()
+        .filter_map(|line| serde_json::from_str::<ClaudeTranscriptEvent>(line).ok())
+    {
+        if event.subtype.as_deref() == Some("compact_boundary") {
+            latest = None;
+        }
+        if event.event_type.as_deref() != Some("assistant") {
+            continue;
+        }
+        let Some(message) = event.message else {
+            continue;
+        };
+        latest = message
+            .usage
+            .zip(
+                message
+                    .model
+                    .as_deref()
+                    .and_then(claude_model_window_tokens),
+            )
+            .map(|(usage, window_tokens)| ContextUsage {
+                used_tokens: usage
+                    .input_tokens
+                    .saturating_add(usage.cache_creation_input_tokens)
+                    .saturating_add(usage.cache_read_input_tokens),
+                window_tokens,
+            });
+    }
+    latest
+}
+
 /// Maps WorkBuddy's documented conversation protocol states to the shared four-state board.
 fn workbuddy_status_from_protocol(status: &str) -> Option<AgentActivityStatus> {
     match status.to_ascii_lowercase().as_str() {
@@ -544,6 +736,11 @@ fn activity_from_transcript(
         }
         AgentKind::OpenCode => None,
     }?;
+    let context_usage = match agent {
+        AgentKind::Codex => codex_context_usage_from_jsonl(&contents),
+        AgentKind::Claude => claude_context_usage_from_jsonl(&contents),
+        AgentKind::OpenCode | AgentKind::WorkBuddy => None,
+    };
     let updated_at_ms = fs::symlink_metadata(path)
         .ok()?
         .modified()
@@ -556,6 +753,7 @@ fn activity_from_transcript(
         agent,
         status,
         updated_at_ms,
+        context_usage,
     })
 }
 
@@ -622,6 +820,7 @@ fn workbuddy_activities_from_snapshot(
                 agent: AgentKind::WorkBuddy,
                 status: workbuddy_status_from_protocol(&protocol_status)?,
                 updated_at_ms,
+                context_usage: None,
             })
         })
         .collect();
@@ -644,6 +843,7 @@ fn transcript_titles_by_file_stem(root: &Path) -> HashMap<String, String> {
 /// Reads recent OpenCode sessions from its product-owned database without starting a server.
 fn opencode_activities_from_database(
     database_path: &Path,
+    model_catalog_path: Option<&Path>,
     process_running: bool,
 ) -> Vec<AgentActivity> {
     let Ok(database) = Connection::open_with_flags(
@@ -676,6 +876,7 @@ fn opencode_activities_from_database(
     };
     let sessions: Vec<_> = rows.filter_map(Result::ok).collect();
     drop(statement);
+    let models = model_catalog_path.and_then(read_opencode_model_catalog);
 
     sessions
         .into_iter()
@@ -702,9 +903,67 @@ fn opencode_activities_from_database(
                 agent: AgentKind::OpenCode,
                 status,
                 updated_at_ms,
+                context_usage: models.as_ref().and_then(|models| {
+                    opencode_latest_context_usage(&database, &session_id, models)
+                }),
             })
         })
         .collect()
+}
+
+/// Reads only OpenCode's bounded local catalog; custom or missing models degrade to no metric.
+fn read_opencode_model_catalog(path: &Path) -> Option<HashMap<String, OpenCodeCatalogProvider>> {
+    let metadata = fs::symlink_metadata(path).ok()?;
+    if !metadata.is_file()
+        || metadata.file_type().is_symlink()
+        || metadata.len() > MAX_MODEL_CATALOG_BYTES
+    {
+        return None;
+    }
+    let contents = fs::read_to_string(path).ok()?;
+    serde_json::from_str(&contents).ok()
+}
+
+/// Finds the most recent assistant request, even when a user prompt is the latest message.
+fn opencode_latest_context_usage(
+    database: &Connection,
+    session_id: &str,
+    models: &HashMap<String, OpenCodeCatalogProvider>,
+) -> Option<ContextUsage> {
+    let mut statement = database
+        .prepare(
+            "SELECT data FROM message WHERE session_id = ?1 \
+             ORDER BY time_created DESC, id DESC LIMIT 32",
+        )
+        .ok()?;
+    let rows = statement
+        .query_map([session_id], |row| row.get::<_, String>(0))
+        .ok()?;
+    let latest = rows
+        .filter_map(Result::ok)
+        .filter_map(|data| serde_json::from_str::<OpenCodeMessageData>(&data).ok())
+        .find(|message| message.role == "assistant" && message.tokens.is_some());
+    let message = latest?;
+    let provider = models.get(message.provider_id.as_deref()?)?;
+    let window_tokens = provider
+        .models
+        .get(message.model_id.as_deref()?)?
+        .limit
+        .context;
+    if window_tokens == 0 {
+        return None;
+    }
+    let tokens = message.tokens?;
+    let cached = tokens
+        .cache
+        .unwrap_or(OpenCodeCachedInput { read: 0, write: 0 });
+    Some(ContextUsage {
+        used_tokens: tokens
+            .input
+            .saturating_add(cached.read)
+            .saturating_add(cached.write),
+        window_tokens,
+    })
 }
 
 /// Falls back to OpenCode's first real text part before exposing an empty generated title.
@@ -914,7 +1173,7 @@ mod tests {
         SystemAgentActivityAdapter,
     };
     use crate::adapters::process::AgentProcessStates;
-    use crate::domain::agent_activity::AgentActivityStatus;
+    use crate::domain::agent_activity::{AgentActivityStatus, ContextUsage};
     use crate::domain::agent_kind::AgentKind;
     use rusqlite::Connection;
     use std::collections::HashMap;
@@ -1134,6 +1393,68 @@ mod tests {
         assert_eq!(activity.status, AgentActivityStatus::Finish);
         assert!(activity.id.starts_with("codex-"));
         assert!(!activity.id.contains("private-session-id"));
+        assert_eq!(activity.context_usage, None);
+        fs::remove_dir_all(path.parent().expect("test file should have a parent"))
+            .expect("temporary activity directory should be removable");
+    }
+
+    #[test]
+    fn codex_activity_uses_the_latest_input_and_model_window() {
+        let path = temporary_test_file(
+            "codex-context.jsonl",
+            r#"{"type":"event_msg","payload":{"type":"task_started"}}
+{"type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":12000},"model_context_window":200000}}}
+{"type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":45000},"model_context_window":200000}}}"#,
+        );
+
+        let activity = activity_from_transcript(&path, AgentKind::Codex, true, None)
+            .expect("active Codex transcript should produce one activity");
+
+        assert_eq!(
+            activity.context_usage,
+            Some(ContextUsage {
+                used_tokens: 45_000,
+                window_tokens: 200_000,
+            })
+        );
+        fs::remove_dir_all(path.parent().expect("test file should have a parent"))
+            .expect("temporary activity directory should be removable");
+    }
+
+    #[test]
+    fn claude_activity_counts_cached_input_against_the_model_window() {
+        let path = temporary_test_file(
+            "claude-context.jsonl",
+            r#"{"type":"user","message":{"role":"user","content":"Review the authentication flow"}}
+{"type":"assistant","message":{"role":"assistant","model":"claude-sonnet-4-6","stop_reason":"end_turn","usage":{"input_tokens":5000,"cache_creation_input_tokens":3000,"cache_read_input_tokens":12000},"content":"Done"}}"#,
+        );
+
+        let activity = activity_from_transcript(&path, AgentKind::Claude, true, None)
+            .expect("Claude transcript should produce one activity");
+
+        assert_eq!(
+            activity.context_usage,
+            Some(ContextUsage {
+                used_tokens: 20_000,
+                window_tokens: 1_000_000,
+            })
+        );
+        fs::remove_dir_all(path.parent().expect("test file should have a parent"))
+            .expect("temporary activity directory should be removable");
+    }
+
+    #[test]
+    fn claude_hides_context_after_switching_to_an_unknown_model() {
+        let path = temporary_test_file(
+            "claude-unknown-model.jsonl",
+            r#"{"type":"assistant","message":{"role":"assistant","model":"claude-sonnet-4-6","usage":{"input_tokens":20000},"content":"First"}}
+{"type":"assistant","message":{"role":"assistant","model":"custom-model","usage":{"input_tokens":25000},"content":"Second"}}"#,
+        );
+
+        let activity = activity_from_transcript(&path, AgentKind::Claude, true, None)
+            .expect("Claude transcript should produce one activity");
+
+        assert_eq!(activity.context_usage, None);
         fs::remove_dir_all(path.parent().expect("test file should have a parent"))
             .expect("temporary activity directory should be removable");
     }
@@ -1267,7 +1588,7 @@ mod tests {
             .expect("OpenCode fixture should be created");
         drop(database);
 
-        let activities = opencode_activities_from_database(&database_path, false);
+        let activities = opencode_activities_from_database(&database_path, None, false);
 
         assert_eq!(activities.len(), 1);
         assert_eq!(activities[0].agent, AgentKind::OpenCode);
@@ -1278,6 +1599,90 @@ mod tests {
         assert!(!activities[0].id.contains("session-private"));
         fs::remove_dir_all(path.parent().expect("test file should have a parent"))
             .expect("temporary activity directory should be removable");
+    }
+
+    #[test]
+    fn opencode_activity_uses_latest_assistant_input_and_cached_model_limit() {
+        let path = temporary_test_file("placeholder", "unused");
+        let directory = path.parent().expect("test file should have a parent");
+        let database_path = directory.join("opencode.db");
+        let models_path = directory.join("models.json");
+        fs::write(
+            &models_path,
+            r#"{"anthropic":{"models":{"claude-sonnet-4-6":{"limit":{"context":200000}}}}}"#,
+        )
+        .expect("model catalog should be writable");
+        let database = Connection::open(&database_path).expect("test database should open");
+        database
+            .execute_batch(
+                r#"CREATE TABLE session (
+                    id TEXT PRIMARY KEY,
+                    parent_id TEXT,
+                    title TEXT NOT NULL,
+                    time_updated INTEGER NOT NULL,
+                    time_archived INTEGER
+                );
+                CREATE TABLE message (
+                    id TEXT PRIMARY KEY,
+                    session_id TEXT NOT NULL,
+                    time_created INTEGER NOT NULL,
+                    data TEXT NOT NULL
+                );
+                INSERT INTO session VALUES ('session-private', NULL, 'Review release plan', 42, NULL);
+                INSERT INTO message VALUES (
+                    'assistant-1', 'session-private', 40,
+                    '{"role":"assistant","time":{"created":39,"completed":40},"providerID":"anthropic","modelID":"claude-sonnet-4-6","tokens":{"input":4000,"cache":{"read":35000,"write":1000}}}'
+                );
+                INSERT INTO message VALUES (
+                    'user-2', 'session-private', 41,
+                    '{"role":"user","time":{"created":41}}'
+                );"#,
+            )
+            .expect("OpenCode fixture should be created");
+        drop(database);
+
+        let activities =
+            opencode_activities_from_database(&database_path, Some(&models_path), true);
+
+        assert_eq!(activities[0].status, AgentActivityStatus::Running);
+        assert_eq!(
+            activities[0].context_usage,
+            Some(ContextUsage {
+                used_tokens: 40_000,
+                window_tokens: 200_000,
+            })
+        );
+        fs::remove_dir_all(directory).expect("temporary activity directory should be removable");
+    }
+
+    #[test]
+    fn opencode_hides_context_after_switching_to_an_uncatalogued_model() {
+        let path = temporary_test_file("placeholder", "unused");
+        let directory = path.parent().expect("test file should have a parent");
+        let database_path = directory.join("opencode.db");
+        let models_path = directory.join("models.json");
+        fs::write(
+            &models_path,
+            r#"{"anthropic":{"models":{"known":{"limit":{"context":200000}}}}}"#,
+        )
+        .expect("model catalog should be writable");
+        let database = Connection::open(&database_path).expect("test database should open");
+        database
+            .execute_batch(
+                r#"CREATE TABLE session (id TEXT PRIMARY KEY, parent_id TEXT, title TEXT NOT NULL, time_updated INTEGER NOT NULL, time_archived INTEGER);
+                CREATE TABLE message (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, time_created INTEGER NOT NULL, data TEXT NOT NULL);
+                INSERT INTO session VALUES ('session-private', NULL, 'Review release plan', 42, NULL);
+                INSERT INTO message VALUES ('assistant-1', 'session-private', 40, '{"role":"assistant","time":{"created":39,"completed":40},"providerID":"anthropic","modelID":"known","tokens":{"input":20000}}');
+                INSERT INTO message VALUES ('assistant-2', 'session-private', 41, '{"role":"assistant","time":{"created":40,"completed":41},"providerID":"anthropic","modelID":"unknown","tokens":{"input":30000}}');"#,
+            )
+            .expect("OpenCode fixture should be created");
+        drop(database);
+
+        let activities =
+            opencode_activities_from_database(&database_path, Some(&models_path), false);
+
+        assert_eq!(activities[0].context_usage, None);
+        fs::remove_dir_all(directory).expect("temporary activity directory should be removable");
     }
 
     #[test]
