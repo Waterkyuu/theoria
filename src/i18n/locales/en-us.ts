@@ -830,8 +830,6 @@ const enUS = {
 		},
 		runBoard: {
 			title: "Agent run board",
-			searchPlaceholder: "Search agent products",
-			noSearchResults: "No matching agent tasks",
 			empty: "No tasks in this status",
 			untitledTask: "Untitled task",
 			dragStatus: "Drag {{status}} panel",
