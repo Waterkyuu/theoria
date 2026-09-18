@@ -53,7 +53,7 @@ const BenchmarkTagCreatePopover = ({
 
 	return (
 		<Popover
-			className="w-[298px]"
+			className="w-90 max-w-[calc(100vw-2rem)]"
 			title={t("benchmark.newTag")}
 			trigger={
 				<Button
