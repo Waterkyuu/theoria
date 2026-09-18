@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { ArrowsRotateRight, Stop } from "@gravity-ui/icons";
 import { Button, Toast } from "@heroui/react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
@@ -91,21 +92,29 @@ const BenchmarkTaskActions = ({ detail }: BenchmarkTaskActionsProps) => {
 		<div className="flex shrink-0 items-center gap-sm">
 			{active ? (
 				<Button
+					aria-label={
+						detail.cancelRequested
+							? t("benchmark.cancelling")
+							: t("benchmark.cancelRun")
+					}
+					isIconOnly
 					isDisabled={detail.cancelRequested}
 					isPending={cancelMutation.isPending}
 					onPress={cancel}
 					variant="danger"
 				>
-					{detail.cancelRequested
-						? t("benchmark.cancelling")
-						: t("benchmark.cancelRun")}
+					<Stop aria-hidden="true" className="size-4" />
 				</Button>
 			) : null}
 			{terminal ? (
 				<ModalProvider
 					title={t("benchmark.rerun")}
 					description={t("benchmark.rerunDescription")}
-					trigger={<Button>{t("benchmark.rerun")}</Button>}
+					trigger={
+						<Button aria-label={t("benchmark.rerun")} isIconOnly>
+							<ArrowsRotateRight aria-hidden="true" className="size-4" />
+						</Button>
+					}
 					footer={
 						<Button
 							isDisabled={!agents.length}
