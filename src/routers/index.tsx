@@ -10,7 +10,6 @@ import {
 	useParams,
 } from "react-router";
 import { AppSidebar } from "@/components/share/app-sidebar";
-import { Layout } from "@/components/share/layout";
 
 type LastTaskContext =
 	| {
@@ -143,52 +142,44 @@ const RoutedApplication = () => {
 			currentPath={pathname === "/simple-create-skill" ? "/skills" : pathname}
 			onNavigate={(path) => navigate(path)}
 		>
-			<Layout>
-				<Suspense fallback={<RouteLoadingFallback />}>
-					<Routes>
-						<Route element={<StartupRoute />} path="/" />
-						<Route element={<TaskRoute />} path="/task" />
-						<Route element={<TaskRoute />} path="/task/:taskId" />
-						<Route
-							element={<Navigate replace to="/task" />}
-							path="/workspaces"
-						/>
-						<Route
-							element={<WorkspaceRoute />}
-							path="/workspaces/:workspaceId"
-						/>
-						<Route
-							element={<WorkspaceRoute />}
-							path="/workspaces/:workspaceId/task/:taskId"
-						/>
-						<Route element={<RunBoardPage />} path="/runs" />
-						<Route element={<AgentsPage />} path="/agents" />
-						<Route element={<SkillsPage />} path="/skills" />
-						<Route
-							element={<SimpleCreateSkillPage />}
-							path="/simple-create-skill"
-						/>
-						<Route element={<EditSkillPage />} path="/skills/edit-skill" />
-						<Route element={<BenchmarkPage />} path="/benchmark" />
-						<Route element={<BenchmarkEditorPage />} path="/benchmark/new" />
-						<Route element={<BenchmarkDraftsPage />} path="/benchmark/drafts" />
-						<Route
-							element={<BenchmarkEditorPage />}
-							path="/benchmark/drafts/:draftId"
-						/>
-						<Route
-							element={<BenchmarkDetailPage />}
-							path="/benchmark/:benchmarkId"
-						/>
-						<Route
-							element={<WorkspaceBenchmarkPage />}
-							path="/workspaces/:workspaceId/benchmark/:mountId"
-						/>
-						<Route element={<SettingsPage />} path="/settings" />
-						<Route element={<Navigate replace to="/" />} path="*" />
-					</Routes>
-				</Suspense>
-			</Layout>
+			<Suspense fallback={<RouteLoadingFallback />}>
+				<Routes>
+					<Route element={<StartupRoute />} path="/" />
+					<Route element={<TaskRoute />} path="/task" />
+					<Route element={<TaskRoute />} path="/task/:taskId" />
+					<Route element={<Navigate replace to="/task" />} path="/workspaces" />
+					<Route element={<WorkspaceRoute />} path="/workspaces/:workspaceId" />
+					<Route
+						element={<WorkspaceRoute />}
+						path="/workspaces/:workspaceId/task/:taskId"
+					/>
+					<Route element={<RunBoardPage />} path="/runs" />
+					<Route element={<AgentsPage />} path="/agents" />
+					<Route element={<SkillsPage />} path="/skills" />
+					<Route
+						element={<SimpleCreateSkillPage />}
+						path="/simple-create-skill"
+					/>
+					<Route element={<EditSkillPage />} path="/skills/edit-skill" />
+					<Route element={<BenchmarkPage />} path="/benchmark" />
+					<Route element={<BenchmarkEditorPage />} path="/benchmark/new" />
+					<Route element={<BenchmarkDraftsPage />} path="/benchmark/drafts" />
+					<Route
+						element={<BenchmarkEditorPage />}
+						path="/benchmark/drafts/:draftId"
+					/>
+					<Route
+						element={<BenchmarkDetailPage />}
+						path="/benchmark/:benchmarkId"
+					/>
+					<Route
+						element={<WorkspaceBenchmarkPage />}
+						path="/workspaces/:workspaceId/benchmark/:mountId"
+					/>
+					<Route element={<SettingsPage />} path="/settings" />
+					<Route element={<Navigate replace to="/" />} path="*" />
+				</Routes>
+			</Suspense>
 		</AppSidebar>
 	);
 };
