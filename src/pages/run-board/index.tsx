@@ -52,6 +52,27 @@ const BOARD_STATUSES: AgentActivityStatus[] = [
 	"error",
 ];
 
+const BOARD_LAYOUT_STORAGE_KEY = "run-board-panel-order";
+
+/** Restores only a complete permutation of the current panels, so stale saved data cannot hide a panel. */
+const readBoardLayout = (): AgentActivityStatus[] => {
+	try {
+		const saved: unknown = JSON.parse(
+			localStorage.getItem(BOARD_LAYOUT_STORAGE_KEY) ?? "null",
+		);
+		if (
+			Array.isArray(saved) &&
+			saved.length === BOARD_STATUSES.length &&
+			BOARD_STATUSES.every((status) => saved.includes(status))
+		) {
+			return saved as AgentActivityStatus[];
+		}
+	} catch {
+		// An older or malformed value should leave the board usable in default order.
+	}
+	return BOARD_STATUSES;
+};
+
 const CONTEXT_USAGE_BLACKLIST: ReadonlySet<AgentKind> = new Set(["workbuddy"]);
 
 const STATUS_PRESENTATIONS: Record<AgentActivityStatus, StatusPresentation> = {
@@ -76,9 +97,14 @@ const STATUS_PRESENTATIONS: Record<AgentActivityStatus, StatusPresentation> = {
 
 const RunBoardPage = () => {
 	const { i18n, t } = useTranslation();
-	const [layout, setLayout] = useState(BOARD_STATUSES);
+	const [layout, setLayout] = useState(readBoardLayout);
 	const activeDrag = useRef<ActivePanelDrag | null>(null);
 	const [activities, setActivities] = useState<AgentActivity[]>([]);
+
+	// Save only the four panel identifiers; activity cards are always loaded from the backend.
+	useEffect(() => {
+		localStorage.setItem(BOARD_LAYOUT_STORAGE_KEY, JSON.stringify(layout));
+	}, [layout]);
 
 	/** Captures the original panel slots once so hover checks stay stable as panels move.
 	 * @example startPanelDrag(event);

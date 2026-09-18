@@ -12,6 +12,8 @@ const apiMocks = vi.hoisted(() => ({
 
 vi.mock("@/api/agent", () => apiMocks);
 
+const BOARD_LAYOUT_STORAGE_KEY = "run-board-panel-order";
+
 const INITIAL_ACTIVITIES = {
 	activities: [
 		{
@@ -48,6 +50,7 @@ const INITIAL_ACTIVITIES = {
 // Covers the user-visible run board workflow.
 describe("RunBoardPage", () => {
 	beforeEach(() => {
+		localStorage.removeItem(BOARD_LAYOUT_STORAGE_KEY);
 		apiMocks.checkAgentActivities.mockResolvedValue(INITIAL_ACTIVITIES);
 		apiMocks.onAgentActivitiesChanged.mockResolvedValue(vi.fn());
 	});
@@ -360,5 +363,95 @@ describe("RunBoardPage", () => {
 				.getAllByRole("heading", { level: 2 })
 				.map((heading) => heading.textContent),
 		).toEqual(["等待用户1", "运行中1", "已完成1", "异常1"]);
+	});
+
+	it("restores saved panel order and saves later changes", async () => {
+		localStorage.setItem(
+			BOARD_LAYOUT_STORAGE_KEY,
+			JSON.stringify(["finish", "running", "waiting", "error"]),
+		);
+		const user = userEvent.setup();
+		const { unmount } = render(<RunBoardPage />);
+		await screen.findAllByRole("article");
+		const names = () =>
+			screen
+				.getAllByRole("heading", { level: 2 })
+				.map((heading) => heading.textContent);
+		expect(names()).toEqual(["已完成1", "运行中1", "等待用户1", "异常1"]);
+
+		screen.getByRole("button", { name: "拖动已完成面板" }).focus();
+		await user.keyboard("{ArrowRight}");
+		expect(names()).toEqual(["运行中1", "已完成1", "等待用户1", "异常1"]);
+		expect(localStorage.getItem(BOARD_LAYOUT_STORAGE_KEY)).toBe(
+			JSON.stringify(["running", "finish", "waiting", "error"]),
+		);
+
+		unmount();
+		render(<RunBoardPage />);
+		await screen.findAllByRole("article");
+		expect(names()).toEqual(["运行中1", "已完成1", "等待用户1", "异常1"]);
+	});
+
+	it("uses default order when saved panel order is invalid", async () => {
+		localStorage.setItem(
+			BOARD_LAYOUT_STORAGE_KEY,
+			JSON.stringify(["running", "running", "finish", "error"]),
+		);
+		render(<RunBoardPage />);
+		await screen.findAllByRole("article");
+		expect(
+			screen
+				.getAllByRole("heading", { level: 2 })
+				.map((heading) => heading.textContent),
+		).toEqual(["运行中1", "等待用户1", "已完成1", "异常1"]);
+	});
+
+	it("searches board tasks by agent name and title", async () => {
+		const user = userEvent.setup();
+		render(<RunBoardPage />);
+		await screen.findAllByRole("article");
+
+		await user.click(screen.getByRole("button", { name: "搜索任务" }));
+		const dialog = await screen.findByRole("dialog", { name: "搜索任务" });
+		const search = within(dialog).getByRole("searchbox", {
+			name: "搜索任务或 Agent",
+		});
+
+		await user.type(search, "Claude");
+		expect(within(dialog).getByText("未命名任务")).toBeInTheDocument();
+		expect(
+			within(dialog).queryByText("优化看板标题显示"),
+		).not.toBeInTheDocument();
+
+		await user.clear(search);
+		await user.type(search, "优化看板");
+		expect(within(dialog).getByText("优化看板标题显示")).toBeInTheDocument();
+
+		await user.clear(search);
+		await user.type(search, "no matching task");
+		expect(within(dialog).getByText("没有找到匹配的任务")).toBeInTheDocument();
+	});
+
+	it("selects a search result and focuses its board card", async () => {
+		const user = userEvent.setup();
+		render(<RunBoardPage />);
+		await screen.findAllByRole("article");
+
+		await user.click(screen.getByRole("button", { name: "搜索任务" }));
+		const dialog = await screen.findByRole("dialog", { name: "搜索任务" });
+		await user.type(
+			within(dialog).getByRole("searchbox", { name: "搜索任务或 Agent" }),
+			"优化看板",
+		);
+		await user.click(
+			within(dialog).getByRole("button", { name: /优化看板标题显示/ }),
+		);
+
+		expect(
+			screen.queryByRole("dialog", { name: "搜索任务" }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.getByRole("article", { name: "优化看板标题显示" }),
+		).toHaveFocus();
 	});
 });
