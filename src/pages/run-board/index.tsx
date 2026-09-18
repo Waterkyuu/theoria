@@ -10,8 +10,6 @@ import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { AgentIcon } from "@/components/share/agent-icon";
 import { PageHeader } from "@/components/share/page-header";
-import { SearchBox } from "@/components/ui/search-box";
-import { debounce } from "@/utils/common";
 import { checkAgentActivities, onAgentActivitiesChanged } from "@/api/agent";
 import type { AgentActivity, AgentActivityStatus } from "@/types/agent";
 
@@ -68,10 +66,7 @@ const RunBoardPage = () => {
 	const { i18n, t } = useTranslation();
 	const [layout, setLayout] = useState(BOARD_STATUSES);
 	const activeDrag = useRef<ActivePanelDrag | null>(null);
-	const [agentInput, setAgentInput] = useState("");
-	const [agentQuery, setAgentQuery] = useState("");
 	const [activities, setActivities] = useState<AgentActivity[]>([]);
-	const agentSearchTerm = agentQuery.trim().toLocaleLowerCase();
 
 	/** Ends the pointer gesture after finding the panel underneath the dragged panel.
 	 * @example finishPanelDrag(event, false);
@@ -148,15 +143,6 @@ const RunBoardPage = () => {
 		};
 	}, []);
 
-	// Applies only the latest agent input after the user pauses typing.
-	useEffect(() => {
-		const updateAgentQuery = debounce(setAgentQuery);
-
-		updateAgentQuery(agentInput);
-
-		return updateAgentQuery.cancel;
-	}, [agentInput]);
-
 	return (
 		<main className="flex h-[100dvh] min-w-0 flex-1 flex-col overflow-hidden bg-canvas max-md:h-[calc(100dvh-4rem)]">
 			<PageHeader>
@@ -166,30 +152,14 @@ const RunBoardPage = () => {
 			</PageHeader>
 
 			<div className="min-h-0 flex-1 overflow-y-auto">
-				<div className="mx-auto max-w-330">
-					<div className="mb-5 flex w-full justify-end">
-						<div className="w-full sm:w-72">
-							<SearchBox
-								onValueChange={setAgentInput}
-								placeholder={t("runBoard.searchPlaceholder")}
-								value={agentInput}
-							/>
-						</div>
-					</div>
-
+				<div className="mx-auto max-w-330 pt-5">
 					<div
 						className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4"
 						data-testid="run-board"
 					>
 						{layout.map((status) => {
 							const presentation = STATUS_PRESENTATIONS[status];
-							const items = activities.filter(
-								(item) =>
-									item.status === status &&
-									t(`agentNames.${item.agent}`)
-										.toLocaleLowerCase()
-										.includes(agentSearchTerm),
-							);
+							const items = activities.filter((item) => item.status === status);
 
 							return (
 								<section
@@ -351,9 +321,7 @@ const RunBoardPage = () => {
 											})
 										) : (
 											<p className="px-4 py-10 text-center text-caption-sm text-body">
-												{agentSearchTerm
-													? t("runBoard.noSearchResults")
-													: t("runBoard.empty")}
+												{t("runBoard.empty")}
 											</p>
 										)}
 									</div>

@@ -151,36 +151,12 @@ describe("RunBoardPage", () => {
 		).toBeInTheDocument();
 	});
 
-	// Verifies that rapid input only applies the latest agent product name after the delay.
-	it("debounces agent product filtering", async () => {
-		vi.useFakeTimers();
-		render(<RunBoardPage />);
-		await act(async () => Promise.resolve());
-
-		const searchInput = screen.getByRole("searchbox", {
-			name: "搜索 Agent 产品",
-		});
-		fireEvent.change(searchInput, { target: { value: "Claude" } });
-		act(() => vi.advanceTimersByTime(200));
-		fireEvent.change(searchInput, { target: { value: "  CODEX  " } });
-		act(() => vi.advanceTimersByTime(299));
-
-		expect(screen.getAllByRole("article")).toHaveLength(4);
-
-		act(() => vi.advanceTimersByTime(1));
-
-		expect(screen.getAllByRole("article")).toHaveLength(2);
-		expect(screen.getAllByText("Codex")).toHaveLength(2);
-		expect(screen.queryByText("Claude Code")).not.toBeInTheDocument();
-		expect(screen.queryByText("WorkBuddy")).not.toBeInTheDocument();
-	});
-
-	it("shows search without layout controls", () => {
+	it("shows status panels without search or layout controls", () => {
 		render(<RunBoardPage />);
 
 		expect(
-			screen.getByRole("searchbox", { name: "搜索 Agent 产品" }),
-		).toBeInTheDocument();
+			screen.queryByRole("searchbox", { name: "搜索 Agent 产品" }),
+		).not.toBeInTheDocument();
 		expect(
 			screen.queryByRole("group", { name: "切换看板布局" }),
 		).not.toBeInTheDocument();
