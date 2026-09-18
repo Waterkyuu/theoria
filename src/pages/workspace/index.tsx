@@ -244,28 +244,28 @@ const WorkTaskPage = ({ workspaceId, taskId }: WorkspacePageProps) => {
 
 	return (
 		<main className="relative flex h-dvh min-w-0 flex-1 flex-col overflow-hidden bg-canvas max-md:h-[calc(100dvh-4rem)]">
-			{workspaceId || task ? (
-				<PageHeader>
-					<p className="truncate text-body-sm font-medium text-charcoal">
-						{task
-							? task.task.title
-							: t("workspace.breadcrumb", { workspace: workspaceName })}
-					</p>
-					<div className="flex shrink-0 items-center gap-md">
-						{task ? (
-							<button
-								aria-pressed={isResultSummaryOpen}
-								className="flex h-7 items-center gap-xs rounded-md border border-hairline bg-surface-card px-sm text-caption-sm font-medium text-charcoal outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
-								onClick={() => setIsResultSummaryOpen((open) => !open)}
-								type="button"
-							>
-								<LayoutColumns3 aria-hidden="true" className="size-4" />
-								{t("taskSummary.open")}
-							</button>
-						) : null}
-					</div>
-				</PageHeader>
-			) : null}
+			<PageHeader>
+				<p className="truncate text-body-sm font-medium text-charcoal">
+					{task
+						? task.task.title
+						: workspaceId
+							? t("workspace.breadcrumb", { workspace: workspaceName })
+							: t("navigation.newTask")}
+				</p>
+				<div className="flex shrink-0 items-center gap-md">
+					{task ? (
+						<button
+							aria-pressed={isResultSummaryOpen}
+							className="flex h-7 items-center gap-xs rounded-md border border-hairline bg-surface-card px-sm text-caption-sm font-medium text-charcoal outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
+							onClick={() => setIsResultSummaryOpen((open) => !open)}
+							type="button"
+						>
+							<LayoutColumns3 aria-hidden="true" className="size-4" />
+							{t("taskSummary.open")}
+						</button>
+					) : null}
+				</div>
+			</PageHeader>
 
 			<TaskSplitLayout
 				resizerLabel={t("taskSummary.resize")}
