@@ -20,8 +20,8 @@ type ModalProviderBaseProps = {
 	footer?: ReactNode;
 	/** The size forwarded to the underlying Modal. Defaults to md. */
 	size?: ModalProviderSize;
-	/** The modal title. */
-	title: string;
+	/** The modal title, including optional decorative content. */
+	title: string | ReactElement;
 };
 
 type ModalProviderControlledProps = {
