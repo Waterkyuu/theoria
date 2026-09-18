@@ -830,6 +830,9 @@ const enUS = {
 		},
 		runBoard: {
 			title: "Agent run board",
+			searchTitle: "Search tasks",
+			searchPlaceholder: "Search tasks or agents",
+			searchEmpty: "No matching tasks",
 			contextUsage: "Context usage",
 			empty: "No tasks in this status",
 			untitledTask: "Untitled task",
