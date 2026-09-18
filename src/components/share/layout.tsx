@@ -1,18 +1,20 @@
 import type { ReactNode } from "react";
-import { cn } from "cnfast";
+import { PageHeaderHost } from "@/components/share/page-header";
 
 type LayoutProps = {
 	/** Page content placed below the shared header. */
-	children?: ReactNode;
-	/** Lets pages choose scrolling or pane layout without changing the shared inset. */
-	className?: string;
+	children: ReactNode;
 };
 
-/** Keeps the main area consistently inset from the sidebar and shared page header.
- * @example <Layout className="overflow-y-auto"><section>Tasks</section></Layout>
+/** Keeps route content consistently inset below the shared page header.
+ * @example <Layout><Routes /></Layout>
  */
-const Layout = ({ children, className }: LayoutProps) => (
-	<div className={cn("min-h-0 min-w-0 flex-1 p-6", className)}>{children}</div>
+const Layout = ({ children }: LayoutProps) => (
+	<PageHeaderHost>
+		<div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-6 [&>main]:!h-full">
+			{children}
+		</div>
+	</PageHeaderHost>
 );
 
 export { Layout };

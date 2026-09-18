@@ -3,7 +3,6 @@ import { Button, Input, Label, Spinner, TextField, Toast } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
-import { Layout } from "@/components/share/layout";
 import { PageHeader } from "@/components/share/page-header";
 import { ModalProvider } from "@/components/ui/modal-provider";
 import { handleError } from "@/utils/error";
@@ -195,7 +194,7 @@ const SkillsPage = () => {
 				</p>
 			</PageHeader>
 
-			<Layout className="overflow-y-auto">
+			<div className="min-h-0 flex-1 overflow-y-auto">
 				<div className="flex flex-col items-start justify-between gap-lg sm:flex-row sm:gap-xl">
 					<div className="min-w-0">
 						<h1 className="font-primary text-[28px] font-semibold leading-[34px] text-ink">
@@ -260,7 +259,7 @@ const SkillsPage = () => {
 					skills={visibleSkills}
 					status={tableStatus}
 				/>
-			</Layout>
+			</div>
 			{managedSkill ? (
 				<WorkspaceMountModal
 					isOpen

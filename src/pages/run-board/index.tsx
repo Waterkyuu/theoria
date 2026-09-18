@@ -9,7 +9,6 @@ import { Card, Chip } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { AgentIcon } from "@/components/share/agent-icon";
-import { Layout } from "@/components/share/layout";
 import { PageHeader } from "@/components/share/page-header";
 import { SearchBox } from "@/components/ui/search-box";
 import { debounce } from "@/utils/common";
@@ -166,7 +165,7 @@ const RunBoardPage = () => {
 				</p>
 			</PageHeader>
 
-			<Layout className="overflow-y-auto">
+			<div className="min-h-0 flex-1 overflow-y-auto">
 				<div className="mx-auto max-w-330">
 					<div className="mb-5 flex w-full justify-end">
 						<div className="w-full sm:w-72">
@@ -363,7 +362,7 @@ const RunBoardPage = () => {
 						})}
 					</div>
 				</div>
-			</Layout>
+			</div>
 		</main>
 	);
 };
