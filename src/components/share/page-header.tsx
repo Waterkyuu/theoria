@@ -40,7 +40,10 @@ const PageHeaderHost = ({ children }: PageHeaderHostProps) => {
 const PageHeader = ({ children }: PageHeaderProps) => {
 	const target = useContext(PageHeaderTargetContext);
 	const header = (
-		<header className="flex h-11 shrink-0 items-center justify-between gap-lg border-b border-hairline px-6">
+		<header
+			className="flex h-11 shrink-0 items-center justify-between gap-lg border-b border-hairline px-6"
+			data-page-header
+		>
 			{children}
 		</header>
 	);

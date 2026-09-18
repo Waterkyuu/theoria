@@ -332,7 +332,7 @@ const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 				className={cn(
 					"relative min-w-0 flex-1 max-md:pb-16",
 					!isSidebarVisible &&
-						"[&>main>header:first-child]:pl-[128px] max-md:[&>main>header:first-child]:pl-4",
+						"[&_[data-page-header]]:pl-32 max-md:[&_[data-page-header]]:pl-4",
 				)}
 			>
 				{isSidebarVisible ? null : (
