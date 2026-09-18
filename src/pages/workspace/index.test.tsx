@@ -296,7 +296,7 @@ describe("WorkspacePage", () => {
 
 	it("renders the composer without the welcome empty state", () => {
 		render(<WorkspacePage />);
-		expect(screen.getByRole("banner")).toHaveTextContent("新任务");
+		expect(screen.queryByRole("banner")).not.toBeInTheDocument();
 
 		expect(
 			screen.queryByRole("heading", { name: "从 agent-gauge 开始" }),
