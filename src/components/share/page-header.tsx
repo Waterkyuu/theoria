@@ -6,13 +6,16 @@ type PageHeaderProps = {
 };
 
 /**
- * Keeps page-level title bars visually aligned while leaving their content flexible.
+ * Keeps each page's own title bar visually aligned with its actions.
  *
  * @example
  * <PageHeader><p>Tasks</p><button type="button">Summary</button></PageHeader>
  */
 const PageHeader = ({ children }: PageHeaderProps) => (
-	<header className="flex h-11 shrink-0 items-center justify-between gap-lg border-b border-hairline px-4 sm:px-xl">
+	<header
+		className="flex h-11 shrink-0 items-center justify-between gap-lg border-b border-hairline px-6"
+		data-page-header
+	>
 		{children}
 	</header>
 );

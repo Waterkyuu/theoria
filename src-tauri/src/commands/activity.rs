@@ -1,4 +1,4 @@
-use crate::domain::agent_activity::{AgentActivity, AgentActivityStatus};
+use crate::domain::agent_activity::{AgentActivity, AgentActivityStatus, ContextUsage};
 use crate::services::activity::SystemAgentActivityMonitor;
 use serde::Serialize;
 use tauri::State;
@@ -25,6 +25,27 @@ struct AgentActivityResponse {
     status: &'static str,
     /// Last source modification time in Unix milliseconds.
     updated_at_ms: u64,
+    /// Last reported model-input occupancy when the Agent exposes it.
+    context_usage: Option<ContextUsageResponse>,
+}
+
+/// Bounded token counts used to render one card's context progress.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ContextUsageResponse {
+    /// Tokens in the most recently reported model input.
+    used_tokens: u64,
+    /// Maximum context tokens for that model.
+    window_tokens: u64,
+}
+
+impl From<ContextUsage> for ContextUsageResponse {
+    fn from(value: ContextUsage) -> Self {
+        Self {
+            used_tokens: value.used_tokens,
+            window_tokens: value.window_tokens,
+        }
+    }
 }
 
 impl From<Vec<AgentActivity>> for AgentActivitiesResponse {
@@ -43,6 +64,7 @@ impl From<Vec<AgentActivity>> for AgentActivitiesResponse {
                         AgentActivityStatus::Error => "error",
                     },
                     updated_at_ms: activity.updated_at_ms,
+                    context_usage: activity.context_usage.map(Into::into),
                 })
                 .collect(),
         }
@@ -71,6 +93,7 @@ mod tests {
             agent: AgentKind::Codex,
             status: AgentActivityStatus::Waiting,
             updated_at_ms: 42,
+            context_usage: None,
         }]);
 
         let value = serde_json::to_value(response).expect("activity response should serialize");
@@ -80,9 +103,12 @@ mod tests {
         assert_eq!(value["activities"][0]["agent"], "codex");
         assert_eq!(value["activities"][0]["status"], "waiting");
         assert_eq!(value["activities"][0]["updatedAtMs"], 42);
+        assert!(value["activities"][0]
+            .as_object()
+            .is_some_and(|item| item.contains_key("contextUsage")));
         assert_eq!(
             value["activities"][0].as_object().map(|item| item.len()),
-            Some(5)
+            Some(6)
         );
     }
 }

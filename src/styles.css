@@ -76,6 +76,7 @@
 	--app-spacing-xl: 24px;
 	--app-spacing-xxl: 32px;
 	--app-spacing-section: 88px;
+	--main-content-layout: 24px;
 	--radius-none: 0px;
 	--radius-sm: 6px;
 	--radius-md: 8px;
@@ -142,6 +143,10 @@
 
 @utility pl-* {
 	padding-left: --value(--app-spacing-*);
+}
+
+@utility main-content-layout {
+	padding: var(--main-content-layout);
 }
 
 @utility space-y-xs {

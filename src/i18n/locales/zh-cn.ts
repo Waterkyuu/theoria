@@ -803,13 +803,13 @@ const zhCN = {
 		},
 		runBoard: {
 			title: "Agent 运行看板",
-			searchPlaceholder: "搜索 Agent 产品",
-			noSearchResults: "没有匹配的 Agent 任务",
-			layoutSelection: "切换看板布局",
-			verticalLayout: "竖面板",
-			horizontalLayout: "水平面板",
+			searchTitle: "搜索任务",
+			searchPlaceholder: "搜索任务或 Agent",
+			searchEmpty: "没有找到匹配的任务",
+			contextUsage: "上下文占用",
 			empty: "此状态下暂无任务",
 			untitledTask: "未命名任务",
+			dragStatus: "拖动{{status}}面板",
 			status: {
 				running: "运行中",
 				waiting: "等待用户",

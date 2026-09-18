@@ -9,6 +9,13 @@ const AgentActivityStatusSchema = z.literal([
 	"error",
 ]);
 
+const ContextUsageSchema = z.object({
+	/** Tokens in the latest reported model input. */
+	usedTokens: z.int().nonnegative(),
+	/** Context-window capacity of the model that processed that input. */
+	windowTokens: z.int().positive(),
+});
+
 const AgentActivitySchema = z.object({
 	/** Opaque local identifier that does not reveal the product session ID. */
 	id: z.string(),
@@ -20,6 +27,8 @@ const AgentActivitySchema = z.object({
 	status: AgentActivityStatusSchema,
 	/** Latest source observation time in Unix milliseconds. */
 	updatedAtMs: z.int().nonnegative(),
+	/** Latest context occupancy, absent when the product cannot report a reliable value. */
+	contextUsage: ContextUsageSchema.nullable(),
 });
 
 const AgentActivitiesResponseSchema = z.object({

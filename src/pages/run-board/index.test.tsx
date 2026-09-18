@@ -12,6 +12,8 @@ const apiMocks = vi.hoisted(() => ({
 
 vi.mock("@/api/agent", () => apiMocks);
 
+const BOARD_LAYOUT_STORAGE_KEY = "run-board-panel-order";
+
 const INITIAL_ACTIVITIES = {
 	activities: [
 		{
@@ -48,6 +50,7 @@ const INITIAL_ACTIVITIES = {
 // Covers the user-visible run board workflow.
 describe("RunBoardPage", () => {
 	beforeEach(() => {
+		localStorage.removeItem(BOARD_LAYOUT_STORAGE_KEY);
 		apiMocks.checkAgentActivities.mockResolvedValue(INITIAL_ACTIVITIES);
 		apiMocks.onAgentActivitiesChanged.mockResolvedValue(vi.fn());
 	});
@@ -150,81 +153,294 @@ describe("RunBoardPage", () => {
 		).toBeInTheDocument();
 	});
 
-	// Verifies that rapid input only applies the latest agent product name after the delay.
-	it("debounces agent product filtering", async () => {
-		vi.useFakeTimers();
-		render(<RunBoardPage />);
-		await act(async () => Promise.resolve());
-
-		const searchInput = screen.getByRole("searchbox", {
-			name: "搜索 Agent 产品",
+	// Each source keeps its own usage while unsupported or incomplete sources stay visually quiet.
+	it("shows context progress only for supported agents with complete usage", async () => {
+		apiMocks.checkAgentActivities.mockResolvedValueOnce({
+			activities: [
+				{
+					id: "codex-context",
+					title: "Codex context",
+					agent: "codex",
+					status: "running",
+					updatedAtMs: 42,
+					contextUsage: { usedTokens: 25_000, windowTokens: 100_000 },
+				},
+				{
+					id: "claude-context",
+					title: "Claude context",
+					agent: "claude",
+					status: "waiting",
+					updatedAtMs: 42,
+					contextUsage: { usedTokens: 90_000, windowTokens: 200_000 },
+				},
+				{
+					id: "opencode-context",
+					title: "OpenCode context",
+					agent: "opencode",
+					status: "finish",
+					updatedAtMs: 42,
+					contextUsage: { usedTokens: 70_000, windowTokens: 200_000 },
+				},
+				{
+					id: "workbuddy-context",
+					title: "WorkBuddy context",
+					agent: "workbuddy",
+					status: "error",
+					updatedAtMs: 42,
+					contextUsage: { usedTokens: 80_000, windowTokens: 200_000 },
+				},
+				{
+					id: "codex-unavailable",
+					title: "Unknown context",
+					agent: "codex",
+					status: "running",
+					updatedAtMs: 42,
+					contextUsage: null,
+				},
+			],
 		});
-		fireEvent.change(searchInput, { target: { value: "Claude" } });
-		act(() => vi.advanceTimersByTime(200));
-		fireEvent.change(searchInput, { target: { value: "  CODEX  " } });
-		act(() => vi.advanceTimersByTime(299));
+		render(<RunBoardPage />);
 
-		expect(screen.getAllByRole("article")).toHaveLength(4);
-
-		act(() => vi.advanceTimersByTime(1));
-
-		expect(screen.getAllByRole("article")).toHaveLength(2);
-		expect(screen.getAllByText("Codex")).toHaveLength(2);
-		expect(screen.queryByText("Claude Code")).not.toBeInTheDocument();
-		expect(screen.queryByText("WorkBuddy")).not.toBeInTheDocument();
+		const cards = await screen.findAllByRole("article");
+		const card = (title: string) =>
+			cards.find((item) =>
+				within(item).queryByRole("heading", { name: title }),
+			);
+		for (const [title, percentage] of [
+			["Codex context", 25],
+			["Claude context", 45],
+			["OpenCode context", 35],
+		] as const) {
+			const article = card(title);
+			expect(article).toBeDefined();
+			expect(
+				within(article as HTMLElement).getByRole("progressbar", {
+					name: "上下文占用",
+				}),
+			).toHaveAttribute("aria-valuenow", String(percentage));
+			expect(
+				within(article as HTMLElement).getByText(`${percentage}%`),
+			).toBeInTheDocument();
+		}
+		expect(
+			within(card("WorkBuddy context") as HTMLElement).queryByRole(
+				"progressbar",
+			),
+		).not.toBeInTheDocument();
+		expect(
+			within(card("Unknown context") as HTMLElement).queryByRole("progressbar"),
+		).not.toBeInTheDocument();
 	});
 
-	// Verifies that the board can switch between vertical columns and horizontal rows.
-	it("switches between vertical and horizontal layouts", async () => {
-		const user = userEvent.setup();
+	it("uses blue below 80% context occupancy and orange from 80%", async () => {
+		apiMocks.checkAgentActivities.mockResolvedValueOnce({
+			activities: [
+				{
+					id: "context-below-threshold",
+					title: "Below threshold",
+					agent: "claude",
+					status: "waiting",
+					updatedAtMs: 42,
+					contextUsage: { usedTokens: 79_000, windowTokens: 100_000 },
+				},
+				{
+					id: "context-at-threshold",
+					title: "At threshold",
+					agent: "opencode",
+					status: "finish",
+					updatedAtMs: 42,
+					contextUsage: { usedTokens: 80_000, windowTokens: 100_000 },
+				},
+			],
+		});
 		render(<RunBoardPage />);
 
-		const layoutGroup = screen.getByRole("group", {
-			name: "切换看板布局",
-		});
+		const cards = await screen.findAllByRole("article");
+		const fill = (title: string) =>
+			cards
+				.find((card) => within(card).queryByRole("heading", { name: title }))
+				?.querySelector('[data-slot="progress-bar-fill"]');
+		expect(fill("Below threshold")).toHaveClass("bg-blue-600");
+		expect(fill("At threshold")).toHaveClass("bg-orange-500");
+	});
+
+	it("shows status panels without search or layout controls", () => {
+		render(<RunBoardPage />);
+
+		expect(
+			screen.queryByRole("searchbox", { name: "搜索 Agent 产品" }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("group", { name: "切换看板布局" }),
+		).not.toBeInTheDocument();
+	});
+
+	// Neighboring panels should take their new slots before the pointer is released.
+	it("moves occupied panels aside while dragging the whole status panel", async () => {
+		render(<RunBoardPage />);
+		await screen.findAllByRole("article");
 		const board = screen.getByTestId("run-board");
-		const verticalButton = within(layoutGroup).getByRole("button", {
-			name: "竖面板",
+		const names = () =>
+			within(board)
+				.getAllByRole("heading", { level: 2 })
+				.map((heading) => heading.textContent);
+		expect(names()).toEqual(["运行中1", "等待用户1", "已完成1", "异常1"]);
+
+		const panels = within(board).getAllByRole("region");
+		for (const [index, panel] of panels.entries()) {
+			vi.spyOn(panel, "getBoundingClientRect").mockReturnValue({
+				left: index * 100,
+				right: index * 100 + 100,
+				top: 0,
+				bottom: 100,
+			} as DOMRect);
+		}
+		const [source, waiting, finished] = panels;
+		fireEvent.pointerDown(source, {
+			button: 0,
+			pointerId: 1,
+			pointerType: "mouse",
+			clientX: 50,
+			clientY: 50,
 		});
-		const horizontalButton = within(layoutGroup).getByRole("button", {
-			name: "水平面板",
+		fireEvent.pointerMove(source, {
+			pointerId: 1,
+			pointerType: "mouse",
+			clientX: 250,
+			clientY: 50,
 		});
-
-		expect(verticalButton).toHaveAttribute("aria-pressed", "true");
-		expect(horizontalButton).toHaveAttribute("aria-pressed", "false");
-		expect(verticalButton).not.toHaveTextContent("竖面板");
-		expect(horizontalButton).not.toHaveTextContent("水平面板");
-		expect(board).toHaveAttribute("data-layout", "vertical");
-
-		await user.click(horizontalButton);
-
-		expect(verticalButton).toHaveAttribute("aria-pressed", "false");
-		expect(horizontalButton).toHaveAttribute("aria-pressed", "true");
-		expect(board).toHaveAttribute("data-layout", "horizontal");
+		expect(waiting).toHaveStyle({ transform: "translate3d(-100px, 0px, 0px)" });
+		expect(finished).toHaveStyle({
+			transform: "translate3d(-100px, 0px, 0px)",
+		});
+		expect(source).toHaveStyle({ transform: "translate3d(200px, 0px, 0px)" });
+		fireEvent.pointerUp(source, {
+			pointerId: 1,
+			pointerType: "mouse",
+			clientX: 250,
+			clientY: 50,
+		});
+		expect(names()).toEqual(["等待用户1", "已完成1", "运行中1", "异常1"]);
+		expect(within(source).getByRole("article")).toHaveTextContent(
+			"优化看板标题显示",
+		);
 	});
 
-	// Verifies that both icon-only board layout controls expose their meaning.
-	it("describes both layout controls on hover", async () => {
+	it("moves the entire panel with the pointer before drop", async () => {
+		render(<RunBoardPage />);
+		await screen.findAllByRole("article");
+		const panel = screen.getByRole("region", { name: "运行中1" });
+
+		fireEvent.pointerDown(panel, {
+			button: 0,
+			pointerId: 1,
+			pointerType: "mouse",
+			clientX: 100,
+			clientY: 100,
+		});
+		fireEvent.pointerMove(panel, {
+			pointerId: 1,
+			pointerType: "mouse",
+			clientX: 130,
+			clientY: 140,
+		});
+
+		expect(panel).toHaveStyle({ transform: "translate3d(30px, 40px, 0px)" });
+	});
+
+	it("moves a focused panel with arrow keys", async () => {
 		const user = userEvent.setup();
 		render(<RunBoardPage />);
+		await screen.findAllByRole("article");
+		const board = screen.getByTestId("run-board");
+		const grip = screen.getByRole("button", { name: "拖动运行中面板" });
 
-		const layoutGroup = screen.getByRole("group", {
-			name: "切换看板布局",
-		});
-		const verticalButton = within(layoutGroup).getByRole("button", {
-			name: "竖面板",
-		});
-		const horizontalButton = within(layoutGroup).getByRole("button", {
-			name: "水平面板",
+		grip.focus();
+		await user.keyboard("{ArrowRight}");
+
+		expect(
+			within(board)
+				.getAllByRole("heading", { level: 2 })
+				.map((heading) => heading.textContent),
+		).toEqual(["等待用户1", "运行中1", "已完成1", "异常1"]);
+	});
+
+	it("restores saved panel order and saves later changes", async () => {
+		localStorage.setItem(
+			BOARD_LAYOUT_STORAGE_KEY,
+			JSON.stringify(["finish", "running", "waiting", "error"]),
+		);
+		const user = userEvent.setup();
+		const { unmount } = render(<RunBoardPage />);
+		await screen.findAllByRole("article");
+		const names = () =>
+			screen
+				.getAllByRole("heading", { level: 2 })
+				.map((heading) => heading.textContent);
+		expect(names()).toEqual(["已完成1", "运行中1", "等待用户1", "异常1"]);
+
+		screen.getByRole("button", { name: "拖动已完成面板" }).focus();
+		await user.keyboard("{ArrowRight}");
+		expect(names()).toEqual(["运行中1", "已完成1", "等待用户1", "异常1"]);
+		expect(localStorage.getItem(BOARD_LAYOUT_STORAGE_KEY)).toBe(
+			JSON.stringify(["running", "finish", "waiting", "error"]),
+		);
+
+		unmount();
+		render(<RunBoardPage />);
+		await screen.findAllByRole("article");
+		expect(names()).toEqual(["运行中1", "已完成1", "等待用户1", "异常1"]);
+	});
+
+	it("searches board tasks by agent name and title", async () => {
+		const user = userEvent.setup();
+		render(<RunBoardPage />);
+		await screen.findAllByRole("article");
+
+		await user.click(screen.getByRole("button", { name: "搜索任务" }));
+		const dialog = await screen.findByRole("dialog", { name: "搜索任务" });
+		const search = within(dialog).getByRole("searchbox", {
+			name: "搜索任务或 Agent",
 		});
 
-		await user.hover(verticalButton);
-		const verticalTooltip = await screen.findByRole("tooltip");
-		expect(verticalTooltip).toHaveTextContent("竖面板");
+		await user.type(search, "Claude");
+		expect(screen.getByTestId("run-board-search-query")).toHaveTextContent(
+			"Claude",
+		);
+		expect(within(dialog).getByText("未命名任务")).toBeInTheDocument();
+		expect(
+			within(dialog).queryByText("优化看板标题显示"),
+		).not.toBeInTheDocument();
 
-		await user.unhover(verticalButton);
-		await user.hover(horizontalButton);
-		const horizontalTooltip = await screen.findByRole("tooltip");
-		expect(horizontalTooltip).toHaveTextContent("水平面板");
+		await user.clear(search);
+		await user.type(search, "优化看板");
+		expect(within(dialog).getByText("优化看板标题显示")).toBeInTheDocument();
+
+		await user.clear(search);
+		await user.type(search, "no matching task");
+		expect(within(dialog).getByText("没有找到匹配的任务")).toBeInTheDocument();
+	});
+
+	it("selects a search result and focuses its board card", async () => {
+		const user = userEvent.setup();
+		render(<RunBoardPage />);
+		await screen.findAllByRole("article");
+
+		await user.click(screen.getByRole("button", { name: "搜索任务" }));
+		const dialog = await screen.findByRole("dialog", { name: "搜索任务" });
+		await user.type(
+			within(dialog).getByRole("searchbox", { name: "搜索任务或 Agent" }),
+			"优化看板",
+		);
+		await user.click(
+			within(dialog).getByRole("button", { name: /优化看板标题显示/ }),
+		);
+
+		expect(
+			screen.queryByRole("dialog", { name: "搜索任务" }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.getByRole("article", { name: "优化看板标题显示" }),
+		).toHaveFocus();
 	});
 });

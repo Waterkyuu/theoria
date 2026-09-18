@@ -830,13 +830,13 @@ const enUS = {
 		},
 		runBoard: {
 			title: "Agent run board",
-			searchPlaceholder: "Search agent products",
-			noSearchResults: "No matching agent tasks",
-			layoutSelection: "Switch run board layout",
-			verticalLayout: "Vertical panel",
-			horizontalLayout: "Horizontal panel",
+			searchTitle: "Search tasks",
+			searchPlaceholder: "Search tasks or agents",
+			searchEmpty: "No matching tasks",
+			contextUsage: "Context usage",
 			empty: "No tasks in this status",
 			untitledTask: "Untitled task",
+			dragStatus: "Drag {{status}} panel",
 			status: {
 				running: "Running",
 				waiting: "Awaiting user",
