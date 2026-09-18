@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@heroui/react";
 import { useTranslation } from "react-i18next";
+import { CodePreview } from "@/components/share/code-preview";
 import { ModalProvider } from "@/components/ui/modal-provider";
 import { handleError } from "@/utils/error";
 import { previewBenchmarkAsset, saveBenchmarkTextAsset } from "@/api/benchmark";
@@ -109,9 +110,7 @@ const BenchmarkFilePreview = ({
 								/>
 							</label>
 						) : (
-							<pre className="max-h-120 overflow-auto whitespace-pre-wrap break-words rounded-md bg-surface-soft p-md text-body-sm">
-								{preview.text}
-							</pre>
+							<CodePreview path={file.path} value={preview.text} />
 						)}
 					</>
 				) : (
