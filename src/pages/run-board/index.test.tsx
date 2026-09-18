@@ -55,7 +55,6 @@ describe("RunBoardPage", () => {
 	afterEach(() => {
 		vi.useRealTimers();
 		vi.clearAllMocks();
-		Reflect.deleteProperty(document, "elementFromPoint");
 	});
 
 	// Verifies that only backend Agent activities are rendered instead of bundled demo records.
@@ -273,8 +272,8 @@ describe("RunBoardPage", () => {
 		).not.toBeInTheDocument();
 	});
 
-	// Dragging a status panel changes its position without moving its activity cards to another status.
-	it("shows visible counts and reorders status panels by dragging", async () => {
+	// Neighboring panels should take their new slots before the pointer is released.
+	it("moves occupied panels aside while dragging the whole status panel", async () => {
 		render(<RunBoardPage />);
 		await screen.findAllByRole("article");
 		const board = screen.getByTestId("run-board");
@@ -284,30 +283,39 @@ describe("RunBoardPage", () => {
 				.map((heading) => heading.textContent);
 		expect(names()).toEqual(["运行中1", "等待用户1", "已完成1", "异常1"]);
 
-		const source = screen.getByRole("region", { name: "运行中1" });
-		const target = screen.getByRole("region", { name: "已完成1" });
-		Object.defineProperty(document, "elementFromPoint", {
-			configurable: true,
-			value: vi.fn().mockReturnValue(target),
-		});
+		const panels = within(board).getAllByRole("region");
+		for (const [index, panel] of panels.entries()) {
+			vi.spyOn(panel, "getBoundingClientRect").mockReturnValue({
+				left: index * 100,
+				right: index * 100 + 100,
+				top: 0,
+				bottom: 100,
+			} as DOMRect);
+		}
+		const [source, waiting, finished] = panels;
 		fireEvent.pointerDown(source, {
 			button: 0,
 			pointerId: 1,
 			pointerType: "mouse",
-			clientX: 100,
-			clientY: 100,
+			clientX: 50,
+			clientY: 50,
 		});
 		fireEvent.pointerMove(source, {
 			pointerId: 1,
 			pointerType: "mouse",
-			clientX: 130,
-			clientY: 140,
+			clientX: 250,
+			clientY: 50,
 		});
+		expect(waiting).toHaveStyle({ transform: "translate3d(-100px, 0px, 0px)" });
+		expect(finished).toHaveStyle({
+			transform: "translate3d(-100px, 0px, 0px)",
+		});
+		expect(source).toHaveStyle({ transform: "translate3d(200px, 0px, 0px)" });
 		fireEvent.pointerUp(source, {
 			pointerId: 1,
 			pointerType: "mouse",
-			clientX: 130,
-			clientY: 140,
+			clientX: 250,
+			clientY: 50,
 		});
 		expect(names()).toEqual(["等待用户1", "已完成1", "运行中1", "异常1"]);
 		expect(within(source).getByRole("article")).toHaveTextContent(

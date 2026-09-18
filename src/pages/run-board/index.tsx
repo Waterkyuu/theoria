@@ -29,8 +29,14 @@ type ActivePanelDrag = {
 	element: HTMLElement;
 	/** Pointer identity used to ignore unrelated mouse events. */
 	pointerId: number;
-	/** Status whose place in the layout will change. */
-	status: AgentActivityStatus;
+	/** Panels in their original layout order for this gesture. */
+	panels: HTMLElement[];
+	/** Original panel positions used as stable drop slots. */
+	slots: DOMRect[];
+	/** Original index of the dragged panel. */
+	sourceIndex: number;
+	/** Visual order shown while the pointer is held down. */
+	previewOrder: number[];
 	/** Pointer coordinates at the start of the drag. */
 	startX: number;
 	/** Pointer coordinates at the start of the drag. */
@@ -74,7 +80,69 @@ const RunBoardPage = () => {
 	const activeDrag = useRef<ActivePanelDrag | null>(null);
 	const [activities, setActivities] = useState<AgentActivity[]>([]);
 
-	/** Ends the pointer gesture after finding the panel underneath the dragged panel.
+	/** Captures the original panel slots once so hover checks stay stable as panels move.
+	 * @example startPanelDrag(event);
+	 */
+	const startPanelDrag = (event: ReactPointerEvent<HTMLElement>) => {
+		if (event.pointerType !== "mouse" || event.button !== 0) return;
+		const panels = Array.from(
+			event.currentTarget.parentElement?.querySelectorAll<HTMLElement>(
+				"[data-board-status]",
+			) ?? [],
+		);
+		if (panels.length !== layout.length) return;
+		activeDrag.current = {
+			element: event.currentTarget,
+			pointerId: event.pointerId,
+			panels,
+			slots: panels.map((panel) => panel.getBoundingClientRect()),
+			sourceIndex: panels.indexOf(event.currentTarget),
+			previewOrder: panels.map((_, index) => index),
+			startX: event.clientX,
+			startY: event.clientY,
+			moved: false,
+		};
+		event.currentTarget.setPointerCapture?.(event.pointerId);
+	};
+
+	/** Uses the slots captured at drag start so moving neighbors cannot change the hover target.
+	 * @example movePanelDrag(event);
+	 */
+	const movePanelDrag = (event: ReactPointerEvent<HTMLElement>) => {
+		const drag = activeDrag.current;
+		if (!drag || drag.pointerId !== event.pointerId) return;
+		const deltaX = event.clientX - drag.startX;
+		const deltaY = event.clientY - drag.startY;
+		if (!drag.moved && Math.hypot(deltaX, deltaY) < 4) return;
+		drag.moved = true;
+		// The actual panel follows the pointer, including all of its cards.
+		drag.element.style.transform = `translate3d(${deltaX}px, ${deltaY}px, 0px)`;
+		drag.element.style.zIndex = "10";
+		drag.element.style.pointerEvents = "none";
+		const hoveredIndex = drag.slots.findIndex(
+			(rect) =>
+				event.clientX >= rect.left &&
+				event.clientX < rect.right &&
+				event.clientY >= rect.top &&
+				event.clientY < rect.bottom,
+		);
+		if (hoveredIndex < 0) return;
+		const nextOrder = drag.panels
+			.map((_, index) => index)
+			.filter((index) => index !== drag.sourceIndex);
+		nextOrder.splice(hoveredIndex, 0, drag.sourceIndex);
+		drag.previewOrder = nextOrder;
+		for (const [slotIndex, panelIndex] of nextOrder.entries()) {
+			if (panelIndex === drag.sourceIndex) continue;
+			const panel = drag.panels[panelIndex];
+			const from = drag.slots[panelIndex];
+			const to = drag.slots[slotIndex];
+			panel.style.transition = "transform 150ms ease";
+			panel.style.transform = `translate3d(${to.left - from.left}px, ${to.top - from.top}px, 0px)`;
+		}
+	};
+
+	/** Commits the visible order on drop or restores the original order on cancellation.
 	 * @example finishPanelDrag(event, false);
 	 */
 	const finishPanelDrag = (
@@ -83,29 +151,28 @@ const RunBoardPage = () => {
 	) => {
 		const drag = activeDrag.current;
 		if (!drag || drag.pointerId !== event.pointerId) return;
-		const target =
-			!cancelled && drag.moved
-				? document
-						.elementFromPoint?.(event.clientX, event.clientY)
-						?.closest<HTMLElement>("[data-board-status]")
-				: null;
-		drag.element.style.removeProperty("transform");
+		for (const panel of drag.panels) {
+			panel.style.removeProperty("transform");
+			panel.style.removeProperty("transition");
+		}
 		drag.element.style.removeProperty("z-index");
 		drag.element.style.removeProperty("pointer-events");
 		if (drag.element.hasPointerCapture?.(drag.pointerId)) {
 			drag.element.releasePointerCapture(drag.pointerId);
 		}
 		activeDrag.current = null;
-		const targetStatus = target?.dataset.boardStatus as
-			| AgentActivityStatus
-			| undefined;
-		if (!targetStatus || targetStatus === drag.status) return;
-		setLayout((current) => {
-			if (!current.includes(targetStatus)) return current;
-			const next = current.filter((entry) => entry !== drag.status);
-			next.splice(current.indexOf(targetStatus), 0, drag.status);
-			return next;
-		});
+		if (
+			cancelled ||
+			!drag.moved ||
+			drag.previewOrder.every((index, slot) => index === slot)
+		)
+			return;
+		setLayout(
+			drag.previewOrder.map(
+				(index) =>
+					drag.panels[index].dataset.boardStatus as AgentActivityStatus,
+			),
+		);
 	};
 
 	// Loads the cached native snapshot and keeps it current through source-change events.
@@ -170,34 +237,11 @@ const RunBoardPage = () => {
 							return (
 								<section
 									aria-labelledby={`board-${status}`}
-									className="relative flex min-h-128 min-w-0 cursor-grab flex-col overflow-hidden rounded-2xl bg-surface-soft p-2 active:cursor-grabbing"
+									className="relative flex min-h-128 min-w-0 cursor-grab select-none flex-col overflow-hidden rounded-2xl bg-surface-soft p-2 active:cursor-grabbing"
 									data-board-status={status}
 									key={status}
-									onPointerDown={(event) => {
-										if (event.pointerType !== "mouse" || event.button !== 0)
-											return;
-										activeDrag.current = {
-											element: event.currentTarget,
-											pointerId: event.pointerId,
-											status,
-											startX: event.clientX,
-											startY: event.clientY,
-											moved: false,
-										};
-										event.currentTarget.setPointerCapture?.(event.pointerId);
-									}}
-									onPointerMove={(event) => {
-										const drag = activeDrag.current;
-										if (!drag || drag.pointerId !== event.pointerId) return;
-										const deltaX = event.clientX - drag.startX;
-										const deltaY = event.clientY - drag.startY;
-										if (!drag.moved && Math.hypot(deltaX, deltaY) < 4) return;
-										drag.moved = true;
-										// Move the real panel so its cards remain visible throughout the gesture.
-										drag.element.style.transform = `translate3d(${deltaX}px, ${deltaY}px, 0px)`;
-										drag.element.style.zIndex = "10";
-										drag.element.style.pointerEvents = "none";
-									}}
+									onPointerDown={startPanelDrag}
+									onPointerMove={movePanelDrag}
 									onPointerUp={(event) => finishPanelDrag(event, false)}
 									onPointerCancel={(event) => finishPanelDrag(event, true)}
 								>
