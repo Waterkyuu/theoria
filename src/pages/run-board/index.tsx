@@ -151,8 +151,8 @@ const RunBoardPage = () => {
 				</p>
 			</PageHeader>
 
-			<div className="min-h-0 flex-1 overflow-y-auto">
-				<div className="mx-auto max-w-330 pt-5">
+			<div className="main-content-layout min-h-0 flex-1 overflow-y-auto">
+				<div className="mx-auto max-w-330">
 					<div
 						className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4"
 						data-testid="run-board"

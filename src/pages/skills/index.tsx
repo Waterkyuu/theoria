@@ -194,7 +194,7 @@ const SkillsPage = () => {
 				</p>
 			</PageHeader>
 
-			<div className="min-h-0 flex-1 overflow-y-auto">
+			<div className="main-content-layout min-h-0 flex-1 overflow-y-auto">
 				<div className="flex flex-col items-start justify-between gap-lg sm:flex-row sm:gap-xl">
 					<div className="min-w-0">
 						<h1 className="font-primary text-[28px] font-semibold leading-[34px] text-ink">

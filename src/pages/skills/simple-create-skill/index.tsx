@@ -17,7 +17,7 @@ const SimpleCreateSkillPage = () => {
 					/simple-create-skill
 				</p>
 			</PageHeader>
-			<div className="min-h-0 flex-1 overflow-y-auto">
+			<div className="main-content-layout min-h-0 flex-1 overflow-y-auto">
 				<div className="mx-auto max-w-190">
 					<button
 						className="text-body-sm font-medium text-charcoal outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-focus-ring"
