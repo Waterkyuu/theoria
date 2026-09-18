@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 
 const host = process.env.TAURI_DEV_HOST;
+const devPort = Number(process.env.THEORIA_DEV_PORT ?? 1420);
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -29,16 +30,16 @@ export default defineConfig({
 	//
 	// 1. prevent Vite from obscuring rust errors
 	clearScreen: false,
-	// 2. tauri expects a fixed port, fail if that port is not available
+	// 2. keep the selected port in sync with Tauri's devUrl override
 	server: {
-		port: 1420,
+		port: devPort,
 		strictPort: true,
 		host: host || false,
 		hmr: host
 			? {
 					protocol: "ws",
 					host,
-					port: 1421,
+					clientPort: devPort,
 				}
 			: undefined,
 		watch: {

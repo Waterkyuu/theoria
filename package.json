@@ -9,6 +9,7 @@
 		"check": "pnpm lint && pnpm format",
 		"check:fix": "oxlint --fix . && pnpm format:fix",
 		"dev": "vite",
+		"dev:tauri": "node scripts/tauri-dev.mjs",
 		"format": "oxfmt --check .",
 		"format:fix": "oxfmt --write .",
 		"lint": "oxlint .",
