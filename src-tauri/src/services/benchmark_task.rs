@@ -5,15 +5,16 @@ use crate::domain::agent_status::AgentLoginStatus;
 use crate::domain::benchmark::{safe_asset_id, safe_relative_path, BenchmarkCheck};
 use crate::domain::benchmark_task::{
     BenchmarkAgentInvocation, BenchmarkArtifactFile, BenchmarkArtifactPreview,
-    BenchmarkEvaluationCheck, BenchmarkEvaluationReport, BenchmarkExecutionMetrics,
-    BenchmarkExecutionResult, BenchmarkRerunConfiguration, BenchmarkTaskDetail,
-    BenchmarkTokenUsage, BenchmarkToolCall, NewBenchmarkTaskPlan,
+    BenchmarkCaseExecution, BenchmarkEvaluationCheck, BenchmarkEvaluationReport,
+    BenchmarkExecutionMetrics, BenchmarkExecutionResult, BenchmarkRerunConfiguration,
+    BenchmarkTaskAgent, BenchmarkTaskCase, BenchmarkTaskDetail, BenchmarkTokenUsage,
+    BenchmarkToolCall, NewBenchmarkTaskPlan,
 };
 use crate::domain::benchmark_task::{
     BenchmarkPreflightIssue, BenchmarkPreflightIssueKind, BenchmarkTaskConfiguration,
     BenchmarkTaskPreview,
 };
-use crate::domain::task::{Task, TaskKind, TaskStatus};
+use crate::domain::task::{Task, TaskKind, TaskPermissions, TaskStatus};
 use crate::error::AppError;
 use crate::repositories::benchmark::BenchmarkRepository;
 use crate::repositories::benchmark_task::BenchmarkTaskRepository;
@@ -28,6 +29,23 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 static IDENTIFIER_SEQUENCE: AtomicU64 = AtomicU64::new(1);
+const MAX_CONCURRENT_BENCHMARK_EXECUTIONS: usize = 4;
+
+/// Owned matrix cell state passed to an independently scheduled worker.
+struct BenchmarkCellWork {
+    /// Owning Task whose aggregate is refreshed after this cell finishes.
+    task_id: String,
+    /// Frozen Case content for this cell.
+    case: BenchmarkTaskCase,
+    /// Selected Agent for this cell.
+    agent: BenchmarkTaskAgent,
+    /// Persisted cell claimed by this worker.
+    execution: BenchmarkCaseExecution,
+    /// Frozen permissions shared across the Task.
+    permissions: TaskPermissions,
+    /// Case baseline failure to persist without starting an Agent.
+    baseline_error: Option<AppError>,
+}
 
 /// Benchmark execution configuration is independent of catalog editing and work Task inputs.
 #[derive(Clone)]
@@ -40,8 +58,8 @@ pub(crate) struct BenchmarkTaskService {
     asset_directory: PathBuf,
     /// Root of Task-owned baselines and execution artifacts.
     app_data_directory: PathBuf,
-    /// V1 uses one global execution slot regardless of page lifecycle.
-    execution_lock: Arc<tokio::sync::Mutex<()>>,
+    /// Bounds active Agent calls across every Benchmark Task owned by this service.
+    execution_slots: Arc<tokio::sync::Semaphore>,
     /// Task identifiers paired with cancellation signals owned by this service.
     active_tasks: ActiveBenchmarkTasks,
     /// Controlled validator runtime shared by preflight and scoring.
@@ -61,7 +79,9 @@ impl BenchmarkTaskService {
             task_repository,
             asset_directory: app_data.join("benchmark-assets"),
             app_data_directory: app_data,
-            execution_lock: Arc::new(tokio::sync::Mutex::new(())),
+            execution_slots: Arc::new(tokio::sync::Semaphore::new(
+                MAX_CONCURRENT_BENCHMARK_EXECUTIONS,
+            )),
             active_tasks: ActiveBenchmarkTasks::default(),
             verifier,
         }
@@ -384,15 +404,18 @@ impl BenchmarkTaskService {
         self.get(task_id).await
     }
 
-    /// Sequentially executes every claimed cell and immediately persists its score.
+    /// Runs independent matrix cells concurrently and persists each score as it finishes.
     pub(crate) async fn execute_with(
         &self,
         task_id: &str,
-        runner: impl FnMut(BenchmarkAgentInvocation) -> Result<AgentSessionRunOutput, AppError>
+        runner: impl Fn(BenchmarkAgentInvocation) -> Result<AgentSessionRunOutput, AppError>
             + Send
+            + Sync
             + 'static,
     ) -> Result<(), AppError> {
-        let cancellation = self.active_tasks.register(task_id);
+        let Some(cancellation) = self.active_tasks.register(task_id) else {
+            return Ok(());
+        };
         let result = self.execute_plan(task_id, runner, cancellation).await;
         let finalization = if result.is_err() {
             match now_ms() {
@@ -415,13 +438,13 @@ impl BenchmarkTaskService {
     async fn execute_plan(
         &self,
         task_id: &str,
-        runner: impl FnMut(BenchmarkAgentInvocation) -> Result<AgentSessionRunOutput, AppError>
+        runner: impl Fn(BenchmarkAgentInvocation) -> Result<AgentSessionRunOutput, AppError>
             + Send
+            + Sync
             + 'static,
         cancellation: Arc<AtomicBool>,
     ) -> Result<(), AppError> {
-        let _execution_slot = self.execution_lock.lock().await;
-        let runner = std::sync::Arc::new(std::sync::Mutex::new(runner));
+        let runner = Arc::new(runner);
         let detail = self.get(task_id).await?;
         if detail.task.status == TaskStatus::Stopped && detail.cancel_requested {
             return Ok(());
@@ -433,136 +456,216 @@ impl BenchmarkTaskService {
             .mark_running(task_id, now_ms()?)
             .await
             .map_err(|_| AppError::BenchmarkDatabaseFailed)?;
-        for case in &detail.cases {
+        let mut workers = tokio::task::JoinSet::new();
+        let mut failure = None;
+        'cases: for case in &detail.cases {
+            if cancellation.load(Ordering::Acquire) {
+                break;
+            }
+            let baseline = self.prepare_case_baseline(task_id, case).await;
             for agent in &detail.agents {
-                let execution = detail
-                    .executions
-                    .iter()
-                    .find(|execution| {
-                        execution.task_case_id == case.id && execution.task_agent_id == agent.id
-                    })
-                    .ok_or(AppError::BenchmarkDatabaseFailed)?;
-                if !self
-                    .task_repository
-                    .claim_execution(&execution.id)
-                    .await
-                    .map_err(|_| AppError::BenchmarkDatabaseFailed)?
-                {
-                    continue;
+                if cancellation.load(Ordering::Acquire) {
+                    break 'cases;
                 }
-                let workspace = match self.prepare_execution(task_id, case, execution).await {
-                    Ok(workspace) => workspace,
-                    Err(error) => {
-                        self.finish_error(&execution.id, &error).await?;
-                        continue;
-                    }
+                let Some(execution) = detail.executions.iter().find(|execution| {
+                    execution.task_case_id == case.id && execution.task_agent_id == agent.id
+                }) else {
+                    cancellation.store(true, Ordering::Release);
+                    failure = Some(AppError::BenchmarkDatabaseFailed);
+                    break 'cases;
                 };
-                if !self
-                    .task_repository
-                    .mark_execution_running(&execution.id, now_ms()?)
-                    .await
-                    .map_err(|_| AppError::BenchmarkDatabaseFailed)?
-                {
-                    continue;
-                }
-                let invocation = BenchmarkAgentInvocation {
-                    agent_kind: agent.agent_kind,
-                    prompt: case.content.prompt.clone(),
-                    working_directory: workspace.clone(),
-                    file_access: detail.permissions.file_access.clone(),
-                    command_execution: detail.permissions.command_execution.clone(),
-                    model: None,
-                    mode: None,
-                    session_id: None,
-                    timeout: std::time::Duration::from_secs(
-                        u64::from(case.content.timeout_minutes) * 60,
-                    ),
-                    cancellation: cancellation.clone(),
-                };
-                let call = runner.clone();
-                let output = tokio::task::spawn_blocking(move || {
-                    let mut call = match call.lock() {
-                        Ok(call) => call,
-                        Err(poisoned) => poisoned.into_inner(),
-                    };
-                    call(invocation)
-                })
-                .await
-                .map_err(|_| AppError::WorkerFailed)?;
-                match output {
-                    Ok(output) if output.outcome == AgentTurnOutcome::Completed => {
-                        let checks = case.content.checks.clone();
-                        let response = output.output.response.clone();
-                        let evaluation_workspace = workspace.clone();
-                        let asset_directory = self.asset_directory.clone();
-                        let verifier = self.verifier.clone();
-                        let report = tokio::task::spawn_blocking(move || {
-                            evaluate_checks(
-                                &checks,
-                                &response,
-                                &evaluation_workspace,
-                                &asset_directory,
-                                verifier.as_ref(),
-                            )
-                        })
-                        .await
-                        .map_err(|_| AppError::WorkerFailed)?;
-                        let metrics = execution_metrics(&output.output.metrics);
-                        match report {
-                            Ok(report) => self
-                                .task_repository
-                                .finish_execution(
-                                    &execution.id,
-                                    BenchmarkExecutionResult {
-                                        session_id: output.session_id,
-                                        response_text: Some(output.output.response),
-                                        metrics: Some(metrics),
-                                        termination_reason: None,
-                                        report: Some(report),
-                                        finished_at_ms: now_ms()?,
-                                    },
-                                )
-                                .await
-                                .map_err(|_| AppError::BenchmarkDatabaseFailed)?,
-                            Err(error) => self.finish_error(&execution.id, &error).await?,
+                while workers.len() >= MAX_CONCURRENT_BENCHMARK_EXECUTIONS {
+                    if let Some(result) = workers.join_next().await {
+                        if let Err(error) = result.unwrap_or(Err(AppError::WorkerFailed)) {
+                            cancellation.store(true, Ordering::Release);
+                            failure = Some(error);
+                            break 'cases;
                         }
                     }
-                    Ok(_) if cancellation.load(Ordering::Acquire) => {
-                        self.finish_cancelled(&execution.id).await?;
-                    }
-                    Ok(output) => {
-                        let metrics = execution_metrics(&output.output.metrics);
-                        self.task_repository
-                            .finish_execution(
-                                &execution.id,
-                                BenchmarkExecutionResult {
-                                    session_id: output.session_id,
-                                    response_text: Some(output.output.response),
-                                    metrics: Some(metrics),
-                                    termination_reason: Some("interaction_required".into()),
-                                    report: None,
-                                    finished_at_ms: now_ms()?,
-                                },
-                            )
-                            .await
-                            .map_err(|_| AppError::BenchmarkDatabaseFailed)?;
-                    }
-                    Err(error) if agent_timed_out(&error) => {
-                        self.finish_error(&execution.id, &error).await?;
-                    }
-                    Err(_) if cancellation.load(Ordering::Acquire) => {
-                        self.finish_cancelled(&execution.id).await?;
-                    }
-                    Err(error) => self.finish_error(&execution.id, &error).await?,
                 }
-                self.task_repository
-                    .refresh_status(task_id, now_ms()?)
-                    .await
-                    .map_err(|_| AppError::BenchmarkDatabaseFailed)?;
+                let worker = self.clone();
+                let cell = BenchmarkCellWork {
+                    task_id: task_id.to_string(),
+                    case: case.clone(),
+                    agent: agent.clone(),
+                    execution: execution.clone(),
+                    permissions: detail.permissions.clone(),
+                    baseline_error: baseline.as_ref().err().cloned(),
+                };
+                let cancellation = cancellation.clone();
+                let runner = runner.clone();
+                workers.spawn(async move { worker.execute_cell(cell, cancellation, runner).await });
             }
+        }
+        while let Some(result) = workers.join_next().await {
+            if let Err(error) = result.unwrap_or(Err(AppError::WorkerFailed)) {
+                if failure.is_none() {
+                    cancellation.store(true, Ordering::Release);
+                    failure = Some(error);
+                }
+            }
+        }
+        if let Some(error) = failure {
+            return Err(error);
         }
         self.task_repository
             .refresh_status(task_id, now_ms()?)
+            .await
+            .map_err(|_| AppError::BenchmarkDatabaseFailed)
+    }
+
+    /// Owns one isolated cell from claim through scoring while holding a shared execution slot.
+    async fn execute_cell(
+        &self,
+        cell: BenchmarkCellWork,
+        cancellation: Arc<AtomicBool>,
+        runner: Arc<
+            impl Fn(BenchmarkAgentInvocation) -> Result<AgentSessionRunOutput, AppError>
+                + Send
+                + Sync
+                + 'static,
+        >,
+    ) -> Result<(), AppError> {
+        let BenchmarkCellWork {
+            task_id,
+            case,
+            agent,
+            execution,
+            permissions,
+            baseline_error,
+        } = cell;
+        let _slot = self
+            .execution_slots
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(|_| AppError::WorkerFailed)?;
+        if !self
+            .task_repository
+            .claim_execution(&execution.id)
+            .await
+            .map_err(|_| AppError::BenchmarkDatabaseFailed)?
+        {
+            return Ok(());
+        }
+        if let Some(error) = baseline_error {
+            self.finish_error(&execution.id, &error).await?;
+            return self
+                .task_repository
+                .refresh_status(&task_id, now_ms()?)
+                .await
+                .map_err(|_| AppError::BenchmarkDatabaseFailed);
+        }
+        let workspace = match self.prepare_execution(&task_id, &case, &execution).await {
+            Ok(workspace) => workspace,
+            Err(error) => {
+                self.finish_error(&execution.id, &error).await?;
+                return self
+                    .task_repository
+                    .refresh_status(&task_id, now_ms()?)
+                    .await
+                    .map_err(|_| AppError::BenchmarkDatabaseFailed);
+            }
+        };
+        if !self
+            .task_repository
+            .mark_execution_running(&execution.id, now_ms()?)
+            .await
+            .map_err(|_| AppError::BenchmarkDatabaseFailed)?
+        {
+            return Ok(());
+        }
+        if cancellation.load(Ordering::Acquire) {
+            self.finish_cancelled(&execution.id).await?;
+            return self
+                .task_repository
+                .refresh_status(&task_id, now_ms()?)
+                .await
+                .map_err(|_| AppError::BenchmarkDatabaseFailed);
+        }
+        let invocation = BenchmarkAgentInvocation {
+            agent_kind: agent.agent_kind,
+            prompt: case.content.prompt.clone(),
+            working_directory: workspace.clone(),
+            file_access: permissions.file_access,
+            command_execution: permissions.command_execution,
+            model: None,
+            mode: None,
+            session_id: None,
+            timeout: std::time::Duration::from_secs(u64::from(case.content.timeout_minutes) * 60),
+            cancellation: cancellation.clone(),
+        };
+        let output = tokio::task::spawn_blocking(move || runner(invocation))
+            .await
+            .map_err(|_| AppError::WorkerFailed)?;
+        match output {
+            Ok(output) if output.outcome == AgentTurnOutcome::Completed => {
+                let checks = case.content.checks.clone();
+                let response = output.output.response.clone();
+                let evaluation_workspace = workspace.clone();
+                let asset_directory = self.asset_directory.clone();
+                let verifier = self.verifier.clone();
+                let report = tokio::task::spawn_blocking(move || {
+                    evaluate_checks(
+                        &checks,
+                        &response,
+                        &evaluation_workspace,
+                        &asset_directory,
+                        verifier.as_ref(),
+                    )
+                })
+                .await
+                .map_err(|_| AppError::WorkerFailed)?;
+                let metrics = execution_metrics(&output.output.metrics);
+                match report {
+                    Ok(report) => self
+                        .task_repository
+                        .finish_execution(
+                            &execution.id,
+                            BenchmarkExecutionResult {
+                                session_id: output.session_id,
+                                response_text: Some(output.output.response),
+                                metrics: Some(metrics),
+                                termination_reason: None,
+                                report: Some(report),
+                                finished_at_ms: now_ms()?,
+                            },
+                        )
+                        .await
+                        .map_err(|_| AppError::BenchmarkDatabaseFailed)?,
+                    Err(error) => self.finish_error(&execution.id, &error).await?,
+                }
+            }
+            Ok(_) if cancellation.load(Ordering::Acquire) => {
+                self.finish_cancelled(&execution.id).await?;
+            }
+            Ok(output) => {
+                let metrics = execution_metrics(&output.output.metrics);
+                self.task_repository
+                    .finish_execution(
+                        &execution.id,
+                        BenchmarkExecutionResult {
+                            session_id: output.session_id,
+                            response_text: Some(output.output.response),
+                            metrics: Some(metrics),
+                            termination_reason: Some("interaction_required".into()),
+                            report: None,
+                            finished_at_ms: now_ms()?,
+                        },
+                    )
+                    .await
+                    .map_err(|_| AppError::BenchmarkDatabaseFailed)?;
+            }
+            Err(error) if agent_timed_out(&error) => {
+                self.finish_error(&execution.id, &error).await?;
+            }
+            Err(_) if cancellation.load(Ordering::Acquire) => {
+                self.finish_cancelled(&execution.id).await?;
+            }
+            Err(error) => self.finish_error(&execution.id, &error).await?,
+        }
+        self.task_repository
+            .refresh_status(&task_id, now_ms()?)
             .await
             .map_err(|_| AppError::BenchmarkDatabaseFailed)
     }
@@ -613,17 +716,16 @@ impl BenchmarkTaskService {
             .map_err(|_| AppError::BenchmarkDatabaseFailed)
     }
 
-    async fn prepare_execution(
+    /// Creates one immutable input baseline before its cells can copy it concurrently.
+    async fn prepare_case_baseline(
         &self,
         task_id: &str,
         case: &crate::domain::benchmark_task::BenchmarkTaskCase,
-        execution: &crate::domain::benchmark_task::BenchmarkCaseExecution,
-    ) -> Result<PathBuf, AppError> {
+    ) -> Result<(), AppError> {
         let app_data = self.app_data_directory.clone();
         let assets = self.asset_directory.clone();
         let task_id = task_id.to_string();
         let case = case.clone();
-        let execution_id = execution.id.clone();
         tokio::task::spawn_blocking(move || {
             let case_root = app_data
                 .join("task-runs")
@@ -652,6 +754,30 @@ impl BenchmarkTaskService {
                         .map_err(|_| AppError::TaskPreparationFailed)?;
                 }
             }
+            Ok(())
+        })
+        .await
+        .map_err(|_| AppError::WorkerFailed)?
+    }
+
+    /// Copies the prepared baseline into one cell-owned workspace.
+    async fn prepare_execution(
+        &self,
+        task_id: &str,
+        case: &crate::domain::benchmark_task::BenchmarkTaskCase,
+        execution: &crate::domain::benchmark_task::BenchmarkCaseExecution,
+    ) -> Result<PathBuf, AppError> {
+        let app_data = self.app_data_directory.clone();
+        let task_id = task_id.to_string();
+        let case_id = case.id.clone();
+        let execution_id = execution.id.clone();
+        tokio::task::spawn_blocking(move || {
+            let case_root = app_data
+                .join("task-runs")
+                .join(&task_id)
+                .join("cases")
+                .join(&case_id);
+            let baseline = case_root.join("baseline");
             let workspace = case_root
                 .join("executions")
                 .join(execution_id)
@@ -1211,12 +1337,15 @@ struct ActiveBenchmarkTasks {
 }
 
 impl ActiveBenchmarkTasks {
-    /// Registers a Task before it waits for the global execution slot.
-    fn register(&self, task_id: &str) -> Arc<AtomicBool> {
+    /// Registers one worker without replacing an already running Task's cancellation signal.
+    fn register(&self, task_id: &str) -> Option<Arc<AtomicBool>> {
+        let mut items = self.lock();
+        if items.contains_key(task_id) {
+            return None;
+        }
         let cancellation = Arc::new(AtomicBool::new(false));
-        self.lock()
-            .insert(task_id.to_string(), cancellation.clone());
-        cancellation
+        items.insert(task_id.to_string(), cancellation.clone());
+        Some(cancellation)
     }
 
     /// Signals an active or queued Task if its worker is still registered.
@@ -1606,7 +1735,7 @@ mod tests {
     }
 
     #[test]
-    fn executor_runs_every_planned_cell_with_permissions_and_without_model_overrides() {
+    fn executor_runs_matrix_cells_in_parallel_with_frozen_permissions() {
         tauri::async_runtime::block_on(async {
             let database = connect_sqlite("sqlite::memory:").await.expect("database");
             Migrator::up(&database, None).await.expect("schema");
@@ -1688,28 +1817,59 @@ mod tests {
                 .expect("plan");
             let calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
             let runner_calls = calls.clone();
-            service
-                .execute_with(&planned.task.id, move |request| {
-                    let call = runner_calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
-                    assert_eq!(request.file_access, "read_only");
-                    assert_eq!(request.command_execution, "deny");
-                    assert!(request.model.is_none());
-                    assert!(request.session_id.is_none());
-                    std::fs::write(request.working_directory.join("result.txt"), "42")
-                        .expect("result artifact");
-                    Ok(AgentSessionRunOutput {
-                        output: AgentRunOutput {
-                            response: "42".into(),
-                            metrics: AgentRunMetricsCollector::default()
-                                .finish(Duration::from_millis(5)),
-                        },
-                        session_id: Some(format!("session-{call}")),
-                        outcome: AgentTurnOutcome::Completed,
+            let (started_sender, started_receiver) = std::sync::mpsc::channel();
+            let release = Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let runner_release = release.clone();
+            let worker = service.clone();
+            let task_id = planned.task.id.clone();
+            let handle = tauri::async_runtime::spawn(async move {
+                worker
+                    .execute_with(&task_id, move |request| {
+                        let call =
+                            runner_calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+                        assert_eq!(request.file_access, "read_only");
+                        assert_eq!(request.command_execution, "deny");
+                        assert!(request.model.is_none());
+                        assert!(request.session_id.is_none());
+                        started_sender.send(()).expect("announce started execution");
+                        while !runner_release.load(Ordering::Acquire) {
+                            std::thread::yield_now();
+                        }
+                        std::fs::write(request.working_directory.join("result.txt"), "42")
+                            .expect("result artifact");
+                        Ok(AgentSessionRunOutput {
+                            output: AgentRunOutput {
+                                response: "42".into(),
+                                metrics: AgentRunMetricsCollector::default()
+                                    .finish(Duration::from_millis(5)),
+                            },
+                            session_id: Some(format!("session-{call}")),
+                            outcome: AgentTurnOutcome::Completed,
+                        })
                     })
+                    .await
+            });
+            let (simultaneous_starts, _started_receiver) = tokio::task::spawn_blocking(move || {
+                let simultaneous_starts = started_receiver
+                    .recv_timeout(Duration::from_secs(2))
+                    .is_ok()
+                    && started_receiver
+                        .recv_timeout(Duration::from_secs(2))
+                        .is_ok();
+                (simultaneous_starts, started_receiver)
+            })
+            .await
+            .expect("wait for parallel starts");
+            service
+                .execute_with(&planned.task.id, |_| {
+                    panic!("duplicate dispatch must not run an Agent")
                 })
                 .await
-                .expect("execution");
+                .expect("duplicate dispatch ignored");
+            release.store(true, Ordering::Release);
+            handle.await.expect("join executor").expect("execution");
 
+            assert!(simultaneous_starts, "two matrix cells must start together");
             assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 4);
             let completed = service.get(&planned.task.id).await.expect("detail");
             assert_eq!(completed.task.status, TaskStatus::Completed);
@@ -2007,8 +2167,14 @@ mod tests {
                     })
                     .await
             });
-            tokio::task::spawn_blocking(move || {
-                started_receiver.recv().expect("execution should start")
+            let (parallel_starts, _started_receiver) = tokio::task::spawn_blocking(move || {
+                let parallel_starts = started_receiver
+                    .recv_timeout(Duration::from_secs(2))
+                    .is_ok()
+                    && started_receiver
+                        .recv_timeout(Duration::from_secs(2))
+                        .is_ok();
+                (parallel_starts, started_receiver)
             })
             .await
             .expect("wait worker");
@@ -2020,6 +2186,7 @@ mod tests {
                 .expect("join executor")
                 .expect("finish executor");
 
+            assert!(parallel_starts, "separate Cases must run concurrently");
             let stopped = service.get(&planned.task.id).await.expect("stopped task");
             assert_eq!(stopped.task.status, TaskStatus::Stopped);
             assert_eq!(stopped.result_completeness, "incomplete");
