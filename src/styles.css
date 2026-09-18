@@ -212,6 +212,12 @@
 		--focus: var(--color-focus-ring);
 	}
 
+	/* Keep run board columns lighter than their task cards in dark mode. */
+	[data-theme="dark"] .run-board {
+		--color-surface-soft: #292929;
+		--color-surface-card: #1c1c1c;
+	}
+
 	@supports (color: color-mix(in lab, red, red)) {
 		.dark,
 		[data-theme="dark"] {
