@@ -404,6 +404,9 @@ describe("RunBoardPage", () => {
 		});
 
 		await user.type(search, "Claude");
+		expect(screen.getByTestId("run-board-search-query")).toHaveTextContent(
+			"Claude",
+		);
 		expect(within(dialog).getByText("未命名任务")).toBeInTheDocument();
 		expect(
 			within(dialog).queryByText("优化看板标题显示"),

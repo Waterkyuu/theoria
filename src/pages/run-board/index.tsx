@@ -4,12 +4,14 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { Clock, Grip } from "@gravity-ui/icons";
+import { Clock, Grip, Magnifier } from "@gravity-ui/icons";
 import { Card, Chip, ProgressBar } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { AgentIcon } from "@/components/share/agent-icon";
 import { PageHeader } from "@/components/share/page-header";
+import { ModalProvider } from "@/components/ui/modal-provider";
+import { SearchBox } from "@/components/ui/search-box";
 import { checkAgentActivities, onAgentActivitiesChanged } from "@/api/agent";
 import type {
 	AgentActivity,
@@ -86,6 +88,31 @@ const RunBoardPage = () => {
 	);
 	const activeDrag = useRef<ActivePanelDrag | null>(null);
 	const [activities, setActivities] = useState<AgentActivity[]>([]);
+	const [searchOpen, setSearchOpen] = useState(false);
+	const [searchValue, setSearchValue] = useState("");
+	const searchTerm = searchValue.trim().toLocaleLowerCase(i18n.language);
+	const searchResults = activities.filter(
+		(item) =>
+			(item.title ?? "")
+				.toLocaleLowerCase(i18n.language)
+				.includes(searchTerm) ||
+			t(`agentNames.${item.agent}`)
+				.toLocaleLowerCase(i18n.language)
+				.includes(searchTerm) ||
+			item.agent.includes(searchTerm),
+	);
+
+	/** Keeps the selected task visible after the modal closes and restores focus to its card.
+	 * @example selectSearchResult("codex-running");
+	 */
+	const selectSearchResult = (id: string) => {
+		setSearchOpen(false);
+		window.setTimeout(() => {
+			const card = document.getElementById(`run-board-task-${id}`);
+			card?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+			card?.focus();
+		}, 0);
+	};
 
 	// Save only the four panel identifiers; activity cards are always loaded from the backend.
 	useEffect(() => {
@@ -234,6 +261,66 @@ const RunBoardPage = () => {
 				<p className="text-body-sm font-medium text-charcoal">
 					{t("runBoard.title")}
 				</p>
+				<div className="flex min-w-0 items-center gap-2">
+					{searchValue.trim() && (
+						<span
+							className="max-w-48 truncate text-body-sm text-mute"
+							data-testid="run-board-search-query"
+							id="run-board-search-query"
+						>
+							{searchValue.trim()}
+						</span>
+					)}
+					<ModalProvider
+						isOpen={searchOpen}
+						onOpenChange={setSearchOpen}
+						size="lg"
+						title={t("runBoard.searchTitle")}
+					>
+						<SearchBox
+							className="rounded-md border border-hairline bg-canvas"
+							onValueChange={setSearchValue}
+							placeholder={t("runBoard.searchPlaceholder")}
+							value={searchValue}
+						/>
+						<div className="max-h-80 space-y-1 overflow-y-auto">
+							{searchResults.length > 0 ? (
+								searchResults.map((item) => (
+									<button
+										className="flex w-full min-w-0 items-center gap-3 rounded-md px-3 py-2 text-left hover:bg-surface-soft focus-visible:outline-2 focus-visible:outline-focus-ring"
+										key={item.id}
+										onClick={() => selectSearchResult(item.id)}
+										type="button"
+									>
+										<AgentIcon height={20} name={item.agent} width={20} />
+										<span className="min-w-0 flex-1 truncate text-body-sm text-ink">
+											{item.title ?? t("runBoard.untitledTask")}
+										</span>
+										<span className="shrink-0 text-caption-sm text-mute">
+											{t(`agentNames.${item.agent}`)} ·{" "}
+											{t(`runBoard.status.${item.status}`)}
+										</span>
+									</button>
+								))
+							) : (
+								<p className="py-6 text-center text-body-sm text-mute">
+									{t("runBoard.searchEmpty")}
+								</p>
+							)}
+						</div>
+					</ModalProvider>
+					<button
+						aria-label={t("runBoard.searchTitle")}
+						aria-describedby={
+							searchValue.trim() ? "run-board-search-query" : undefined
+						}
+						className="rounded-md p-1 text-mute hover:text-ink focus-visible:outline-2 focus-visible:outline-focus-ring"
+						onClick={() => setSearchOpen(true)}
+						type="button"
+					>
+						<Magnifier aria-hidden="true" className="size-4" />
+					</button>
+				</div>
 			</PageHeader>
 
 			<div className="main-content-layout min-h-0 flex-1 overflow-y-auto">
@@ -344,9 +431,14 @@ const RunBoardPage = () => {
 
 												return (
 													<Card
+														aria-label={
+															item.title ?? t("runBoard.untitledTask")
+														}
 														className="h-48 w-72 max-w-full overflow-hidden rounded-xl border border-hairline bg-surface-card shadow-none transition-colors hover:border-hairline-strong"
+														id={`run-board-task-${item.id}`}
 														key={item.id}
 														role="article"
+														tabIndex={-1}
 													>
 														<Card.Content className="flex h-full flex-col p-3">
 															{/* Equal columns keep lifecycle and Agent identity aligned at opposite edges. */}
