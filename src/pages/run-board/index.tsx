@@ -152,9 +152,9 @@ const RunBoardPage = () => {
 			</PageHeader>
 
 			<div className="main-content-layout min-h-0 flex-1 overflow-y-auto">
-				<div className="mx-auto max-w-330">
+				<div className="mx-auto h-full max-w-330">
 					<div
-						className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4"
+						className="grid h-full auto-rows-[max(32rem,100%)] gap-4 lg:grid-cols-2 xl:grid-cols-4"
 						data-testid="run-board"
 					>
 						{layout.map((status) => {
@@ -246,7 +246,7 @@ const RunBoardPage = () => {
 									</header>
 
 									<div
-										className="min-h-48 max-h-[60vh] flex-1 space-y-3 overflow-y-auto overscroll-contain p-1"
+										className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-1"
 										data-testid={`run-board-list-${status}`}
 									>
 										{items.length > 0 ? (
