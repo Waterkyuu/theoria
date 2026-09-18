@@ -134,28 +134,28 @@ const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 							}
 							type="button"
 						>
-							<span className="text-[11px] font-semibold uppercase">
+							<span className="text-[15px] font-semibold uppercase">
 								{t("workspaceSidebar.workspaces")}
 							</span>
 							{isWorkspaceListExpanded ? (
 								<ChevronDown
 									aria-hidden="true"
-									className="size-3 shrink-0 text-mute"
+									className="size-4 shrink-0 text-mute"
 								/>
 							) : (
 								<ChevronRight
 									aria-hidden="true"
-									className="size-3 shrink-0 text-mute"
+									className="size-4 shrink-0 text-mute"
 								/>
 							)}
 						</button>
 						<button
 							aria-label={t("workspaceSidebar.addWorkspace")}
-							className="size-3 rounded-sm text-mute outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-focus-ring"
+							className="size-4 rounded-sm text-mute outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-focus-ring"
 							onClick={() => setIsNewWorkspaceOpen(true)}
 							type="button"
 						>
-							<Plus aria-hidden="true" className="size-3" />
+							<Plus aria-hidden="true" className="size-4" />
 						</button>
 					</div>
 
@@ -215,28 +215,28 @@ const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 								onClick={() => setIsRecentListExpanded((expanded) => !expanded)}
 								type="button"
 							>
-								<span className="text-[11px] font-semibold">
+								<span className="text-[15px] font-semibold">
 									{t("workspaceSidebar.recent")}
 								</span>
 								{isRecentListExpanded ? (
 									<ChevronDown
 										aria-hidden="true"
-										className="size-3 shrink-0 text-mute"
+										className="size-4 shrink-0 text-mute"
 									/>
 								) : (
 									<ChevronRight
 										aria-hidden="true"
-										className="size-3 shrink-0 text-mute"
+										className="size-4 shrink-0 text-mute"
 									/>
 								)}
 							</button>
 							<button
 								aria-label={`${t("workspaceSidebar.recent")} ${t("navigation.newTask")}`}
-								className="size-3 rounded-sm text-mute outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-focus-ring"
+								className="size-4 rounded-sm text-mute outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-focus-ring"
 								onClick={() => onNavigate("/task")}
 								type="button"
 							>
-								<Plus aria-hidden="true" className="size-3" />
+								<Plus aria-hidden="true" className="size-4" />
 							</button>
 						</div>
 						{isRecentListExpanded ? (
