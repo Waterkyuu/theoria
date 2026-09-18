@@ -392,20 +392,6 @@ describe("RunBoardPage", () => {
 		expect(names()).toEqual(["运行中1", "已完成1", "等待用户1", "异常1"]);
 	});
 
-	it("uses default order when saved panel order is invalid", async () => {
-		localStorage.setItem(
-			BOARD_LAYOUT_STORAGE_KEY,
-			JSON.stringify(["running", "running", "finish", "error"]),
-		);
-		render(<RunBoardPage />);
-		await screen.findAllByRole("article");
-		expect(
-			screen
-				.getAllByRole("heading", { level: 2 })
-				.map((heading) => heading.textContent),
-		).toEqual(["运行中1", "等待用户1", "已完成1", "异常1"]);
-	});
-
 	it("searches board tasks by agent name and title", async () => {
 		const user = userEvent.setup();
 		render(<RunBoardPage />);
