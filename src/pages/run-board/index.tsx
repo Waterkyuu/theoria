@@ -5,13 +5,17 @@ import {
 	useState,
 } from "react";
 import { Clock, Grip } from "@gravity-ui/icons";
-import { Card, Chip } from "@heroui/react";
+import { Card, Chip, ProgressBar } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { AgentIcon } from "@/components/share/agent-icon";
 import { PageHeader } from "@/components/share/page-header";
 import { checkAgentActivities, onAgentActivitiesChanged } from "@/api/agent";
-import type { AgentActivity, AgentActivityStatus } from "@/types/agent";
+import type {
+	AgentActivity,
+	AgentActivityStatus,
+	AgentKind,
+} from "@/types/agent";
 
 type StatusPresentation = {
 	/** Tailwind color class for the status marker. */
@@ -41,6 +45,8 @@ const BOARD_STATUSES: AgentActivityStatus[] = [
 	"finish",
 	"error",
 ];
+
+const CONTEXT_USAGE_BLACKLIST: ReadonlySet<AgentKind> = new Set(["workbuddy"]);
 
 const STATUS_PRESENTATIONS: Record<AgentActivityStatus, StatusPresentation> = {
 	running: {
@@ -251,6 +257,19 @@ const RunBoardPage = () => {
 									>
 										{items.length > 0 ? (
 											items.map((item) => {
+												const contextPercentage =
+													item.contextUsage &&
+													!CONTEXT_USAGE_BLACKLIST.has(item.agent) &&
+													item.contextUsage.windowTokens > 0
+														? Math.min(
+																100,
+																Math.round(
+																	(item.contextUsage.usedTokens /
+																		item.contextUsage.windowTokens) *
+																		100,
+																),
+															)
+														: null;
 												const updatedAt = new Date(item.updatedAtMs);
 												const updatedTime = updatedAt.toLocaleTimeString(
 													i18n.language,
@@ -269,11 +288,11 @@ const RunBoardPage = () => {
 
 												return (
 													<Card
-														className="h-40 w-72 max-w-full overflow-hidden rounded-xl border border-hairline bg-surface-card shadow-none transition-colors hover:border-hairline-strong"
+														className="h-48 w-72 max-w-full overflow-hidden rounded-xl border border-hairline bg-surface-card shadow-none transition-colors hover:border-hairline-strong"
 														key={item.id}
 														role="article"
 													>
-														<Card.Content className="p-3">
+														<Card.Content className="flex h-full flex-col p-3">
 															{/* Equal columns keep lifecycle and Agent identity aligned at opposite edges. */}
 															<div className="grid grid-cols-2 items-center gap-3 text-caption-sm text-mute">
 																<Chip
@@ -302,10 +321,34 @@ const RunBoardPage = () => {
 																</span>
 															</div>
 															{/* Product titles make cards recognizable without exposing opaque identifiers. */}
-															<h3 className="mt-3 line-clamp-2 break-words overflow-hidden text-body-sm-strong font-medium">
+															<h3 className="mt-3 line-clamp-2 shrink-0 break-words overflow-hidden text-body-sm-strong font-medium">
 																{item.title ?? t("runBoard.untitledTask")}
 															</h3>
-															<div className="mt-3 flex items-center justify-between border-t border-hairline pt-2 font-mono text-caption-sm text-mute">
+															{contextPercentage !== null && (
+																<ProgressBar
+																	aria-label={t("runBoard.contextUsage")}
+																	className="mt-2"
+																	value={contextPercentage}
+																>
+																	<div className="flex items-center justify-between text-caption-sm text-mute">
+																		<span>{t("runBoard.contextUsage")}</span>
+																		<ProgressBar.Output>
+																			{contextPercentage}%
+																		</ProgressBar.Output>
+																	</div>
+																	<ProgressBar.Track className="mt-1 h-1 rounded-full bg-hairline">
+																		<ProgressBar.Fill
+																			className={cn(
+																				"h-full rounded-full",
+																				contextPercentage >= 80
+																					? "bg-orange-500"
+																					: "bg-blue-600",
+																			)}
+																		/>
+																	</ProgressBar.Track>
+																</ProgressBar>
+															)}
+															<div className="mt-auto flex items-center justify-between border-t border-hairline pt-2 font-mono text-caption-sm text-mute">
 																<span>{updatedTime}</span>
 																<span className="flex items-center gap-1.5">
 																	<Clock

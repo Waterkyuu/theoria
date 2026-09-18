@@ -151,6 +151,117 @@ describe("RunBoardPage", () => {
 		).toBeInTheDocument();
 	});
 
+	// Each source keeps its own usage while unsupported or incomplete sources stay visually quiet.
+	it("shows context progress only for supported agents with complete usage", async () => {
+		apiMocks.checkAgentActivities.mockResolvedValueOnce({
+			activities: [
+				{
+					id: "codex-context",
+					title: "Codex context",
+					agent: "codex",
+					status: "running",
+					updatedAtMs: 42,
+					contextUsage: { usedTokens: 25_000, windowTokens: 100_000 },
+				},
+				{
+					id: "claude-context",
+					title: "Claude context",
+					agent: "claude",
+					status: "waiting",
+					updatedAtMs: 42,
+					contextUsage: { usedTokens: 90_000, windowTokens: 200_000 },
+				},
+				{
+					id: "opencode-context",
+					title: "OpenCode context",
+					agent: "opencode",
+					status: "finish",
+					updatedAtMs: 42,
+					contextUsage: { usedTokens: 70_000, windowTokens: 200_000 },
+				},
+				{
+					id: "workbuddy-context",
+					title: "WorkBuddy context",
+					agent: "workbuddy",
+					status: "error",
+					updatedAtMs: 42,
+					contextUsage: { usedTokens: 80_000, windowTokens: 200_000 },
+				},
+				{
+					id: "codex-unavailable",
+					title: "Unknown context",
+					agent: "codex",
+					status: "running",
+					updatedAtMs: 42,
+					contextUsage: null,
+				},
+			],
+		});
+		render(<RunBoardPage />);
+
+		const cards = await screen.findAllByRole("article");
+		const card = (title: string) =>
+			cards.find((item) =>
+				within(item).queryByRole("heading", { name: title }),
+			);
+		for (const [title, percentage] of [
+			["Codex context", 25],
+			["Claude context", 45],
+			["OpenCode context", 35],
+		] as const) {
+			const article = card(title);
+			expect(article).toBeDefined();
+			expect(
+				within(article as HTMLElement).getByRole("progressbar", {
+					name: "上下文占用",
+				}),
+			).toHaveAttribute("aria-valuenow", String(percentage));
+			expect(
+				within(article as HTMLElement).getByText(`${percentage}%`),
+			).toBeInTheDocument();
+		}
+		expect(
+			within(card("WorkBuddy context") as HTMLElement).queryByRole(
+				"progressbar",
+			),
+		).not.toBeInTheDocument();
+		expect(
+			within(card("Unknown context") as HTMLElement).queryByRole("progressbar"),
+		).not.toBeInTheDocument();
+	});
+
+	it("uses blue below 80% context occupancy and orange from 80%", async () => {
+		apiMocks.checkAgentActivities.mockResolvedValueOnce({
+			activities: [
+				{
+					id: "context-below-threshold",
+					title: "Below threshold",
+					agent: "claude",
+					status: "waiting",
+					updatedAtMs: 42,
+					contextUsage: { usedTokens: 79_000, windowTokens: 100_000 },
+				},
+				{
+					id: "context-at-threshold",
+					title: "At threshold",
+					agent: "opencode",
+					status: "finish",
+					updatedAtMs: 42,
+					contextUsage: { usedTokens: 80_000, windowTokens: 100_000 },
+				},
+			],
+		});
+		render(<RunBoardPage />);
+
+		const cards = await screen.findAllByRole("article");
+		const fill = (title: string) =>
+			cards
+				.find((card) => within(card).queryByRole("heading", { name: title }))
+				?.querySelector('[data-slot="progress-bar-fill"]');
+		expect(fill("Below threshold")).toHaveClass("bg-blue-600");
+		expect(fill("At threshold")).toHaveClass("bg-orange-500");
+	});
+
 	it("shows status panels without search or layout controls", () => {
 		render(<RunBoardPage />);
 

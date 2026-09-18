@@ -803,6 +803,7 @@ const zhCN = {
 		},
 		runBoard: {
 			title: "Agent 运行看板",
+			contextUsage: "上下文占用",
 			empty: "此状态下暂无任务",
 			untitledTask: "未命名任务",
 			dragStatus: "拖动{{status}}面板",

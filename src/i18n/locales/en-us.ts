@@ -830,6 +830,7 @@ const enUS = {
 		},
 		runBoard: {
 			title: "Agent run board",
+			contextUsage: "Context usage",
 			empty: "No tasks in this status",
 			untitledTask: "Untitled task",
 			dragStatus: "Drag {{status}} panel",
