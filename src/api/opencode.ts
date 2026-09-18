@@ -1,18 +1,15 @@
 import { invokeWithResponseSchema, listenWithResponseSchema } from "@/api/ipc";
 import {
 	type AgentRuntimeConfig,
-	CompiledAgentLoginStatusSchema,
-	CompiledAgentRunResultSchema,
-	CompiledAgentRuntimeConfigSchema,
-	CompiledAgentRuntimeStatusSchema,
+	AgentLoginStatusSchema,
+	AgentRunResultSchema,
+	AgentRuntimeConfigSchema,
+	AgentRuntimeStatusSchema,
 } from "@/types/agent";
 
 /** Checks OpenCode credentials and resolved runtime configuration through official CLI commands. */
 const checkOpenCodeLogin = () =>
-	invokeWithResponseSchema(
-		"check_opencode_login",
-		CompiledAgentLoginStatusSchema,
-	);
+	invokeWithResponseSchema("check_opencode_login", AgentLoginStatusSchema);
 
 /**
  * Returns the complete OpenCode status needed for the first render.
@@ -23,7 +20,7 @@ const checkOpenCodeLogin = () =>
 const checkOpenCodeInitStatus = () =>
 	invokeWithResponseSchema(
 		"check_opencode_init_status",
-		CompiledAgentRuntimeStatusSchema,
+		AgentRuntimeStatusSchema,
 	);
 
 /**
@@ -35,7 +32,7 @@ const checkOpenCodeInitStatus = () =>
 const getOpenCodeRuntimeConfig = () =>
 	invokeWithResponseSchema(
 		"get_opencode_runtime_config",
-		CompiledAgentRuntimeConfigSchema,
+		AgentRuntimeConfigSchema,
 	);
 
 /**
@@ -49,7 +46,7 @@ const onOpenCodeConfigChanged = (
 ) =>
 	listenWithResponseSchema(
 		"opencode-config-changed",
-		CompiledAgentRuntimeConfigSchema,
+		AgentRuntimeConfigSchema,
 		listener,
 	);
 
@@ -60,7 +57,7 @@ const onOpenCodeConfigChanged = (
  * runOpenCodeTask("解释这个仓库");
  */
 const runOpenCodeTask = (query: string) =>
-	invokeWithResponseSchema("run_opencode_task", CompiledAgentRunResultSchema, {
+	invokeWithResponseSchema("run_opencode_task", AgentRunResultSchema, {
 		request: { query },
 	});
 

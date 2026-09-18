@@ -8,9 +8,11 @@ import {
 } from "@gravity-ui/icons";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
+import { BenchmarkMountRow } from "@/components/share/benchmark-mount-row";
 import { MountedSkillActionDropdown } from "@/components/share/mounted-skill-action-dropdown";
 import { TaskActionDropdown } from "@/components/share/task-action-dropdown";
 import { WorkspaceActionDropdown } from "@/components/share/workspace-action-dropdown";
+import { useWorkspaceBenchmarks } from "@/queries/benchmark";
 import { useWorkspaceSkills } from "@/queries/skill";
 import { useTasks } from "@/queries/task";
 import type { Workspace } from "@/types/workspace";
@@ -41,6 +43,8 @@ const WorkspaceSidebarItem = ({
 	const [isBenchmarksExpanded, setIsBenchmarksExpanded] = useState(false);
 	const [isSkillsExpanded, setIsSkillsExpanded] = useState(false);
 	const tasksQuery = useTasks(workspace.id);
+	const benchmarksQuery = useWorkspaceBenchmarks(workspace.id);
+	const mounts = benchmarksQuery.data?.pages.flat() ?? [];
 	const skillsQuery = useWorkspaceSkills(workspace.id);
 	const tasks = tasksQuery.data ?? [];
 	const mountedSkillCount = skillsQuery.data?.length ?? 0;
@@ -105,7 +109,7 @@ const WorkspaceSidebarItem = ({
 				</div>
 			</div>
 
-			{/* biome-ignore lint/a11y/useSemanticElements: WAI-ARIA trees use group to own child treeitems. */}
+			{/* WAI-ARIA trees use group to own child treeitems. */}
 			<div
 				aria-hidden={!isWorkspaceExpanded}
 				className={cn(
@@ -186,6 +190,7 @@ const WorkspaceSidebarItem = ({
 										</button>
 										<div className="flex shrink-0 items-center gap-sm text-mute opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:transition-none">
 											<TaskActionDropdown
+												canDelete={task.kind === "work"}
 												onDeleted={() => {
 													if (
 														currentPath === `${workspacePath}/task/${task.id}`
@@ -219,8 +224,44 @@ const WorkspaceSidebarItem = ({
 							<span className="min-w-0 flex-1 truncate">
 								{t("workspaceSidebar.benchmarks")}
 							</span>
-							<span className="text-caption-sm tabular-nums text-mute">0</span>
+							<span className="text-caption-sm tabular-nums text-mute">
+								{benchmarksQuery.isLoading
+									? "…"
+									: benchmarksQuery.isError
+										? "—"
+										: `${mounts.length}${benchmarksQuery.hasNextPage ? "+" : ""}`}
+							</span>
 						</button>
+						{isBenchmarksExpanded && (
+							<div role="group">
+								{mounts.map((mount) => (
+									<BenchmarkMountRow
+										key={mount.id}
+										mount={mount}
+										onNavigate={onNavigate}
+									/>
+								))}
+								{benchmarksQuery.isError && (
+									<button
+										type="button"
+										className="py-sm pl-12 text-body-sm"
+										onClick={() => benchmarksQuery.refetch()}
+									>
+										{t("benchmark.retry")}
+									</button>
+								)}
+								{benchmarksQuery.hasNextPage && (
+									<button
+										type="button"
+										disabled={benchmarksQuery.isFetchingNextPage}
+										className="py-sm pl-12 text-body-sm"
+										onClick={() => benchmarksQuery.fetchNextPage()}
+									>
+										{t("benchmark.more")}
+									</button>
+								)}
+							</div>
+						)}
 					</div>
 
 					<div

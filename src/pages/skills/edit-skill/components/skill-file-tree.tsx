@@ -125,7 +125,7 @@ const FileTree = ({
 						</div>
 						{isFolder ? (
 							<details key={isDraftInside ? "editing" : "idle"} open>
-								{/* biome-ignore lint/a11y/noStaticElementInteractions: Native summary already supports keyboard activation and disclosure. */}
+								{/* Native summary already supports keyboard activation and disclosure. */}
 								<summary
 									onClick={() => onSelectFolder(path)}
 									aria-current={selectedPath === path ? "true" : undefined}

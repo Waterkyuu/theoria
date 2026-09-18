@@ -1,9 +1,9 @@
 use crate::domain::agent_kind::AgentKind;
 use crate::domain::task::{
-    Task, TaskAgent, TaskAgentResult, TaskAgentTurn, TaskDetail, TaskPermissions, TaskSkill,
-    TaskStatus,
+    Task, TaskAgent, TaskAgentResult, TaskAgentTurn, TaskDetail, TaskKind, TaskPermissions,
+    TaskSkill, TaskStatus,
 };
-use crate::models::task::{self as task, agent, permissions, result, skill, turn};
+use crate::models::task::{self as task, agent, permissions, result, skill, turn, work};
 use sea_orm::sea_query::{Expr, OnConflict};
 use sea_orm::{
     ActiveModelTrait,
@@ -27,7 +27,8 @@ impl TaskRepository {
 
     /// Atomically persists one locked Task and every frozen child configuration.
     pub(crate) async fn create(&self, detail: TaskDetail) -> Result<TaskDetail, DbErr> {
-        if detail.task.configuration_locked_at_ms.is_none()
+        if detail.task.kind != TaskKind::Work
+            || detail.task.configuration_locked_at_ms.is_none()
             || !detail.results.is_empty()
             || !detail.turns.is_empty()
         {
@@ -40,13 +41,19 @@ impl TaskRepository {
             id: Set(detail.task.id.clone()),
             workspace_id: Set(detail.task.workspace_id.clone()),
             title: Set(detail.task.title.clone()),
-            prompt: Set(detail.task.prompt.clone()),
-            baseline_relative_path: Set(detail.task.baseline_relative_path.clone()),
+            kind: Set(detail.task.kind.as_str().to_string()),
             status: Set(detail.task.status.as_str().to_string()),
             configuration_locked_at_ms: Set(detail.task.configuration_locked_at_ms),
             pinned_at_ms: Set(detail.task.pinned_at_ms),
             created_at_ms: Set(detail.task.created_at_ms),
             updated_at_ms: Set(detail.task.updated_at_ms),
+        }
+        .insert(&transaction)
+        .await?;
+        work::ActiveModel {
+            task_id: Set(detail.task.id.clone()),
+            prompt: Set(detail.prompt.clone()),
+            baseline_relative_path: Set(detail.baseline_relative_path.clone()),
         }
         .insert(&transaction)
         .await?;
@@ -426,6 +433,15 @@ impl TaskRepository {
             .collect()
     }
 
+    /// Loads only the common Task header so callers can dispatch by business kind.
+    pub(crate) async fn header(&self, task_id: &str) -> Result<Option<Task>, DbErr> {
+        task::Entity::find_by_id(task_id)
+            .one(&self.database)
+            .await?
+            .map(task_from_model)
+            .transpose()
+    }
+
     /// Restores immutable configuration, Executions, Skills, and results for one Task.
     pub(crate) async fn get(&self, task_id: &str) -> Result<Option<TaskDetail>, DbErr> {
         let task = task::Entity::find_by_id(task_id)
@@ -436,6 +452,13 @@ impl TaskRepository {
         let Some(task) = task else {
             return Ok(None);
         };
+        if task.kind != TaskKind::Work {
+            return Err(DbErr::Custom("Expected a work task".to_string()));
+        }
+        let inputs = work::Entity::find_by_id(task_id)
+            .one(&self.database)
+            .await?
+            .ok_or_else(|| DbErr::Custom("Work task inputs are missing".to_string()))?;
         let agents = agent::Entity::find()
             .filter(agent::Column::TaskId.eq(task_id))
             .order_by_asc(agent::Column::SlotIndex)
@@ -486,6 +509,8 @@ impl TaskRepository {
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(Some(TaskDetail {
+            prompt: inputs.prompt,
+            baseline_relative_path: inputs.baseline_relative_path,
             task,
             agents,
             permissions,
@@ -502,8 +527,8 @@ fn task_from_model(model: task::Model) -> Result<Task, DbErr> {
         id: model.id,
         workspace_id: model.workspace_id,
         title: model.title,
-        prompt: model.prompt,
-        baseline_relative_path: model.baseline_relative_path,
+        kind: TaskKind::parse(&model.kind)
+            .ok_or_else(|| DbErr::Custom("Task kind is invalid".to_string()))?,
         status: TaskStatus::parse(&model.status)
             .ok_or_else(|| DbErr::Custom("Task contains an invalid status".to_string()))?,
         configuration_locked_at_ms: model.configuration_locked_at_ms,
@@ -656,15 +681,17 @@ mod tests {
                         (id, name, source_kind, source_path, created_at_ms, updated_at_ms)
                     VALUES ('workspace-1', 'Docs', 'external', '/tmp/docs', 100, 100);
                     INSERT INTO tasks
-                        (id, workspace_id, title, prompt, baseline_relative_path, status,
+                        (id, workspace_id, title, kind, status,
                          configuration_locked_at_ms, created_at_ms, updated_at_ms)
                     VALUES
-                        ('task-global', NULL, 'Global', 'Compare', 'task-runs/task-global/baseline',
+                        ('task-global', NULL, 'Global', 'work',
                          'completed', 100, 100, 200),
-                        ('task-global-newer', NULL, 'Newer', 'Compare',
-                         'task-runs/task-global-newer/baseline', 'completed', 100, 120, 220),
-                        ('task-workspace', 'workspace-1', 'Workspace', 'Compare',
-                         'task-runs/task-workspace/baseline', 'running', 100, 110, 210);
+                        ('task-global-newer', NULL, 'Newer', 'work', 'completed', 100, 120, 220),
+                        ('task-workspace', 'workspace-1', 'Workspace', 'work', 'running', 100, 110, 210);
+                    INSERT INTO work_tasks (task_id, prompt, baseline_relative_path) VALUES
+                        ('task-global', 'Compare', 'task-runs/task-global/baseline'),
+                        ('task-global-newer', 'Compare', 'task-runs/task-global-newer/baseline'),
+                        ('task-workspace', 'Compare', 'task-runs/task-workspace/baseline');
                     "#,
                 )
                 .await
@@ -710,6 +737,36 @@ mod tests {
     }
 
     #[test]
+    fn lists_benchmark_tasks_without_work_inputs_and_rejects_work_detail() {
+        tauri::async_runtime::block_on(async {
+            let database = connect_sqlite("sqlite::memory:")
+                .await
+                .expect("database should connect");
+            Migrator::up(&database, None)
+                .await
+                .expect("schema should initialize");
+            database.execute_unprepared(r#"
+                INSERT INTO workspaces (id, name, source_kind, source_path, created_at_ms, updated_at_ms)
+                VALUES ('w', 'Workspace', 'external', '/tmp/project', 1, 1);
+                INSERT INTO tasks (id, kind, workspace_id, title, status, created_at_ms, updated_at_ms)
+                VALUES ('b', 'benchmark', 'w', 'Evaluation', 'preparing', 1, 1);
+            "#).await.expect("benchmark identity should persist");
+            let repository = TaskRepository::new(database.clone());
+            let listed = repository.list(Some("w")).await;
+            assert!(
+                listed.is_ok(),
+                "list must not require work inputs: {listed:?}"
+            );
+            assert_eq!(listed.expect("list should load")[0].id, "b");
+            assert!(
+                repository.get("b").await.is_err(),
+                "work detail must reject a benchmark"
+            );
+            database.close().await.expect("database should close");
+        });
+    }
+
+    #[test]
     fn saves_a_resumable_session_and_ordered_agent_turn() {
         tauri::async_runtime::block_on(async {
             let sequence = DATABASE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
@@ -727,10 +784,11 @@ mod tests {
                 .execute_unprepared(
                     r#"
                     INSERT INTO tasks
-                        (id, workspace_id, title, prompt, baseline_relative_path, status,
+                        (id, workspace_id, title, kind, status,
                          configuration_locked_at_ms, created_at_ms, updated_at_ms)
-                    VALUES ('task-1', NULL, 'Compare', 'Initial prompt',
-                            'task-runs/task-1/baseline', 'running', 100, 100, 100);
+                    VALUES ('task-1', NULL, 'Compare', 'work', 'running', 100, 100, 100);
+                    INSERT INTO work_tasks (task_id, prompt, baseline_relative_path)
+                    VALUES ('task-1', 'Initial prompt', 'task-runs/task-1/baseline');
                     INSERT INTO task_agents
                         (id, task_id, slot_index, agent_kind, model_snapshot, mode_snapshot,
                          session_id, execution_relative_path, status, created_at_ms, updated_at_ms)

@@ -236,7 +236,7 @@ const RunBoardPage = () => {
 													event.key === "ArrowLeft" || event.key === "ArrowUp"
 														? -1
 														: event.key === "ArrowRight" ||
-																event.key === "ArrowDown"
+															  event.key === "ArrowDown"
 															? 1
 															: 0;
 												if (offset === 0) return;

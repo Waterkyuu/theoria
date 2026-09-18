@@ -111,14 +111,16 @@ impl TaskCleanupService {
 
     /// Deletes one Task idempotently after all writers and files are gone.
     pub(crate) async fn delete_task(&self, task_id: &str) -> Result<(), AppError> {
-        if self
+        let Some(task) = self
             .repository
-            .get(task_id)
+            .header(task_id)
             .await
             .map_err(|_| AppError::TaskDatabaseFailed)?
-            .is_none()
-        {
+        else {
             return Ok(());
+        };
+        if task.kind == crate::domain::task::TaskKind::Benchmark {
+            return Err(AppError::BenchmarkHistoryProtected);
         }
         self.execution_service.stop_task_and_wait(task_id).await?;
         self.snapshot_service.remove_task_files(task_id).await?;
@@ -140,13 +142,17 @@ mod tests {
         Task, TaskAgent, TaskAgentResult, TaskDetail, TaskPermissions, TaskSkill, TaskStatus,
     };
     use crate::domain::workspace::{NewWorkspace, WorkspaceSourceKind};
+    use crate::models::task as task_model;
     use crate::repositories::skill::SkillRepository;
     use crate::repositories::task::TaskRepository;
     use crate::repositories::workspace::WorkspaceRepository;
     use crate::services::result::ResultCollector;
     use crate::services::snapshot::SnapshotService;
     use crate::services::task_execution::TaskExecutionService;
-    use sea_orm::{ConnectionTrait, DatabaseBackend, Statement};
+    use sea_orm::{
+        ActiveModelTrait, ActiveValue::Set, ConnectionTrait, DatabaseBackend, EntityTrait,
+        Statement,
+    };
     use sea_orm_migration::MigratorTrait;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -157,12 +163,13 @@ mod tests {
     fn task_detail(id: &str, workspace_id: Option<&str>, created_at_ms: i64) -> TaskDetail {
         let agent_id = format!("{id}-agent");
         TaskDetail {
+            prompt: "Remove files".to_string(),
+            baseline_relative_path: format!("task-runs/{id}/baseline"),
             task: Task {
+                kind: crate::domain::task::TaskKind::Work,
                 id: id.to_string(),
                 workspace_id: workspace_id.map(str::to_string),
                 title: "Cleanup".to_string(),
-                prompt: "Remove files".to_string(),
-                baseline_relative_path: format!("task-runs/{id}/baseline"),
                 status: TaskStatus::Preparing,
                 configuration_locked_at_ms: Some(created_at_ms),
                 pinned_at_ms: None,
@@ -616,6 +623,59 @@ mod tests {
 
             database.close().await.expect("database should close");
             std::fs::remove_dir_all(root).expect("fixture should be removable");
+        });
+    }
+
+    #[test]
+    fn protects_benchmark_history_from_task_cleanup() {
+        tauri::async_runtime::block_on(async {
+            let database = connect_sqlite("sqlite::memory:").await.expect("database");
+            Migrator::up(&database, None).await.expect("schema");
+            WorkspaceRepository::new(database.clone())
+                .create(NewWorkspace {
+                    id: "workspace".into(),
+                    name: "Workspace".into(),
+                    source_kind: WorkspaceSourceKind::External,
+                    source_path: PathBuf::from("unused"),
+                    created_at_ms: 1,
+                })
+                .await
+                .expect("workspace");
+            task_model::ActiveModel {
+                id: Set("benchmark-history".into()),
+                workspace_id: Set(Some("workspace".into())),
+                title: Set("History".into()),
+                kind: Set("benchmark".into()),
+                status: Set("completed".into()),
+                configuration_locked_at_ms: Set(Some(2)),
+                pinned_at_ms: Set(None),
+                created_at_ms: Set(2),
+                updated_at_ms: Set(2),
+            }
+            .insert(&database)
+            .await
+            .expect("benchmark task header");
+            let repository = TaskRepository::new(database.clone());
+            let app_data = std::env::temp_dir().join("theoria-protected-benchmark-history");
+            let service = TaskCleanupService::new(
+                repository.clone(),
+                SnapshotService::new(app_data.clone()),
+                TaskExecutionService::new(
+                    repository,
+                    ResultCollector::new(app_data.clone()),
+                    app_data,
+                ),
+            );
+
+            assert_eq!(
+                service.delete_task("benchmark-history").await,
+                Err(crate::error::AppError::BenchmarkHistoryProtected)
+            );
+            assert!(task_model::Entity::find_by_id("benchmark-history")
+                .one(&database)
+                .await
+                .expect("task query")
+                .is_some());
         });
     }
 }

@@ -276,6 +276,7 @@ const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 												)}
 											>
 												<TaskActionDropdown
+													canDelete={task.kind === "work"}
 													onDeleted={() => {
 														if (currentPath === `/task/${task.id}`) {
 															onNavigate("/task");

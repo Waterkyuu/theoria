@@ -14,6 +14,7 @@ import { checkOpenCodeInitStatus } from "@/api/opencode";
 import { checkWorkBuddyInitStatus } from "@/api/workbuddy";
 import { AGENT_KINDS } from "@/constants/agent";
 import { AgentPanel } from "@/pages/workspace/components/agent-panel";
+import { BenchmarkTaskView } from "@/pages/workspace/components/benchmark-task-view";
 import {
 	Composer,
 	type ComposerSubmission,
@@ -28,6 +29,7 @@ import {
 	useRunTask,
 	useStopTaskAgent,
 	useTask,
+	useTaskHeader,
 } from "@/queries/task";
 import { useWorkspaces } from "@/queries/workspace";
 import type {
@@ -83,7 +85,7 @@ const openCreatedTask = (task: TaskDetail) => {
 	window.dispatchEvent(new PopStateEvent("popstate"));
 };
 
-const WorkspacePage = ({ workspaceId, taskId }: WorkspacePageProps) => {
+const WorkTaskPage = ({ workspaceId, taskId }: WorkspacePageProps) => {
 	const { t } = useTranslation();
 	const [createdTask, setCreatedTask] = useState<TaskDetail | null>(null);
 	const [isResultSummaryOpen, setIsResultSummaryOpen] = useState(false);
@@ -303,7 +305,7 @@ const WorkspacePage = ({ workspaceId, taskId }: WorkspacePageProps) => {
 									agent={agent}
 									key={agent.id}
 									onStop={stopTaskAgent}
-									prompt={task.task.prompt}
+									prompt={task.prompt}
 									result={task.results.find(
 										(result) => result.taskAgentId === agent.id,
 									)}
@@ -354,6 +356,31 @@ const WorkspacePage = ({ workspaceId, taskId }: WorkspacePageProps) => {
 			/>
 		</main>
 	);
+};
+
+/** Resolves the common Task header before mounting exactly one type-specific detail surface. */
+const WorkspacePage = (props: WorkspacePageProps) => {
+	const taskHeader = useTaskHeader(props.taskId ?? null);
+	if (props.taskId && taskHeader.isLoading) {
+		return (
+			<main
+				aria-label="Loading task"
+				className="h-dvh min-w-0 flex-1 animate-pulse bg-surface-soft"
+				role="status"
+			/>
+		);
+	}
+	if (props.taskId && taskHeader.isError) {
+		return (
+			<main className="h-dvh min-w-0 flex-1 bg-canvas p-xl" role="alert">
+				Task could not be loaded.
+			</main>
+		);
+	}
+	if (props.taskId && taskHeader.data?.kind === "benchmark") {
+		return <BenchmarkTaskView taskId={props.taskId} />;
+	}
+	return <WorkTaskPage {...props} />;
 };
 
 export default WorkspacePage;

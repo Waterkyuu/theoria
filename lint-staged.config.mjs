@@ -1,14 +1,16 @@
 /** @type {import("lint-staged").Configuration} */
 const config = {
-	"src/**/*.{ts,tsx}": ["biome check --write --no-errors-on-unmatched"],
-	"src/**/*.{js,jsx,json,jsonc,css}":
-		"biome check --write --no-errors-on-unmatched",
+	"*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": [
+		"oxlint --fix --no-error-on-unmatched-pattern",
+		"oxfmt --write --no-error-on-unmatched-pattern",
+	],
+	"*.{json,jsonc,css,md,mdx,yml,yaml,toml}":
+		"oxfmt --write --no-error-on-unmatched-pattern",
 	"src-tauri/**/*.rs": [
 		() => "cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check",
 		() =>
 			"cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings",
 	],
-	"src-tauri/**/*.{json,jsonc}": "biome check --write --no-errors-on-unmatched",
 	"src-tauri/{Cargo.toml,Cargo.lock,**/*.toml}": () =>
 		"cargo check --manifest-path src-tauri/Cargo.toml --all-targets --all-features",
 };

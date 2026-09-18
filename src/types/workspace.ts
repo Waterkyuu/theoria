@@ -18,10 +18,10 @@ const WorkspaceSchema = z.object({
 	updatedAtMs: z.int().nonnegative(),
 });
 
-const CompiledWorkspaceSchema = z.compile(WorkspaceSchema);
-const CompiledWorkspacesSchema = z.compile(z.array(WorkspaceSchema));
+const WorkspacesSchema = z.array(WorkspaceSchema);
+const EmptyWorkspaceResponseSchema = z.null();
 
 type Workspace = z.infer<typeof WorkspaceSchema>;
 
 export type { Workspace };
-export { CompiledWorkspaceSchema, CompiledWorkspacesSchema };
+export { EmptyWorkspaceResponseSchema, WorkspaceSchema, WorkspacesSchema };

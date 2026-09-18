@@ -16,7 +16,90 @@ impl MigratorTrait for Migrator {
             Box::new(AddTaskAgentTurns),
             Box::new(AllowWaitingTaskAgentTurns),
             Box::new(AddTaskPin),
+            Box::new(CreateBenchmarks),
+            Box::new(RemoveBenchmarkFallbackTag),
         ]
+    }
+}
+
+/// Creates the catalog and internal execution plan beneath common Tasks.
+struct CreateBenchmarks;
+impl MigrationName for CreateBenchmarks {
+    fn name(&self) -> &str {
+        "m008_create_benchmarks"
+    }
+}
+#[sea_orm_migration::async_trait::async_trait]
+impl MigrationTrait for CreateBenchmarks {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!("sql/benchmark.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager.get_connection().execute_unprepared("DROP TABLE benchmark_evaluations; DROP TABLE benchmark_case_executions; DROP TABLE benchmark_task_cases; DROP TABLE benchmark_task_agents; DROP TABLE benchmark_tasks; DROP TABLE workspace_benchmarks; DROP TABLE benchmark_cases; DROP TABLE benchmark_versions; DROP TABLE benchmark_drafts; DROP TABLE benchmarks; DROP TABLE benchmark_tags;").await?;
+        Ok(())
+    }
+}
+
+/// Removes the fallback classification from databases that already applied the Benchmark schema.
+struct RemoveBenchmarkFallbackTag;
+
+impl MigrationName for RemoveBenchmarkFallbackTag {
+    fn name(&self) -> &str {
+        "m009_remove_benchmark_fallback_tag"
+    }
+}
+
+#[sea_orm_migration::async_trait::async_trait]
+impl MigrationTrait for RemoveBenchmarkFallbackTag {
+    fn use_transaction(&self) -> Option<bool> {
+        Some(true)
+    }
+
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(
+                r#"
+                DROP TRIGGER IF EXISTS benchmark_system_tag_update;
+                DROP TRIGGER IF EXISTS benchmark_system_tag_delete;
+                DELETE FROM benchmark_tags WHERE id = 'uncategorized';
+                "#,
+            )
+            .await?;
+        if manager.has_column("benchmark_tags", "is_system").await? {
+            manager
+                .get_connection()
+                .execute_unprepared("ALTER TABLE benchmark_tags DROP COLUMN is_system;")
+                .await?;
+        }
+        Ok(())
+    }
+
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        if !manager.has_column("benchmark_tags", "is_system").await? {
+            manager
+                .get_connection()
+                .execute_unprepared(
+                    r#"
+                    ALTER TABLE benchmark_tags ADD COLUMN is_system INTEGER NOT NULL DEFAULT 0
+                        CHECK (is_system IN (0, 1));
+                    INSERT INTO benchmark_tags (id, name, icon, is_system)
+                    VALUES ('uncategorized', 'Uncategorized', 'Tag', 1);
+                    CREATE TRIGGER benchmark_system_tag_update BEFORE UPDATE ON benchmark_tags
+                    WHEN OLD.is_system = 1
+                    BEGIN SELECT RAISE(ABORT, 'System tag is immutable'); END;
+                    CREATE TRIGGER benchmark_system_tag_delete BEFORE DELETE ON benchmark_tags
+                    WHEN OLD.is_system = 1
+                    BEGIN SELECT RAISE(ABORT, 'System tag is immutable'); END;
+                    "#,
+                )
+                .await?;
+        }
+        Ok(())
     }
 }
 
@@ -268,21 +351,38 @@ impl MigrationTrait for CreateWorkspaceTaskSystem {
                     id TEXT PRIMARY KEY,
                     workspace_id TEXT,
                     title TEXT NOT NULL,
-                    prompt TEXT NOT NULL,
-                    baseline_relative_path TEXT NOT NULL,
+                    kind TEXT NOT NULL,
                     status TEXT NOT NULL,
                     configuration_locked_at_ms INTEGER,
                     created_at_ms INTEGER NOT NULL,
                     updated_at_ms INTEGER NOT NULL,
                     FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
                     CHECK (length(trim(title)) BETWEEN 1 AND 120),
-                    CHECK (length(trim(prompt)) BETWEEN 1 AND 16000),
-                    CHECK (length(baseline_relative_path) > 0),
+                    CHECK (kind IN ('work', 'benchmark')),
+                    CHECK (kind != 'benchmark' OR workspace_id IS NOT NULL),
                     CHECK (status IN ('preparing', 'running', 'waiting', 'completed', 'failed', 'stopped')),
                     CHECK (configuration_locked_at_ms IS NULL OR configuration_locked_at_ms > 0),
                     CHECK (created_at_ms > 0),
                     CHECK (updated_at_ms > 0)
                 );
+
+                CREATE TABLE work_tasks (
+                    task_id TEXT PRIMARY KEY REFERENCES tasks(id) ON DELETE CASCADE,
+                    prompt TEXT NOT NULL CHECK (length(trim(prompt)) BETWEEN 1 AND 16000),
+                    baseline_relative_path TEXT NOT NULL CHECK (length(baseline_relative_path) > 0)
+                );
+
+                CREATE TRIGGER work_tasks_kind_insert BEFORE INSERT ON work_tasks
+                WHEN NOT EXISTS (SELECT 1 FROM tasks WHERE id = NEW.task_id AND kind = 'work')
+                BEGIN SELECT RAISE(ABORT, 'Work inputs require a work task'); END;
+
+                CREATE TRIGGER work_tasks_kind_update BEFORE UPDATE OF task_id ON work_tasks
+                WHEN NOT EXISTS (SELECT 1 FROM tasks WHERE id = NEW.task_id AND kind = 'work')
+                BEGIN SELECT RAISE(ABORT, 'Work inputs require a work task'); END;
+
+                CREATE TRIGGER tasks_kind_immutable BEFORE UPDATE OF kind ON tasks
+                WHEN OLD.kind != NEW.kind
+                BEGIN SELECT RAISE(ABORT, 'Task kind is immutable'); END;
 
                 CREATE INDEX idx_tasks_scope_history
                     ON tasks(workspace_id, created_at_ms DESC);
@@ -366,6 +466,7 @@ impl MigrationTrait for CreateWorkspaceTaskSystem {
                 DROP TABLE task_skills;
                 DROP TABLE task_permissions;
                 DROP TABLE task_agents;
+                DROP TABLE work_tasks;
                 DROP TABLE tasks;
                 DROP TABLE workspace_skill_mounts;
                 DROP TABLE skills;
@@ -635,8 +736,9 @@ impl MigrationTrait for CreateComparisonHistory {
 mod tests {
     use super::Migrator;
     use crate::db::connection::connect_sqlite;
-    use sea_orm::{ConnectionTrait, DatabaseBackend, Statement};
-    use sea_orm_migration::MigratorTrait;
+    use crate::models::benchmark::tag;
+    use sea_orm::{ConnectionTrait, DatabaseBackend, EntityTrait, PaginatorTrait, Statement};
+    use sea_orm_migration::{MigratorTrait, SchemaManager};
     use std::sync::atomic::{AtomicU64, Ordering};
 
     static DATABASE_SEQUENCE: AtomicU64 = AtomicU64::new(1);
@@ -650,6 +752,173 @@ mod tests {
         ));
         let url = format!("sqlite://{}?mode=rwc", path.display());
         (path, url)
+    }
+
+    #[test]
+    fn creates_only_user_defined_benchmark_tags() {
+        tauri::async_runtime::block_on(async {
+            let (path, url) = temporary_database_url();
+            let database = connect_sqlite(&url).await.expect("database should connect");
+            Migrator::up(&database, None)
+                .await
+                .expect("schema should initialize");
+            let manager = SchemaManager::new(&database);
+
+            assert_eq!(
+                tag::Entity::find()
+                    .count(&database)
+                    .await
+                    .expect("tags should be readable"),
+                0
+            );
+            assert!(!manager
+                .has_column("benchmark_tags", "is_system")
+                .await
+                .expect("tag schema should be readable"));
+
+            database.close().await.expect("database should close");
+            std::fs::remove_file(path).expect("owned database should be removed");
+        });
+    }
+
+    #[test]
+    fn upgrades_the_legacy_benchmark_tag_schema_without_a_fallback() {
+        tauri::async_runtime::block_on(async {
+            let (path, url) = temporary_database_url();
+            let database = connect_sqlite(&url).await.expect("database should connect");
+            Migrator::up(&database, Some(7))
+                .await
+                .expect("pre-benchmark schema should initialize");
+            database
+                .execute_unprepared(include_str!("sql/benchmark.sql"))
+                .await
+                .expect("benchmark schema fixture should initialize");
+            database
+                .execute_unprepared(
+                    r#"
+                    ALTER TABLE benchmark_tags ADD COLUMN is_system INTEGER NOT NULL DEFAULT 0
+                        CHECK (is_system IN (0, 1));
+                    CREATE TRIGGER benchmark_system_tag_update BEFORE UPDATE ON benchmark_tags
+                    WHEN OLD.is_system = 1
+                    BEGIN SELECT RAISE(ABORT, 'System tag is immutable'); END;
+                    CREATE TRIGGER benchmark_system_tag_delete BEFORE DELETE ON benchmark_tags
+                    WHEN OLD.is_system = 1
+                    BEGIN SELECT RAISE(ABORT, 'System tag is immutable'); END;
+                    INSERT INTO benchmark_tags (id, name, icon, is_system)
+                    VALUES ('uncategorized', 'Uncategorized', 'Tag', 1);
+                    INSERT INTO benchmark_tags (id, name, icon, is_system)
+                    VALUES ('coding', 'Coding', 'Code', 0);
+                    INSERT INTO seaql_migrations (version, applied_at)
+                    VALUES ('m008_create_benchmarks', 1);
+                    "#,
+                )
+                .await
+                .expect("legacy benchmark schema should be reproducible");
+
+            Migrator::up(&database, None)
+                .await
+                .expect("legacy benchmark schema should upgrade");
+
+            let manager = SchemaManager::new(&database);
+            assert_eq!(
+                tag::Entity::find()
+                    .count(&database)
+                    .await
+                    .expect("tags should be readable"),
+                1
+            );
+            assert!(tag::Entity::find_by_id("coding")
+                .one(&database)
+                .await
+                .expect("user-defined tag should be readable")
+                .is_some());
+            assert!(!manager
+                .has_column("benchmark_tags", "is_system")
+                .await
+                .expect("tag schema should be readable"));
+
+            database.close().await.expect("database should close");
+            std::fs::remove_file(path).expect("owned database should be removed");
+        });
+    }
+
+    #[test]
+    fn separates_work_inputs_from_benchmark_task_identity() {
+        tauri::async_runtime::block_on(async {
+            let (path, url) = temporary_database_url();
+            let database = connect_sqlite(&url).await.expect("database should connect");
+            Migrator::up(&database, None)
+                .await
+                .expect("schema should initialize");
+            let inserted = database.execute_unprepared(r#"
+                INSERT INTO workspaces (id, name, source_kind, source_path, created_at_ms, updated_at_ms)
+                VALUES ('w', 'Workspace', 'external', '/tmp/project', 1, 1);
+                INSERT INTO tasks (id, kind, workspace_id, title, status, created_at_ms, updated_at_ms)
+                VALUES ('b', 'benchmark', 'w', 'Benchmark', 'preparing', 1, 1),
+                       ('t', 'work', NULL, 'Work', 'preparing', 1, 1);
+                INSERT INTO work_tasks (task_id, prompt, baseline_relative_path)
+                VALUES ('t', 'Solve this', 'task-runs/t/baseline');
+            "#).await;
+            assert!(
+                inserted.is_ok(),
+                "both task kinds must persist without fabricated inputs: {inserted:?}"
+            );
+            assert!(database.execute_unprepared("INSERT INTO work_tasks (task_id, prompt, baseline_relative_path) VALUES ('b', 'Invalid', 'invalid')").await.is_err());
+            assert!(database.execute_unprepared("INSERT INTO tasks (id, kind, title, status, created_at_ms, updated_at_ms) VALUES ('global-b', 'benchmark', 'Invalid', 'preparing', 1, 1)").await.is_err());
+            database.close().await.expect("database should close");
+            std::fs::remove_file(path).expect("owned database should be removed");
+        });
+    }
+
+    #[test]
+    fn benchmark_matrix_rejects_cross_task_executions_and_preserves_versions() {
+        tauri::async_runtime::block_on(async {
+            let (path, url) = temporary_database_url();
+            let database = connect_sqlite(&url).await.expect("database should connect");
+            Migrator::up(&database, None)
+                .await
+                .expect("schema should initialize");
+            let inserted = database.execute_unprepared(r#"
+                INSERT INTO workspaces (id, name, source_kind, source_path, created_at_ms, updated_at_ms)
+                VALUES ('w', 'Workspace', 'external', '/tmp/project', 1, 1);
+                INSERT INTO benchmark_tags (id, name, icon) VALUES ('coding', 'Coding', 'Code');
+                INSERT INTO benchmarks (id, name, description, tag_id, author, created_at_ms, updated_at_ms)
+                VALUES ('b', 'Suite', 'Two questions', 'coding', 'myself', 1, 1);
+                INSERT INTO benchmark_versions (id, benchmark_id, number, content_json, created_at_ms)
+                VALUES ('v', 'b', 1, '{}', 1);
+                INSERT INTO benchmark_cases (id, version_id, position, name, content_json)
+                VALUES ('c1', 'v', 0, 'One', '{}'), ('c2', 'v', 1, 'Two', '{}');
+                INSERT INTO tasks (id, kind, workspace_id, title, status, created_at_ms, updated_at_ms)
+                VALUES ('t', 'benchmark', 'w', 'Run', 'preparing', 1, 1),
+                       ('other', 'benchmark', 'w', 'Other', 'preparing', 1, 1);
+                INSERT INTO benchmark_tasks (task_id, version_id, idempotency_key, request_json)
+                VALUES ('t', 'v', 'start', '{}'), ('other', 'v', 'other-start', '{}');
+                INSERT INTO benchmark_task_agents (id, task_id, agent_kind, position)
+                VALUES ('a1', 't', 'codex', 0), ('a2', 't', 'claude', 1), ('a3', 'other', 'codex', 0);
+                INSERT INTO benchmark_task_cases (id, task_id, case_id, version_id, position)
+                VALUES ('tc1', 't', 'c1', 'v', 0), ('tc2', 't', 'c2', 'v', 1);
+                INSERT INTO benchmark_case_executions (id, task_id, task_case_id, task_agent_id)
+                VALUES ('e1', 't', 'tc1', 'a1'), ('e2', 't', 'tc1', 'a2'),
+                       ('e3', 't', 'tc2', 'a1'), ('e4', 't', 'tc2', 'a2');
+            "#).await;
+            assert!(
+                inserted.is_ok(),
+                "one task must own the complete matrix: {inserted:?}"
+            );
+            assert!(database.execute_unprepared("INSERT INTO benchmark_case_executions (id, task_id, task_case_id, task_agent_id) VALUES ('bad', 't', 'tc1', 'a3')").await.is_err());
+            assert!(database
+                .execute_unprepared(
+                    "UPDATE benchmark_versions SET content_json = '[]' WHERE id = 'v'"
+                )
+                .await
+                .is_err());
+            assert!(database
+                .execute_unprepared("DELETE FROM benchmark_versions WHERE id = 'v'")
+                .await
+                .is_err());
+            database.close().await.expect("database should close");
+            std::fs::remove_file(path).expect("owned database should be removed");
+        });
     }
 
     #[test]

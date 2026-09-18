@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
-import "katex/dist/katex.min.css";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
+import "katex/dist/katex.min.css";
 
 type MarkdownContentProps = {
 	/** Markdown source rendered without changing its stored representation. */

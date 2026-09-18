@@ -1,0 +1,33 @@
+{
+	"schemaVersion": 1,
+	"name": "Order summary",
+	"description": "Create a deterministic JSON summary from a small order dataset.",
+	"source": "Theoria example template",
+	"cases": [
+		{
+			"name": "Summarize paid orders",
+			"prompt": "Read orders.json and create summary.json. The output must be JSON with paidOrderCount set to the number of paid orders and paidTotal set to their total amount.",
+			"timeoutMinutes": 10,
+			"inputFiles": [
+				{
+					"path": "orders.json",
+					"source": "files/orders.json"
+				}
+			],
+			"checks": [
+				{
+					"kind": "file_json",
+					"path": "summary.json",
+					"expected": "{\"paidOrderCount\":2,\"paidTotal\":42}"
+				},
+				{
+					"kind": "python",
+					"script": {
+						"path": "validator.py",
+						"source": "validator.py"
+					}
+				}
+			]
+		}
+	]
+}

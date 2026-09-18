@@ -4,6 +4,7 @@ import {
 	createTask,
 	deleteTask,
 	getTask,
+	getTaskHeader,
 	listTasks,
 	renameTask,
 	runTaskExecutions,
@@ -62,6 +63,17 @@ const useTask = (taskId: string | null) =>
 				? TASK_POLL_INTERVAL_MS
 				: false;
 		},
+	});
+
+/** Loads the shared Task header before any type-specific detail query runs. */
+const useTaskHeader = (taskId: string | null) =>
+	useQuery({
+		queryKey: [...taskKeys.detail(taskId), "header"],
+		queryFn: () => {
+			if (!taskId) throw new Error("A Task id is required");
+			return getTaskHeader(taskId);
+		},
+		enabled: taskId !== null,
 	});
 
 /** Creates a locked Task and seeds both detail and Task-list caches. */
@@ -161,10 +173,7 @@ const useRenameTask = () => {
 		mutationFn: ({ taskId, title }: RenameTaskInput) =>
 			renameTask(taskId, title),
 		onSuccess: (task) => {
-			queryClient.setQueryData<TaskDetail>(
-				taskKeys.detail(task.id),
-				(detail) => (detail ? { ...detail, task } : detail),
-			);
+			queryClient.invalidateQueries({ queryKey: taskKeys.detail(task.id) });
 			queryClient.invalidateQueries({
 				queryKey: taskKeys.list(task.workspaceId),
 			});
@@ -179,10 +188,7 @@ const useSetTaskPin = () => {
 		mutationFn: ({ isPinned, taskId }: SetTaskPinInput) =>
 			setTaskPin(taskId, isPinned),
 		onSuccess: (task) => {
-			queryClient.setQueryData<TaskDetail>(
-				taskKeys.detail(task.id),
-				(detail) => (detail ? { ...detail, task } : detail),
-			);
+			queryClient.invalidateQueries({ queryKey: taskKeys.detail(task.id) });
 			queryClient.invalidateQueries({
 				queryKey: taskKeys.list(task.workspaceId),
 			});
@@ -200,5 +206,6 @@ export {
 	useSetTaskPin,
 	useStopTaskAgent,
 	useTask,
+	useTaskHeader,
 	useTasks,
 };
