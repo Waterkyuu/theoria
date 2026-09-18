@@ -227,4 +227,53 @@ describe("RunBoardPage", () => {
 		const horizontalTooltip = await screen.findByRole("tooltip");
 		expect(horizontalTooltip).toHaveTextContent("水平面板");
 	});
+
+	// Dragging a status panel changes its position without moving its activity cards to another status.
+	it("shows visible counts and reorders status panels by dragging", async () => {
+		render(<RunBoardPage />);
+		await screen.findAllByRole("article");
+		const board = screen.getByTestId("run-board");
+		const names = () =>
+			within(board)
+				.getAllByRole("heading", { level: 2 })
+				.map((heading) => heading.textContent);
+		expect(names()).toEqual(["运行中1", "等待用户1", "已完成1", "异常1"]);
+
+		const source = screen.getByRole("region", { name: "运行中1" });
+		const target = screen.getByRole("region", { name: "已完成1" });
+		const dataTransfer = {
+			effectAllowed: "none",
+			setData: vi.fn(),
+		};
+		fireEvent.dragStart(
+			within(source).getByRole("button", { name: "拖动运行中面板" }),
+			{
+				dataTransfer,
+			},
+		);
+		fireEvent.dragOver(target, { dataTransfer });
+		fireEvent.drop(target);
+
+		expect(names()).toEqual(["等待用户1", "已完成1", "运行中1", "异常1"]);
+		expect(within(source).getByRole("article")).toHaveTextContent(
+			"优化看板标题显示",
+		);
+	});
+
+	it("moves a focused panel with arrow keys", async () => {
+		const user = userEvent.setup();
+		render(<RunBoardPage />);
+		await screen.findAllByRole("article");
+		const board = screen.getByTestId("run-board");
+		const grip = screen.getByRole("button", { name: "拖动运行中面板" });
+
+		grip.focus();
+		await user.keyboard("{ArrowRight}");
+
+		expect(
+			within(board)
+				.getAllByRole("heading", { level: 2 })
+				.map((heading) => heading.textContent),
+		).toEqual(["等待用户1", "运行中1", "已完成1", "异常1"]);
+	});
 });

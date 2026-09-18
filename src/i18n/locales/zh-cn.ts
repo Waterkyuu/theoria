@@ -558,6 +558,7 @@ const zhCN = {
 			horizontalLayout: "水平面板",
 			empty: "此状态下暂无任务",
 			untitledTask: "未命名任务",
+			dragStatus: "拖动{{status}}面板",
 			status: {
 				running: "运行中",
 				waiting: "等待用户",

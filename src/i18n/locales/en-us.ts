@@ -580,6 +580,7 @@ const enUS = {
 			horizontalLayout: "Horizontal panel",
 			empty: "No tasks in this status",
 			untitledTask: "Untitled task",
+			dragStatus: "Drag {{status}} panel",
 			status: {
 				running: "Running",
 				waiting: "Awaiting user",

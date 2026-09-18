@@ -1,13 +1,5 @@
-import { type ComponentType, type SVGProps, useEffect, useState } from "react";
-import {
-	CircleCheck,
-	CircleQuestion,
-	Clock,
-	LayoutColumns3,
-	LayoutRows3,
-	Play,
-	TriangleExclamation,
-} from "@gravity-ui/icons";
+import { useEffect, useState } from "react";
+import { Clock, Grip, LayoutColumns3, LayoutRows3 } from "@gravity-ui/icons";
 import { Button, Card, Chip, Tooltip } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
@@ -21,10 +13,8 @@ import type { AgentActivity, AgentActivityStatus } from "@/types/agent";
 type RunBoardLayout = "vertical" | "horizontal";
 
 type StatusPresentation = {
-	/** Icon rendered beside the status name. */
-	icon: ComponentType<SVGProps<SVGSVGElement>>;
-	/** Tailwind color class for the status icon. */
-	iconClassName: string;
+	/** Tailwind color class for the status marker. */
+	markerClassName: string;
 	/** Status-specific border and background treatment for the task badge. */
 	chipClassName: string;
 };
@@ -38,24 +28,20 @@ const BOARD_STATUSES: AgentActivityStatus[] = [
 
 const STATUS_PRESENTATIONS: Record<AgentActivityStatus, StatusPresentation> = {
 	running: {
-		icon: Play,
-		iconClassName: "text-blue-600",
+		markerClassName: "bg-blue-600",
 		chipClassName: "border-blue-400/40 bg-blue-500/10 text-blue-700",
 	},
 	waiting: {
-		icon: CircleQuestion,
-		iconClassName: "text-terminal-yellow",
+		markerClassName: "bg-terminal-yellow",
 		chipClassName: "border-terminal-yellow/40 bg-terminal-yellow/15 text-ink",
 	},
 	finish: {
-		icon: CircleCheck,
-		iconClassName: "text-terminal-green",
+		markerClassName: "bg-terminal-green",
 		chipClassName:
 			"border-terminal-green/40 bg-terminal-green/10 text-green-800",
 	},
 	error: {
-		icon: TriangleExclamation,
-		iconClassName: "text-terminal-red",
+		markerClassName: "bg-terminal-red",
 		chipClassName: "border-terminal-red/40 bg-terminal-red/10 text-ink",
 	},
 };
@@ -63,6 +49,9 @@ const STATUS_PRESENTATIONS: Record<AgentActivityStatus, StatusPresentation> = {
 const RunBoardPage = () => {
 	const { i18n, t } = useTranslation();
 	const [layout, setLayout] = useState<RunBoardLayout>("vertical");
+	const [statusOrder, setStatusOrder] = useState(BOARD_STATUSES);
+	const [draggedStatus, setDraggedStatus] =
+		useState<AgentActivityStatus | null>(null);
 	const [agentInput, setAgentInput] = useState("");
 	const [agentQuery, setAgentQuery] = useState("");
 	const [activities, setActivities] = useState<AgentActivity[]>([]);
@@ -181,16 +170,14 @@ const RunBoardPage = () => {
 
 					<div
 						className={cn(
-							"grid overflow-hidden rounded-xl border border-hairline bg-surface-card",
-							layout === "vertical" &&
-								"lg:grid-cols-2 xl:min-h-160 xl:grid-cols-4",
+							"grid gap-4",
+							layout === "vertical" && "lg:grid-cols-2 xl:grid-cols-4",
 						)}
 						data-layout={layout}
 						data-testid="run-board"
 					>
-						{BOARD_STATUSES.map((status) => {
+						{statusOrder.map((status) => {
 							const presentation = STATUS_PRESENTATIONS[status];
-							const StatusIcon = presentation.icon;
 							const items = activities.filter(
 								(item) =>
 									item.status === status &&
@@ -203,45 +190,97 @@ const RunBoardPage = () => {
 								<section
 									aria-labelledby={`board-${status}`}
 									className={cn(
-										"flex min-w-0 flex-col border-b border-hairline",
-										layout === "vertical" &&
-											"lg:border-r lg:[&:nth-child(2n)]:border-r-0 lg:[&:nth-last-child(-n+2)]:border-b-0 xl:[&:nth-child(2n)]:border-r xl:[&:nth-child(4n)]:border-r-0 xl:[&:nth-last-child(-n+4)]:border-b-0",
-										layout === "horizontal" && "lg:flex-row lg:last:border-b-0",
+										"flex min-w-0 cursor-grab flex-col overflow-hidden rounded-2xl bg-surface-soft p-2 active:cursor-grabbing",
+										layout === "horizontal" && "lg:flex-row",
+										draggedStatus === status && "opacity-50",
 									)}
+									draggable
 									key={status}
+									onDragStart={(event) => {
+										event.dataTransfer.effectAllowed = "move";
+										event.dataTransfer.setData("text/plain", status);
+										setDraggedStatus(status);
+									}}
+									onDragEnd={() => setDraggedStatus(null)}
+									onDragOver={(event) => {
+										if (draggedStatus && draggedStatus !== status) {
+											event.preventDefault();
+											event.dataTransfer.dropEffect = "move";
+										}
+									}}
+									onDrop={(event) => {
+										event.preventDefault();
+										if (draggedStatus && draggedStatus !== status) {
+											setStatusOrder((current) => {
+												const next = current.filter(
+													(entry) => entry !== draggedStatus,
+												);
+												next.splice(current.indexOf(status), 0, draggedStatus);
+												return next;
+											});
+										}
+										setDraggedStatus(null);
+									}}
 								>
 									<header
 										className={cn(
-											"flex items-center border-b border-hairline px-4 py-3.5",
-											layout === "horizontal" &&
-												"lg:w-56 lg:shrink-0 lg:border-b-0 lg:border-r",
+											"flex items-center gap-2 px-2 py-2.5",
+											layout === "horizontal" && "lg:w-56 lg:shrink-0",
 										)}
 									>
-										<div className="flex min-w-0 items-center gap-3">
-											<StatusIcon
-												aria-hidden="true"
-												className={cn(
-													"size-5 shrink-0",
-													presentation.iconClassName,
-												)}
-											/>
-											<div className="min-w-0">
-												<h2
-													className="text-body-sm-strong font-medium"
-													id={`board-${status}`}
-												>
-													{t(`runBoard.status.${status}`)}
-												</h2>
-												<p className="truncate text-caption-sm text-body">
-													{t(`runBoard.statusDescription.${status}`)}
-												</p>
-											</div>
-										</div>
+										<button
+											aria-label={t("runBoard.dragStatus", {
+												status: t(`runBoard.status.${status}`),
+											})}
+											className="cursor-grab rounded-md p-1 text-mute hover:text-ink active:cursor-grabbing focus-visible:outline-2 focus-visible:outline-focus-ring"
+											draggable
+											onKeyDown={(event) => {
+												const offset =
+													event.key === "ArrowLeft" || event.key === "ArrowUp"
+														? -1
+														: event.key === "ArrowRight" ||
+																event.key === "ArrowDown"
+															? 1
+															: 0;
+												if (offset === 0) return;
+												event.preventDefault();
+												// Adjacent swaps let keyboard users reorder the same panels as mouse users.
+												setStatusOrder((current) => {
+													const from = current.indexOf(status);
+													const to = from + offset;
+													if (to < 0 || to >= current.length) return current;
+													const next = [...current];
+													[next[from], next[to]] = [next[to], next[from]];
+													return next;
+												});
+											}}
+											type="button"
+										>
+											<Grip aria-hidden="true" className="size-4" />
+										</button>
+										<span
+											aria-hidden="true"
+											className={cn(
+												"size-2.5 shrink-0 rounded-full",
+												presentation.markerClassName,
+											)}
+										/>
+										<h2
+											className="flex min-w-0 items-baseline gap-2 text-body-sm-strong font-medium"
+											id={`board-${status}`}
+										>
+											<span className="truncate">
+												{t(`runBoard.status.${status}`)}
+											</span>
+											<span className="shrink-0 font-normal text-mute">
+												{items.length}
+											</span>
+										</h2>
 									</header>
 
 									<div
 										className={cn(
-											"min-h-48 max-h-[60vh] flex-1 space-y-3 overflow-y-auto overscroll-contain bg-surface-soft/50 p-3",
+											"min-h-48 max-h-[60vh] flex-1 space-y-3 overflow-y-auto overscroll-contain p-1",
 											layout === "horizontal" &&
 												"lg:flex lg:max-h-none lg:flex-nowrap lg:items-start lg:gap-3 lg:space-y-0 lg:overflow-x-auto lg:overflow-y-hidden",
 										)}
