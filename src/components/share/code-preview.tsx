@@ -5,8 +5,8 @@ import {
 } from "@codemirror/language";
 import { EditorState, StateEffect } from "@codemirror/state";
 import { EditorView } from "codemirror";
+import { matchEditorLanguage } from "@/utils/editor-language";
 import { handleError } from "@/utils/error";
-import { matchEditorLanguage } from "./editor-language";
 
 type CodePreviewProps = {
 	/** File path used to load the same language as the Skill editor. */

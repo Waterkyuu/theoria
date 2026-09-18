@@ -1,8 +1,8 @@
 import { useEffect, useEffectEvent, useRef } from "react";
 import { Compartment, EditorState } from "@codemirror/state";
 import { basicSetup, EditorView } from "codemirror";
+import { matchEditorLanguage } from "@/utils/editor-language";
 import { handleError } from "@/utils/error";
-import { matchEditorLanguage } from "./editor-language";
 import "@/styles/code-editor.css";
 
 type CodeEditorProps = {
