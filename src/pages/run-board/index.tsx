@@ -1,4 +1,9 @@
-import { useEffect, useState } from "react";
+import {
+	type PointerEvent as ReactPointerEvent,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { Clock, Grip } from "@gravity-ui/icons";
 import { Card, Chip } from "@heroui/react";
 import { cn } from "cnfast";
@@ -15,6 +20,21 @@ type StatusPresentation = {
 	markerClassName: string;
 	/** Status-specific border and background treatment for the task badge. */
 	chipClassName: string;
+};
+
+type ActivePanelDrag = {
+	/** Panel moved under the pointer. */
+	element: HTMLElement;
+	/** Pointer identity used to ignore unrelated mouse events. */
+	pointerId: number;
+	/** Status whose place in the layout will change. */
+	status: AgentActivityStatus;
+	/** Pointer coordinates at the start of the drag. */
+	startX: number;
+	/** Pointer coordinates at the start of the drag. */
+	startY: number;
+	/** Whether movement crossed the click tolerance. */
+	moved: boolean;
 };
 
 const BOARD_STATUSES: AgentActivityStatus[] = [
@@ -46,13 +66,46 @@ const STATUS_PRESENTATIONS: Record<AgentActivityStatus, StatusPresentation> = {
 
 const RunBoardPage = () => {
 	const { i18n, t } = useTranslation();
-	const [statusOrder, setStatusOrder] = useState(BOARD_STATUSES);
-	const [draggedStatus, setDraggedStatus] =
-		useState<AgentActivityStatus | null>(null);
+	const [layout, setLayout] = useState(BOARD_STATUSES);
+	const activeDrag = useRef<ActivePanelDrag | null>(null);
 	const [agentInput, setAgentInput] = useState("");
 	const [agentQuery, setAgentQuery] = useState("");
 	const [activities, setActivities] = useState<AgentActivity[]>([]);
 	const agentSearchTerm = agentQuery.trim().toLocaleLowerCase();
+
+	/** Ends the pointer gesture after finding the panel underneath the dragged panel.
+	 * @example finishPanelDrag(event, false);
+	 */
+	const finishPanelDrag = (
+		event: ReactPointerEvent<HTMLElement>,
+		cancelled: boolean,
+	) => {
+		const drag = activeDrag.current;
+		if (!drag || drag.pointerId !== event.pointerId) return;
+		const target =
+			!cancelled && drag.moved
+				? document
+						.elementFromPoint?.(event.clientX, event.clientY)
+						?.closest<HTMLElement>("[data-board-status]")
+				: null;
+		drag.element.style.removeProperty("transform");
+		drag.element.style.removeProperty("z-index");
+		drag.element.style.removeProperty("pointer-events");
+		if (drag.element.hasPointerCapture?.(drag.pointerId)) {
+			drag.element.releasePointerCapture(drag.pointerId);
+		}
+		activeDrag.current = null;
+		const targetStatus = target?.dataset.boardStatus as
+			| AgentActivityStatus
+			| undefined;
+		if (!targetStatus || targetStatus === drag.status) return;
+		setLayout((current) => {
+			if (!current.includes(targetStatus)) return current;
+			const next = current.filter((entry) => entry !== drag.status);
+			next.splice(current.indexOf(targetStatus), 0, drag.status);
+			return next;
+		});
+	};
 
 	// Loads the cached native snapshot and keeps it current through source-change events.
 	useEffect(() => {
@@ -128,7 +181,7 @@ const RunBoardPage = () => {
 						className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4"
 						data-testid="run-board"
 					>
-						{statusOrder.map((status) => {
+						{layout.map((status) => {
 							const presentation = STATUS_PRESENTATIONS[status];
 							const items = activities.filter(
 								(item) =>
@@ -141,37 +194,36 @@ const RunBoardPage = () => {
 							return (
 								<section
 									aria-labelledby={`board-${status}`}
-									className={cn(
-										"flex min-w-0 cursor-grab flex-col overflow-hidden rounded-2xl bg-surface-soft p-2 active:cursor-grabbing",
-										draggedStatus === status && "opacity-50",
-									)}
-									draggable
+									className="relative flex min-h-128 min-w-0 cursor-grab flex-col overflow-hidden rounded-2xl bg-surface-soft p-2 active:cursor-grabbing"
+									data-board-status={status}
 									key={status}
-									onDragStart={(event) => {
-										event.dataTransfer.effectAllowed = "move";
-										event.dataTransfer.setData("text/plain", status);
-										setDraggedStatus(status);
+									onPointerDown={(event) => {
+										if (event.pointerType !== "mouse" || event.button !== 0)
+											return;
+										activeDrag.current = {
+											element: event.currentTarget,
+											pointerId: event.pointerId,
+											status,
+											startX: event.clientX,
+											startY: event.clientY,
+											moved: false,
+										};
+										event.currentTarget.setPointerCapture?.(event.pointerId);
 									}}
-									onDragEnd={() => setDraggedStatus(null)}
-									onDragOver={(event) => {
-										if (draggedStatus && draggedStatus !== status) {
-											event.preventDefault();
-											event.dataTransfer.dropEffect = "move";
-										}
+									onPointerMove={(event) => {
+										const drag = activeDrag.current;
+										if (!drag || drag.pointerId !== event.pointerId) return;
+										const deltaX = event.clientX - drag.startX;
+										const deltaY = event.clientY - drag.startY;
+										if (!drag.moved && Math.hypot(deltaX, deltaY) < 4) return;
+										drag.moved = true;
+										// Move the real panel so its cards remain visible throughout the gesture.
+										drag.element.style.transform = `translate3d(${deltaX}px, ${deltaY}px, 0px)`;
+										drag.element.style.zIndex = "10";
+										drag.element.style.pointerEvents = "none";
 									}}
-									onDrop={(event) => {
-										event.preventDefault();
-										if (draggedStatus && draggedStatus !== status) {
-											setStatusOrder((current) => {
-												const next = current.filter(
-													(entry) => entry !== draggedStatus,
-												);
-												next.splice(current.indexOf(status), 0, draggedStatus);
-												return next;
-											});
-										}
-										setDraggedStatus(null);
-									}}
+									onPointerUp={(event) => finishPanelDrag(event, false)}
+									onPointerCancel={(event) => finishPanelDrag(event, true)}
 								>
 									<header className="flex items-center gap-2 px-2 py-2.5">
 										<button
@@ -179,7 +231,6 @@ const RunBoardPage = () => {
 												status: t(`runBoard.status.${status}`),
 											})}
 											className="cursor-grab rounded-md p-1 text-mute hover:text-ink active:cursor-grabbing focus-visible:outline-2 focus-visible:outline-focus-ring"
-											draggable
 											onKeyDown={(event) => {
 												const offset =
 													event.key === "ArrowLeft" || event.key === "ArrowUp"
@@ -191,7 +242,7 @@ const RunBoardPage = () => {
 												if (offset === 0) return;
 												event.preventDefault();
 												// Adjacent swaps let keyboard users reorder the same panels as mouse users.
-												setStatusOrder((current) => {
+												setLayout((current) => {
 													const from = current.indexOf(status);
 													const to = from + offset;
 													if (to < 0 || to >= current.length) return current;

@@ -55,6 +55,7 @@ describe("RunBoardPage", () => {
 	afterEach(() => {
 		vi.useRealTimers();
 		vi.clearAllMocks();
+		Reflect.deleteProperty(document, "elementFromPoint");
 	});
 
 	// Verifies that only backend Agent activities are rendered instead of bundled demo records.
@@ -198,23 +199,55 @@ describe("RunBoardPage", () => {
 
 		const source = screen.getByRole("region", { name: "运行中1" });
 		const target = screen.getByRole("region", { name: "已完成1" });
-		const dataTransfer = {
-			effectAllowed: "none",
-			setData: vi.fn(),
-		};
-		fireEvent.dragStart(
-			within(source).getByRole("button", { name: "拖动运行中面板" }),
-			{
-				dataTransfer,
-			},
-		);
-		fireEvent.dragOver(target, { dataTransfer });
-		fireEvent.drop(target);
-
+		Object.defineProperty(document, "elementFromPoint", {
+			configurable: true,
+			value: vi.fn().mockReturnValue(target),
+		});
+		fireEvent.pointerDown(source, {
+			button: 0,
+			pointerId: 1,
+			pointerType: "mouse",
+			clientX: 100,
+			clientY: 100,
+		});
+		fireEvent.pointerMove(source, {
+			pointerId: 1,
+			pointerType: "mouse",
+			clientX: 130,
+			clientY: 140,
+		});
+		fireEvent.pointerUp(source, {
+			pointerId: 1,
+			pointerType: "mouse",
+			clientX: 130,
+			clientY: 140,
+		});
 		expect(names()).toEqual(["等待用户1", "已完成1", "运行中1", "异常1"]);
 		expect(within(source).getByRole("article")).toHaveTextContent(
 			"优化看板标题显示",
 		);
+	});
+
+	it("moves the entire panel with the pointer before drop", async () => {
+		render(<RunBoardPage />);
+		await screen.findAllByRole("article");
+		const panel = screen.getByRole("region", { name: "运行中1" });
+
+		fireEvent.pointerDown(panel, {
+			button: 0,
+			pointerId: 1,
+			pointerType: "mouse",
+			clientX: 100,
+			clientY: 100,
+		});
+		fireEvent.pointerMove(panel, {
+			pointerId: 1,
+			pointerType: "mouse",
+			clientX: 130,
+			clientY: 140,
+		});
+
+		expect(panel).toHaveStyle({ transform: "translate3d(30px, 40px, 0px)" });
 	});
 
 	it("moves a focused panel with arrow keys", async () => {
