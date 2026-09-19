@@ -21,7 +21,15 @@ const COMPLETE_RESULT: TaskAgentResult = {
 	metrics: {
 		totalDurationMs: 134_000,
 		tokenUsage: { totalTokens: 18_400 },
-		toolCalls: [{ name: "workspace.read", durationMs: 420 }],
+		toolCalls: [
+			{
+				name: "workspace.read",
+				arguments: { path: "README.md" },
+				result: "file contents",
+				status: "completed",
+				durationMs: 420,
+			},
+		],
 	},
 };
 
@@ -83,6 +91,8 @@ describe("AgentPanel", () => {
 			screen.getByText("The workspace review is complete."),
 		).toBeInTheDocument();
 		expect(screen.getByText("workspace.read")).toBeInTheDocument();
+		expect(screen.getByText(/README\.md/)).toBeInTheDocument();
+		expect(screen.getByText(/file contents/)).toBeInTheDocument();
 		expect(screen.getByText("2m 14s · 18.4k tokens")).toBeInTheDocument();
 		expect(screen.getByText("打开记录")).toBeInTheDocument();
 	});

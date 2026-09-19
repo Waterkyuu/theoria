@@ -10,6 +10,7 @@ import { Button, Table } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { AgentIcon } from "@/components/share/agent-icon";
+import { formatDuration, formatToolPayload } from "@/utils/common";
 import type { TaskAgentResult, TaskDetail } from "@/types/task";
 
 type TaskResultSummaryProps = {
@@ -31,10 +32,11 @@ type MetricRow = {
 };
 
 type ToolCall = {
-	/** Stable tool name supplied by the Agent protocol. */
 	name: string;
-	/** Wall-clock duration between the tool request and matching result. */
 	durationMs: number;
+	arguments: unknown;
+	result: unknown;
+	status: string | null;
 };
 
 /** Reads a numeric field from untyped persisted Comparison metrics. */
@@ -66,16 +68,17 @@ const metricToolCalls = (result: TaskAgentResult | undefined): ToolCall[] => {
 		return typeof record.name === "string" &&
 			typeof record.durationMs === "number" &&
 			Number.isFinite(record.durationMs)
-			? [{ name: record.name, durationMs: record.durationMs }]
+			? [
+					{
+						name: record.name,
+						durationMs: record.durationMs,
+						arguments: record.arguments ?? null,
+						result: record.result ?? null,
+						status: typeof record.status === "string" ? record.status : null,
+					},
+				]
 			: [];
 	});
-};
-
-/** Formats a measured latency while retaining useful sub-second precision. */
-const formatDuration = (milliseconds: number | null, unavailable: string) => {
-	if (milliseconds === null) return unavailable;
-	if (milliseconds < 1000) return `${milliseconds} ms`;
-	return `${(milliseconds / 1000).toFixed(2)} s`;
 };
 
 /** Renders the documented read-only Task-level Comparison split. */
@@ -100,10 +103,22 @@ const TaskResultSummary = ({ onClose, task }: TaskResultSummaryProps) => {
 				const toolCall = metricToolCalls(result)[index];
 				if (!toolCall) return t("taskSummary.noToolCall");
 				return (
-					<span className="flex items-center justify-between gap-lg">
-						<span className="font-sans text-charcoal">{toolCall.name}</span>
-						<span>{formatDuration(toolCall.durationMs, unavailable)}</span>
-					</span>
+					<div className="min-w-64 space-y-xs py-xs">
+						<div className="flex items-center justify-between gap-lg">
+							<span className="font-sans text-charcoal">{toolCall.name}</span>
+							<span>{formatDuration(toolCall.durationMs, unavailable)}</span>
+						</div>
+						<p className="whitespace-pre-wrap break-all text-mute">
+							{t("taskSummary.arguments")}:{" "}
+							{formatToolPayload(toolCall.arguments)}
+						</p>
+						<p className="whitespace-pre-wrap break-all text-mute">
+							{t("taskSummary.result")}: {formatToolPayload(toolCall.result)}
+						</p>
+						<p className="text-mute">
+							{t("taskSummary.toolStatus")}: {toolCall.status ?? unavailable}
+						</p>
+					</div>
 				);
 			},
 		}),

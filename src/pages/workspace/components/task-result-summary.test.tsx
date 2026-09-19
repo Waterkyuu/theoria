@@ -48,7 +48,14 @@ const COMPLETE_TASK: TaskDetail = {
 				totalDurationMs: 1250,
 				toolCallCount: 2,
 				toolCalls: [
-					{ sequence: 1, name: "workspace.read", durationMs: 250 },
+					{
+						sequence: 1,
+						name: "workspace.read",
+						arguments: { path: "README.md" },
+						result: "file contents",
+						status: "completed",
+						durationMs: 250,
+					},
 					{ sequence: 2, name: "workspace.search", durationMs: 1200 },
 				],
 			},
@@ -101,6 +108,8 @@ describe("TaskResultSummary", () => {
 
 		expect(within(summary).getByText("workspace.read")).toBeInTheDocument();
 		expect(within(summary).getByText("250 ms")).toBeInTheDocument();
+		expect(within(summary).getByText(/README\.md/)).toBeInTheDocument();
+		expect(within(summary).getByText(/file contents/)).toBeInTheDocument();
 		expect(within(summary).getByText("workspace.search")).toBeInTheDocument();
 		expect(within(summary).getByText("1.20 s")).toBeInTheDocument();
 		const thirdCallLabel = within(summary).getByRole("rowheader", {
