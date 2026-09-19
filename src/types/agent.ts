@@ -88,6 +88,12 @@ const ToolCallMetricSchema = z.object({
 	sequence: z.int().positive(),
 	/** Stable tool name supplied by the source Agent protocol. */
 	name: z.string(),
+	/** Structured arguments supplied when the tool started. */
+	arguments: z.unknown().nullable(),
+	/** Structured output supplied when the tool finished. */
+	result: z.unknown().nullable(),
+	/** Terminal state reported by the normalized Agent protocol. */
+	status: z.literal(["completed", "failed", "incomplete"]),
 	/** Wall-clock duration between the tool request and matching result. */
 	durationMs: z.int().nonnegative(),
 });
