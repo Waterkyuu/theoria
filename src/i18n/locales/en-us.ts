@@ -545,7 +545,6 @@ const enUS = {
 				you: "YOU",
 				response: "RESPONSE",
 				tokens: "tokens",
-				moreActions: "More actions for {{agent}}",
 				toolCompleted: "Tool call completed",
 				toolDuration: "Tool call completed in {{duration}}",
 				activity: {
@@ -557,9 +556,7 @@ const enUS = {
 					stopped: "Execution stopped · inspect logs",
 				},
 				action: {
-					approve: "Approve",
 					stop: "Stop",
-					openRecord: "Open record",
 				},
 			},
 		},

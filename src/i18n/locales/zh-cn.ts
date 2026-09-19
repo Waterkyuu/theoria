@@ -529,7 +529,6 @@ const zhCN = {
 				you: "你",
 				response: "回答",
 				tokens: "tokens",
-				moreActions: "{{agent}} 更多操作",
 				toolCompleted: "工具调用已完成",
 				toolDuration: "工具调用耗时 {{duration}}",
 				activity: {
@@ -541,9 +540,7 @@ const zhCN = {
 					stopped: "执行已停止，请检查日志",
 				},
 				action: {
-					approve: "批准",
 					stop: "停止",
-					openRecord: "打开记录",
 				},
 			},
 		},

@@ -95,7 +95,10 @@ describe("AgentPanel", () => {
 		expect(screen.getByText(/file contents/)).toBeInTheDocument();
 		expect(screen.getByText("状态: 成功")).toBeInTheDocument();
 		expect(screen.getByText("2m 14s · 18.4k tokens")).toBeInTheDocument();
-		expect(screen.getByText("打开记录")).toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "Codex 更多操作" }),
+		).not.toBeInTheDocument();
+		expect(screen.queryByText("打开记录")).not.toBeInTheDocument();
 	});
 
 	it("renders Agent response Markdown as formatted content", () => {
