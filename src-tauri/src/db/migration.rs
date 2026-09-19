@@ -18,6 +18,7 @@ impl MigratorTrait for Migrator {
             Box::new(AddTaskPin),
             Box::new(CreateBenchmarks),
             Box::new(RemoveBenchmarkFallbackTag),
+            Box::new(AddBenchmarkMountPin),
         ]
     }
 }
@@ -99,6 +100,50 @@ impl MigrationTrait for RemoveBenchmarkFallbackTag {
                 )
                 .await?;
         }
+        Ok(())
+    }
+}
+
+/// Adds optional pin ordering to the reusable Benchmark mounts in each Workspace.
+struct AddBenchmarkMountPin;
+
+impl MigrationName for AddBenchmarkMountPin {
+    fn name(&self) -> &str {
+        "m010_add_benchmark_mount_pin"
+    }
+}
+
+#[sea_orm_migration::async_trait::async_trait]
+impl MigrationTrait for AddBenchmarkMountPin {
+    fn use_transaction(&self) -> Option<bool> {
+        Some(true)
+    }
+
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(
+                r#"
+                ALTER TABLE workspace_benchmarks ADD COLUMN pinned_at_ms INTEGER
+                    CHECK (pinned_at_ms IS NULL OR pinned_at_ms > 0);
+                CREATE INDEX idx_workspace_benchmarks_pin_history
+                    ON workspace_benchmarks(workspace_id, pinned_at_ms DESC, created_at_ms DESC);
+                "#,
+            )
+            .await?;
+        Ok(())
+    }
+
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(
+                r#"
+                DROP INDEX idx_workspace_benchmarks_pin_history;
+                ALTER TABLE workspace_benchmarks DROP COLUMN pinned_at_ms;
+                "#,
+            )
+            .await?;
         Ok(())
     }
 }
@@ -775,6 +820,34 @@ mod tests {
                 .has_column("benchmark_tags", "is_system")
                 .await
                 .expect("tag schema should be readable"));
+
+            database.close().await.expect("database should close");
+            std::fs::remove_file(path).expect("owned database should be removed");
+        });
+    }
+
+    #[test]
+    fn adds_pinned_ordering_to_workspace_benchmarks() {
+        tauri::async_runtime::block_on(async {
+            let (path, url) = temporary_database_url();
+            let database = connect_sqlite(&url).await.expect("database should connect");
+            Migrator::up(&database, None)
+                .await
+                .expect("schema should initialize");
+            let manager = SchemaManager::new(&database);
+
+            assert!(manager
+                .has_column("workspace_benchmarks", "pinned_at_ms")
+                .await
+                .expect("mount schema should be readable"));
+            let index = database
+                .query_one_raw(Statement::from_string(
+                    DatabaseBackend::Sqlite,
+                    "SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_workspace_benchmarks_pin_history'".to_string(),
+                ))
+                .await
+                .expect("mount index should be readable");
+            assert!(index.is_some(), "mount pin ordering must stay indexed");
 
             database.close().await.expect("database should close");
             std::fs::remove_file(path).expect("owned database should be removed");
