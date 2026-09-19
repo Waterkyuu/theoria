@@ -101,9 +101,9 @@ const BenchmarkTaskActions = ({ detail }: BenchmarkTaskActionsProps) => {
 					isDisabled={detail.cancelRequested}
 					isPending={cancelMutation.isPending}
 					onPress={cancel}
-					variant="danger"
+					variant="ghost"
 				>
-					<Stop aria-hidden="true" className="size-4" />
+					<Stop aria-hidden="true" className="size-4 text-danger" />
 				</Button>
 			) : null}
 			{terminal ? (
@@ -111,7 +111,11 @@ const BenchmarkTaskActions = ({ detail }: BenchmarkTaskActionsProps) => {
 					title={t("benchmark.rerun")}
 					description={t("benchmark.rerunDescription")}
 					trigger={
-						<Button aria-label={t("benchmark.rerun")} isIconOnly>
+						<Button
+							aria-label={t("benchmark.rerun")}
+							isIconOnly
+							variant="ghost"
+						>
 							<ArrowsRotateRight aria-hidden="true" className="size-4" />
 						</Button>
 					}
