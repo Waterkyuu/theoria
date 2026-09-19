@@ -1323,6 +1323,9 @@ fn execution_metrics(
             .iter()
             .map(|call| BenchmarkToolCall {
                 name: call.name.clone(),
+                arguments: call.arguments.clone(),
+                result: call.result.clone(),
+                status: Some(call.status.clone()),
                 duration_ms: u64::try_from(call.duration.as_millis()).unwrap_or(u64::MAX),
             })
             .collect(),
@@ -1375,7 +1378,7 @@ impl ActiveBenchmarkTasks {
 
 #[cfg(test)]
 mod tests {
-    use super::BenchmarkTaskService;
+    use super::{execution_metrics, BenchmarkTaskService};
     use crate::adapters::agent::{AgentSessionRunOutput, AgentTurnOutcome};
     use crate::adapters::benchmark_verifier::{BenchmarkVerifier, SystemBenchmarkVerifier};
     use crate::db::{connection::connect_sqlite, migration::Migrator};
@@ -1412,6 +1415,35 @@ mod tests {
 
     fn verifier() -> Arc<dyn BenchmarkVerifier> {
         Arc::new(SystemBenchmarkVerifier)
+    }
+
+    #[test]
+    fn preserves_tool_details_in_benchmark_metrics() {
+        let mut collector = AgentRunMetricsCollector::default();
+        collector.record_tool_started_with_details(
+            "tool-1",
+            "write_file",
+            Some(serde_json::json!({"path": "summary.json"})),
+            Duration::ZERO,
+        );
+        collector.record_tool_finished_with_details(
+            "tool-1",
+            Some(serde_json::json!("workspace is read-only")),
+            true,
+            Duration::from_millis(20),
+        );
+
+        let metrics = execution_metrics(&collector.finish(Duration::from_millis(20)));
+
+        assert_eq!(
+            metrics.tool_calls[0].arguments,
+            Some(serde_json::json!({"path": "summary.json"}))
+        );
+        assert_eq!(
+            metrics.tool_calls[0].result,
+            Some(serde_json::json!("workspace is read-only"))
+        );
+        assert_eq!(metrics.tool_calls[0].status.as_deref(), Some("failed"));
     }
 
     #[test]

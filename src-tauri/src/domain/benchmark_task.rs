@@ -207,6 +207,12 @@ pub(crate) struct BenchmarkTokenUsage {
 pub(crate) struct BenchmarkToolCall {
     /// Stable tool name supplied by the source protocol.
     pub(crate) name: String,
+    /// Structured parameters supplied to the tool.
+    pub(crate) arguments: Option<serde_json::Value>,
+    /// Structured terminal output or error returned by the tool.
+    pub(crate) result: Option<serde_json::Value>,
+    /// Normalized terminal state, absent on historical results.
+    pub(crate) status: Option<String>,
     /// Wall-clock execution duration in milliseconds.
     pub(crate) duration_ms: u64,
 }
