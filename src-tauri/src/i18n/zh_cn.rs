@@ -46,7 +46,6 @@ pub(super) fn message(key: ErrorMessageKey) -> &'static str {
         ErrorMessageKey::BenchmarkReadOnly => "此 Benchmark 为只读或已归档",
         ErrorMessageKey::BenchmarkAssetUnavailable => "Benchmark 材料文件不可用",
         ErrorMessageKey::BenchmarkVerifierUnavailable => "所需的 Benchmark 验证环境不可用",
-        ErrorMessageKey::BenchmarkHistoryProtected => "历史评测受保护，不能永久删除",
         ErrorMessageKey::InvalidTask => "任务配置无效，需包含 1 到 6 个 Agent 和有效权限",
         ErrorMessageKey::TaskNotFound => "未找到对应的任务记录",
         ErrorMessageKey::TaskPreparationFailed => "无法创建安全且隔离的任务执行目录",
