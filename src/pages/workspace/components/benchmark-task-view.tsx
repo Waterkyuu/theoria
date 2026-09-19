@@ -64,87 +64,114 @@ const BenchmarkTaskView = ({ taskId }: BenchmarkTaskViewProps) => {
 				<BenchmarkTaskActions detail={detail} />
 			</PageHeader>
 
-			<section className="min-h-0 flex-1 space-y-xl overflow-y-auto p-lg sm:p-xl">
-				<div className="grid gap-md sm:grid-cols-2 xl:grid-cols-4">
-					{[
-						[
-							"progress",
-							`${detail.progress.finished}/${detail.progress.total}`,
-						],
-						["passed", detail.progress.passed],
-						["failed", detail.progress.failed],
-						["errors", detail.progress.errors],
-					].map(([label, value]) => (
-						<div
-							className="rounded-xl border border-hairline bg-surface-card p-lg"
-							key={label}
-						>
-							<p className="text-caption-sm text-mute">
-								{t(`benchmark.results.${label}`)}
-							</p>
-							<p className="mt-xs text-heading-lg font-semibold text-ink">
-								{value}
-							</p>
+			<section className="min-h-0 flex-1 overflow-y-auto">
+				<div className="mx-auto flex w-full max-w-[1440px] flex-col gap-lg p-lg sm:p-xl">
+					<section className="overflow-hidden rounded-xl border border-hairline bg-surface-card">
+						<div className="grid divide-y divide-hairline sm:grid-cols-4 sm:divide-x sm:divide-y-0">
+							{[
+								[
+									"progress",
+									`${detail.progress.finished}/${detail.progress.total}`,
+								],
+								["passed", detail.progress.passed],
+								["failed", detail.progress.failed],
+								["errors", detail.progress.errors],
+							].map(([label, value]) => (
+								<div className="min-w-0 px-lg py-md" key={label}>
+									<p className="text-caption-sm font-medium text-mute">
+										{t(`benchmark.results.${label}`)}
+									</p>
+									<p className="mt-xs text-heading-md font-semibold tabular-nums text-ink">
+										{value}
+									</p>
+								</div>
+							))}
 						</div>
-					))}
-				</div>
+						<div className="h-1 bg-surface-soft">
+							<div
+								className="h-full bg-ink transition-[width] duration-300"
+								style={{
+									width: `${detail.progress.total === 0 ? 0 : (detail.progress.finished / detail.progress.total) * 100}%`,
+								}}
+							/>
+						</div>
+					</section>
 
-				<div className="grid gap-md lg:grid-cols-2 xl:grid-cols-4">
-					{detail.agents.map((agent) => (
-						<article
-							className="rounded-xl border border-hairline bg-surface-card p-lg"
-							key={agent.id}
-						>
-							<h2 className="font-medium text-ink">
-								{t(`agentNames.${agent.agentKind}`)}
-							</h2>
-							<p className="mt-sm text-body-sm text-body">
-								{agent.passRate === null
-									? t("benchmark.results.incompleteCoverage")
-									: t("benchmark.results.passRate", {
-											rate: Math.round(agent.passRate * 100),
-										})}
-							</p>
-							<p className="mt-xs text-caption-sm text-mute">
-								{t("benchmark.results.metrics", {
-									duration: formatCoveredMetric(
-										t("benchmark.results.durationValue", {
-											value: agent.totalDurationMs,
-										}),
-										agent.durationCoverage,
-										agent.total,
-										t,
-									),
-									tokens: formatCoveredMetric(
-										t("benchmark.results.tokenValue", {
-											count: agent.totalTokens,
-										}),
-										agent.tokenCoverage,
-										agent.total,
-										t,
-									),
-									tools: formatCoveredMetric(
-										t("benchmark.results.toolValue", {
-											count: agent.toolCallCount,
-										}),
-										agent.durationCoverage,
-										agent.total,
-										t,
-									),
-								})}
-							</p>
-						</article>
-					))}
-				</div>
+					<section className="grid gap-md lg:grid-cols-2">
+						{detail.agents.map((agent) => (
+							<article
+								className="overflow-hidden rounded-xl border border-hairline bg-surface-card"
+								key={agent.id}
+							>
+								<div className="flex items-end justify-between gap-md px-lg py-md">
+									<div>
+										<h2 className="font-medium text-ink">
+											{t(`agentNames.${agent.agentKind}`)}
+										</h2>
+										<p className="mt-xs text-caption-sm text-mute">
+											{agent.passRate === null
+												? t("benchmark.results.incompleteCoverage")
+												: `${agent.passed}/${agent.total} ${t("benchmark.results.passed")}`}
+										</p>
+									</div>
+									<p className="text-heading-lg font-semibold tabular-nums text-ink">
+										{agent.passRate === null
+											? "—"
+											: `${Math.round(agent.passRate * 100)}%`}
+									</p>
+								</div>
+								<div className="grid grid-cols-3 divide-x divide-hairline border-t border-hairline bg-surface-soft">
+									{[
+										formatCoveredMetric(
+											t("benchmark.results.durationValue", {
+												value: agent.totalDurationMs,
+											}),
+											agent.durationCoverage,
+											agent.total,
+											t,
+										),
+										formatCoveredMetric(
+											t("benchmark.results.tokenValue", {
+												count: agent.totalTokens,
+											}),
+											agent.tokenCoverage,
+											agent.total,
+											t,
+										),
+										formatCoveredMetric(
+											t("benchmark.results.toolValue", {
+												count: agent.toolCallCount,
+											}),
+											agent.durationCoverage,
+											agent.total,
+											t,
+										),
+									].map((metric, index) => (
+										<p
+											className="min-w-0 px-md py-sm text-caption-sm leading-relaxed text-body"
+											key={index}
+										>
+											{metric}
+										</p>
+									))}
+								</div>
+							</article>
+						))}
+					</section>
 
-				<BenchmarkResultMatrix detail={detail} onSelect={setExecutionId} />
-				{executionId ? (
-					<BenchmarkExecutionDetail
+					<BenchmarkResultMatrix
 						detail={detail}
-						executionId={executionId}
-						key={executionId}
+						onSelect={setExecutionId}
+						selectedExecutionId={executionId}
 					/>
-				) : null}
+					{executionId ? (
+						<BenchmarkExecutionDetail
+							detail={detail}
+							executionId={executionId}
+							key={executionId}
+						/>
+					) : null}
+				</div>
 			</section>
 		</main>
 	);

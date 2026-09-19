@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ChevronDown, Magnifier } from "@gravity-ui/icons";
 import { Button } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
@@ -10,6 +11,8 @@ type BenchmarkResultMatrixProps = {
 	detail: BenchmarkTaskDetail;
 	/** Opens one selected execution in the detail panel. */
 	onSelect: (executionId: string) => void;
+	/** Execution currently expanded below the matrix. */
+	selectedExecutionId: string | null;
 };
 
 const MATRIX_PAGE_SIZE = 20;
@@ -37,6 +40,7 @@ const MATRIX_RESULTS = [
 const BenchmarkResultMatrix = ({
 	detail,
 	onSelect,
+	selectedExecutionId,
 }: BenchmarkResultMatrixProps) => {
 	const { t } = useTranslation();
 	const [caseSearch, setCaseSearch] = useState("");
@@ -72,25 +76,31 @@ const BenchmarkResultMatrix = ({
 	);
 
 	return (
-		<div className="rounded-xl border border-hairline bg-surface-card">
-			<div className="flex flex-wrap items-end gap-sm border-b border-hairline p-md">
-				<label className="flex min-w-52 flex-1 flex-col gap-xs text-caption-sm text-mute">
-					{t("benchmark.results.searchCases")}
+		<div className="overflow-hidden rounded-xl border border-hairline bg-surface-card">
+			<div className="flex flex-wrap items-center gap-sm border-b border-hairline px-md py-sm">
+				<label className="relative min-w-56 flex-1">
+					<span className="sr-only">{t("benchmark.results.searchCases")}</span>
+					<Magnifier
+						aria-hidden="true"
+						className="pointer-events-none absolute left-sm top-1/2 size-4 -translate-y-1/2 text-mute"
+					/>
 					<input
 						aria-label={t("benchmark.results.searchCases")}
-						className="rounded-md border border-hairline bg-canvas px-sm py-xs text-body-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+						className="h-9 w-full rounded-lg bg-surface-soft pl-8 pr-sm text-body-sm text-ink outline-none placeholder:text-mute focus-visible:ring-2 focus-visible:ring-focus-ring"
 						onChange={(event) => {
 							setCaseSearch(event.target.value);
 							setMatrixPage(0);
 						}}
 						type="search"
 						value={caseSearch}
+						placeholder={t("benchmark.results.searchCases")}
 					/>
 				</label>
-				<label className="flex min-w-40 flex-col gap-xs text-caption-sm text-mute">
-					{t("benchmark.results.agentFilter")}
+				<label className="relative min-w-36">
+					<span className="sr-only">{t("benchmark.results.agentFilter")}</span>
 					<select
-						className="rounded-md border border-hairline bg-canvas px-sm py-xs text-body-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+						aria-label={t("benchmark.results.agentFilter")}
+						className="h-9 w-full appearance-none rounded-lg bg-surface-soft pl-md pr-xl text-body-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
 						onChange={(event) => {
 							setMatrixAgent(event.target.value);
 							setMatrixPage(0);
@@ -104,11 +114,16 @@ const BenchmarkResultMatrix = ({
 							</option>
 						))}
 					</select>
+					<ChevronDown
+						aria-hidden="true"
+						className="pointer-events-none absolute right-sm top-1/2 size-4 -translate-y-1/2 text-mute"
+					/>
 				</label>
-				<label className="flex min-w-40 flex-col gap-xs text-caption-sm text-mute">
-					{t("benchmark.results.statusFilter")}
+				<label className="relative min-w-36">
+					<span className="sr-only">{t("benchmark.results.statusFilter")}</span>
 					<select
-						className="rounded-md border border-hairline bg-canvas px-sm py-xs text-body-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+						aria-label={t("benchmark.results.statusFilter")}
+						className="h-9 w-full appearance-none rounded-lg bg-surface-soft pl-md pr-xl text-body-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
 						onChange={(event) => {
 							setMatrixResult(event.target.value);
 							setMatrixPage(0);
@@ -122,8 +137,12 @@ const BenchmarkResultMatrix = ({
 							</option>
 						))}
 					</select>
+					<ChevronDown
+						aria-hidden="true"
+						className="pointer-events-none absolute right-sm top-1/2 size-4 -translate-y-1/2 text-mute"
+					/>
 				</label>
-				<span className="text-caption-sm text-mute">
+				<span className="ml-auto whitespace-nowrap text-caption-sm tabular-nums text-mute">
 					{t("benchmark.results.filteredCases", {
 						count: filteredCases.length,
 						total: detail.cases.length,
@@ -133,12 +152,12 @@ const BenchmarkResultMatrix = ({
 			<div className="overflow-x-auto">
 				<table className="w-full min-w-180 border-collapse text-body-sm">
 					<thead>
-						<tr className="border-b border-hairline text-left text-mute">
-							<th className="p-md font-medium">
+						<tr className="border-b border-hairline bg-surface-soft text-left text-mute">
+							<th className="w-[40%] px-lg py-sm font-medium">
 								{t("benchmark.results.case")}
 							</th>
 							{visibleAgents.map((agent) => (
-								<th className="p-md font-medium" key={agent.id}>
+								<th className="px-md py-sm font-medium" key={agent.id}>
 									{t(`agentNames.${agent.agentKind}`)}
 								</th>
 							))}
@@ -147,10 +166,10 @@ const BenchmarkResultMatrix = ({
 					<tbody>
 						{visibleCases.map((benchmarkCase) => (
 							<tr
-								className="border-b border-hairline last:border-0"
+								className="border-b border-hairline transition-colors last:border-0 hover:bg-surface-soft/60"
 								key={benchmarkCase.id}
 							>
-								<th className="p-md text-left font-medium text-ink">
+								<th className="px-lg py-md text-left font-medium text-ink">
 									{benchmarkCase.name}
 								</th>
 								{visibleAgents.map((agent) => {
@@ -160,12 +179,14 @@ const BenchmarkResultMatrix = ({
 											item.taskAgentId === agent.id,
 									);
 									return (
-										<td className="p-md" key={agent.id}>
+										<td className="px-md py-md" key={agent.id}>
 											{execution ? (
 												<button
 													className={cn(
-														"rounded-md px-sm py-xs text-caption-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
+														"rounded-full px-sm py-xs text-caption-sm font-medium outline-none ring-offset-2 ring-offset-surface-card transition-shadow focus-visible:ring-2 focus-visible:ring-focus-ring",
 														benchmarkResultClass(execution.result),
+														execution.id === selectedExecutionId &&
+															"ring-2 ring-ink/20",
 													)}
 													onClick={() => onSelect(execution.id)}
 													type="button"

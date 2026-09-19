@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
+import { MarkdownContent } from "@/components/share/markdown-content";
 import { BenchmarkFeedback } from "@/pages/benchmark/components/feedback";
 import {
 	useBenchmarkExecutionArtifactPreview,
@@ -44,20 +45,26 @@ const BenchmarkExecutionDetail = ({
 			: null;
 
 	return (
-		<article className="rounded-xl border border-hairline bg-surface-card p-lg">
-			<div className="flex flex-wrap items-start justify-between gap-md">
+		<article className="overflow-hidden rounded-xl border border-hairline bg-surface-card">
+			<div className="flex flex-wrap items-start justify-between gap-md border-b border-hairline px-lg py-md">
 				<div>
-					<h2 className="font-medium text-ink">
+					<h2 className="text-body-sm font-semibold text-ink">
 						{t("benchmark.results.executionDetail")}
 					</h2>
 					<p className="mt-xs text-caption-sm text-mute">
 						{benchmarkCase?.name ?? "—"} ·{" "}
 						{agent ? t(`agentNames.${agent.agentKind}`) : "—"}
 					</p>
+					{duration !== null ? (
+						<p className="mt-xs text-caption-sm tabular-nums text-mute">
+							{t("benchmark.results.duration")}:{" "}
+							{t("benchmark.results.durationValue", { value: duration })}
+						</p>
+					) : null}
 				</div>
 				<span
 					className={cn(
-						"rounded-md px-sm py-xs text-caption-sm",
+						"rounded-full px-sm py-xs text-caption-sm font-medium",
 						benchmarkResultClass(execution.result),
 					)}
 				>
@@ -66,34 +73,30 @@ const BenchmarkExecutionDetail = ({
 					})}
 				</span>
 			</div>
-			<div className="mt-lg grid gap-lg lg:grid-cols-2">
-				<section>
+			<div className="grid gap-md p-lg xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.35fr)]">
+				<section className="min-w-0 rounded-lg bg-surface-soft p-md">
 					<h3 className="text-caption-sm font-medium text-mute">
 						{t("benchmark.results.requirements")}
 					</h3>
-					<pre className="mt-sm whitespace-pre-wrap text-body-sm text-body">
+					<p className="mt-sm max-h-80 overflow-auto whitespace-pre-wrap break-words text-body-sm leading-relaxed text-body">
 						{benchmarkCase?.prompt ?? "—"}
-					</pre>
+					</p>
 				</section>
-				<section>
+				<section className="min-w-0 rounded-lg border border-hairline p-md">
 					<h3 className="text-caption-sm font-medium text-mute">
 						{t("benchmark.results.response")}
 					</h3>
-					<pre className="mt-sm whitespace-pre-wrap text-body-sm text-body">
-						{execution.responseText ??
-							execution.terminationReason ??
-							t("benchmark.results.noResponse")}
-					</pre>
+					<div className="mt-sm max-h-[32rem] overflow-auto break-words text-body-sm leading-relaxed text-body [&_a]:font-medium [&_a]:text-link [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-hairline-strong [&_blockquote]:pl-md [&_code]:rounded-sm [&_code]:bg-surface-soft [&_code]:px-1 [&_li]:my-xs [&_ol]:list-decimal [&_ol]:pl-lg [&_p+p]:mt-md [&_pre]:my-md [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-surface-soft [&_pre]:p-md [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-lg">
+						<MarkdownContent>
+							{execution.responseText ??
+								execution.terminationReason ??
+								t("benchmark.results.noResponse")}
+						</MarkdownContent>
+					</div>
 				</section>
 			</div>
-			{duration !== null ? (
-				<p className="mt-lg text-caption-sm text-mute">
-					{t("benchmark.results.duration")}:{" "}
-					{t("benchmark.results.durationValue", { value: duration })}
-				</p>
-			) : null}
 			{execution.report ? (
-				<section className="mt-lg">
+				<section className="border-t border-hairline px-lg py-md">
 					<h3 className="text-caption-sm font-medium text-mute">
 						{t("benchmark.results.checks")}
 					</h3>
@@ -125,7 +128,7 @@ const BenchmarkExecutionDetail = ({
 					</ul>
 				</section>
 			) : null}
-			<section className="mt-lg">
+			<section className="border-t border-hairline px-lg py-md">
 				<h3 className="text-caption-sm font-medium text-mute">
 					{t("benchmark.results.artifacts")}
 				</h3>
@@ -142,7 +145,7 @@ const BenchmarkExecutionDetail = ({
 				<div className="mt-sm flex flex-wrap gap-sm">
 					{artifacts.data?.map((artifact) => (
 						<button
-							className="rounded-md border border-hairline px-sm py-xs text-left text-body-sm outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:opacity-50"
+							className="rounded-lg border border-hairline bg-surface-soft px-sm py-xs text-left text-body-sm outline-none transition-colors hover:border-hairline-strong focus-visible:ring-2 focus-visible:ring-focus-ring disabled:opacity-50"
 							disabled={artifact.change === "deleted"}
 							key={artifact.path}
 							onClick={() => setArtifactPath(artifact.path)}
@@ -157,7 +160,7 @@ const BenchmarkExecutionDetail = ({
 					))}
 				</div>
 				{artifactPath ? (
-					<div className="mt-md rounded-md bg-surface-soft p-md">
+					<div className="mt-md rounded-lg bg-surface-soft p-md">
 						<BenchmarkFeedback
 							failed={artifactPreview.isError}
 							loading={artifactPreview.isLoading}

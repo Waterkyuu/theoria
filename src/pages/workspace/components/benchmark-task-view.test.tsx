@@ -106,7 +106,7 @@ it("cancels an active Benchmark Task through the unified command", async () => {
 	renderTask();
 
 	await user.click(await screen.findByRole("button", { name: "Cancel run" }));
-	expect(screen.getByText("No data · No data · No data")).toBeInTheDocument();
+	expect(screen.getAllByText("No data")).toHaveLength(3);
 
 	await waitFor(() => {
 		expect(invoke).toHaveBeenCalledWith("cancel_task", {
