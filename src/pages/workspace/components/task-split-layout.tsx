@@ -6,8 +6,11 @@ const COMPACT_LAYOUT_QUERY = "(max-width: 767px)";
 type TaskSplitLayoutProps = {
 	/** Agent run panels that occupy the primary side of the layout. */
 	children: ReactNode;
+	contentDefaultSize?: string;
 	/** Accessible description for the draggable divider. */
 	resizerLabel: string;
+	summaryDefaultSize?: string;
+	summaryResizeBehavior?: "preserve-pixel-size" | "preserve-relative-size";
 	/** Optional result summary shown in the secondary panel. */
 	summary: ReactNode;
 };
@@ -32,7 +35,10 @@ const useCompactLayout = () => {
 /** Keeps the desktop panes resizable while preserving the mobile overlay. */
 const TaskSplitLayout = ({
 	children,
+	contentDefaultSize = "60%",
 	resizerLabel,
+	summaryDefaultSize = "40%",
+	summaryResizeBehavior = "preserve-pixel-size",
 	summary,
 }: TaskSplitLayoutProps) => {
 	const isCompact = useCompactLayout();
@@ -48,7 +54,12 @@ const TaskSplitLayout = ({
 
 	return (
 		<Group className="min-h-0 flex-1" id="task-summary-layout">
-			<Panel className="flex min-h-0" id="task-content" minSize="30%">
+			<Panel
+				className="flex min-h-0"
+				defaultSize={contentDefaultSize}
+				id="task-content"
+				minSize="30%"
+			>
 				{children}
 			</Panel>
 			{summary ? (
@@ -60,8 +71,8 @@ const TaskSplitLayout = ({
 					/>
 					<Panel
 						className="flex min-h-0"
-						defaultSize="40%"
-						groupResizeBehavior="preserve-pixel-size"
+						defaultSize={summaryDefaultSize}
+						groupResizeBehavior={summaryResizeBehavior}
 						id="task-summary"
 						maxSize="70%"
 						minSize="360px"

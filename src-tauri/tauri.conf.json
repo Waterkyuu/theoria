@@ -39,7 +39,7 @@
 		],
 		"targets": "all"
 	},
-	"identifier": "com.agentgauge.desktop",
+	"identifier": "com.theoria.desktop",
 	"productName": "Theoria",
 	"version": "0.1.0"
 }

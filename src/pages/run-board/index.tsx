@@ -61,7 +61,8 @@ const CONTEXT_USAGE_BLACKLIST: ReadonlySet<AgentKind> = new Set(["workbuddy"]);
 const STATUS_PRESENTATIONS: Record<AgentActivityStatus, StatusPresentation> = {
 	running: {
 		markerClassName: "bg-blue-600",
-		chipClassName: "border-blue-400/40 bg-blue-500/10 text-blue-700",
+		chipClassName:
+			"border-blue-400/40 bg-blue-500/10 text-blue-700 [[data-theme=dark]_&]:text-blue-300",
 	},
 	waiting: {
 		markerClassName: "bg-terminal-yellow",
@@ -70,7 +71,7 @@ const STATUS_PRESENTATIONS: Record<AgentActivityStatus, StatusPresentation> = {
 	finish: {
 		markerClassName: "bg-terminal-green",
 		chipClassName:
-			"border-terminal-green/40 bg-terminal-green/10 text-green-800",
+			"border-terminal-green/40 bg-terminal-green/10 text-green-800 [[data-theme=dark]_&]:text-green-300",
 	},
 	error: {
 		markerClassName: "bg-terminal-red",
@@ -326,7 +327,7 @@ const RunBoardPage = () => {
 			<div className="main-content-layout min-h-0 flex-1 overflow-y-auto">
 				<div className="mx-auto h-full max-w-330">
 					<div
-						className="grid h-full auto-rows-[max(32rem,100%)] gap-4 lg:grid-cols-2 xl:grid-cols-4"
+						className="run-board grid h-full auto-rows-[max(32rem,100%)] gap-4 lg:grid-cols-2 xl:grid-cols-4"
 						data-testid="run-board"
 					>
 						{layout.map((status) => {

@@ -662,6 +662,9 @@ fn token_usage_json(usage: &TokenUsage) -> serde_json::Value {
 fn tool_call_json(call: &ToolCallMetric) -> serde_json::Value {
     serde_json::json!({
         "name": call.name,
+        "arguments": call.arguments,
+        "result": call.result,
+        "status": call.status,
         "durationMs": duration_millis(call.duration),
     })
 }
@@ -706,8 +709,8 @@ fn current_time_ms() -> Result<i64, AppError> {
 #[cfg(test)]
 mod tests {
     use super::{
-        aggregate_status, select_resumable_agents, validate_follow_up, validate_frozen_paths,
-        PendingExecution, TaskExecutionService,
+        aggregate_status, metrics_json, select_resumable_agents, validate_follow_up,
+        validate_frozen_paths, PendingExecution, TaskExecutionService,
     };
     use crate::adapters::agent::{AgentSessionRunOutput, AgentTurnOutcome};
     use crate::db::{connection::connect_sqlite_path, migration::Migrator};
@@ -816,6 +819,36 @@ mod tests {
             session_id: Some("session".to_string()),
             outcome,
         })
+    }
+
+    #[test]
+    fn persists_redacted_tool_call_details_in_task_metrics() {
+        let mut collector = AgentRunMetricsCollector::default();
+        collector.record_tool_started_with_details(
+            "tool-1",
+            "write_file",
+            Some(serde_json::json!({"path": "summary.json"})),
+            Duration::ZERO,
+        );
+        collector.record_tool_finished_with_details(
+            "tool-1",
+            Some(serde_json::json!("workspace is read-only")),
+            true,
+            Duration::from_millis(20),
+        );
+        let value: serde_json::Value = serde_json::from_str(&metrics_json(
+            &collector.finish(Duration::from_millis(20)),
+            None,
+            None,
+        ))
+        .expect("metrics JSON");
+
+        assert_eq!(
+            value["toolCalls"][0]["arguments"],
+            serde_json::json!({"path": "[redacted]"})
+        );
+        assert_eq!(value["toolCalls"][0]["result"], "[redacted]");
+        assert_eq!(value["toolCalls"][0]["status"], "failed");
     }
 
     #[test]

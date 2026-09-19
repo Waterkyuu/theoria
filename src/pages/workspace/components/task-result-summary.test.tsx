@@ -46,9 +46,24 @@ const COMPLETE_TASK: TaskDetail = {
 			responseText: "Repository inspection complete.",
 			metrics: {
 				totalDurationMs: 1250,
+				tokenUsage: {
+					totalTokens: 17_666,
+					inputTokens: 17_550,
+					cachedInputTokens: 17_152,
+					cacheWriteInputTokens: 0,
+					outputTokens: 116,
+					reasoningOutputTokens: null,
+				},
 				toolCallCount: 2,
 				toolCalls: [
-					{ sequence: 1, name: "workspace.read", durationMs: 250 },
+					{
+						sequence: 1,
+						name: "workspace.read",
+						arguments: { path: "README.md" },
+						result: "file contents",
+						status: "completed",
+						durationMs: 250,
+					},
 					{ sequence: 2, name: "workspace.search", durationMs: 1200 },
 				],
 			},
@@ -101,6 +116,9 @@ describe("TaskResultSummary", () => {
 
 		expect(within(summary).getByText("workspace.read")).toBeInTheDocument();
 		expect(within(summary).getByText("250 ms")).toBeInTheDocument();
+		expect(within(summary).getByText(/README\.md/)).toBeInTheDocument();
+		expect(within(summary).getByText(/file contents/)).toBeInTheDocument();
+		expect(within(summary).getByText("状态: 成功")).toBeInTheDocument();
 		expect(within(summary).getByText("workspace.search")).toBeInTheDocument();
 		expect(within(summary).getByText("1.20 s")).toBeInTheDocument();
 		const thirdCallLabel = within(summary).getByRole("rowheader", {
@@ -116,5 +134,30 @@ describe("TaskResultSummary", () => {
 			within(summary).queryByText("workspace.read"),
 		).not.toBeInTheDocument();
 		expect(within(summary).queryByText("250 ms")).not.toBeInTheDocument();
+	});
+
+	it("reveals input, output, and cached tokens only while the token row is expanded", async () => {
+		const user = userEvent.setup();
+		render(<TaskResultSummary onClose={vi.fn()} task={COMPLETE_TASK} />);
+
+		const summary = screen.getByRole("complementary", { name: "结果汇总" });
+		expect(within(summary).getByText("17,666")).toBeInTheDocument();
+		expect(within(summary).queryByText("17,550")).not.toBeInTheDocument();
+		expect(within(summary).queryByText("17,152")).not.toBeInTheDocument();
+
+		await user.click(
+			within(summary).getByRole("button", { name: /展开 Token 明细/ }),
+		);
+
+		expect(within(summary).getByText("17,550")).toBeInTheDocument();
+		expect(within(summary).getByText("116")).toBeInTheDocument();
+		expect(within(summary).getByText("17,152")).toBeInTheDocument();
+
+		await user.click(
+			within(summary).getByRole("button", { name: /收起 Token 明细/ }),
+		);
+
+		expect(within(summary).queryByText("17,550")).not.toBeInTheDocument();
+		expect(within(summary).queryByText("17,152")).not.toBeInTheDocument();
 	});
 });

@@ -297,6 +297,12 @@ struct StreamConversationContent {
     name: Option<String>,
     /// Identifier that links a tool_result back to its tool_use block.
     tool_use_id: Option<String>,
+    /// Structured tool parameters supplied on a tool_use block.
+    input: Option<serde_json::Value>,
+    /// Tool output supplied on the matching tool_result block.
+    content: Option<serde_json::Value>,
+    /// Explicit failure flag supplied on a tool_result block.
+    is_error: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -575,7 +581,12 @@ fn collect_claude_events_cancellable(
                         return Ok(waiting_output(response, collector, session_id, started_at));
                     }
                     if let (Some(id), Some(name)) = (content.id, content.name) {
-                        collector.record_tool_started(&id, &name, started_at.elapsed());
+                        collector.record_tool_started_with_details(
+                            &id,
+                            &name,
+                            content.input,
+                            started_at.elapsed(),
+                        );
                     }
                 }
             }
@@ -591,7 +602,12 @@ fn collect_claude_events_cancellable(
             {
                 if content.content_type == "tool_result" {
                     if let Some(id) = content.tool_use_id {
-                        collector.record_tool_finished(&id, started_at.elapsed());
+                        collector.record_tool_finished_with_details(
+                            &id,
+                            content.content,
+                            content.is_error.unwrap_or(false),
+                            started_at.elapsed(),
+                        );
                     }
                 }
             }
@@ -968,8 +984,8 @@ mod tests {
         for fixture in [
             r#"{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"thinking"}}}"#,
             r#"{"type":"stream_event","event":{"type":"content_block_stop","index":0}}"#,
-            r#"{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_1","name":"Read"}]}}"#,
-            r#"{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_1"}]}}"#,
+            r#"{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_1","name":"Read","input":{"file_path":"orders.json"}}]}}"#,
+            r#"{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_1","content":"permission denied","is_error":true}]}}"#,
             r#"{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"OK"}}}"#,
             r#"{"type":"result","subtype":"success","is_error":false,"result":"OK"}"#,
         ] {
@@ -983,6 +999,15 @@ mod tests {
 
         assert_eq!(output.metrics.tool_calls.len(), 1);
         assert_eq!(output.metrics.tool_calls[0].name, "Read");
+        assert_eq!(
+            output.metrics.tool_calls[0].arguments.as_ref(),
+            Some(&serde_json::json!({"file_path": "[redacted]"}))
+        );
+        assert_eq!(
+            output.metrics.tool_calls[0].result,
+            Some(serde_json::json!("[redacted]"))
+        );
+        assert_eq!(output.metrics.tool_calls[0].status, "failed");
     }
 
     #[test]

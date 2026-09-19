@@ -97,6 +97,12 @@ pub(crate) struct ToolCallMetricResponse {
     sequence: usize,
     /// Stable tool name supplied by the source protocol.
     name: String,
+    /// Serialized parameters supplied to the tool.
+    arguments: Option<serde_json::Value>,
+    /// Serialized terminal output or error returned by the tool.
+    result: Option<serde_json::Value>,
+    /// Normalized terminal state.
+    status: String,
     /// Wall-clock execution duration in milliseconds.
     duration_ms: u64,
 }
@@ -161,6 +167,9 @@ impl From<AgentRunOutput> for AgentRunResponse {
                 .map(|(index, tool_call)| ToolCallMetricResponse {
                     sequence: index + 1,
                     name: tool_call.name,
+                    arguments: tool_call.arguments,
+                    result: tool_call.result,
+                    status: tool_call.status,
                     duration_ms: duration_millis(tool_call.duration),
                 })
                 .collect(),
@@ -192,6 +201,9 @@ mod tests {
                 compaction_count: Some(2),
                 tool_calls: vec![ToolCallMetric {
                     name: "Read".to_string(),
+                    arguments: Some(serde_json::json!({"path": "orders.json"})),
+                    result: Some(serde_json::json!("two orders")),
+                    status: "failed".to_string(),
                     duration: Duration::from_millis(250),
                 }],
             },
@@ -202,6 +214,15 @@ mod tests {
         assert_eq!(response.tool_call_count, 1);
         assert_eq!(response.tool_calls[0].sequence, 1);
         assert_eq!(response.tool_calls[0].name, "Read");
+        assert_eq!(
+            response.tool_calls[0].arguments,
+            Some(serde_json::json!({"path": "orders.json"}))
+        );
+        assert_eq!(
+            response.tool_calls[0].result,
+            Some(serde_json::json!("two orders"))
+        );
+        assert_eq!(response.tool_calls[0].status, "failed");
         assert_eq!(response.tool_calls[0].duration_ms, 250);
     }
 

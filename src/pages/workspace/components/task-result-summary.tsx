@@ -10,6 +10,8 @@ import { Button, Table } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { AgentIcon } from "@/components/share/agent-icon";
+import { formatDuration, formatToolPayload } from "@/utils/common";
+import type { ToolCallMetric } from "@/types/agent";
 import type { TaskAgentResult, TaskDetail } from "@/types/task";
 
 type TaskResultSummaryProps = {
@@ -31,10 +33,11 @@ type MetricRow = {
 };
 
 type ToolCall = {
-	/** Stable tool name supplied by the Agent protocol. */
 	name: string;
-	/** Wall-clock duration between the tool request and matching result. */
 	durationMs: number;
+	arguments: unknown;
+	result: unknown;
+	status: ToolCallMetric["status"] | null;
 };
 
 /** Reads a numeric field from untyped persisted Comparison metrics. */
@@ -51,6 +54,14 @@ const metricObject = (result: TaskAgentResult | undefined, key: string) => {
 		: null;
 };
 
+const tokenMetric = (
+	result: TaskAgentResult | undefined,
+	key: "cachedInputTokens" | "inputTokens" | "outputTokens",
+) => {
+	const value = metricObject(result, "tokenUsage")?.[key];
+	return typeof value === "number" && Number.isFinite(value) ? value : null;
+};
+
 /**
  * Keeps only tool measurements that the summary can render safely.
  *
@@ -63,19 +74,26 @@ const metricToolCalls = (result: TaskAgentResult | undefined): ToolCall[] => {
 	return value.flatMap((toolCall) => {
 		if (typeof toolCall !== "object" || toolCall === null) return [];
 		const record = toolCall as Record<string, unknown>;
+		const status =
+			record.status === "completed" ||
+			record.status === "failed" ||
+			record.status === "incomplete"
+				? record.status
+				: null;
 		return typeof record.name === "string" &&
 			typeof record.durationMs === "number" &&
 			Number.isFinite(record.durationMs)
-			? [{ name: record.name, durationMs: record.durationMs }]
+			? [
+					{
+						name: record.name,
+						durationMs: record.durationMs,
+						arguments: record.arguments ?? null,
+						result: record.result ?? null,
+						status,
+					},
+				]
 			: [];
 	});
-};
-
-/** Formats a measured latency while retaining useful sub-second precision. */
-const formatDuration = (milliseconds: number | null, unavailable: string) => {
-	if (milliseconds === null) return unavailable;
-	if (milliseconds < 1000) return `${milliseconds} ms`;
-	return `${(milliseconds / 1000).toFixed(2)} s`;
 };
 
 /** Renders the documented read-only Task-level Comparison split. */
@@ -100,14 +118,53 @@ const TaskResultSummary = ({ onClose, task }: TaskResultSummaryProps) => {
 				const toolCall = metricToolCalls(result)[index];
 				if (!toolCall) return t("taskSummary.noToolCall");
 				return (
-					<span className="flex items-center justify-between gap-lg">
-						<span className="font-sans text-charcoal">{toolCall.name}</span>
-						<span>{formatDuration(toolCall.durationMs, unavailable)}</span>
-					</span>
+					<div className="min-w-64 space-y-xs py-xs">
+						<div className="flex items-center justify-between gap-lg">
+							<span className="font-sans text-charcoal">{toolCall.name}</span>
+							<span>{formatDuration(toolCall.durationMs, unavailable)}</span>
+						</div>
+						<p className="whitespace-pre-wrap break-all text-mute">
+							{t("taskSummary.arguments")}:{" "}
+							{formatToolPayload(toolCall.arguments)}
+						</p>
+						<p className="whitespace-pre-wrap break-all text-mute">
+							{t("taskSummary.result")}: {formatToolPayload(toolCall.result)}
+						</p>
+						<p className="text-mute">
+							{t("taskSummary.toolStatus")}:{" "}
+							{toolCall.status
+								? t(`benchmark.results.toolStatus.${toolCall.status}`)
+								: unavailable}
+						</p>
+					</div>
 				);
 			},
 		}),
 	);
+	const tokenRows: MetricRow[] = [
+		{
+			key: "input-tokens",
+			label: t("taskSummary.inputTokens"),
+			value: (result) =>
+				tokenMetric(result, "inputTokens")?.toLocaleString(i18n.language) ??
+				unavailable,
+		},
+		{
+			key: "output-tokens",
+			label: t("taskSummary.outputTokens"),
+			value: (result) =>
+				tokenMetric(result, "outputTokens")?.toLocaleString(i18n.language) ??
+				unavailable,
+		},
+		{
+			key: "cached-tokens",
+			label: t("taskSummary.cachedTokens"),
+			value: (result) =>
+				tokenMetric(result, "cachedInputTokens")?.toLocaleString(
+					i18n.language,
+				) ?? unavailable,
+		},
+	];
 	const rows: MetricRow[] = [
 		{
 			key: "status",
@@ -130,6 +187,7 @@ const TaskResultSummary = ({ onClose, task }: TaskResultSummaryProps) => {
 		{
 			key: "tokens",
 			label: t("taskSummary.tokens"),
+			children: tokenRows,
 			value: (result) => {
 				const total = metricObject(result, "tokenUsage")?.totalTokens;
 				return typeof total === "number"
@@ -176,9 +234,13 @@ const TaskResultSummary = ({ onClose, task }: TaskResultSummaryProps) => {
 						{hasChildItems && isTreeColumn ? (
 							<Button
 								aria-label={t(
-									isExpanded
-										? "taskSummary.collapseToolCalls"
-										: "taskSummary.expandToolCalls",
+									row.key === "tokens"
+										? isExpanded
+											? "taskSummary.collapseTokenDetails"
+											: "taskSummary.expandTokenDetails"
+										: isExpanded
+											? "taskSummary.collapseToolCalls"
+											: "taskSummary.expandToolCalls",
 								)}
 								className="min-w-0 rounded-md p-xs text-mute shadow-none"
 								isDisabled={isDisabled}

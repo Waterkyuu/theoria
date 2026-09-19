@@ -186,6 +186,10 @@ cn("px-2 py-1", isActive && "px-4", { "text-red-500": hasError });
 
 1. React Compiler is enabled for this project, so there is no need to use `useMemo`, `useCallback`, or `memo`.
 
+### HTML should be clean
+
+1. Avoid embedding large amounts of JS code directly into HTML.
+
 ### Splitting Hooks
 
 1. When a hook contains too much state, derived logic, side effects, or branching and becomes difficult to read or maintain, split it into smaller hooks or pure functions.

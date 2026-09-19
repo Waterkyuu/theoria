@@ -1,6 +1,6 @@
 import { Toast } from "@heroui/react";
 import "@testing-library/jest-dom/vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -243,10 +243,9 @@ describe("SkillsPage", () => {
 
 		await user.click(screen.getByRole("button", { name: "添加技能" }));
 		await user.click(screen.getByRole("menuitem", { name: "从 Git 链接导入" }));
-		await user.type(
-			screen.getByRole("textbox", { name: "Git 仓库链接" }),
-			"https://github.com/example/test-runner.git",
-		);
+		fireEvent.change(screen.getByRole("textbox", { name: "Git 仓库链接" }), {
+			target: { value: "https://github.com/example/test-runner.git" },
+		});
 		await user.click(screen.getByRole("button", { name: "导入" }));
 
 		expect(queryMocks.importGitSkill).toHaveBeenCalledWith(
@@ -265,10 +264,9 @@ describe("SkillsPage", () => {
 
 		await user.click(screen.getByRole("button", { name: "添加技能" }));
 		await user.click(screen.getByRole("menuitem", { name: "从 Git 链接导入" }));
-		await user.type(
-			screen.getByRole("textbox", { name: "Git 仓库链接" }),
-			"https://github.com/example/test-runner.git",
-		);
+		fireEvent.change(screen.getByRole("textbox", { name: "Git 仓库链接" }), {
+			target: { value: "https://github.com/example/test-runner.git" },
+		});
 		await user.click(screen.getByRole("button", { name: "导入" }));
 		rerender(<SkillsPage />);
 

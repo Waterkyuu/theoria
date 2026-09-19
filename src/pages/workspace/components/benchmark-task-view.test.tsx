@@ -106,7 +106,7 @@ it("cancels an active Benchmark Task through the unified command", async () => {
 	renderTask();
 
 	await user.click(await screen.findByRole("button", { name: "Cancel run" }));
-	expect(screen.getByText("No data · No data · No data")).toBeInTheDocument();
+	expect(screen.getByText("Case comparison")).toBeInTheDocument();
 
 	await waitFor(() => {
 		expect(invoke).toHaveBeenCalledWith("cancel_task", {
@@ -216,14 +216,88 @@ it("shows the selected case requirements and every public validation check", asy
 	const user = userEvent.setup();
 	renderTask();
 
-	await user.click(await screen.findByRole("button", { name: "Passed" }));
-
-	expect(screen.getByText("Return 42")).toBeInTheDocument();
+	expect(await screen.findByText("Return 42")).toBeInTheDocument();
+	await user.click(screen.getByRole("tab", { name: "Agent response" }));
 	expect(screen.getByText("42")).toBeInTheDocument();
+	await user.click(screen.getByRole("tab", { name: "Validation checks" }));
 	expect(screen.getByText("Exact answer matched")).toBeInTheDocument();
-	expect(screen.getByText(/Execution duration.*10 ms/)).toBeInTheDocument();
+	expect(screen.getByText("10 ms")).toBeInTheDocument();
+	await user.click(screen.getByRole("tab", { name: "Final files" }));
 	await user.click(await screen.findByRole("button", { name: /result.txt/ }));
 	expect(await screen.findByText("artifact body")).toBeInTheDocument();
+});
+
+it("compares a case across agents and exposes complete tool call details", async () => {
+	const completed = task("completed");
+	completed.progress = {
+		total: 1,
+		finished: 1,
+		passed: 0,
+		failed: 1,
+		errors: 0,
+	};
+	completed.agents[0] = {
+		...completed.agents[0],
+		passed: 0,
+		failed: 1,
+		passRate: 0,
+		totalDurationMs: 21_000,
+		totalTokens: 17_666,
+		toolCallCount: 1,
+	};
+	completed.executions = [
+		{
+			id: "execution-1",
+			taskCaseId: "task-case-1",
+			taskAgentId: "task-agent-1",
+			phase: "finished",
+			result: "failed",
+			terminationReason: null,
+			responseText: "Could not write the file",
+			metrics: {
+				totalDurationMs: 21_000,
+				timeToFirstTokenMs: 2_100,
+				tokenUsage: {
+					totalTokens: 17_666,
+					inputTokens: 4_203,
+					cachedInputTokens: 0,
+					cacheWriteInputTokens: 0,
+					outputTokens: 13_463,
+					reasoningOutputTokens: null,
+				},
+				toolCallCount: 1,
+				toolCalls: [
+					{
+						name: "write_file",
+						arguments: { path: "summary.json" },
+						result: "workspace is read-only",
+						status: "failed",
+						durationMs: 20_800,
+					},
+				],
+			} as unknown as BenchmarkTaskDetail["executions"][number]["metrics"],
+			startedAtMs: 1,
+			finishedAtMs: 21_001,
+			verdict: "failed",
+			report: null,
+		},
+	];
+	invoke.mockImplementation(async (command: string) => {
+		if (command === "get_benchmark_task") return completed;
+		if (command === "list_benchmark_execution_artifacts") return [];
+		throw new Error(`Unexpected command: ${command}`);
+	});
+	const user = userEvent.setup();
+	renderTask();
+
+	expect(await screen.findByText("Case comparison")).toBeInTheDocument();
+	expect(screen.getByText("17,666")).toBeInTheDocument();
+	expect(screen.queryByText("4,203")).not.toBeInTheDocument();
+	await user.click(screen.getByRole("button", { name: /Total tokens/ }));
+	expect(screen.getByText("4,203")).toBeInTheDocument();
+	expect(screen.getByText("write_file")).toBeInTheDocument();
+	expect(screen.getByText(/summary\.json/)).toBeInTheDocument();
+	expect(screen.getByText("workspace is read-only")).toBeInTheDocument();
 });
 
 it("filters matrix rows without changing the full-task aggregate", async () => {
@@ -281,12 +355,19 @@ it("filters matrix rows without changing the full-task aggregate", async () => {
 	renderTask();
 
 	expect(await screen.findByText("2/2")).toBeInTheDocument();
-	await user.type(
-		screen.getByRole("searchbox", { name: "Search cases" }),
-		"write",
-	);
+	expect(screen.queryByText(/\d+ of \d+ cases/)).not.toBeInTheDocument();
+	await user.click(screen.getByRole("button", { name: "Search cases" }));
+	const search = await screen.findByRole("searchbox", { name: "Search cases" });
+	search.focus();
+	await user.keyboard("write");
+	expect(search).toHaveValue("write");
+	await user.click(screen.getByRole("button", { name: "Close" }));
 
-	expect(screen.queryByRole("row", { name: /Count/ })).not.toBeInTheDocument();
+	await waitFor(() => {
+		expect(
+			screen.queryByRole("row", { name: /Count/ }),
+		).not.toBeInTheDocument();
+	});
 	expect(screen.getByRole("row", { name: /Write file/ })).toBeInTheDocument();
 	expect(screen.getByText("2/2")).toBeInTheDocument();
 });

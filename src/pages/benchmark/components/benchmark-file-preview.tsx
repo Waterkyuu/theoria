@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Button } from "@heroui/react";
 import { useTranslation } from "react-i18next";
+import { CodePreview } from "@/components/share/code-preview";
+import { FileTypeIcon } from "@/components/share/file-type-icon";
 import { ModalProvider } from "@/components/ui/modal-provider";
 import { handleError } from "@/utils/error";
 import { previewBenchmarkAsset, saveBenchmarkTextAsset } from "@/api/benchmark";
@@ -82,7 +84,12 @@ const BenchmarkFilePreview = ({
 					if (!pending) setIsOpen(open);
 				}}
 				size="lg"
-				title={file.path}
+				title={
+					<span className="inline-flex max-w-full items-center gap-sm">
+						<FileTypeIcon path={file.path} />
+						<span className="min-w-0 truncate">{file.path}</span>
+					</span>
+				}
 				footer={
 					editable && preview?.text !== null ? (
 						<Button isPending={pending} onPress={save}>
@@ -109,9 +116,7 @@ const BenchmarkFilePreview = ({
 								/>
 							</label>
 						) : (
-							<pre className="max-h-120 overflow-auto whitespace-pre-wrap break-words rounded-md bg-surface-soft p-md text-body-sm">
-								{preview.text}
-							</pre>
+							<CodePreview path={file.path} value={preview.text} />
 						)}
 					</>
 				) : (

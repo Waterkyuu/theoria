@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { ArrowsRotateRight, Stop } from "@gravity-ui/icons";
 import { Button, Toast } from "@heroui/react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
@@ -43,6 +44,7 @@ const BenchmarkTaskActions = ({ detail }: BenchmarkTaskActionsProps) => {
 	);
 	const [fileAccess, setFileAccess] = useState(detail.fileAccess);
 	const [commands, setCommands] = useState(detail.commandExecution);
+	const [rerunOpen, setRerunOpen] = useState(false);
 	const [restoreConfirmation, setRestoreConfirmation] = useState(false);
 	const active =
 		detail.task.status === "preparing" || detail.task.status === "running";
@@ -90,82 +92,97 @@ const BenchmarkTaskActions = ({ detail }: BenchmarkTaskActionsProps) => {
 	return (
 		<div className="flex shrink-0 items-center gap-sm">
 			{active ? (
-				<Button
-					isDisabled={detail.cancelRequested}
-					isPending={cancelMutation.isPending}
-					onPress={cancel}
-					variant="danger"
+				<button
+					aria-label={
+						detail.cancelRequested
+							? t("benchmark.cancelling")
+							: t("benchmark.cancelRun")
+					}
+					disabled={detail.cancelRequested || cancelMutation.isPending}
+					onClick={cancel}
+					type="button"
 				>
-					{detail.cancelRequested
-						? t("benchmark.cancelling")
-						: t("benchmark.cancelRun")}
-				</Button>
+					<Stop aria-hidden="true" className="size-4 text-danger" />
+				</button>
 			) : null}
 			{terminal ? (
-				<ModalProvider
-					title={t("benchmark.rerun")}
-					description={t("benchmark.rerunDescription")}
-					trigger={<Button>{t("benchmark.rerun")}</Button>}
-					footer={
-						<Button
-							isDisabled={!agents.length}
-							isPending={rerunMutation.isPending}
-							onPress={() => rerun(false)}
-						>
-							{t("benchmark.startRerun")}
-						</Button>
-					}
-				>
-					<fieldset
-						className="flex flex-col gap-sm"
-						disabled={rerunMutation.isPending}
+				<>
+					<button
+						aria-label={t("benchmark.rerun")}
+						onClick={() => setRerunOpen(true)}
+						type="button"
 					>
-						<legend className="mb-xs text-body-sm font-medium">
-							{t("benchmark.agents")}
-						</legend>
-						{AGENT_KINDS.map((kind) => (
-							<CheckBox
-								isSelected={agents.includes(kind)}
-								key={kind}
-								label={t(`agentNames.${kind}`)}
-								onChange={(selected) => {
-									setAgents(
-										selected
-											? [...agents, kind]
-											: agents.filter((agent) => agent !== kind),
-									);
-									idempotencyKey.current = null;
-								}}
-							/>
-						))}
-					</fieldset>
-					<Select
-						label={t("benchmark.fileAccess")}
-						onChange={(value) => {
-							if (value) setFileAccess(value);
-							idempotencyKey.current = null;
-						}}
-						options={(["read_only", "allow_edits"] as const).map((value) => ({
-							label: t(`benchmark.${value}`),
-							value,
-						}))}
-						placeholder={t("benchmark.fileAccess")}
-						value={fileAccess}
-					/>
-					<Select
-						label={t("benchmark.commandExecution")}
-						onChange={(value) => {
-							if (value) setCommands(value);
-							idempotencyKey.current = null;
-						}}
-						options={(["deny", "ask", "allow"] as const).map((value) => ({
-							label: t(`benchmark.${value}`),
-							value,
-						}))}
-						placeholder={t("benchmark.commandExecution")}
-						value={commands}
-					/>
-				</ModalProvider>
+						<ArrowsRotateRight
+							aria-hidden="true"
+							className="size-4 text-mute"
+						/>
+					</button>
+					<ModalProvider
+						title={t("benchmark.rerun")}
+						description={t("benchmark.rerunDescription")}
+						isOpen={rerunOpen}
+						onOpenChange={setRerunOpen}
+						footer={
+							<Button
+								isDisabled={!agents.length}
+								isPending={rerunMutation.isPending}
+								onPress={() => rerun(false)}
+							>
+								{t("benchmark.startRerun")}
+							</Button>
+						}
+					>
+						<fieldset
+							className="flex flex-col gap-sm"
+							disabled={rerunMutation.isPending}
+						>
+							<legend className="mb-xs text-body-sm font-medium">
+								{t("benchmark.agents")}
+							</legend>
+							{AGENT_KINDS.map((kind) => (
+								<CheckBox
+									isSelected={agents.includes(kind)}
+									key={kind}
+									label={t(`agentNames.${kind}`)}
+									onChange={(selected) => {
+										setAgents(
+											selected
+												? [...agents, kind]
+												: agents.filter((agent) => agent !== kind),
+										);
+										idempotencyKey.current = null;
+									}}
+								/>
+							))}
+						</fieldset>
+						<Select
+							label={t("benchmark.fileAccess")}
+							onChange={(value) => {
+								if (value) setFileAccess(value);
+								idempotencyKey.current = null;
+							}}
+							options={(["read_only", "allow_edits"] as const).map((value) => ({
+								label: t(`benchmark.${value}`),
+								value,
+							}))}
+							placeholder={t("benchmark.fileAccess")}
+							value={fileAccess}
+						/>
+						<Select
+							label={t("benchmark.commandExecution")}
+							onChange={(value) => {
+								if (value) setCommands(value);
+								idempotencyKey.current = null;
+							}}
+							options={(["deny", "ask", "allow"] as const).map((value) => ({
+								label: t(`benchmark.${value}`),
+								value,
+							}))}
+							placeholder={t("benchmark.commandExecution")}
+							value={commands}
+						/>
+					</ModalProvider>
+				</>
 			) : null}
 			<AlertDialog
 				confirmText={t("benchmark.restoreAndRerun")}

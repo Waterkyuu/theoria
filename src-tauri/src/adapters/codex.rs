@@ -166,6 +166,26 @@ struct AppServerThreadItem {
     tool: Option<String>,
     /// Dynamic-tool namespace when one is present.
     namespace: Option<String>,
+    /// MCP and dynamic tool parameters.
+    arguments: Option<serde_json::Value>,
+    /// Shell command text when this item runs a command.
+    command: Option<String>,
+    /// File edits attached to a file-change item.
+    changes: Option<serde_json::Value>,
+    /// Aggregated command output once execution finishes.
+    aggregated_output: Option<String>,
+    /// Command exit code once execution finishes.
+    exit_code: Option<i64>,
+    /// MCP result payload once execution finishes.
+    result: Option<serde_json::Value>,
+    /// MCP error payload once execution fails.
+    error: Option<serde_json::Value>,
+    /// Dynamic tool output items once execution finishes.
+    content_items: Option<serde_json::Value>,
+    /// Dynamic tool success flag once execution finishes.
+    success: Option<bool>,
+    /// Source lifecycle such as inProgress, completed, failed, or declined.
+    status: Option<String>,
 }
 
 impl AppServerThreadItem {
@@ -192,6 +212,34 @@ impl AppServerThreadItem {
             _ => None,
         }
         .filter(|name| !name.is_empty())
+    }
+
+    fn tool_arguments(&self) -> Option<serde_json::Value> {
+        self.arguments
+            .as_ref()
+            .or(self.changes.as_ref())
+            .cloned()
+            .or_else(|| self.command.clone().map(serde_json::Value::String))
+    }
+
+    fn tool_result(&self) -> Option<serde_json::Value> {
+        self.error
+            .as_ref()
+            .or(self.result.as_ref())
+            .or(self.content_items.as_ref())
+            .cloned()
+            .or_else(|| {
+                self.aggregated_output
+                    .clone()
+                    .map(serde_json::Value::String)
+            })
+    }
+
+    fn tool_failed(&self) -> bool {
+        matches!(self.status.as_deref(), Some("failed" | "declined"))
+            || self.success == Some(false)
+            || self.exit_code.is_some_and(|code| code != 0)
+            || self.error.is_some()
     }
 }
 
@@ -680,7 +728,12 @@ fn collect_run_events_cancellable(
                     if item.item_type == "reasoning" {
                         collector.record_thinking_started(&item.id, elapsed);
                     } else if let Some(name) = item.tool_name() {
-                        collector.record_tool_started(&item.id, &name, elapsed);
+                        collector.record_tool_started_with_details(
+                            &item.id,
+                            &name,
+                            item.tool_arguments(),
+                            elapsed,
+                        );
                     }
                 }
             }
@@ -693,7 +746,12 @@ fn collect_run_events_cancellable(
                     } else if item.item_type == "contextCompaction" {
                         collector.record_context_compaction();
                     } else if item.tool_name().is_some() {
-                        collector.record_tool_finished(&item.id, elapsed);
+                        collector.record_tool_finished_with_details(
+                            &item.id,
+                            item.tool_result(),
+                            item.tool_failed(),
+                            elapsed,
+                        );
                     }
                 }
             }
@@ -1086,8 +1144,8 @@ cat <&0 >/dev/null
         for fixture in [
             r#"{"method":"item/started","params":{"item":{"id":"reason-1","type":"reasoning"}}}"#,
             r#"{"method":"item/completed","params":{"item":{"id":"reason-1","type":"reasoning"}}}"#,
-            r#"{"method":"item/started","params":{"item":{"id":"tool-1","type":"mcpToolCall","server":"github","tool":"search"}}}"#,
-            r#"{"method":"item/completed","params":{"item":{"id":"tool-1","type":"mcpToolCall","server":"github","tool":"search"}}}"#,
+            r#"{"method":"item/started","params":{"item":{"id":"tool-1","type":"mcpToolCall","server":"github","tool":"search","status":"inProgress","arguments":{"path":"summary.json"},"result":null,"error":null}}}"#,
+            r#"{"method":"item/completed","params":{"item":{"id":"tool-1","type":"mcpToolCall","server":"github","tool":"search","status":"failed","arguments":{"path":"summary.json"},"result":null,"error":{"message":"workspace is read-only"}}}}"#,
             r#"{"method":"item/completed","params":{"item":{"id":"compact-1","type":"contextCompaction"}}}"#,
             r#"{"method":"turn/completed","params":{"turn":{"status":"completed"}}}"#,
         ] {
@@ -1101,6 +1159,15 @@ cat <&0 >/dev/null
 
         assert_eq!(output.metrics.tool_calls.len(), 1);
         assert_eq!(output.metrics.tool_calls[0].name, "github.search");
+        assert_eq!(
+            output.metrics.tool_calls[0].arguments.as_ref(),
+            Some(&serde_json::json!({"path": "[redacted]"}))
+        );
+        assert_eq!(
+            output.metrics.tool_calls[0].result,
+            Some(serde_json::json!({"message": "[redacted]"}))
+        );
+        assert_eq!(output.metrics.tool_calls[0].status, "failed");
         assert_eq!(output.metrics.compaction_count, Some(1));
     }
 

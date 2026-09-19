@@ -1,5 +1,35 @@
 use std::time::Duration;
 
+const MAX_TOOL_PAYLOAD_CHARS: usize = 16_384;
+
+fn sanitize_tool_payload(mut value: serde_json::Value) -> serde_json::Value {
+    fn redact(value: &mut serde_json::Value) {
+        match value {
+            serde_json::Value::Object(fields) => {
+                fields.values_mut().for_each(redact);
+            }
+            serde_json::Value::Array(items) => items.iter_mut().for_each(redact),
+            serde_json::Value::String(text) => {
+                *text = "[redacted]".to_string();
+            }
+            _ => {}
+        }
+    }
+
+    redact(&mut value);
+    let serialized = value.to_string();
+    let mut chars = serialized.chars();
+    let bounded = chars
+        .by_ref()
+        .take(MAX_TOOL_PAYLOAD_CHARS)
+        .collect::<String>();
+    if chars.next().is_some() {
+        serde_json::Value::String(format!("{bounded}…"))
+    } else {
+        value
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TokenUsage {
     /// Total input and output tokens reported by the source Agent.
@@ -20,6 +50,12 @@ pub(crate) struct TokenUsage {
 pub(crate) struct ToolCallMetric {
     /// Stable tool name reported by the source Agent protocol.
     pub(crate) name: String,
+    /// Serialized parameters supplied to the tool, when the source protocol exposes them.
+    pub(crate) arguments: Option<serde_json::Value>,
+    /// Serialized terminal output or error returned by the tool.
+    pub(crate) result: Option<serde_json::Value>,
+    /// Normalized terminal state retained independently from source-specific labels.
+    pub(crate) status: String,
     /// Wall-clock time between the tool request and its matching result.
     pub(crate) duration: Duration,
 }
@@ -70,6 +106,12 @@ struct PendingToolCall {
     id: String,
     /// User-visible tool name captured at invocation time.
     name: String,
+    /// Serialized invocation parameters captured from the start event.
+    arguments: Option<serde_json::Value>,
+    /// Serialized terminal output captured from the matching finish event.
+    result: Option<serde_json::Value>,
+    /// Terminal state, or none until a matching finish event arrives.
+    status: Option<String>,
     /// Task-relative wall-clock time when the invocation was observed.
     started_at: Duration,
     /// Completed duration, or none while the tool remains active.
@@ -126,20 +168,45 @@ impl AgentRunMetricsCollector {
     }
 
     /// Records one tool invocation in source start order.
+    #[cfg(test)]
     pub(crate) fn record_tool_started(&mut self, id: &str, name: &str, elapsed: Duration) {
+        self.record_tool_started_with_details(id, name, None, elapsed);
+    }
+
+    pub(crate) fn record_tool_started_with_details(
+        &mut self,
+        id: &str,
+        name: &str,
+        arguments: Option<serde_json::Value>,
+        elapsed: Duration,
+    ) {
         if self.tool_calls.iter().any(|call| call.id == id) {
             return;
         }
         self.tool_calls.push(PendingToolCall {
             id: id.to_string(),
             name: name.to_string(),
+            arguments: arguments.map(sanitize_tool_payload),
+            result: None,
+            status: None,
             started_at: elapsed,
             duration: None,
         });
     }
 
     /// Completes the matching tool invocation when its result is observed.
+    #[cfg(test)]
     pub(crate) fn record_tool_finished(&mut self, id: &str, elapsed: Duration) {
+        self.record_tool_finished_with_details(id, None, false, elapsed);
+    }
+
+    pub(crate) fn record_tool_finished_with_details(
+        &mut self,
+        id: &str,
+        result: Option<serde_json::Value>,
+        failed: bool,
+        elapsed: Duration,
+    ) {
         let Some(call) = self
             .tool_calls
             .iter_mut()
@@ -147,6 +214,12 @@ impl AgentRunMetricsCollector {
         else {
             return;
         };
+        call.result = result.map(sanitize_tool_payload);
+        call.status = Some(if failed {
+            "failed".to_string()
+        } else {
+            "completed".to_string()
+        });
         call.duration = Some(elapsed.saturating_sub(call.started_at));
     }
 
@@ -162,6 +235,9 @@ impl AgentRunMetricsCollector {
             .into_iter()
             .map(|call| ToolCallMetric {
                 name: call.name,
+                arguments: call.arguments,
+                result: call.result,
+                status: call.status.unwrap_or_else(|| "incomplete".to_string()),
                 duration: call
                     .duration
                     .unwrap_or_else(|| total_duration.saturating_sub(call.started_at)),
@@ -181,7 +257,7 @@ impl AgentRunMetricsCollector {
 
 #[cfg(test)]
 mod tests {
-    use super::{AgentRunMetricsCollector, TokenUsage};
+    use super::{AgentRunMetricsCollector, TokenUsage, MAX_TOOL_PAYLOAD_CHARS};
     use std::time::Duration;
 
     #[test]
@@ -254,14 +330,102 @@ mod tests {
             vec![
                 super::ToolCallMetric {
                     name: "Read".to_string(),
+                    arguments: None,
+                    result: None,
+                    status: "completed".to_string(),
                     duration: Duration::from_millis(400),
                 },
                 super::ToolCallMetric {
                     name: "Bash".to_string(),
+                    arguments: None,
+                    result: None,
+                    status: "completed".to_string(),
                     duration: Duration::from_millis(200),
                 },
             ]
         );
+    }
+
+    #[test]
+    fn records_tool_arguments_results_and_terminal_status() {
+        let mut collector = AgentRunMetricsCollector::default();
+
+        collector.record_tool_started_with_details(
+            "tool-1",
+            "write_file",
+            Some(serde_json::json!({"path": "summary.json"})),
+            Duration::from_millis(100),
+        );
+        collector.record_tool_finished_with_details(
+            "tool-1",
+            Some(serde_json::json!("workspace is read-only")),
+            true,
+            Duration::from_millis(450),
+        );
+
+        let metrics = collector.finish(Duration::from_millis(500));
+        let call = &metrics.tool_calls[0];
+
+        assert_eq!(
+            call.arguments,
+            Some(serde_json::json!({"path": "[redacted]"}))
+        );
+        assert_eq!(call.result, Some(serde_json::json!("[redacted]")));
+        assert_eq!(call.status, "failed");
+    }
+
+    #[test]
+    fn redacts_and_bounds_persisted_tool_payloads() {
+        let mut collector = AgentRunMetricsCollector::default();
+
+        collector.record_tool_started_with_details(
+            "tool-1",
+            "write_file",
+            Some(serde_json::json!({
+                "path": "summary.json",
+                "x-api-key": "sk-private",
+                "command": "curl -H 'Authorization: Bearer private' https://example.com"
+            })),
+            Duration::ZERO,
+        );
+        collector.record_tool_finished_with_details(
+            "tool-1",
+            Some(serde_json::json!(
+                "-----BEGIN OPENSSH PRIVATE KEY----- private"
+            )),
+            false,
+            Duration::from_millis(1),
+        );
+        collector.record_tool_started_with_details(
+            "tool-2",
+            "structured_result",
+            None,
+            Duration::ZERO,
+        );
+        collector.record_tool_finished_with_details(
+            "tool-2",
+            Some(serde_json::json!(vec![false; MAX_TOOL_PAYLOAD_CHARS])),
+            false,
+            Duration::from_millis(1),
+        );
+
+        let metrics = collector.finish(Duration::from_millis(1));
+        let call = &metrics.tool_calls[0];
+
+        assert_eq!(
+            call.arguments,
+            Some(serde_json::json!({
+                "path": "[redacted]",
+                "x-api-key": "[redacted]",
+                "command": "[redacted]"
+            }))
+        );
+        assert_eq!(call.result, Some(serde_json::json!("[redacted]")));
+        assert!(metrics.tool_calls[1].result.as_ref().is_some_and(|value| {
+            value
+                .as_str()
+                .is_some_and(|text| text.chars().count() == MAX_TOOL_PAYLOAD_CHARS + 1)
+        }));
     }
 
     #[test]
@@ -280,6 +444,9 @@ mod tests {
             metrics.tool_calls,
             vec![super::ToolCallMetric {
                 name: "WebSearch".to_string(),
+                arguments: None,
+                result: None,
+                status: "incomplete".to_string(),
                 duration: Duration::from_millis(300),
             }]
         );

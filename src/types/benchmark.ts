@@ -329,6 +329,16 @@ const BenchmarkExecutionMetricsSchema = z.object({
 		z.object({
 			/** Stable tool name supplied by the source protocol. */
 			name: z.string(),
+			/** Structured parameters supplied to the tool, absent on historical runs. */
+			arguments: z.unknown().nullable().optional().default(null),
+			/** Structured terminal output or error, absent on historical runs. */
+			result: z.unknown().nullable().optional().default(null),
+			/** Normalized terminal state, absent on historical runs. */
+			status: z
+				.literal(["completed", "failed", "incomplete"])
+				.nullable()
+				.optional()
+				.default(null),
 			/** Wall-clock execution duration in milliseconds. */
 			durationMs: z.number().int().nonnegative(),
 		}),

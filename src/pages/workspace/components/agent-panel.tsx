@@ -2,6 +2,8 @@ import { Ellipsis } from "@gravity-ui/icons";
 import { useTranslation } from "react-i18next";
 import { AgentIcon } from "@/components/share/agent-icon";
 import { MarkdownContent } from "@/components/share/markdown-content";
+import { formatDuration, formatToolPayload } from "@/utils/common";
+import type { ToolCallMetric } from "@/types/agent";
 import type {
 	TaskAgent,
 	TaskAgentResult,
@@ -27,6 +29,9 @@ type AgentPanelProps = {
 type ToolCallSummary = {
 	name: string;
 	durationMs: number | null;
+	arguments: unknown;
+	result: unknown;
+	status: ToolCallMetric["status"] | null;
 };
 
 const STATUS_DOT_CLASSES: Record<TaskStatus, string> = {
@@ -87,6 +92,14 @@ const readLatestToolCall = (
 		if (typeof record.name !== "string" || !record.name.trim()) continue;
 		return {
 			name: record.name,
+			arguments: record.arguments ?? null,
+			result: record.result ?? null,
+			status:
+				record.status === "completed" ||
+				record.status === "failed" ||
+				record.status === "incomplete"
+					? record.status
+					: null,
 			durationMs:
 				typeof record.durationMs === "number" &&
 				Number.isFinite(record.durationMs)
@@ -95,20 +108,6 @@ const readLatestToolCall = (
 		};
 	}
 	return null;
-};
-
-/**
- * Formats milliseconds using the compact duration shown in the Figma footer.
- *
- * @example
- * formatDuration(134000); // "2m 14s"
- */
-const formatDuration = (milliseconds: number | null) => {
-	if (milliseconds === null) return "-";
-	const totalSeconds = Math.max(0, Math.round(milliseconds / 1000));
-	const minutes = Math.floor(totalSeconds / 60);
-	const seconds = totalSeconds % 60;
-	return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
 };
 
 /**
@@ -224,9 +223,28 @@ const AgentPanel = ({
 											{latestToolCall.durationMs === null
 												? t("taskPanel.run.toolCompleted")
 												: t("taskPanel.run.toolDuration", {
-														duration: formatDuration(latestToolCall.durationMs),
+														duration: formatDuration(
+															latestToolCall.durationMs,
+															"-",
+														),
 													})}
 										</p>
+										<p className="mt-[6px] whitespace-pre-wrap break-all font-mono text-[11px] text-mute">
+											{t("taskSummary.arguments")}:{" "}
+											{formatToolPayload(latestToolCall.arguments)}
+										</p>
+										<p className="mt-[4px] whitespace-pre-wrap break-all font-mono text-[11px] text-mute">
+											{t("taskSummary.result")}:{" "}
+											{formatToolPayload(latestToolCall.result)}
+										</p>
+										{latestToolCall.status ? (
+											<p className="mt-[4px] text-[11px] text-mute">
+												{t("taskSummary.toolStatus")}:{" "}
+												{t(
+													`benchmark.results.toolStatus.${latestToolCall.status}`,
+												)}
+											</p>
+										) : null}
 									</div>
 								) : null}
 
@@ -254,8 +272,8 @@ const AgentPanel = ({
 
 			<footer className="flex h-12 shrink-0 items-center justify-between bg-surface-soft px-4 text-[12px]">
 				<p className="min-w-0 truncate text-mute">
-					{formatDuration(totalDuration)} · {formatTokens(totalTokens)}{" "}
-					{t("taskPanel.run.tokens")}
+					{formatDuration(totalDuration, "-", true)} ·{" "}
+					{formatTokens(totalTokens)} {t("taskPanel.run.tokens")}
 				</p>
 				{canStop ? (
 					<button

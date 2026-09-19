@@ -34,6 +34,8 @@ type SelectProps<T extends string> = {
 	isRequired?: boolean;
 	/** The user-visible and accessible field label. */
 	label: string;
+	/** Additional classes applied only to the field label. */
+	labelClassName?: string;
 	/** The field name used during native form submission. */
 	name?: string;
 	/** Called with the next selected business value. */
@@ -69,6 +71,7 @@ const Select = <T extends string>({
 	isInvalid = false,
 	isRequired = false,
 	label,
+	labelClassName,
 	name,
 	onChange,
 	options,
@@ -88,7 +91,7 @@ const Select = <T extends string>({
 		value={value}
 		variant={variant}
 	>
-		<Label>{label}</Label>
+		<Label className={labelClassName}>{label}</Label>
 		<HeroUISelect.Trigger>
 			<HeroUISelect.Value />
 			<HeroUISelect.Indicator />
