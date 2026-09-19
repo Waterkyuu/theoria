@@ -7,7 +7,7 @@ type FileTypeIconProps = {
 };
 
 /**
- * Uses a bundled SVG as a monochrome mask so every file type shares the muted icon tone.
+ * Uses locally bundled SVGs and light variants without adding a runtime icon library.
  *
  * @example
  * <FileTypeIcon
@@ -15,17 +15,33 @@ type FileTypeIconProps = {
  * />
  */
 const FileTypeIcon = ({ path }: FileTypeIconProps) => {
-	const { src } = getFileIcon(path);
-
-	return (
-		<span
-			aria-hidden="true"
-			className="file-type-icon-tinted size-4 shrink-0 bg-current text-mute"
-			style={{
-				maskImage: `url("${src}")`,
-				WebkitMaskImage: `url("${src}")`,
-			}}
-		/>
+	const { src, light, color } = getFileIcon(path);
+	if (color) {
+		return (
+			<span
+				aria-hidden="true"
+				className="file-type-icon-tinted size-4 shrink-0"
+				style={{ backgroundColor: color, maskImage: `url("${src}")` }}
+			/>
+		);
+	}
+	return light ? (
+		<>
+			<img
+				alt=""
+				aria-hidden="true"
+				src={light}
+				className="size-4 shrink-0 dark:hidden"
+			/>
+			<img
+				alt=""
+				aria-hidden="true"
+				src={src}
+				className="hidden size-4 shrink-0 dark:block"
+			/>
+		</>
+	) : (
+		<img alt="" aria-hidden="true" src={src} className="size-4 shrink-0" />
 	);
 };
 

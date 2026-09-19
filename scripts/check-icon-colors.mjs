@@ -3,7 +3,6 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { extname, join, relative, resolve } from "node:path";
 
 const ALLOWED_ICON_COLORS = new Set(["text-danger", "text-ink", "text-mute"]);
-const CUSTOM_ICON_COMPONENTS = ["AgentIcon", "FileTypeIcon"];
 const BLUE_FOLDER_ICONS = new Set(["FolderFill", "FolderOpenFill"]);
 const COLOR_NAME_PATTERN =
 	/(?:black|white|slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)(?:-\d{2,3})?|(?:primary|on-primary|ink|ink-deep|charcoal|body|mute|canvas|surface-soft|surface-card|hairline|hairline-strong|on-dark|on-dark-mute|surface-dark|focus-ring|link|link-mute|terminal-red|terminal-yellow|terminal-green|danger)(?:\/\d{1,3})?/;
@@ -14,7 +13,7 @@ const getLine = (source, index) => source.slice(0, index).split("\n").length;
 
 /** Collects icon identifiers imported from the shared icon library. */
 const getIconComponentNames = (source) => {
-	const names = new Set(CUSTOM_ICON_COMPONENTS);
+	const names = new Set();
 	const importPattern =
 		/import\s*{([\s\S]*?)}\s*from\s*["']@gravity-ui\/icons["'];?/g;
 
@@ -34,7 +33,9 @@ const getIconComponentNames = (source) => {
 /** Finds icon colors that bypass the ink, mute, and danger semantic palette. */
 const findIconColorViolations = (source, filePath) => {
 	const violations = [];
-	const iconNames = [...getIconComponentNames(source)]
+	const importedIconNames = [...getIconComponentNames(source)];
+	if (importedIconNames.length === 0) return violations;
+	const iconNames = importedIconNames
 		.map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
 		.join("|");
 	const iconPattern = new RegExp(
@@ -64,21 +65,6 @@ const findIconColorViolations = (source, filePath) => {
 					color: color[1],
 				});
 			}
-		}
-	}
-
-	const svgPattern = /<svg\b[\s\S]*?(?:<\/svg>|\/>)/g;
-	const paintPattern =
-		/\b(fill|stroke|color)\s*(?:=|:)\s*(?:{"([^"}]*)"}|["']([^"']*)["'])/g;
-	for (const svgMatch of source.matchAll(svgPattern)) {
-		for (const paintMatch of svgMatch[0].matchAll(paintPattern)) {
-			const value = paintMatch[2] ?? paintMatch[3];
-			if (value === "currentColor" || value === "none") continue;
-			violations.push({
-				filePath,
-				line: getLine(source, svgMatch.index + paintMatch.index),
-				color: `${paintMatch[1]}=${value}`,
-			});
 		}
 	}
 
@@ -124,7 +110,7 @@ if (isDirectExecution) {
 
 	if (violations.length > 0) {
 		console.error(
-			"Icon colors must use text-ink, text-mute, or text-danger (inverse icons inherit their control color).",
+			"Gravity icon colors must use text-ink, text-mute, or text-danger (inverse icons inherit their control color).",
 		);
 		for (const violation of violations) {
 			console.error(

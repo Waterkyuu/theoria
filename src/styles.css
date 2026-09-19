@@ -273,24 +273,6 @@
 		font: inherit;
 	}
 
-	/* Icons use ink by default and collapse existing gray text roles into one muted tone. */
-	svg {
-		color: var(--color-ink);
-	}
-
-	:where(.text-body, .text-charcoal, .text-mute) svg {
-		color: var(--color-mute);
-	}
-
-	:where(.text-danger, .text-terminal-red) svg {
-		color: var(--color-danger);
-	}
-
-	/* Filled controls need their inherited foreground color to remain legible. */
-	:where(.text-on-primary, .text-on-dark) svg {
-		color: currentColor;
-	}
-
 	::selection {
 		background: var(--color-primary);
 		color: var(--color-on-primary);

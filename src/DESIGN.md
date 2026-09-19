@@ -82,7 +82,7 @@ Use the live official website to compare and validate this extracted snapshot. T
 
 ### Icon Colors
 
-Icons use no more than three semantic color roles across the application:
+Components imported from `@gravity-ui/icons` use no more than three semantic color roles across the application:
 
 | Role        | Utility       | Token            | Usage                                      |
 | ----------- | ------------- | ---------------- | ------------------------------------------ |
@@ -90,7 +90,7 @@ Icons use no more than three semantic color roles across the application:
 | muted       | `text-mute`   | `--color-mute`   | Secondary actions and supporting metadata  |
 | destructive | `text-danger` | `--color-danger` | Destructive actions and failure indicators |
 
-Multicolor icon assets must render as monochrome masks. `FolderFill` and `FolderOpenFill` retain `text-blue-300` as the single file-tree identity exception. Icons inside filled controls inherit the control foreground only to preserve contrast; this does not introduce another semantic icon role.
+Brand and file-type assets retain their original colors and are outside this palette. `FolderFill` and `FolderOpenFill` retain `text-blue-300` as the single Gravity Icons exception. Icons inside filled controls inherit the control foreground only to preserve contrast; this does not introduce another semantic icon role.
 
 ## Tokens — Spacing & Shapes
 
