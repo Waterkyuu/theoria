@@ -66,18 +66,16 @@ impl MigrationTrait for RemoveBenchmarkFallbackTag {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .get_connection()
-            .execute_unprepared(
-                r#"
-                DROP TRIGGER IF EXISTS benchmark_system_tag_update;
-                DROP TRIGGER IF EXISTS benchmark_system_tag_delete;
-                DELETE FROM benchmark_tags WHERE id = 'uncategorized';
-                "#,
-            )
+            .execute_unprepared(include_str!(
+                "sql/m009_remove_benchmark_fallback_tag/up.sql"
+            ))
             .await?;
         if manager.has_column("benchmark_tags", "is_system").await? {
             manager
                 .get_connection()
-                .execute_unprepared("ALTER TABLE benchmark_tags DROP COLUMN is_system;")
+                .execute_unprepared(include_str!(
+                    "sql/m009_remove_benchmark_fallback_tag/up_drop_system_column.sql"
+                ))
                 .await?;
         }
         Ok(())
@@ -87,20 +85,9 @@ impl MigrationTrait for RemoveBenchmarkFallbackTag {
         if !manager.has_column("benchmark_tags", "is_system").await? {
             manager
                 .get_connection()
-                .execute_unprepared(
-                    r#"
-                    ALTER TABLE benchmark_tags ADD COLUMN is_system INTEGER NOT NULL DEFAULT 0
-                        CHECK (is_system IN (0, 1));
-                    INSERT INTO benchmark_tags (id, name, icon, is_system)
-                    VALUES ('uncategorized', 'Uncategorized', 'Tag', 1);
-                    CREATE TRIGGER benchmark_system_tag_update BEFORE UPDATE ON benchmark_tags
-                    WHEN OLD.is_system = 1
-                    BEGIN SELECT RAISE(ABORT, 'System tag is immutable'); END;
-                    CREATE TRIGGER benchmark_system_tag_delete BEFORE DELETE ON benchmark_tags
-                    WHEN OLD.is_system = 1
-                    BEGIN SELECT RAISE(ABORT, 'System tag is immutable'); END;
-                    "#,
-                )
+                .execute_unprepared(include_str!(
+                    "sql/m009_remove_benchmark_fallback_tag/down.sql"
+                ))
                 .await?;
         }
         Ok(())
@@ -125,14 +112,7 @@ impl MigrationTrait for AddBenchmarkMountPin {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .get_connection()
-            .execute_unprepared(
-                r#"
-                ALTER TABLE workspace_benchmarks ADD COLUMN pinned_at_ms INTEGER
-                    CHECK (pinned_at_ms IS NULL OR pinned_at_ms > 0);
-                CREATE INDEX idx_workspace_benchmarks_pin_history
-                    ON workspace_benchmarks(workspace_id, pinned_at_ms DESC, created_at_ms DESC);
-                "#,
-            )
+            .execute_unprepared(include_str!("sql/m010_add_benchmark_mount_pin/up.sql"))
             .await?;
         Ok(())
     }
@@ -140,12 +120,7 @@ impl MigrationTrait for AddBenchmarkMountPin {
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .get_connection()
-            .execute_unprepared(
-                r#"
-                DROP INDEX idx_workspace_benchmarks_pin_history;
-                ALTER TABLE workspace_benchmarks DROP COLUMN pinned_at_ms;
-                "#,
-            )
+            .execute_unprepared(include_str!("sql/m010_add_benchmark_mount_pin/down.sql"))
             .await?;
         Ok(())
     }
