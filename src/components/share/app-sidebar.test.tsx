@@ -209,12 +209,17 @@ describe("AppSidebar", () => {
 			</AppSidebar>,
 		);
 
+		const mainNavigation = screen.getByRole("navigation", { name: "主导航" });
+
 		expect(
 			screen.getByRole("complementary", { name: "工作区侧边栏" }),
 		).toBeInTheDocument();
+		expect(mainNavigation).toBeInTheDocument();
 		expect(
-			screen.getByRole("navigation", { name: "主导航" }),
-		).toBeInTheDocument();
+			within(mainNavigation)
+				.getAllByRole("button")
+				.map((button) => button.textContent),
+		).toEqual(["新任务", "Agent 接入", "技能库", "基准测试", "运行看板"]);
 		expect(screen.getByRole("tree", { name: "工作区" })).toBeInTheDocument();
 		expect(screen.queryByText("本地 Agent 工作台")).not.toBeInTheDocument();
 		expect(
