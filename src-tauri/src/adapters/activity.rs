@@ -1178,13 +1178,12 @@ mod tests {
     use rusqlite::Connection;
     use std::collections::HashMap;
     use std::fs;
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static NEXT_TEST_DIRECTORY_ID: AtomicU64 = AtomicU64::new(0);
 
     fn temporary_test_file(name: &str, contents: &str) -> std::path::PathBuf {
-        let unique = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("test clock should be after the Unix epoch")
-            .as_nanos();
+        let unique = NEXT_TEST_DIRECTORY_ID.fetch_add(1, Ordering::Relaxed);
         let directory = std::env::temp_dir().join(format!(
             "agent-gauge-activity-{}-{unique}",
             std::process::id()
