@@ -80,6 +80,18 @@ Use the live official website to compare and validate this extracted snapshot. T
 | code-sm        | 14px | 1.43        | 0              | `--text-code-sm`        |
 | button-md      | 14px | 1           | 0              | `--text-button-md`      |
 
+### Icon Colors
+
+Icons use no more than three semantic color roles across the application:
+
+| Role        | Utility       | Token            | Usage                                      |
+| ----------- | ------------- | ---------------- | ------------------------------------------ |
+| primary     | `text-ink`    | `--color-ink`    | Default actions and navigation             |
+| muted       | `text-mute`   | `--color-mute`   | Secondary actions and supporting metadata  |
+| destructive | `text-danger` | `--color-danger` | Destructive actions and failure indicators |
+
+Multicolor icon assets must render as monochrome masks. `FolderFill` and `FolderOpenFill` retain `text-blue-300` as the single file-tree identity exception. Icons inside filled controls inherit the control foreground only to preserve contrast; this does not introduce another semantic icon role.
+
 ## Tokens — Spacing & Shapes
 
 **Density:** comfortable
