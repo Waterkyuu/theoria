@@ -1,10 +1,5 @@
 import { useState } from "react";
-import {
-	ArrowUp,
-	ChevronDown,
-	CircleCheckFill,
-	Paperclip,
-} from "@gravity-ui/icons";
+import { ArrowUp, ChevronDown, CircleCheckFill } from "@gravity-ui/icons";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { AgentIcon } from "@/components/share/agent-icon";
@@ -218,13 +213,6 @@ const Composer = ({
 					/>
 					<div className="flex flex-wrap items-center justify-between gap-sm border-t border-hairline px-sm py-sm sm:flex-nowrap sm:gap-md">
 						<div className="flex min-w-0 flex-wrap items-center gap-xs">
-							<button
-								aria-label={t("workspace.attachFiles")}
-								className="grid size-8 place-items-center rounded-md text-body hover:bg-surface-soft hover:text-ink"
-								type="button"
-							>
-								<Paperclip aria-hidden="true" className="size-4" />
-							</button>
 							<button
 								aria-expanded={isAgentMenuOpen}
 								aria-label={t("workspace.selectedAgentCount", {
