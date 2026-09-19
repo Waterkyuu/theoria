@@ -1,7 +1,17 @@
+import type { ReactNode } from "react";
 import { useState } from "react";
+import {
+	ChevronDown,
+	ChevronsCollapseUpRight,
+	ChevronsExpandUpRight,
+	Xmark,
+} from "@gravity-ui/icons";
+import { Table } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
+import { AgentIcon } from "@/components/share/agent-icon";
 import { MarkdownContent } from "@/components/share/markdown-content";
+import { formatDuration, formatToolPayload } from "@/utils/common";
 import { BenchmarkFeedback } from "@/pages/benchmark/components/feedback";
 import {
 	useBenchmarkExecutionArtifactPreview,
@@ -11,170 +21,465 @@ import type { BenchmarkTaskDetail } from "@/types/benchmark";
 import { benchmarkResultClass } from "./benchmark-result";
 
 type BenchmarkExecutionDetailProps = {
-	/** Complete Task snapshot used to resolve the execution's Case and Agent. */
+	caseId: string;
 	detail: BenchmarkTaskDetail;
-	/** Execution selected from the result matrix. */
-	executionId: string;
+	onClose: () => void;
 };
 
-/** Displays one persisted execution, its checks, and generated artifacts.
- * @example <BenchmarkExecutionDetail detail={detail} executionId="execution-1" />
- */
+type DetailTab = "artifacts" | "checks" | "response" | "tools";
+type CaseExecution = {
+	agent: BenchmarkTaskDetail["agents"][number];
+	execution: BenchmarkTaskDetail["executions"][number] | undefined;
+};
+type ComparisonRow = {
+	key: string;
+	label: string;
+	child?: boolean;
+	value: (item: CaseExecution) => ReactNode;
+};
+
 const BenchmarkExecutionDetail = ({
+	caseId,
 	detail,
-	executionId,
+	onClose,
 }: BenchmarkExecutionDetailProps) => {
-	const { t } = useTranslation();
+	const { i18n, t } = useTranslation();
+	const benchmarkCase = detail.cases.find((item) => item.id === caseId);
+	const caseExecutions = detail.agents.map((agent) => ({
+		agent,
+		execution: detail.executions.find(
+			(item) => item.taskCaseId === caseId && item.taskAgentId === agent.id,
+		),
+	}));
+	const [agentId, setAgentId] = useState(caseExecutions[0]?.agent.id ?? "");
+	const [activeTab, setActiveTab] = useState<DetailTab>("tools");
 	const [artifactPath, setArtifactPath] = useState<string | null>(null);
-	const artifacts = useBenchmarkExecutionArtifacts(detail.task.id, executionId);
+	const [isFullscreen, setIsFullscreen] = useState(false);
+	const selected =
+		caseExecutions.find(({ agent }) => agent.id === agentId) ??
+		caseExecutions[0];
+	const execution = selected?.execution;
+	const artifacts = useBenchmarkExecutionArtifacts(
+		detail.task.id,
+		execution?.id ?? null,
+	);
 	const artifactPreview = useBenchmarkExecutionArtifactPreview(
 		detail.task.id,
-		executionId,
+		execution?.id ?? null,
 		artifactPath,
 	);
-	const execution = detail.executions.find((item) => item.id === executionId);
-	if (!execution) return null;
-
-	const benchmarkCase = detail.cases.find(
-		(item) => item.id === execution.taskCaseId,
+	const maxToolCalls = Math.max(
+		0,
+		...caseExecutions.map(
+			({ execution: item }) => item?.metrics?.toolCalls.length ?? 0,
+		),
 	);
-	const agent = detail.agents.find((item) => item.id === execution.taskAgentId);
-	const duration =
-		execution.startedAtMs !== null && execution.finishedAtMs !== null
-			? Math.max(0, execution.finishedAtMs - execution.startedAtMs)
-			: null;
+	const tabs: Array<{ id: DetailTab; label: string }> = [
+		{ id: "tools", label: t("benchmark.results.toolDetails") },
+		{ id: "response", label: t("benchmark.results.response") },
+		{ id: "checks", label: t("benchmark.results.checks") },
+		{ id: "artifacts", label: t("benchmark.results.artifacts") },
+	];
+	const comparisonRows: ComparisonRow[] = [
+		{
+			key: "status",
+			label: t("benchmark.results.status"),
+			value: ({ execution: item }) =>
+				item ? (
+					<span
+						className={cn(
+							"rounded-md px-sm py-xs text-caption-sm font-medium",
+							benchmarkResultClass(item.result),
+						)}
+					>
+						{t(`benchmark.results.state.${item.result}`, {
+							defaultValue: item.result,
+						})}
+					</span>
+				) : (
+					"—"
+				),
+		},
+		{
+			key: "duration",
+			label: t("benchmark.results.totalDuration"),
+			value: ({ execution: item }) =>
+				formatDuration(item?.metrics?.totalDurationMs ?? null),
+		},
+		{
+			key: "first-token",
+			label: t("benchmark.results.firstToken"),
+			value: ({ execution: item }) =>
+				formatDuration(item?.metrics?.timeToFirstTokenMs ?? null),
+		},
+		{
+			key: "tokens",
+			label: t("benchmark.results.tokens"),
+			value: ({ execution: item }) =>
+				item?.metrics?.tokenUsage?.totalTokens.toLocaleString(i18n.language) ??
+				"—",
+		},
+		{
+			key: "input-tokens",
+			label: t("benchmark.results.inputTokens"),
+			child: true,
+			value: ({ execution: item }) =>
+				item?.metrics?.tokenUsage?.inputTokens.toLocaleString(i18n.language) ??
+				"—",
+		},
+		{
+			key: "output-tokens",
+			label: t("benchmark.results.outputTokens"),
+			child: true,
+			value: ({ execution: item }) =>
+				item?.metrics?.tokenUsage?.outputTokens.toLocaleString(i18n.language) ??
+				"—",
+		},
+		{
+			key: "cached-tokens",
+			label: t("benchmark.results.cachedTokens"),
+			child: true,
+			value: ({ execution: item }) =>
+				item?.metrics?.tokenUsage?.cachedInputTokens.toLocaleString(
+					i18n.language,
+				) ?? "—",
+		},
+		{
+			key: "tool-calls",
+			label: t("benchmark.results.toolCalls"),
+			value: ({ execution: item }) =>
+				item?.metrics?.toolCallCount.toLocaleString(i18n.language) ?? "—",
+		},
+		...Array.from({ length: maxToolCalls }, (_, index): ComparisonRow => ({
+			key: `tool-${index + 1}`,
+			label: t("benchmark.results.toolCall", { count: index + 1 }),
+			child: true,
+			value: ({ execution: item }) => {
+				const call = item?.metrics?.toolCalls[index];
+				return call
+					? `${call.name} · ${formatDuration(call.durationMs)}`
+					: t("benchmark.results.noData");
+			},
+		})),
+	];
 
 	return (
-		<article className="overflow-hidden rounded-xl border border-hairline bg-surface-card">
-			<div className="flex flex-wrap items-start justify-between gap-md border-b border-hairline px-lg py-md">
-				<div>
-					<h2 className="text-body-sm font-semibold text-ink">
-						{t("benchmark.results.executionDetail")}
+		<aside
+			aria-label={t("benchmark.results.caseComparison")}
+			className={cn(
+				"flex min-h-0 w-full min-w-0 flex-col bg-surface-card",
+				isFullscreen
+					? "fixed inset-x-0 bottom-0 top-11 z-40"
+					: "border-l border-hairline",
+			)}
+		>
+			<header className="flex h-20 shrink-0 items-center justify-between border-b border-hairline px-lg">
+				<div className="min-w-0">
+					<h2 className="text-body-md font-semibold text-ink">
+						{t("benchmark.results.caseComparison")}
 					</h2>
-					<p className="mt-xs text-caption-sm text-mute">
-						{benchmarkCase?.name ?? "—"} ·{" "}
-						{agent ? t(`agentNames.${agent.agentKind}`) : "—"}
+					<p className="truncate text-body-sm text-mute">
+						{benchmarkCase?.name ?? "—"}
 					</p>
-					{duration !== null ? (
-						<p className="mt-xs text-caption-sm tabular-nums text-mute">
-							{t("benchmark.results.duration")}:{" "}
-							{t("benchmark.results.durationValue", { value: duration })}
-						</p>
+				</div>
+				<div className="flex items-center gap-xs">
+					<button
+						aria-label={t(
+							isFullscreen
+								? "taskSummary.exitFullscreen"
+								: "taskSummary.enterFullscreen",
+						)}
+						className="grid size-8 place-items-center rounded-md text-charcoal outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
+						onClick={() => setIsFullscreen((value) => !value)}
+						type="button"
+					>
+						{isFullscreen ? (
+							<ChevronsCollapseUpRight aria-hidden="true" className="size-4" />
+						) : (
+							<ChevronsExpandUpRight aria-hidden="true" className="size-4" />
+						)}
+					</button>
+					<button
+						aria-label={t("taskSummary.close")}
+						className="grid size-8 place-items-center rounded-md text-charcoal outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
+						onClick={onClose}
+						type="button"
+					>
+						<Xmark aria-hidden="true" className="size-4" />
+					</button>
+				</div>
+			</header>
+
+			<div className="min-h-0 flex-1 overflow-auto">
+				<Table className="benchmark-table" variant="secondary">
+					<Table.ScrollContainer>
+						<Table.Content
+							aria-label={t("benchmark.results.caseComparison")}
+							className="min-w-max"
+						>
+							<Table.Header>
+								<Table.Column className="w-36" isRowHeader>
+									{t("benchmark.results.metric")}
+								</Table.Column>
+								{caseExecutions.map(({ agent }) => (
+									<Table.Column
+										className="min-w-40"
+										id={agent.id}
+										key={agent.id}
+									>
+										<span className="flex items-center gap-sm">
+											<AgentIcon
+												height={20}
+												name={agent.agentKind}
+												width={20}
+											/>
+											{t(`agentNames.${agent.agentKind}`)}
+										</span>
+									</Table.Column>
+								))}
+							</Table.Header>
+							<Table.Body items={comparisonRows}>
+								{(row) => (
+									<Table.Row id={row.key}>
+										<Table.Cell
+											className={cn(
+												"bg-surface-secondary font-medium text-charcoal",
+												row.child && "pl-xl text-mute",
+											)}
+										>
+											{row.child ? "└ " : null}
+											{row.label}
+										</Table.Cell>
+										{caseExecutions.map((item) => (
+											<Table.Cell
+												className="font-mono text-caption-sm tabular-nums text-ink"
+												key={item.agent.id}
+											>
+												{row.value(item)}
+											</Table.Cell>
+										))}
+									</Table.Row>
+								)}
+							</Table.Body>
+						</Table.Content>
+					</Table.ScrollContainer>
+				</Table>
+
+				<div className="border-b border-hairline px-lg py-md">
+					<label className="flex items-center gap-md text-body-sm text-mute">
+						{t("benchmark.results.agentDetail")}
+						<span className="relative">
+							<select
+								aria-label={t("benchmark.results.agentDetail")}
+								className="h-9 appearance-none rounded-md border border-hairline bg-surface-card pl-md pr-xl text-ink outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+								onChange={(event) => {
+									setAgentId(event.target.value);
+									setArtifactPath(null);
+								}}
+								value={selected?.agent.id ?? ""}
+							>
+								{caseExecutions.map(({ agent }) => (
+									<option key={agent.id} value={agent.id}>
+										{t(`agentNames.${agent.agentKind}`)}
+									</option>
+								))}
+							</select>
+							<ChevronDown
+								aria-hidden="true"
+								className="pointer-events-none absolute right-sm top-1/2 size-4 -translate-y-1/2"
+							/>
+						</span>
+					</label>
+					<div className="mt-md flex gap-lg" role="tablist">
+						{tabs.map((tab) => (
+							<button
+								aria-selected={activeTab === tab.id}
+								className={cn(
+									"border-b-2 border-transparent pb-sm text-body-sm text-mute",
+									activeTab === tab.id && "border-ink font-medium text-ink",
+								)}
+								key={tab.id}
+								onClick={() => setActiveTab(tab.id)}
+								role="tab"
+								type="button"
+							>
+								{tab.label}
+								{tab.id === "tools"
+									? ` (${execution?.metrics?.toolCallCount ?? 0})`
+									: ""}
+							</button>
+						))}
+					</div>
+				</div>
+
+				<div className="p-lg">
+					{activeTab === "tools" ? (
+						<Table className="benchmark-table" variant="secondary">
+							<Table.ScrollContainer>
+								<Table.Content
+									aria-label={t("benchmark.results.toolDetails")}
+									className="min-w-180 table-fixed"
+								>
+									<Table.Header>
+										<Table.Column className="w-10">#</Table.Column>
+										<Table.Column className="w-32" isRowHeader>
+											{t("benchmark.results.tool")}
+										</Table.Column>
+										<Table.Column>
+											{t("benchmark.results.arguments")}
+										</Table.Column>
+										<Table.Column>{t("benchmark.results.result")}</Table.Column>
+										<Table.Column className="w-24">
+											{t("benchmark.results.status")}
+										</Table.Column>
+										<Table.Column className="w-24">
+											{t("benchmark.results.duration")}
+										</Table.Column>
+									</Table.Header>
+									<Table.Body>
+										{execution?.metrics?.toolCalls.map((call, index) => (
+											<Table.Row
+												id={`${call.name}-${index}`}
+												key={`${call.name}-${index}`}
+											>
+												<Table.Cell className="align-top tabular-nums">
+													{index + 1}
+												</Table.Cell>
+												<Table.Cell className="align-top font-mono">
+													{call.name}
+												</Table.Cell>
+												<Table.Cell className="align-top">
+													<pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all bg-surface-soft p-sm font-mono text-caption-sm">
+														{formatToolPayload(call.arguments)}
+													</pre>
+												</Table.Cell>
+												<Table.Cell className="align-top">
+													<pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all bg-surface-soft p-sm font-mono text-caption-sm">
+														{formatToolPayload(call.result)}
+													</pre>
+												</Table.Cell>
+												<Table.Cell className="align-top">
+													<span
+														className={cn(
+															"rounded-md px-sm py-xs text-caption-sm",
+															call.status === "failed"
+																? "bg-terminal-red/10 text-terminal-red"
+																: "bg-surface-soft text-charcoal",
+														)}
+													>
+														{call.status
+															? t(`benchmark.results.toolStatus.${call.status}`)
+															: "—"}
+													</span>
+												</Table.Cell>
+												<Table.Cell className="align-top tabular-nums">
+													{formatDuration(call.durationMs)}
+												</Table.Cell>
+											</Table.Row>
+										))}
+										{!execution?.metrics?.toolCalls.length ? (
+											<Table.Row id="empty">
+												<Table.Cell className="text-mute" colSpan={6}>
+													{t("benchmark.results.noToolCalls")}
+												</Table.Cell>
+											</Table.Row>
+										) : null}
+									</Table.Body>
+								</Table.Content>
+							</Table.ScrollContainer>
+						</Table>
+					) : null}
+					{activeTab === "response" ? (
+						<div className="break-words text-body-sm leading-relaxed text-body [&_code]:rounded-sm [&_code]:bg-surface-soft [&_code]:px-1 [&_pre]:my-md [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-surface-soft [&_pre]:p-md">
+							<MarkdownContent>
+								{execution?.responseText ??
+									execution?.terminationReason ??
+									t("benchmark.results.noResponse")}
+							</MarkdownContent>
+						</div>
+					) : null}
+					{activeTab === "checks" ? (
+						<div className="divide-y divide-hairline border-y border-hairline">
+							{execution?.report?.checks.map((check, index) => (
+								<p
+									className="py-sm text-body-sm"
+									key={`${check.kind}-${index}`}
+								>
+									<span
+										className={
+											check.passed ? "text-terminal-green" : "text-terminal-red"
+										}
+									>
+										{check.passed
+											? t("benchmark.results.passed")
+											: t("benchmark.results.failed")}
+									</span>{" "}
+									·{" "}
+									<span>
+										{t(`benchmark.results.checkMessage.${check.message}`, {
+											defaultValue: check.message,
+										})}
+									</span>
+								</p>
+							))}
+							{!execution?.report?.checks.length ? (
+								<p className="py-sm text-mute">
+									{t("benchmark.results.noData")}
+								</p>
+							) : null}
+						</div>
+					) : null}
+					{activeTab === "artifacts" ? (
+						<div>
+							<BenchmarkFeedback
+								failed={artifacts.isError}
+								loading={artifacts.isLoading}
+								retry={() => artifacts.refetch()}
+							/>
+							<div className="divide-y divide-hairline border-y border-hairline">
+								{artifacts.data?.map((artifact) => (
+									<button
+										className="block w-full py-sm text-left text-body-sm disabled:text-mute"
+										disabled={artifact.change === "deleted"}
+										key={artifact.path}
+										onClick={() => setArtifactPath(artifact.path)}
+										type="button"
+									>
+										{artifact.path}{" "}
+										<span className="text-mute">
+											· {t(`benchmark.results.change.${artifact.change}`)}
+										</span>
+									</button>
+								))}
+							</div>
+							{artifactPath ? (
+								<div className="mt-md">
+									<BenchmarkFeedback
+										failed={artifactPreview.isError}
+										loading={artifactPreview.isLoading}
+										retry={() => artifactPreview.refetch()}
+									/>
+									{artifactPreview.data ? (
+										<pre className="max-h-96 overflow-auto whitespace-pre-wrap rounded-md bg-surface-soft p-md text-body-sm">
+											{artifactPreview.data.text ?? t("benchmark.file.binary")}
+										</pre>
+									) : null}
+								</div>
+							) : null}
+						</div>
 					) : null}
 				</div>
-				<span
-					className={cn(
-						"rounded-full px-sm py-xs text-caption-sm font-medium",
-						benchmarkResultClass(execution.result),
-					)}
-				>
-					{t(`benchmark.results.state.${execution.result}`, {
-						defaultValue: execution.result,
-					})}
-				</span>
-			</div>
-			<div className="grid gap-md p-lg xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.35fr)]">
-				<section className="min-w-0 rounded-lg bg-surface-soft p-md">
-					<h3 className="text-caption-sm font-medium text-mute">
+
+				<section className="border-t border-hairline px-lg py-md">
+					<h3 className="text-body-sm font-semibold text-ink">
 						{t("benchmark.results.requirements")}
 					</h3>
-					<p className="mt-sm max-h-80 overflow-auto whitespace-pre-wrap break-words text-body-sm leading-relaxed text-body">
+					<p className="mt-sm whitespace-pre-wrap text-body-sm leading-relaxed text-body">
 						{benchmarkCase?.prompt ?? "—"}
 					</p>
 				</section>
-				<section className="min-w-0 rounded-lg border border-hairline p-md">
-					<h3 className="text-caption-sm font-medium text-mute">
-						{t("benchmark.results.response")}
-					</h3>
-					<div className="mt-sm max-h-[32rem] overflow-auto break-words text-body-sm leading-relaxed text-body [&_a]:font-medium [&_a]:text-link [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-hairline-strong [&_blockquote]:pl-md [&_code]:rounded-sm [&_code]:bg-surface-soft [&_code]:px-1 [&_li]:my-xs [&_ol]:list-decimal [&_ol]:pl-lg [&_p+p]:mt-md [&_pre]:my-md [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-surface-soft [&_pre]:p-md [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-lg">
-						<MarkdownContent>
-							{execution.responseText ??
-								execution.terminationReason ??
-								t("benchmark.results.noResponse")}
-						</MarkdownContent>
-					</div>
-				</section>
 			</div>
-			{execution.report ? (
-				<section className="border-t border-hairline px-lg py-md">
-					<h3 className="text-caption-sm font-medium text-mute">
-						{t("benchmark.results.checks")}
-					</h3>
-					<ul className="mt-sm space-y-sm">
-						{execution.report.checks.map((check, index) => (
-							<li
-								className="rounded-md border border-hairline p-sm text-body-sm"
-								key={`${check.kind}-${check.path ?? "none"}-${index}`}
-							>
-								<span
-									className={
-										check.passed ? "text-terminal-green" : "text-terminal-red"
-									}
-								>
-									{check.passed
-										? t("benchmark.results.passed")
-										: t("benchmark.results.failed")}
-								</span>{" "}
-								{t(`benchmark.results.checkMessage.${check.message}`, {
-									defaultValue: check.message,
-								})}
-								{check.path ? (
-									<code className="ml-sm text-caption-sm text-mute">
-										{check.path}
-									</code>
-								) : null}
-							</li>
-						))}
-					</ul>
-				</section>
-			) : null}
-			<section className="border-t border-hairline px-lg py-md">
-				<h3 className="text-caption-sm font-medium text-mute">
-					{t("benchmark.results.artifacts")}
-				</h3>
-				<BenchmarkFeedback
-					failed={artifacts.isError}
-					loading={artifacts.isLoading}
-					retry={() => artifacts.refetch()}
-				/>
-				{artifacts.data?.length === 0 ? (
-					<p className="mt-sm text-body-sm text-mute">
-						{t("benchmark.results.noArtifacts")}
-					</p>
-				) : null}
-				<div className="mt-sm flex flex-wrap gap-sm">
-					{artifacts.data?.map((artifact) => (
-						<button
-							className="rounded-lg border border-hairline bg-surface-soft px-sm py-xs text-left text-body-sm outline-none transition-colors hover:border-hairline-strong focus-visible:ring-2 focus-visible:ring-focus-ring disabled:opacity-50"
-							disabled={artifact.change === "deleted"}
-							key={artifact.path}
-							onClick={() => setArtifactPath(artifact.path)}
-							type="button"
-						>
-							{artifact.path}{" "}
-							<span className="text-caption-sm text-mute">
-								{t(`benchmark.results.change.${artifact.change}`)} ·{" "}
-								{t("benchmark.file.size", { count: artifact.sizeBytes })}
-							</span>
-						</button>
-					))}
-				</div>
-				{artifactPath ? (
-					<div className="mt-md rounded-lg bg-surface-soft p-md">
-						<BenchmarkFeedback
-							failed={artifactPreview.isError}
-							loading={artifactPreview.isLoading}
-							retry={() => artifactPreview.refetch()}
-						/>
-						{artifactPreview.data ? (
-							<pre className="max-h-96 overflow-auto whitespace-pre-wrap text-body-sm text-body">
-								{artifactPreview.data.text ?? t("benchmark.file.binary")}
-							</pre>
-						) : null}
-					</div>
-				) : null}
-			</section>
-		</article>
+		</aside>
 	);
 };
 
