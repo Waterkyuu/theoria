@@ -4,7 +4,6 @@ import {
 	ChevronRight,
 	ChevronsCollapseUpRight,
 	ChevronsExpandUpRight,
-	Xmark,
 } from "@gravity-ui/icons";
 import type { Selection } from "@heroui/react";
 import { Button, Table } from "@heroui/react";
@@ -223,12 +222,12 @@ const BenchmarkExecutionDetail = ({
 					: "border-l border-hairline",
 			)}
 		>
-			<header className="flex h-20 shrink-0 items-center justify-between border-b border-hairline px-lg">
+			<header className="flex h-12 shrink-0 items-center justify-between border-b border-hairline px-lg">
 				<div className="min-w-0">
-					<h2 className="text-body-md font-semibold text-ink">
+					<h2 className="text-body-sm font-semibold text-ink">
 						{t("benchmark.results.caseComparison")}
 					</h2>
-					<p className="truncate text-body-sm text-mute">
+					<p className="truncate text-caption-sm text-mute">
 						{benchmarkCase?.name ?? "—"}
 					</p>
 				</div>
@@ -251,11 +250,11 @@ const BenchmarkExecutionDetail = ({
 					</button>
 					<button
 						aria-label={t("taskSummary.close")}
-						className="grid size-8 place-items-center rounded-md text-charcoal outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
+						className="rounded-md px-sm py-xs text-body-sm text-charcoal outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
 						onClick={onClose}
 						type="button"
 					>
-						<Xmark aria-hidden="true" className="size-4" />
+						{t("taskSummary.close")}
 					</button>
 				</div>
 			</header>
@@ -312,9 +311,10 @@ const BenchmarkExecutionDetail = ({
 
 				<div className="border-b border-hairline px-lg py-md">
 					<Select
-						className="w-fit flex-row items-center gap-md text-body-sm [&_[data-slot=label]]:text-mute [&_[data-slot=select-trigger]]:min-w-36"
+						className="w-fit flex-row items-center gap-md text-body-sm [&_[data-slot=select-trigger]]:min-w-36"
 						fullWidth={false}
 						label={t("benchmark.results.agentDetail")}
+						labelClassName="text-mute"
 						onChange={(value) => {
 							if (value) setAgentId(value);
 							setArtifactPath(null);

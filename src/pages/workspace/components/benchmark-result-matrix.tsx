@@ -71,8 +71,8 @@ const BenchmarkResultMatrix = ({
 					value={search}
 				/>
 				<Select
-					className="[&_[data-slot=label]]:sr-only"
 					label={t("benchmark.results.statusFilter")}
+					labelClassName="sr-only"
 					onChange={(value) => {
 						if (value) setResult(value);
 						setPage(0);
