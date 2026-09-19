@@ -164,7 +164,7 @@ const enUS = {
 				status: "Status",
 				totalDuration: "Total duration",
 				firstToken: "First token",
-				tokens: "Tokens",
+				tokens: "Total tokens",
 				inputTokens: "Input",
 				outputTokens: "Output",
 				cachedTokens: "Cached",

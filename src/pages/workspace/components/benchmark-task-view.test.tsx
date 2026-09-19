@@ -293,7 +293,7 @@ it("compares a case across agents and exposes complete tool call details", async
 	expect(await screen.findByText("Case comparison")).toBeInTheDocument();
 	expect(screen.getByText("17,666")).toBeInTheDocument();
 	expect(screen.queryByText("4,203")).not.toBeInTheDocument();
-	await user.click(screen.getByRole("button", { name: /Tokens/ }));
+	await user.click(screen.getByRole("button", { name: /Total tokens/ }));
 	expect(screen.getByText("4,203")).toBeInTheDocument();
 	expect(screen.getByText("write_file")).toBeInTheDocument();
 	expect(screen.getByText(/summary\.json/)).toBeInTheDocument();
