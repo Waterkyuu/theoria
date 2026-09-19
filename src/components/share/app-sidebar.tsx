@@ -31,8 +31,8 @@ const NAVIGATION_ITEMS = [
 	{ path: "/task", labelKey: "navigation.newTask", icon: TargetDart },
 	{ path: "/agents", labelKey: "navigation.agentAccess", icon: TerminalLine },
 	{ path: "/skills", labelKey: "navigation.skills", icon: Puzzle },
-	{ path: "/runs", labelKey: "navigation.runs", icon: LayoutColumns3 },
 	{ path: "/benchmark", labelKey: "navigation.benchmark", icon: ChartColumn },
+	{ path: "/runs", labelKey: "navigation.runs", icon: LayoutColumns3 },
 ] as const;
 
 const NewWorkspaceModal = lazy(() => import("./create-workspace-modal"));

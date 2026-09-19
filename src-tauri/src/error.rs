@@ -52,7 +52,6 @@ pub(crate) enum AppError {
     BenchmarkReadOnly,
     BenchmarkAssetUnavailable,
     BenchmarkVerifierUnavailable,
-    BenchmarkHistoryProtected,
 
     TaskNotFound,
     TaskPreparationFailed,
@@ -305,11 +304,6 @@ impl IpcError {
             AppError::BenchmarkVerifierUnavailable => (
                 "BENCHMARK_VERIFIER_UNAVAILABLE",
                 ErrorMessageKey::BenchmarkVerifierUnavailable,
-                None,
-            ),
-            AppError::BenchmarkHistoryProtected => (
-                "BENCHMARK_HISTORY_PROTECTED",
-                ErrorMessageKey::BenchmarkHistoryProtected,
                 None,
             ),
             AppError::InvalidTask => ("INVALID_TASK", ErrorMessageKey::InvalidTask, None),

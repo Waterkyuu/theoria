@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from "react";
 import {
 	ChevronRight,
+	File,
 	FilePlus,
 	FolderFill,
 	FolderPlus,
@@ -495,14 +496,10 @@ const SkillEditor = ({ skillId, initialDraft }: SkillEditorProps) => {
 													className="size-4 shrink-0 text-blue-300"
 												/>
 											) : (
-												<svg
+												<File
 													aria-hidden="true"
-													viewBox="0 0 16 16"
-													fill="currentColor"
-													className="size-4 shrink-0 text-blue-300"
-												>
-													<path d="M5 1a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V8h-4a3 3 0 0 1-3-3V1H5Zm3.5.697V5A1.5 1.5 0 0 0 10 6.5h3.303a1.5 1.5 0 0 0-.242-.318L8.818 1.939a1.5 1.5 0 0 0-.318-.242Z" />
-												</svg>
+													className="size-4 shrink-0 text-mute"
+												/>
 											)}
 											<TextField
 												autoFocus

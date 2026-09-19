@@ -192,6 +192,8 @@ const BenchmarkMountSchema = z.object({
 	benchmarkId: z.string(),
 	/** Pinned version, never implicitly upgraded. */
 	versionId: z.string(),
+	/** Optional pin time used by Workspace navigation ordering. */
+	pinnedAtMs: z.number().int().nullable(),
 	/** Mount timestamp. */
 	createdAtMs: z.number().int(),
 });

@@ -1,3 +1,4 @@
+use crate::domain::task::{TaskKind, TaskStatus};
 use crate::domain::workspace::WorkspaceSourceKind;
 use crate::error::AppError;
 use crate::repositories::task::TaskRepository;
@@ -109,7 +110,7 @@ impl TaskCleanupService {
         }
     }
 
-    /// Deletes one Task idempotently after all writers and files are gone.
+    /// Deletes one Task idempotently after its supported writers and files are gone.
     pub(crate) async fn delete_task(&self, task_id: &str) -> Result<(), AppError> {
         let Some(task) = self
             .repository
@@ -119,10 +120,18 @@ impl TaskCleanupService {
         else {
             return Ok(());
         };
-        if task.kind == crate::domain::task::TaskKind::Benchmark {
-            return Err(AppError::BenchmarkHistoryProtected);
+        match task.kind {
+            TaskKind::Work => self.execution_service.stop_task_and_wait(task_id).await?,
+            TaskKind::Benchmark
+                if !matches!(
+                    task.status,
+                    TaskStatus::Completed | TaskStatus::Failed | TaskStatus::Stopped
+                ) =>
+            {
+                return Err(AppError::InvalidTask);
+            }
+            TaskKind::Benchmark => {}
         }
-        self.execution_service.stop_task_and_wait(task_id).await?;
         self.snapshot_service.remove_task_files(task_id).await?;
         self.repository
             .delete(task_id)
@@ -627,8 +636,17 @@ mod tests {
     }
 
     #[test]
-    fn protects_benchmark_history_from_task_cleanup() {
+    fn removes_completed_benchmark_history_and_owned_files() {
         tauri::async_runtime::block_on(async {
+            let sequence = RESOURCE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+            let root = std::env::temp_dir().join(format!(
+                "theoria-benchmark-cleanup-test-{}-{sequence}",
+                std::process::id()
+            ));
+            let app_data = root.join("app-data");
+            let task_root = app_data.join("task-runs/benchmark-history");
+            std::fs::create_dir_all(task_root.join("executions/execution-1/workspace"))
+                .expect("Benchmark files should be created");
             let database = connect_sqlite("sqlite::memory:").await.expect("database");
             Migrator::up(&database, None).await.expect("schema");
             WorkspaceRepository::new(database.clone())
@@ -656,7 +674,6 @@ mod tests {
             .await
             .expect("benchmark task header");
             let repository = TaskRepository::new(database.clone());
-            let app_data = std::env::temp_dir().join("theoria-protected-benchmark-history");
             let service = TaskCleanupService::new(
                 repository.clone(),
                 SnapshotService::new(app_data.clone()),
@@ -667,15 +684,18 @@ mod tests {
                 ),
             );
 
-            assert_eq!(
-                service.delete_task("benchmark-history").await,
-                Err(crate::error::AppError::BenchmarkHistoryProtected)
-            );
+            service
+                .delete_task("benchmark-history")
+                .await
+                .expect("completed Benchmark Task should delete");
+
+            assert!(!task_root.exists());
             assert!(task_model::Entity::find_by_id("benchmark-history")
                 .one(&database)
                 .await
                 .expect("task query")
-                .is_some());
+                .is_none());
+            std::fs::remove_dir_all(root).expect("fixture should be removable");
         });
     }
 }

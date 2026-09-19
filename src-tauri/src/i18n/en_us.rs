@@ -82,9 +82,6 @@ pub(super) fn message(key: ErrorMessageKey) -> &'static str {
         ErrorMessageKey::BenchmarkVerifierUnavailable => {
             "The required Benchmark verification environment is unavailable"
         }
-        ErrorMessageKey::BenchmarkHistoryProtected => {
-            "Benchmark evaluation history cannot be permanently deleted"
-        }
         ErrorMessageKey::InvalidTask => {
             "The task configuration must contain 1 to 6 Agents and valid permissions"
         }

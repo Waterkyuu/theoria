@@ -13,6 +13,8 @@ pub(crate) struct Model {
     pub(crate) benchmark_id: String,
     /// Immutable version pinned for future Tasks.
     pub(crate) version_id: String,
+    /// Optional pin time used by Workspace navigation ordering.
+    pub(crate) pinned_at_ms: Option<i64>,
     /// Mount creation time in Unix milliseconds.
     pub(crate) created_at_ms: i64,
 }

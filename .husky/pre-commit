@@ -1,1 +1,2 @@
+pnpm check:icon-colors -- --staged
 pnpm lint:staged

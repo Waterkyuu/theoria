@@ -38,6 +38,7 @@ const WorkspaceActionDropdown = ({
 	onRemoved,
 	workspace,
 }: WorkspaceActionDropdownProps) => {
+	"use no memo";
 	const { t } = useTranslation();
 	const [isRemoveOpen, setIsRemoveOpen] = useState(false);
 	const [isRenameOpen, setIsRenameOpen] = useState(false);

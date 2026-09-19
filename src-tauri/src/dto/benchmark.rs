@@ -135,6 +135,8 @@ pub(crate) struct BenchmarkMountResponse {
     benchmark_id: String,
     /// Explicitly pinned content version.
     version_id: String,
+    /// Optional pin time used by Workspace navigation ordering.
+    pinned_at_ms: Option<i64>,
     /// Mount creation time in UTC milliseconds.
     created_at_ms: i64,
 }
@@ -145,6 +147,7 @@ impl From<BenchmarkMount> for BenchmarkMountResponse {
             workspace_id: value.workspace_id,
             benchmark_id: value.benchmark_id,
             version_id: value.version_id,
+            pinned_at_ms: value.pinned_at_ms,
             created_at_ms: value.created_at_ms,
         }
     }
@@ -329,6 +332,18 @@ pub(crate) struct UpdateBenchmarkMountRequest {
     pub(crate) version_id: String,
 }
 
+/// Changes whether one Benchmark mount is ordered above ordinary mounts.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct SetBenchmarkMountPinRequest {
+    /// Workspace that owns the existing mount.
+    pub(crate) workspace_id: String,
+    /// Existing mount whose pin state changes.
+    pub(crate) mount_id: String,
+    /// Whether the mount should appear in the pinned group.
+    pub(crate) is_pinned: bool,
+}
+
 /// Typed request validated by the Benchmark application service.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -419,6 +434,16 @@ pub(crate) struct SaveBenchmarkTextAssetRequest {
 pub(crate) struct PreviewBenchmarkAssetRequest {
     /// Opaque identifier returned by a prior managed import.
     pub(crate) asset_id: String,
+}
+
+/// Opens a managed document with an application explicitly selected by the user.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct OpenBenchmarkAssetRequest {
+    /// Opaque identifier returned by a prior managed import.
+    pub(crate) asset_id: String,
+    /// Application selected through the native file picker.
+    pub(crate) application_path: PathBuf,
 }
 
 /// Portable root document stored as `benchmark.json` in a Theoria template folder.
@@ -518,5 +543,28 @@ impl BenchmarkImportCheck {
             Self::FileJson { .. } => "file_json",
             Self::Python { .. } => "python",
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::BenchmarkMountResponse;
+    use crate::domain::benchmark::BenchmarkMount;
+
+    #[test]
+    fn serializes_mount_pin_state_for_workspace_navigation() {
+        let response = BenchmarkMountResponse::from(BenchmarkMount {
+            id: "mount-1".to_string(),
+            workspace_id: "workspace-1".to_string(),
+            benchmark_id: "benchmark-1".to_string(),
+            version_id: "version-1".to_string(),
+            pinned_at_ms: Some(42),
+            created_at_ms: 1,
+        });
+
+        assert_eq!(
+            serde_json::to_value(response).expect("mount response should serialize")["pinnedAtMs"],
+            42
+        );
     }
 }

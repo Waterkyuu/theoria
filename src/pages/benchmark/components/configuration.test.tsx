@@ -16,6 +16,7 @@ const mount: BenchmarkMount = {
 	workspaceId: "workspace-1",
 	benchmarkId: "benchmark-1",
 	versionId: "version-1",
+	pinnedAtMs: null,
 	createdAtMs: 1,
 };
 

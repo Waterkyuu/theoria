@@ -329,6 +329,24 @@ impl BenchmarkService {
         })
     }
 
+    /// Resolves only a regular managed asset for an explicit external preview action.
+    pub(crate) async fn external_preview_asset_path(
+        &self,
+        asset_id: &str,
+    ) -> Result<PathBuf, AppError> {
+        if !safe_asset_id(asset_id) {
+            return Err(AppError::InvalidBenchmark);
+        }
+        let path = self.asset_directory.join(asset_id);
+        let metadata = tokio::fs::symlink_metadata(&path)
+            .await
+            .map_err(|_| AppError::BenchmarkAssetUnavailable)?;
+        if !metadata.is_file() || metadata.file_type().is_symlink() {
+            return Err(AppError::BenchmarkAssetUnavailable);
+        }
+        Ok(path)
+    }
+
     async fn copy_template_reference(
         &self,
         root: &std::path::Path,
@@ -426,6 +444,14 @@ impl BenchmarkService {
                     let definition = self.detail(&benchmark_id, None).await?;
                     if definition.summary.author != "myself" || definition.summary.archived {
                         return Err(AppError::BenchmarkReadOnly);
+                    }
+                    if let Some(draft) = self
+                        .repository
+                        .draft_for_benchmark(&benchmark_id)
+                        .await
+                        .map_err(|_| AppError::BenchmarkDatabaseFailed)?
+                    {
+                        return Ok(draft);
                     }
                     Some(benchmark_id)
                 }
@@ -619,6 +645,7 @@ impl BenchmarkService {
                 workspace_id: workspace,
                 benchmark_id: benchmark,
                 version_id: version,
+                pinned_at_ms: None,
                 created_at_ms: now_ms()?,
             })
             .await
@@ -649,6 +676,22 @@ impl BenchmarkService {
         validate_id(version)?;
         self.repository
             .update_mount(workspace, mount, version)
+            .await
+            .map_err(|_| AppError::BenchmarkDatabaseFailed)?
+            .ok_or(AppError::BenchmarkNotFound)
+    }
+    /// Pins or unpins one Workspace mount while preserving its selected version.
+    pub(crate) async fn set_mount_pin(
+        &self,
+        workspace: &str,
+        mount: &str,
+        is_pinned: bool,
+    ) -> Result<BenchmarkMount, AppError> {
+        validate_id(workspace)?;
+        validate_id(mount)?;
+        let pinned_at_ms = if is_pinned { Some(now_ms()?) } else { None };
+        self.repository
+            .set_mount_pin(workspace, mount, pinned_at_ms)
             .await
             .map_err(|_| AppError::BenchmarkDatabaseFailed)?
             .ok_or(AppError::BenchmarkNotFound)
@@ -953,6 +996,69 @@ mod tests {
     }
 
     #[test]
+    fn editing_a_benchmark_reopens_its_existing_draft() {
+        tauri::async_runtime::block_on(async {
+            let database = connect_sqlite("sqlite::memory:")
+                .await
+                .expect("database should open");
+            Migrator::up(&database, None)
+                .await
+                .expect("schema should initialize");
+            let service = BenchmarkService::new(
+                BenchmarkRepository::new(database.clone()),
+                PathBuf::new(),
+                verifier(),
+            );
+            let tag = service.create_tag("Code", "Code").await.expect("tag");
+            let document = BenchmarkDocument {
+                schema_version: 1,
+                name: "Personal suite".to_string(),
+                description: "Editable benchmark".to_string(),
+                tag_id: Some(tag.id),
+                source: None,
+                cases: vec![BenchmarkCase {
+                    name: "One".to_string(),
+                    prompt: "Return 42".to_string(),
+                    timeout_minutes: 1,
+                    input_files: Vec::new(),
+                    checks: vec![BenchmarkCheck::Answer {
+                        expected: "42".to_string(),
+                    }],
+                }],
+            };
+            let initial = service
+                .save_draft(None, None, None, document.clone())
+                .await
+                .expect("initial draft");
+            let published = service
+                .publish(&initial.id, initial.revision)
+                .await
+                .expect("published benchmark");
+            let mut edited_document = document.clone();
+            edited_document.cases[0].prompt = "Return forty-two".to_string();
+            let existing = service
+                .save_draft(
+                    None,
+                    None,
+                    Some(published.summary.id.clone()),
+                    edited_document.clone(),
+                )
+                .await
+                .expect("linked draft");
+
+            let reopened = service
+                .save_draft(None, None, Some(published.summary.id), document)
+                .await
+                .expect("existing linked draft should reopen");
+
+            assert_eq!(reopened.id, existing.id);
+            assert_eq!(reopened.revision, existing.revision);
+            assert_eq!(reopened.document, edited_document);
+            database.close().await.expect("database should close");
+        });
+    }
+
+    #[test]
     fn publication_reports_the_exact_invalid_python_check() {
         tauri::async_runtime::block_on(async {
             let database = connect_sqlite("sqlite::memory:")
@@ -1128,7 +1234,7 @@ mod tests {
                 .save_draft(None, None, None, plain)
                 .await
                 .expect("second draft should save");
-            service
+            let other_published = service
                 .publish(&other.id, 1)
                 .await
                 .expect("second suite should publish");
@@ -1166,6 +1272,27 @@ mod tests {
                 .await
                 .expect("repeated mount should succeed");
             assert_eq!(mounted, repeated);
+            let other_mount = service
+                .mount(
+                    "workspace-1".to_string(),
+                    other_published.summary.id,
+                    other_published.version_id,
+                )
+                .await
+                .expect("second version should mount");
+            let pinned = service
+                .set_mount_pin("workspace-1", &mounted.id, true)
+                .await
+                .expect("mount should pin");
+            assert!(pinned.pinned_at_ms.is_some());
+            assert_eq!(
+                service
+                    .mounts("workspace-1", 0)
+                    .await
+                    .expect("pinned mounts should list first")[0]
+                    .id,
+                mounted.id
+            );
             let updated_mount = service
                 .update_mount("workspace-1", &mounted.id, &updated.version_id)
                 .await
@@ -1177,12 +1304,16 @@ mod tests {
                     .await
                     .expect("mounts should list")
                     .len(),
-                1
+                2
             );
             service
                 .unmount("workspace-1", &mounted.id)
                 .await
                 .expect("mount should detach");
+            service
+                .unmount("workspace-1", &other_mount.id)
+                .await
+                .expect("second mount should detach");
             assert!(service
                 .mounts("workspace-1", 0)
                 .await

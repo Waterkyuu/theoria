@@ -5,13 +5,14 @@ use crate::dto::benchmark::{
     CreateBenchmarkTagRequest, GetBenchmarkDraftRequest, GetBenchmarkRequest,
     ImportBenchmarkAssetRequest, ImportBenchmarkFolderRequest, ListBenchmarkDraftsRequest,
     ListBenchmarksRequest, ListWorkspaceBenchmarksRequest, MountBenchmarkRequest,
-    PreviewBenchmarkAssetRequest, PreviewBenchmarkImportRequest, PublishBenchmarkRequest,
-    SaveBenchmarkDraftRequest, SaveBenchmarkTextAssetRequest, UnmountBenchmarkRequest,
-    UpdateBenchmarkMountRequest,
+    OpenBenchmarkAssetRequest, PreviewBenchmarkAssetRequest, PreviewBenchmarkImportRequest,
+    PublishBenchmarkRequest, SaveBenchmarkDraftRequest, SaveBenchmarkTextAssetRequest,
+    SetBenchmarkMountPinRequest, UnmountBenchmarkRequest, UpdateBenchmarkMountRequest,
 };
-use crate::error::IpcError;
+use crate::error::{AppError, IpcError};
 use crate::services::benchmark::BenchmarkService;
-use tauri::State;
+use tauri::{AppHandle, State};
+use tauri_plugin_opener::OpenerExt;
 
 /// Lists local tag names and Gravity icons.
 #[tauri::command]
@@ -101,6 +102,28 @@ pub(crate) async fn preview_benchmark_asset(
         .await
         .map(Into::into)
         .map_err(Into::into)
+}
+
+/// Opens one validated managed document with the application selected by the user.
+#[tauri::command]
+pub(crate) async fn open_benchmark_asset(
+    request: OpenBenchmarkAssetRequest,
+    app: AppHandle,
+    service: State<'_, BenchmarkService>,
+) -> Result<(), IpcError> {
+    let asset_path = service
+        .external_preview_asset_path(&request.asset_id)
+        .await?;
+    let asset_path = asset_path
+        .to_str()
+        .ok_or(AppError::BenchmarkAssetUnavailable)?;
+    let application_path = request
+        .application_path
+        .to_str()
+        .ok_or(AppError::BenchmarkAssetUnavailable)?;
+    app.opener()
+        .open_path(asset_path, Some(application_path))
+        .map_err(|_| AppError::BenchmarkAssetUnavailable.into())
 }
 
 /// Persists an incomplete editor document with revision checking.
@@ -236,6 +259,18 @@ pub(crate) async fn update_benchmark_mount(
             &request.mount_id,
             &request.version_id,
         )
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+/// Changes whether one Workspace mount is ordered above ordinary mounts.
+#[tauri::command]
+pub(crate) async fn set_benchmark_mount_pin(
+    request: SetBenchmarkMountPinRequest,
+    service: State<'_, BenchmarkService>,
+) -> Result<BenchmarkMountResponse, IpcError> {
+    service
+        .set_mount_pin(&request.workspace_id, &request.mount_id, request.is_pinned)
         .await
         .map(Into::into)
         .map_err(Into::into)

@@ -15,6 +15,7 @@ import { WorkspaceActionDropdown } from "@/components/share/workspace-action-dro
 import { useWorkspaceBenchmarks } from "@/queries/benchmark";
 import { useWorkspaceSkills } from "@/queries/skill";
 import { useTasks } from "@/queries/task";
+import type { Task } from "@/types/task";
 import type { Workspace } from "@/types/workspace";
 
 type WorkspaceSidebarItemProps = {
@@ -25,6 +26,15 @@ type WorkspaceSidebarItemProps = {
 	/** Persisted Workspace rendered with the original Figma tree structure. */
 	workspace: Workspace;
 };
+
+/** Keeps active Benchmark writers out of the terminal-only deletion flow.
+ * @example canDeleteTask({ kind: "benchmark", status: "completed" })
+ */
+const canDeleteTask = (task: Pick<Task, "kind" | "status">) =>
+	task.kind === "work" ||
+	task.status === "completed" ||
+	task.status === "failed" ||
+	task.status === "stopped";
 
 /**
  * Connects one persisted Workspace to the existing expandable sidebar tree.
@@ -190,7 +200,7 @@ const WorkspaceSidebarItem = ({
 										</button>
 										<div className="flex shrink-0 items-center gap-sm text-mute opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:transition-none">
 											<TaskActionDropdown
-												canDelete={task.kind === "work"}
+												canDelete={canDeleteTask(task)}
 												onDeleted={() => {
 													if (
 														currentPath === `${workspacePath}/task/${task.id}`
@@ -236,6 +246,7 @@ const WorkspaceSidebarItem = ({
 							<div role="group">
 								{mounts.map((mount) => (
 									<BenchmarkMountRow
+										currentPath={currentPath}
 										key={mount.id}
 										mount={mount}
 										onNavigate={onNavigate}

@@ -4,6 +4,7 @@ import {
 	ChevronRight,
 	ChevronsCollapseUpRight,
 	ChevronsExpandUpRight,
+	Xmark,
 } from "@gravity-ui/icons";
 import type { Selection } from "@heroui/react";
 import { Button, Table } from "@heroui/react";
@@ -250,11 +251,11 @@ const BenchmarkExecutionDetail = ({
 					</button>
 					<button
 						aria-label={t("taskSummary.close")}
-						className="rounded-md px-sm py-xs text-body-sm text-charcoal outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
+						className="grid size-8 place-items-center rounded-md text-charcoal outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
 						onClick={onClose}
 						type="button"
 					>
-						{t("taskSummary.close")}
+						<Xmark aria-hidden="true" className="size-4" />
 					</button>
 				</div>
 			</header>

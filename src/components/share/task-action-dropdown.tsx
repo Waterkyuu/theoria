@@ -45,6 +45,7 @@ const TaskActionDropdown = ({
 	taskId,
 	taskName,
 }: TaskActionDropdownProps) => {
+	"use no memo";
 	const { t } = useTranslation();
 	const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 	const [isRenameOpen, setIsRenameOpen] = useState(false);

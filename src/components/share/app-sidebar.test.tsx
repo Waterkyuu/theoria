@@ -12,7 +12,9 @@ const queryMocks = vi.hoisted(() => ({
 	removeWorkspace: vi.fn(),
 	renameWorkspace: vi.fn(),
 	setTaskPin: vi.fn(),
+	setBenchmarkMountPin: vi.fn(),
 	setWorkspacePin: vi.fn(),
+	unmountBenchmark: vi.fn(),
 	unmountWorkspaceSkill: vi.fn(),
 	useTasks: vi.fn(),
 	useWorkspaceBenchmarks: vi.fn(),
@@ -62,6 +64,15 @@ vi.mock("@/queries/workspace", () => ({
 	useWorkspaces: queryMocks.useWorkspaces,
 }));
 vi.mock("@/queries/benchmark", () => ({
+	useSetBenchmarkMountPin: () => ({
+		mutateAsync: queryMocks.setBenchmarkMountPin,
+		isPending: false,
+	}),
+	useUnmountBenchmark: () => ({
+		mutateAsync: queryMocks.unmountBenchmark,
+		isPending: false,
+		error: null,
+	}),
 	useWorkspaceBenchmarks: queryMocks.useWorkspaceBenchmarks,
 	useBenchmark: queryMocks.useBenchmark,
 }));
@@ -122,7 +133,9 @@ describe("AppSidebar", () => {
 		queryMocks.renameWorkspace.mockResolvedValue(undefined);
 		queryMocks.renameTask.mockResolvedValue(undefined);
 		queryMocks.setTaskPin.mockResolvedValue(undefined);
+		queryMocks.setBenchmarkMountPin.mockResolvedValue(undefined);
 		queryMocks.setWorkspacePin.mockResolvedValue(undefined);
+		queryMocks.unmountBenchmark.mockResolvedValue(undefined);
 		queryMocks.unmountWorkspaceSkill.mockResolvedValue(undefined);
 		queryMocks.useWorkspaces.mockReturnValue({
 			data: [
@@ -181,6 +194,8 @@ describe("AppSidebar", () => {
 							workspaceId: "workspace-1",
 							benchmarkId: "suite",
 							versionId: "v1",
+							pinnedAtMs: null,
+							createdAtMs: 1,
 						},
 					],
 				],
@@ -202,6 +217,102 @@ describe("AppSidebar", () => {
 			"/workspaces/workspace-1/benchmark/mount-1",
 		);
 	});
+
+	it("pins a mounted benchmark directly from its row action", async () => {
+		queryMocks.useWorkspaceBenchmarks.mockReturnValue({
+			data: {
+				pages: [
+					[
+						{
+							id: "mount-1",
+							workspaceId: "workspace-1",
+							benchmarkId: "suite",
+							versionId: "v1",
+							pinnedAtMs: null,
+							createdAtMs: 1,
+						},
+					],
+				],
+			},
+			isLoading: false,
+			isError: false,
+			hasNextPage: false,
+		});
+		const user = userEvent.setup();
+		const toastSuccess = vi.spyOn(Toast.toast, "success");
+		render(
+			<AppSidebar currentPath="/task" onNavigate={vi.fn()}>
+				<main>content</main>
+			</AppSidebar>,
+		);
+
+		await user.click(screen.getByRole("button", { name: "基准测试1" }));
+		const benchmarkItem = screen.getByRole("treeitem", {
+			name: "Pinned suite",
+		});
+		await user.click(
+			within(benchmarkItem).getByRole("button", { name: "置顶" }),
+		);
+
+		expect(queryMocks.setBenchmarkMountPin).toHaveBeenCalledWith({
+			isPinned: true,
+			mountId: "mount-1",
+			workspaceId: "workspace-1",
+		});
+		expect(toastSuccess).toHaveBeenCalledWith("已置顶基准测试“Pinned suite”");
+	});
+
+	it("unmounts a benchmark from its guarded more menu", async () => {
+		queryMocks.useWorkspaceBenchmarks.mockReturnValue({
+			data: {
+				pages: [
+					[
+						{
+							id: "mount-1",
+							workspaceId: "workspace-1",
+							benchmarkId: "suite",
+							versionId: "v1",
+							pinnedAtMs: null,
+							createdAtMs: 1,
+						},
+					],
+				],
+			},
+			isLoading: false,
+			isError: false,
+			hasNextPage: false,
+		});
+		const user = userEvent.setup();
+		const onNavigate = vi.fn();
+		const toastSuccess = vi.spyOn(Toast.toast, "success");
+		render(
+			<AppSidebar
+				currentPath="/workspaces/workspace-1/benchmark/mount-1"
+				onNavigate={onNavigate}
+			>
+				<main>content</main>
+			</AppSidebar>,
+		);
+
+		await user.click(screen.getByRole("button", { name: "基准测试1" }));
+		await user.click(
+			screen.getByRole("button", { name: "Pinned suite的更多操作" }),
+		);
+		await user.click(await screen.findByRole("menuitem", { name: "取消挂载" }));
+		const dialog = await screen.findByRole("alertdialog", {
+			name: "取消挂载基准测试？",
+		});
+		await user.click(within(dialog).getByRole("button", { name: "取消挂载" }));
+
+		expect(queryMocks.unmountBenchmark).toHaveBeenCalledWith({
+			mountId: "mount-1",
+			workspaceId: "workspace-1",
+		});
+		expect(toastSuccess).toHaveBeenCalledWith(
+			"已取消挂载基准测试“Pinned suite”",
+		);
+		expect(onNavigate).toHaveBeenCalledWith("/workspaces/workspace-1");
+	});
 	it("renders the sidebar navigation regions", () => {
 		render(
 			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
@@ -209,12 +320,17 @@ describe("AppSidebar", () => {
 			</AppSidebar>,
 		);
 
+		const mainNavigation = screen.getByRole("navigation", { name: "主导航" });
+
 		expect(
 			screen.getByRole("complementary", { name: "工作区侧边栏" }),
 		).toBeInTheDocument();
+		expect(mainNavigation).toBeInTheDocument();
 		expect(
-			screen.getByRole("navigation", { name: "主导航" }),
-		).toBeInTheDocument();
+			within(mainNavigation)
+				.getAllByRole("button")
+				.map((button) => button.textContent),
+		).toEqual(["新任务", "Agent 接入", "技能库", "基准测试", "运行看板"]);
 		expect(screen.getByRole("tree", { name: "工作区" })).toBeInTheDocument();
 		expect(screen.queryByText("本地 Agent 工作台")).not.toBeInTheDocument();
 		expect(
@@ -638,7 +754,45 @@ describe("AppSidebar", () => {
 		expect(toastSuccess).toHaveBeenCalledWith("已删除任务“当前任务”");
 	});
 
-	it("does not offer permanent deletion for protected Benchmark history", async () => {
+	it("deletes completed Benchmark Tasks from the conversation menu", async () => {
+		queryMocks.useTasks.mockImplementation((workspaceId: string | null) => ({
+			data: workspaceId
+				? [
+						{
+							...WORKSPACE_TASK,
+							id: "benchmark-task",
+							kind: "benchmark",
+							status: "completed",
+						},
+					]
+				: [RECENT_TASK],
+			isLoading: false,
+			error: null,
+		}));
+		const user = userEvent.setup();
+		render(
+			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
+				<main>content</main>
+			</AppSidebar>,
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: "当前任务的更多操作" }),
+		);
+
+		expect(
+			await screen.findByRole("menuitem", { name: "重命名" }),
+		).toBeInTheDocument();
+		await user.click(screen.getByRole("menuitem", { name: "删除" }));
+		const dialog = await screen.findByRole("alertdialog", {
+			name: "删除任务？",
+		});
+		await user.click(within(dialog).getByRole("button", { name: "删除任务" }));
+
+		expect(queryMocks.deleteTask).toHaveBeenCalledWith("benchmark-task");
+	});
+
+	it("does not offer deletion for an active Benchmark Task", async () => {
 		queryMocks.useTasks.mockImplementation((workspaceId: string | null) => ({
 			data: workspaceId
 				? [{ ...WORKSPACE_TASK, id: "benchmark-task", kind: "benchmark" }]

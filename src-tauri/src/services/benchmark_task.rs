@@ -345,6 +345,7 @@ impl BenchmarkTaskService {
                 workspace_id: workspace_id.clone(),
                 benchmark_id: source.benchmark_id.clone(),
                 version_id: source.version_id.clone(),
+                pinned_at_ms: None,
                 created_at_ms: now_ms()?,
             })
         } else {

@@ -8,6 +8,7 @@
 		"build": "pnpm typecheck && vite build",
 		"check": "pnpm lint && pnpm format",
 		"check:fix": "oxlint --fix . && pnpm format:fix",
+		"check:icon-colors": "node scripts/check-icon-colors.mjs",
 		"dev": "vite",
 		"format": "oxfmt --check .",
 		"format:fix": "oxfmt --write .",

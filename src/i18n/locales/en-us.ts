@@ -86,6 +86,7 @@ const enUS = {
 				binary: "Binary preview is not available.",
 				contents: "File contents",
 				chooseTitle: "Choose a Benchmark file",
+				chooseApplication: "Choose an application to open this document",
 				outputPath: "Output path",
 				expectedContent: "Expected content",
 				checkKind: "Check type",
@@ -403,6 +404,23 @@ const enUS = {
 			recent: "Recent",
 			renameConversation: "Rename",
 			benchmarks: "Benchmarks",
+			benchmarkMountActions: "More actions for {{benchmark}}",
+			pinBenchmarkMount: "Pin",
+			unpinBenchmarkMount: "Unpin",
+			benchmarkMountPin: {
+				pinned: 'Pinned Benchmark "{{benchmark}}"',
+				unpinned: 'Unpinned Benchmark "{{benchmark}}"',
+				failed:
+					"The Benchmark pin state could not be updated. Please try again",
+			},
+			benchmarkUnmount: {
+				title: "Unmount Benchmark?",
+				description:
+					'"{{benchmark}}" will be removed from this Workspace. Existing evaluation results are kept.',
+				confirm: "Unmount",
+				success: 'Unmounted Benchmark "{{benchmark}}"',
+				failed: "The Benchmark could not be unmounted. Please try again",
+			},
 			mountedSkills: "Mounted skills",
 			mountedSkillActions: "More actions for {{skill}}",
 			unmountSkillFromWorkspace: "Remove",
@@ -528,7 +546,6 @@ const enUS = {
 				you: "YOU",
 				response: "RESPONSE",
 				tokens: "tokens",
-				moreActions: "More actions for {{agent}}",
 				toolCompleted: "Tool call completed",
 				toolDuration: "Tool call completed in {{duration}}",
 				activity: {
@@ -540,9 +557,7 @@ const enUS = {
 					stopped: "Execution stopped · inspect logs",
 				},
 				action: {
-					approve: "Approve",
 					stop: "Stop",
-					openRecord: "Open record",
 				},
 			},
 		},

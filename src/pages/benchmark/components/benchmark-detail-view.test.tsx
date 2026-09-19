@@ -147,6 +147,7 @@ it("offers an explicit update when a workspace mount is behind the latest versio
 				workspaceId: "workspace-1",
 				benchmarkId: "benchmark-1",
 				versionId: "version-2",
+				pinnedAtMs: null,
 				createdAtMs: 1,
 			};
 		}
@@ -163,6 +164,7 @@ it("offers an explicit update when a workspace mount is behind the latest versio
 						workspaceId: "workspace-1",
 						benchmarkId: "benchmark-1",
 						versionId: "version-1",
+						pinnedAtMs: null,
 						createdAtMs: 1,
 					}}
 				/>

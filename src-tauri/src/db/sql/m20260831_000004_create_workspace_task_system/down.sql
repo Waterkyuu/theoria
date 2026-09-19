@@ -1,0 +1,9 @@
+DROP TABLE task_agent_results;
+DROP TABLE task_skills;
+DROP TABLE task_permissions;
+DROP TABLE task_agents;
+DROP TABLE work_tasks;
+DROP TABLE tasks;
+DROP TABLE workspace_skill_mounts;
+DROP TABLE skills;
+DROP TABLE workspaces;

@@ -106,6 +106,16 @@ const previewBenchmarkAsset = (assetId: string) =>
 		{ request: { assetId } },
 	);
 
+/** Opens an opaque managed document with the application selected by the user.
+ * @example openBenchmarkAsset("asset-1", "/Applications/Preview.app")
+ */
+const openBenchmarkAsset = (assetId: string, applicationPath: string) =>
+	invokeWithResponseSchema(
+		"open_benchmark_asset",
+		EmptyBenchmarkResponseSchema,
+		{ request: { assetId, applicationPath } },
+	);
+
 /** Stores an editor buffer as a new immutable managed file revision.
  * @example saveBenchmarkTextAsset("input.txt", "content")
  */
@@ -206,6 +216,18 @@ const updateBenchmarkMount = (
 		request: { workspaceId, mountId, versionId },
 	});
 
+/** Changes whether one Workspace mount is ordered above ordinary mounts.
+ * @example setBenchmarkMountPin("workspace", "mount", true)
+ */
+const setBenchmarkMountPin = (
+	workspaceId: string,
+	mountId: string,
+	isPinned: boolean,
+) =>
+	invokeWithResponseSchema("set_benchmark_mount_pin", BenchmarkMountSchema, {
+		request: { workspaceId, mountId, isPinned },
+	});
+
 /**
  * Removes only the relationship.
  *
@@ -286,6 +308,7 @@ export {
 	importBenchmarkFolder,
 	importBenchmarkAsset,
 	previewBenchmarkAsset,
+	openBenchmarkAsset,
 	saveBenchmarkTextAsset,
 	saveBenchmarkDraft,
 	publishBenchmark,
@@ -294,6 +317,7 @@ export {
 	listWorkspaceBenchmarks,
 	mountBenchmark,
 	updateBenchmarkMount,
+	setBenchmarkMountPin,
 	unmountBenchmark,
 	previewBenchmarkTask,
 	startBenchmarkTask,

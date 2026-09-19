@@ -1,4 +1,3 @@
-import { Ellipsis } from "@gravity-ui/icons";
 import { useTranslation } from "react-i18next";
 import { AgentIcon } from "@/components/share/agent-icon";
 import { MarkdownContent } from "@/components/share/markdown-content";
@@ -165,8 +164,6 @@ const AgentPanel = ({
 						createdAtMs: 0,
 					},
 				];
-	const isTerminal = ["completed", "failed", "stopped"].includes(agent.status);
-
 	return (
 		<section
 			aria-label={`${t(`agentNames.${agent.agentKind}`)} ${t("taskPanel.panel")}`}
@@ -186,15 +183,6 @@ const AgentPanel = ({
 					/>
 					{t(`taskPanel.status.${agent.status}`)}
 				</span>
-				<button
-					aria-label={t("taskPanel.run.moreActions", {
-						agent: t(`agentNames.${agent.agentKind}`),
-					})}
-					className="grid size-4 shrink-0 place-items-center text-ink outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-					type="button"
-				>
-					<Ellipsis aria-hidden="true" className="size-4" />
-				</button>
 			</header>
 
 			<div className="flex h-97 min-h-0 shrink-0 flex-col overflow-y-auto bg-surface-card p-4">
@@ -287,15 +275,7 @@ const AgentPanel = ({
 					>
 						{t("taskPanel.run.action.stop")}
 					</button>
-				) : (
-					<p className="shrink-0 font-medium text-ink">
-						{t(
-							isTerminal
-								? "taskPanel.run.action.openRecord"
-								: "taskPanel.run.action.approve",
-						)}
-					</p>
-				)}
+				) : null}
 			</footer>
 		</section>
 	);

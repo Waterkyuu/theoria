@@ -80,6 +80,16 @@ Use the live official website to compare and validate this extracted snapshot. T
 | code-sm        | 14px | 1.43        | 0              | `--text-code-sm`        |
 | button-md      | 14px | 1           | 0              | `--text-button-md`      |
 
+### Icon Colors
+
+Components imported from `@gravity-ui/icons` use no more than three semantic color roles across the application:
+
+| Role        | Utility       | Token            | Usage                                      |
+| ----------- | ------------- | ---------------- | ------------------------------------------ |
+| primary     | `text-ink`    | `--color-ink`    | Default actions and navigation             |
+| muted       | `text-mute`   | `--color-mute`   | Secondary actions and supporting metadata  |
+| destructive | `text-danger` | `--color-danger` | Destructive actions and failure indicators |
+
 ## Tokens — Spacing & Shapes
 
 **Density:** comfortable

@@ -129,6 +129,28 @@ impl BenchmarkRepository {
         }))
     }
 
+    /// Finds the single unfinished edit protected by the definition-level unique index.
+    pub(crate) async fn draft_for_benchmark(
+        &self,
+        benchmark_id: &str,
+    ) -> Result<Option<BenchmarkDraft>, DbErr> {
+        let row = draft::Entity::find()
+            .filter(draft::Column::BenchmarkId.eq(benchmark_id))
+            .one(&self.database)
+            .await?;
+        let Some(row) = row else {
+            return Ok(None);
+        };
+        Ok(Some(BenchmarkDraft {
+            id: row.id,
+            benchmark_id: row.benchmark_id,
+            revision: row.revision,
+            document: serde_json::from_str(&row.content_json)
+                .map_err(|error| DbErr::Json(error.to_string()))?,
+            updated_at_ms: row.updated_at_ms,
+        }))
+    }
+
     /// A publication atomically consumes its reviewed draft and freezes every case.
     pub(crate) async fn publish(
         &self,
@@ -356,6 +378,7 @@ impl BenchmarkRepository {
             workspace_id: Set(value.workspace_id.clone()),
             benchmark_id: Set(value.benchmark_id.clone()),
             version_id: Set(value.version_id),
+            pinned_at_ms: Set(value.pinned_at_ms),
             created_at_ms: Set(value.created_at_ms),
         })
         .on_conflict(
@@ -427,6 +450,26 @@ impl BenchmarkRepository {
         Ok(updated)
     }
 
+    /// Updates one mount's pin timestamp without changing its selected Benchmark version.
+    pub(crate) async fn set_mount_pin(
+        &self,
+        workspace_id: &str,
+        mount_id: &str,
+        pinned_at_ms: Option<i64>,
+    ) -> Result<Option<BenchmarkMount>, DbErr> {
+        mount::Entity::update_many()
+            .col_expr(mount::Column::PinnedAtMs, Expr::value(pinned_at_ms))
+            .filter(mount::Column::Id.eq(mount_id))
+            .filter(mount::Column::WorkspaceId.eq(workspace_id))
+            .exec(&self.database)
+            .await?;
+        Ok(mount::Entity::find_by_id(mount_id)
+            .filter(mount::Column::WorkspaceId.eq(workspace_id))
+            .one(&self.database)
+            .await?
+            .map(mount_from_model))
+    }
+
     /// Loads bounded relationship pages without copying inputs into workspace sources.
     pub(crate) async fn mounts(
         &self,
@@ -435,6 +478,7 @@ impl BenchmarkRepository {
     ) -> Result<Vec<BenchmarkMount>, DbErr> {
         Ok(mount::Entity::find()
             .filter(mount::Column::WorkspaceId.eq(workspace))
+            .order_by_desc(mount::Column::PinnedAtMs)
             .order_by_desc(mount::Column::CreatedAtMs)
             .order_by_asc(mount::Column::Id)
             .limit(30)
@@ -509,6 +553,7 @@ fn mount_from_model(row: mount::Model) -> BenchmarkMount {
         workspace_id: row.workspace_id,
         benchmark_id: row.benchmark_id,
         version_id: row.version_id,
+        pinned_at_ms: row.pinned_at_ms,
         created_at_ms: row.created_at_ms,
     }
 }

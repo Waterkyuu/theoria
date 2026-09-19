@@ -18,7 +18,45 @@ impl MigratorTrait for Migrator {
             Box::new(AddTaskPin),
             Box::new(CreateBenchmarks),
             Box::new(RemoveBenchmarkFallbackTag),
+            Box::new(AddBenchmarkMountPin),
+            Box::new(CascadeBenchmarkTaskDeletion),
         ]
+    }
+}
+
+/// Makes Benchmark execution history owned by its common Task deletion boundary.
+struct CascadeBenchmarkTaskDeletion;
+
+impl MigrationName for CascadeBenchmarkTaskDeletion {
+    fn name(&self) -> &str {
+        "m011_cascade_benchmark_task_deletion"
+    }
+}
+
+#[sea_orm_migration::async_trait::async_trait]
+impl MigrationTrait for CascadeBenchmarkTaskDeletion {
+    fn use_transaction(&self) -> Option<bool> {
+        Some(false)
+    }
+
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!(
+                "sql/m011_cascade_benchmark_task_deletion/up.sql"
+            ))
+            .await?;
+        Ok(())
+    }
+
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!(
+                "sql/m011_cascade_benchmark_task_deletion/down.sql"
+            ))
+            .await?;
+        Ok(())
     }
 }
 
@@ -34,12 +72,15 @@ impl MigrationTrait for CreateBenchmarks {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .get_connection()
-            .execute_unprepared(include_str!("sql/benchmark.sql"))
+            .execute_unprepared(include_str!("sql/m008_create_benchmarks/up.sql"))
             .await?;
         Ok(())
     }
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager.get_connection().execute_unprepared("DROP TABLE benchmark_evaluations; DROP TABLE benchmark_case_executions; DROP TABLE benchmark_task_cases; DROP TABLE benchmark_task_agents; DROP TABLE benchmark_tasks; DROP TABLE workspace_benchmarks; DROP TABLE benchmark_cases; DROP TABLE benchmark_versions; DROP TABLE benchmark_drafts; DROP TABLE benchmarks; DROP TABLE benchmark_tags;").await?;
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!("sql/m008_create_benchmarks/down.sql"))
+            .await?;
         Ok(())
     }
 }
@@ -62,18 +103,16 @@ impl MigrationTrait for RemoveBenchmarkFallbackTag {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .get_connection()
-            .execute_unprepared(
-                r#"
-                DROP TRIGGER IF EXISTS benchmark_system_tag_update;
-                DROP TRIGGER IF EXISTS benchmark_system_tag_delete;
-                DELETE FROM benchmark_tags WHERE id = 'uncategorized';
-                "#,
-            )
+            .execute_unprepared(include_str!(
+                "sql/m009_remove_benchmark_fallback_tag/up.sql"
+            ))
             .await?;
         if manager.has_column("benchmark_tags", "is_system").await? {
             manager
                 .get_connection()
-                .execute_unprepared("ALTER TABLE benchmark_tags DROP COLUMN is_system;")
+                .execute_unprepared(include_str!(
+                    "sql/m009_remove_benchmark_fallback_tag/up_drop_system_column.sql"
+                ))
                 .await?;
         }
         Ok(())
@@ -83,22 +122,43 @@ impl MigrationTrait for RemoveBenchmarkFallbackTag {
         if !manager.has_column("benchmark_tags", "is_system").await? {
             manager
                 .get_connection()
-                .execute_unprepared(
-                    r#"
-                    ALTER TABLE benchmark_tags ADD COLUMN is_system INTEGER NOT NULL DEFAULT 0
-                        CHECK (is_system IN (0, 1));
-                    INSERT INTO benchmark_tags (id, name, icon, is_system)
-                    VALUES ('uncategorized', 'Uncategorized', 'Tag', 1);
-                    CREATE TRIGGER benchmark_system_tag_update BEFORE UPDATE ON benchmark_tags
-                    WHEN OLD.is_system = 1
-                    BEGIN SELECT RAISE(ABORT, 'System tag is immutable'); END;
-                    CREATE TRIGGER benchmark_system_tag_delete BEFORE DELETE ON benchmark_tags
-                    WHEN OLD.is_system = 1
-                    BEGIN SELECT RAISE(ABORT, 'System tag is immutable'); END;
-                    "#,
-                )
+                .execute_unprepared(include_str!(
+                    "sql/m009_remove_benchmark_fallback_tag/down.sql"
+                ))
                 .await?;
         }
+        Ok(())
+    }
+}
+
+/// Adds optional pin ordering to the reusable Benchmark mounts in each Workspace.
+struct AddBenchmarkMountPin;
+
+impl MigrationName for AddBenchmarkMountPin {
+    fn name(&self) -> &str {
+        "m010_add_benchmark_mount_pin"
+    }
+}
+
+#[sea_orm_migration::async_trait::async_trait]
+impl MigrationTrait for AddBenchmarkMountPin {
+    fn use_transaction(&self) -> Option<bool> {
+        Some(true)
+    }
+
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!("sql/m010_add_benchmark_mount_pin/up.sql"))
+            .await?;
+        Ok(())
+    }
+
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!("sql/m010_add_benchmark_mount_pin/down.sql"))
+            .await?;
         Ok(())
     }
 }
@@ -121,14 +181,7 @@ impl MigrationTrait for AddTaskPin {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .get_connection()
-            .execute_unprepared(
-                r#"
-                ALTER TABLE tasks ADD COLUMN pinned_at_ms INTEGER
-                    CHECK (pinned_at_ms IS NULL OR pinned_at_ms > 0);
-                CREATE INDEX idx_tasks_scope_pin_history
-                    ON tasks(workspace_id, pinned_at_ms DESC, created_at_ms DESC);
-                "#,
-            )
+            .execute_unprepared(include_str!("sql/m20260901_000007_add_task_pin/up.sql"))
             .await?;
         Ok(())
     }
@@ -136,12 +189,7 @@ impl MigrationTrait for AddTaskPin {
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .get_connection()
-            .execute_unprepared(
-                r#"
-                DROP INDEX idx_tasks_scope_pin_history;
-                ALTER TABLE tasks DROP COLUMN pinned_at_ms;
-                "#,
-            )
+            .execute_unprepared(include_str!("sql/m20260901_000007_add_task_pin/down.sql"))
             .await?;
         Ok(())
     }
@@ -163,61 +211,24 @@ impl MigrationTrait for AllowWaitingTaskAgentTurns {
     }
 
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        rebuild_task_agent_turns(manager, "'waiting', 'completed', 'failed', 'stopped'", "").await
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!(
+                "sql/m20260831_000006_allow_waiting_task_agent_turns/up.sql"
+            ))
+            .await?;
+        Ok(())
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        rebuild_task_agent_turns(
-            manager,
-            "'completed', 'failed', 'stopped'",
-            "WHERE final_status <> 'waiting'",
-        )
-        .await
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!(
+                "sql/m20260831_000006_allow_waiting_task_agent_turns/down.sql"
+            ))
+            .await?;
+        Ok(())
     }
-}
-
-/// Rebuilds Task turns because SQLite cannot alter a CHECK constraint in place.
-async fn rebuild_task_agent_turns(
-    manager: &SchemaManager<'_>,
-    status_values: &str,
-    copy_filter: &str,
-) -> Result<(), DbErr> {
-    manager
-        .get_connection()
-        .execute_unprepared(&format!(
-            r#"
-            DROP INDEX idx_task_agent_turns_agent_sequence;
-            CREATE TABLE task_agent_turns_new (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                task_agent_id TEXT NOT NULL,
-                sequence INTEGER NOT NULL,
-                prompt TEXT NOT NULL,
-                final_status TEXT NOT NULL,
-                response_text TEXT,
-                metrics_json TEXT NOT NULL DEFAULT '{{}}',
-                created_at_ms INTEGER NOT NULL,
-                FOREIGN KEY (task_agent_id) REFERENCES task_agents(id) ON DELETE CASCADE,
-                UNIQUE (task_agent_id, sequence),
-                CHECK (sequence >= 0),
-                CHECK (length(trim(prompt)) BETWEEN 1 AND 16000),
-                CHECK (final_status IN ({status_values})),
-                CHECK (json_valid(metrics_json)),
-                CHECK (created_at_ms > 0)
-            );
-            INSERT INTO task_agent_turns_new
-                (id, task_agent_id, sequence, prompt, final_status, response_text,
-                 metrics_json, created_at_ms)
-            SELECT id, task_agent_id, sequence, prompt, final_status, response_text,
-                   metrics_json, created_at_ms
-            FROM task_agent_turns {copy_filter};
-            DROP TABLE task_agent_turns;
-            ALTER TABLE task_agent_turns_new RENAME TO task_agent_turns;
-            CREATE INDEX idx_task_agent_turns_agent_sequence
-                ON task_agent_turns(task_agent_id, sequence);
-            "#,
-        ))
-        .await?;
-    Ok(())
 }
 
 /// Preserves every Agent turn without changing the immutable Task configuration tables.
@@ -238,30 +249,9 @@ impl MigrationTrait for AddTaskAgentTurns {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .get_connection()
-            .execute_unprepared(
-                r#"
-                CREATE TABLE task_agent_turns (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    task_agent_id TEXT NOT NULL,
-                    sequence INTEGER NOT NULL,
-                    prompt TEXT NOT NULL,
-                    final_status TEXT NOT NULL,
-                    response_text TEXT,
-                    metrics_json TEXT NOT NULL DEFAULT '{}',
-                    created_at_ms INTEGER NOT NULL,
-                    FOREIGN KEY (task_agent_id) REFERENCES task_agents(id) ON DELETE CASCADE,
-                    UNIQUE (task_agent_id, sequence),
-                    CHECK (sequence >= 0),
-                    CHECK (length(trim(prompt)) BETWEEN 1 AND 16000),
-                    CHECK (final_status IN ('completed', 'failed', 'stopped')),
-                    CHECK (json_valid(metrics_json)),
-                    CHECK (created_at_ms > 0)
-                );
-
-                CREATE INDEX idx_task_agent_turns_agent_sequence
-                    ON task_agent_turns(task_agent_id, sequence);
-                "#,
-            )
+            .execute_unprepared(include_str!(
+                "sql/m20260831_000005_add_task_agent_turns/up.sql"
+            ))
             .await?;
         Ok(())
     }
@@ -269,7 +259,9 @@ impl MigrationTrait for AddTaskAgentTurns {
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .get_connection()
-            .execute_unprepared("DROP TABLE task_agent_turns;")
+            .execute_unprepared(include_str!(
+                "sql/m20260831_000005_add_task_agent_turns/down.sql"
+            ))
             .await?;
         Ok(())
     }
@@ -293,165 +285,9 @@ impl MigrationTrait for CreateWorkspaceTaskSystem {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .get_connection()
-            .execute_unprepared(
-                r#"
-                CREATE TABLE workspaces (
-                    id TEXT PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    source_kind TEXT NOT NULL,
-                    source_path TEXT NOT NULL,
-                    pinned_at_ms INTEGER,
-                    created_at_ms INTEGER NOT NULL,
-                    updated_at_ms INTEGER NOT NULL,
-                    CHECK (source_kind IN ('external', 'managed')),
-                    CHECK (length(trim(name)) BETWEEN 1 AND 120),
-                    CHECK (length(source_path) > 0),
-                    CHECK (pinned_at_ms IS NULL OR pinned_at_ms > 0),
-                    CHECK (created_at_ms > 0),
-                    CHECK (updated_at_ms > 0)
-                );
-
-                CREATE UNIQUE INDEX idx_workspaces_source
-                    ON workspaces(source_path);
-
-                CREATE TABLE skills (
-                    id TEXT PRIMARY KEY,
-                    folder_name TEXT NOT NULL COLLATE NOCASE,
-                    display_name TEXT NOT NULL,
-                    description TEXT NOT NULL,
-                    source_type TEXT NOT NULL,
-                    storage_relative_path TEXT NOT NULL,
-                    source_path TEXT,
-                    created_at_ms INTEGER NOT NULL,
-                    updated_at_ms INTEGER NOT NULL,
-                    CHECK (length(folder_name) BETWEEN 1 AND 64),
-                    CHECK (length(trim(display_name)) BETWEEN 1 AND 120),
-                    CHECK (source_type IN ('local_folder', 'platform', 'git')),
-                    CHECK (length(storage_relative_path) > 0),
-                    CHECK (created_at_ms > 0),
-                    CHECK (updated_at_ms > 0)
-                );
-
-                CREATE UNIQUE INDEX idx_skills_folder_name
-                    ON skills(folder_name);
-
-                CREATE TABLE workspace_skill_mounts (
-                    workspace_id TEXT NOT NULL,
-                    skill_id TEXT NOT NULL,
-                    folder_name_snapshot TEXT NOT NULL,
-                    created_at_ms INTEGER NOT NULL,
-                    PRIMARY KEY (workspace_id, skill_id),
-                    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
-                    FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE RESTRICT,
-                    CHECK (length(folder_name_snapshot) BETWEEN 1 AND 64),
-                    CHECK (created_at_ms > 0)
-                );
-
-                CREATE TABLE tasks (
-                    id TEXT PRIMARY KEY,
-                    workspace_id TEXT,
-                    title TEXT NOT NULL,
-                    kind TEXT NOT NULL,
-                    status TEXT NOT NULL,
-                    configuration_locked_at_ms INTEGER,
-                    created_at_ms INTEGER NOT NULL,
-                    updated_at_ms INTEGER NOT NULL,
-                    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
-                    CHECK (length(trim(title)) BETWEEN 1 AND 120),
-                    CHECK (kind IN ('work', 'benchmark')),
-                    CHECK (kind != 'benchmark' OR workspace_id IS NOT NULL),
-                    CHECK (status IN ('preparing', 'running', 'waiting', 'completed', 'failed', 'stopped')),
-                    CHECK (configuration_locked_at_ms IS NULL OR configuration_locked_at_ms > 0),
-                    CHECK (created_at_ms > 0),
-                    CHECK (updated_at_ms > 0)
-                );
-
-                CREATE TABLE work_tasks (
-                    task_id TEXT PRIMARY KEY REFERENCES tasks(id) ON DELETE CASCADE,
-                    prompt TEXT NOT NULL CHECK (length(trim(prompt)) BETWEEN 1 AND 16000),
-                    baseline_relative_path TEXT NOT NULL CHECK (length(baseline_relative_path) > 0)
-                );
-
-                CREATE TRIGGER work_tasks_kind_insert BEFORE INSERT ON work_tasks
-                WHEN NOT EXISTS (SELECT 1 FROM tasks WHERE id = NEW.task_id AND kind = 'work')
-                BEGIN SELECT RAISE(ABORT, 'Work inputs require a work task'); END;
-
-                CREATE TRIGGER work_tasks_kind_update BEFORE UPDATE OF task_id ON work_tasks
-                WHEN NOT EXISTS (SELECT 1 FROM tasks WHERE id = NEW.task_id AND kind = 'work')
-                BEGIN SELECT RAISE(ABORT, 'Work inputs require a work task'); END;
-
-                CREATE TRIGGER tasks_kind_immutable BEFORE UPDATE OF kind ON tasks
-                WHEN OLD.kind != NEW.kind
-                BEGIN SELECT RAISE(ABORT, 'Task kind is immutable'); END;
-
-                CREATE INDEX idx_tasks_scope_history
-                    ON tasks(workspace_id, created_at_ms DESC);
-
-                CREATE TABLE task_agents (
-                    id TEXT PRIMARY KEY,
-                    task_id TEXT NOT NULL,
-                    slot_index INTEGER NOT NULL,
-                    agent_kind TEXT NOT NULL,
-                    model_snapshot TEXT,
-                    mode_snapshot TEXT,
-                    session_id TEXT,
-                    execution_relative_path TEXT NOT NULL,
-                    status TEXT NOT NULL,
-                    created_at_ms INTEGER NOT NULL,
-                    updated_at_ms INTEGER NOT NULL,
-                    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
-                    UNIQUE (task_id, slot_index),
-                    CHECK (slot_index BETWEEN 0 AND 5),
-                    CHECK (agent_kind IN ('codex', 'claude', 'opencode', 'workbuddy')),
-                    CHECK (length(execution_relative_path) > 0),
-                    CHECK (status IN ('preparing', 'running', 'waiting', 'completed', 'failed', 'stopped')),
-                    CHECK (created_at_ms > 0),
-                    CHECK (updated_at_ms > 0)
-                );
-
-                CREATE TABLE task_permissions (
-                    task_id TEXT PRIMARY KEY,
-                    file_access TEXT NOT NULL,
-                    command_execution TEXT NOT NULL,
-                    created_at_ms INTEGER NOT NULL,
-                    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
-                    CHECK (file_access IN ('read_only', 'allow_edits')),
-                    CHECK (command_execution IN ('deny', 'ask', 'allow')),
-                    CHECK (created_at_ms > 0)
-                );
-
-                CREATE TABLE task_skills (
-                    task_id TEXT NOT NULL,
-                    folder_name TEXT NOT NULL COLLATE NOCASE,
-                    origin TEXT NOT NULL,
-                    library_skill_id TEXT,
-                    relative_path TEXT NOT NULL,
-                    created_at_ms INTEGER NOT NULL,
-                    PRIMARY KEY (task_id, folder_name),
-                    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
-                    FOREIGN KEY (library_skill_id) REFERENCES skills(id) ON DELETE SET NULL,
-                    CHECK (origin IN ('workspace_source', 'workspace_mount', 'task_selection')),
-                    CHECK (length(folder_name) BETWEEN 1 AND 64),
-                    CHECK (length(relative_path) > 0),
-                    CHECK (created_at_ms > 0)
-                );
-
-                CREATE TABLE task_agent_results (
-                    task_agent_id TEXT PRIMARY KEY,
-                    final_status TEXT NOT NULL,
-                    response_text TEXT,
-                    changes_relative_path TEXT,
-                    metrics_json TEXT NOT NULL DEFAULT '{}',
-                    created_at_ms INTEGER NOT NULL,
-                    updated_at_ms INTEGER NOT NULL,
-                    FOREIGN KEY (task_agent_id) REFERENCES task_agents(id) ON DELETE CASCADE,
-                    CHECK (final_status IN ('completed', 'failed', 'stopped')),
-                    CHECK (json_valid(metrics_json)),
-                    CHECK (created_at_ms > 0),
-                    CHECK (updated_at_ms > 0)
-                );
-                "#,
-            )
+            .execute_unprepared(include_str!(
+                "sql/m20260831_000004_create_workspace_task_system/up.sql"
+            ))
             .await?;
 
         Ok(())
@@ -460,19 +296,9 @@ impl MigrationTrait for CreateWorkspaceTaskSystem {
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .get_connection()
-            .execute_unprepared(
-                r#"
-                DROP TABLE task_agent_results;
-                DROP TABLE task_skills;
-                DROP TABLE task_permissions;
-                DROP TABLE task_agents;
-                DROP TABLE work_tasks;
-                DROP TABLE tasks;
-                DROP TABLE workspace_skill_mounts;
-                DROP TABLE skills;
-                DROP TABLE workspaces;
-                "#,
-            )
+            .execute_unprepared(include_str!(
+                "sql/m20260831_000004_create_workspace_task_system/down.sql"
+            ))
             .await?;
 
         Ok(())
@@ -493,9 +319,9 @@ impl MigrationTrait for AddComparisonCompactionCount {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .get_connection()
-            .execute_unprepared(
-                "ALTER TABLE comparison_results ADD COLUMN compaction_count INTEGER CHECK (compaction_count IS NULL OR compaction_count >= 0)",
-            )
+            .execute_unprepared(include_str!(
+                "sql/m20260823_000003_add_comparison_compaction_count/up.sql"
+            ))
             .await?;
         Ok(())
     }
@@ -503,7 +329,9 @@ impl MigrationTrait for AddComparisonCompactionCount {
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .get_connection()
-            .execute_unprepared("ALTER TABLE comparison_results DROP COLUMN compaction_count")
+            .execute_unprepared(include_str!(
+                "sql/m20260823_000003_add_comparison_compaction_count/down.sql"
+            ))
             .await?;
         Ok(())
     }
@@ -527,96 +355,24 @@ impl MigrationTrait for AddOpenCodeComparisonAgent {
     }
 
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        rebuild_comparison_results(manager, "'codex', 'claude', 'opencode', 'workbuddy'", "").await
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!(
+                "sql/m20260823_000002_add_opencode_comparison_agent/up.sql"
+            ))
+            .await?;
+        Ok(())
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .get_connection()
-            .execute_unprepared(
-                "DELETE FROM comparison_tool_calls WHERE comparison_result_id IN (SELECT id FROM comparison_results WHERE agent_kind = 'opencode')",
-            )
+            .execute_unprepared(include_str!(
+                "sql/m20260823_000002_add_opencode_comparison_agent/down.sql"
+            ))
             .await?;
-        rebuild_comparison_results(
-            manager,
-            "'codex', 'claude', 'workbuddy'",
-            "WHERE agent_kind <> 'opencode'",
-        )
-        .await
+        Ok(())
     }
-}
-
-/// Rebuilds the SQLite table because CHECK constraints cannot be altered in place.
-async fn rebuild_comparison_results(
-    manager: &SchemaManager<'_>,
-    agent_values: &str,
-    copy_filter: &str,
-) -> Result<(), DbErr> {
-    manager
-        .get_connection()
-        .execute_unprepared(&format!(
-            r#"
-            PRAGMA foreign_keys = OFF;
-            CREATE TABLE comparison_results_new (
-                id INTEGER PRIMARY KEY,
-                comparison_run_id INTEGER NOT NULL,
-                agent_kind TEXT NOT NULL,
-                model TEXT,
-                reasoning_effort TEXT,
-                status TEXT NOT NULL,
-                response TEXT,
-                error_message TEXT,
-                total_duration_ms INTEGER,
-                time_to_first_token_ms INTEGER,
-                thinking_duration_ms INTEGER,
-                total_tokens INTEGER,
-                input_tokens INTEGER,
-                cached_input_tokens INTEGER,
-                cache_write_input_tokens INTEGER,
-                output_tokens INTEGER,
-                reasoning_output_tokens INTEGER,
-                FOREIGN KEY (comparison_run_id)
-                    REFERENCES comparison_runs(id) ON DELETE CASCADE,
-                UNIQUE (comparison_run_id, agent_kind),
-                CHECK (agent_kind IN ({agent_values})),
-                CHECK (status IN ('succeeded', 'failed')),
-                CHECK (total_duration_ms IS NULL OR total_duration_ms >= 0),
-                CHECK (time_to_first_token_ms IS NULL OR time_to_first_token_ms >= 0),
-                CHECK (thinking_duration_ms IS NULL OR thinking_duration_ms >= 0),
-                CHECK (total_tokens IS NULL OR total_tokens >= 0),
-                CHECK (input_tokens IS NULL OR input_tokens >= 0),
-                CHECK (cached_input_tokens IS NULL OR cached_input_tokens >= 0),
-                CHECK (cache_write_input_tokens IS NULL OR cache_write_input_tokens >= 0),
-                CHECK (output_tokens IS NULL OR output_tokens >= 0),
-                CHECK (reasoning_output_tokens IS NULL OR reasoning_output_tokens >= 0),
-                CHECK (
-                    (status = 'succeeded'
-                        AND response IS NOT NULL
-                        AND total_duration_ms IS NOT NULL
-                        AND thinking_duration_ms IS NOT NULL)
-                    OR
-                    (status = 'failed' AND error_message IS NOT NULL)
-                )
-            );
-            INSERT INTO comparison_results_new (
-                id, comparison_run_id, agent_kind, model, reasoning_effort, status, response,
-                error_message, total_duration_ms, time_to_first_token_ms, thinking_duration_ms,
-                total_tokens, input_tokens, cached_input_tokens, cache_write_input_tokens,
-                output_tokens, reasoning_output_tokens
-            )
-            SELECT
-                id, comparison_run_id, agent_kind, model, reasoning_effort, status, response,
-                error_message, total_duration_ms, time_to_first_token_ms, thinking_duration_ms,
-                total_tokens, input_tokens, cached_input_tokens, cache_write_input_tokens,
-                output_tokens, reasoning_output_tokens
-            FROM comparison_results {copy_filter};
-            DROP TABLE comparison_results;
-            ALTER TABLE comparison_results_new RENAME TO comparison_results;
-            PRAGMA foreign_keys = ON;
-            "#,
-        ))
-        .await?;
-    Ok(())
 }
 
 /// Creates the immutable comparison history tables and their read-path indexes.
@@ -637,80 +393,9 @@ impl MigrationTrait for CreateComparisonHistory {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .get_connection()
-            .execute_unprepared(
-                r#"
-                CREATE TABLE comparison_runs (
-                    id INTEGER PRIMARY KEY,
-                    query TEXT NOT NULL,
-                    status TEXT NOT NULL,
-                    metric_version INTEGER NOT NULL DEFAULT 1,
-                    created_at_ms INTEGER NOT NULL,
-                    CHECK (length(query) BETWEEN 1 AND 16000),
-                    CHECK (status IN ('completed', 'partial', 'failed')),
-                    CHECK (metric_version > 0),
-                    CHECK (created_at_ms > 0)
-                );
-
-                CREATE INDEX idx_comparison_runs_history
-                    ON comparison_runs (created_at_ms DESC, id DESC);
-
-                CREATE TABLE comparison_results (
-                    id INTEGER PRIMARY KEY,
-                    comparison_run_id INTEGER NOT NULL,
-                    agent_kind TEXT NOT NULL,
-                    model TEXT,
-                    reasoning_effort TEXT,
-                    status TEXT NOT NULL,
-                    response TEXT,
-                    error_message TEXT,
-                    total_duration_ms INTEGER,
-                    time_to_first_token_ms INTEGER,
-                    thinking_duration_ms INTEGER,
-                    total_tokens INTEGER,
-                    input_tokens INTEGER,
-                    cached_input_tokens INTEGER,
-                    cache_write_input_tokens INTEGER,
-                    output_tokens INTEGER,
-                    reasoning_output_tokens INTEGER,
-                    FOREIGN KEY (comparison_run_id)
-                        REFERENCES comparison_runs(id) ON DELETE CASCADE,
-                    UNIQUE (comparison_run_id, agent_kind),
-                    CHECK (agent_kind IN ('codex', 'claude', 'workbuddy')),
-                    CHECK (status IN ('succeeded', 'failed')),
-                    CHECK (total_duration_ms IS NULL OR total_duration_ms >= 0),
-                    CHECK (time_to_first_token_ms IS NULL OR time_to_first_token_ms >= 0),
-                    CHECK (thinking_duration_ms IS NULL OR thinking_duration_ms >= 0),
-                    CHECK (total_tokens IS NULL OR total_tokens >= 0),
-                    CHECK (input_tokens IS NULL OR input_tokens >= 0),
-                    CHECK (cached_input_tokens IS NULL OR cached_input_tokens >= 0),
-                    CHECK (cache_write_input_tokens IS NULL OR cache_write_input_tokens >= 0),
-                    CHECK (output_tokens IS NULL OR output_tokens >= 0),
-                    CHECK (reasoning_output_tokens IS NULL OR reasoning_output_tokens >= 0),
-                    CHECK (
-                        (status = 'succeeded'
-                            AND response IS NOT NULL
-                            AND total_duration_ms IS NOT NULL
-                            AND thinking_duration_ms IS NOT NULL)
-                        OR
-                        (status = 'failed' AND error_message IS NOT NULL)
-                    )
-                );
-
-                CREATE TABLE comparison_tool_calls (
-                    id INTEGER PRIMARY KEY,
-                    comparison_result_id INTEGER NOT NULL,
-                    sequence INTEGER NOT NULL,
-                    name TEXT NOT NULL,
-                    duration_ms INTEGER NOT NULL,
-                    FOREIGN KEY (comparison_result_id)
-                        REFERENCES comparison_results(id) ON DELETE CASCADE,
-                    UNIQUE (comparison_result_id, sequence),
-                    CHECK (sequence > 0),
-                    CHECK (length(name) BETWEEN 1 AND 256),
-                    CHECK (duration_ms >= 0)
-                );
-                "#,
-            )
+            .execute_unprepared(include_str!(
+                "sql/m20260816_000001_create_comparison_history/up.sql"
+            ))
             .await?;
 
         Ok(())
@@ -719,13 +404,9 @@ impl MigrationTrait for CreateComparisonHistory {
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .get_connection()
-            .execute_unprepared(
-                r#"
-                DROP TABLE comparison_tool_calls;
-                DROP TABLE comparison_results;
-                DROP TABLE comparison_runs;
-                "#,
-            )
+            .execute_unprepared(include_str!(
+                "sql/m20260816_000001_create_comparison_history/down.sql"
+            ))
             .await?;
 
         Ok(())
@@ -782,6 +463,34 @@ mod tests {
     }
 
     #[test]
+    fn adds_pinned_ordering_to_workspace_benchmarks() {
+        tauri::async_runtime::block_on(async {
+            let (path, url) = temporary_database_url();
+            let database = connect_sqlite(&url).await.expect("database should connect");
+            Migrator::up(&database, None)
+                .await
+                .expect("schema should initialize");
+            let manager = SchemaManager::new(&database);
+
+            assert!(manager
+                .has_column("workspace_benchmarks", "pinned_at_ms")
+                .await
+                .expect("mount schema should be readable"));
+            let index = database
+                .query_one_raw(Statement::from_string(
+                    DatabaseBackend::Sqlite,
+                    "SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_workspace_benchmarks_pin_history'".to_string(),
+                ))
+                .await
+                .expect("mount index should be readable");
+            assert!(index.is_some(), "mount pin ordering must stay indexed");
+
+            database.close().await.expect("database should close");
+            std::fs::remove_file(path).expect("owned database should be removed");
+        });
+    }
+
+    #[test]
     fn upgrades_the_legacy_benchmark_tag_schema_without_a_fallback() {
         tauri::async_runtime::block_on(async {
             let (path, url) = temporary_database_url();
@@ -790,7 +499,7 @@ mod tests {
                 .await
                 .expect("pre-benchmark schema should initialize");
             database
-                .execute_unprepared(include_str!("sql/benchmark.sql"))
+                .execute_unprepared(include_str!("sql/m008_create_benchmarks/up.sql"))
                 .await
                 .expect("benchmark schema fixture should initialize");
             database
@@ -916,6 +625,75 @@ mod tests {
                 .execute_unprepared("DELETE FROM benchmark_versions WHERE id = 'v'")
                 .await
                 .is_err());
+            database.close().await.expect("database should close");
+            std::fs::remove_file(path).expect("owned database should be removed");
+        });
+    }
+
+    #[test]
+    fn deleting_a_benchmark_task_cascades_its_matrix_and_preserves_reruns() {
+        tauri::async_runtime::block_on(async {
+            let (path, url) = temporary_database_url();
+            let database = connect_sqlite(&url).await.expect("database should connect");
+            Migrator::up(&database, None)
+                .await
+                .expect("schema should initialize");
+            database
+				.execute_unprepared(
+					r#"
+					INSERT INTO workspaces (id, name, source_kind, source_path, created_at_ms, updated_at_ms)
+					VALUES ('w', 'Workspace', 'external', '/tmp/project', 1, 1);
+					INSERT INTO benchmark_tags (id, name, icon) VALUES ('coding', 'Coding', 'Code');
+					INSERT INTO benchmarks (id, name, description, tag_id, author, created_at_ms, updated_at_ms)
+					VALUES ('b', 'Suite', 'One question', 'coding', 'myself', 1, 1);
+					INSERT INTO benchmark_versions (id, benchmark_id, number, content_json, created_at_ms)
+					VALUES ('v', 'b', 1, '{}', 1);
+					INSERT INTO benchmark_cases (id, version_id, position, name, content_json)
+					VALUES ('c', 'v', 0, 'One', '{}');
+					INSERT INTO tasks (id, kind, workspace_id, title, status, created_at_ms, updated_at_ms)
+					VALUES ('source', 'benchmark', 'w', 'Source', 'completed', 1, 1),
+					       ('rerun', 'benchmark', 'w', 'Rerun', 'completed', 2, 2);
+					INSERT INTO task_permissions (task_id, file_access, command_execution, created_at_ms)
+					VALUES ('source', 'allow_edits', 'ask', 1), ('rerun', 'allow_edits', 'ask', 2);
+					INSERT INTO benchmark_tasks (task_id, version_id, idempotency_key, request_json, rerun_of_task_id)
+					VALUES ('source', 'v', 'source-key', '{}', NULL),
+					       ('rerun', 'v', 'rerun-key', '{}', 'source');
+					INSERT INTO benchmark_task_agents (id, task_id, agent_kind, position)
+					VALUES ('a', 'source', 'codex', 0);
+					INSERT INTO benchmark_task_cases (id, task_id, case_id, version_id, position)
+					VALUES ('tc', 'source', 'c', 'v', 0);
+					INSERT INTO benchmark_case_executions (id, task_id, task_case_id, task_agent_id, phase, started_at_ms, finished_at_ms)
+					VALUES ('e', 'source', 'tc', 'a', 'finished', 1, 2);
+					INSERT INTO benchmark_evaluations (execution_id, verdict, validator_version, report_json, created_at_ms)
+					VALUES ('e', 'passed', 1, '{}', 2);
+					"#,
+				)
+				.await
+				.expect("Benchmark history should be reproducible");
+
+            let deleted = database
+                .execute_unprepared("DELETE FROM tasks WHERE id = 'source'")
+                .await;
+            assert!(
+                deleted.is_ok(),
+                "Benchmark Task should cascade: {deleted:?}"
+            );
+            let remaining = database
+                .query_one_raw(Statement::from_string(
+                    DatabaseBackend::Sqlite,
+                    "SELECT rerun_of_task_id FROM benchmark_tasks WHERE task_id = 'rerun'"
+                        .to_string(),
+                ))
+                .await
+                .expect("Rerun should query")
+                .expect("Rerun should remain");
+            assert_eq!(
+                remaining
+                    .try_get::<Option<String>>("", "rerun_of_task_id")
+                    .expect("Rerun source should decode"),
+                None
+            );
+
             database.close().await.expect("database should close");
             std::fs::remove_file(path).expect("owned database should be removed");
         });
