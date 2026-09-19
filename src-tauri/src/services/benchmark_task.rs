@@ -1418,7 +1418,7 @@ mod tests {
     }
 
     #[test]
-    fn preserves_tool_details_in_benchmark_metrics() {
+    fn redacts_tool_details_in_benchmark_metrics() {
         let mut collector = AgentRunMetricsCollector::default();
         collector.record_tool_started_with_details(
             "tool-1",
@@ -1437,11 +1437,11 @@ mod tests {
 
         assert_eq!(
             metrics.tool_calls[0].arguments,
-            Some(serde_json::json!({"path": "summary.json"}))
+            Some(serde_json::json!({"path": "[redacted]"}))
         );
         assert_eq!(
             metrics.tool_calls[0].result,
-            Some(serde_json::json!("workspace is read-only"))
+            Some(serde_json::json!("[redacted]"))
         );
         assert_eq!(metrics.tool_calls[0].status.as_deref(), Some("failed"));
     }

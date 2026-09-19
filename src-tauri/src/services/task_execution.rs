@@ -822,7 +822,7 @@ mod tests {
     }
 
     #[test]
-    fn persists_complete_tool_call_details_in_task_metrics() {
+    fn persists_redacted_tool_call_details_in_task_metrics() {
         let mut collector = AgentRunMetricsCollector::default();
         collector.record_tool_started_with_details(
             "tool-1",
@@ -845,9 +845,9 @@ mod tests {
 
         assert_eq!(
             value["toolCalls"][0]["arguments"],
-            serde_json::json!({"path": "summary.json"})
+            serde_json::json!({"path": "[redacted]"})
         );
-        assert_eq!(value["toolCalls"][0]["result"], "workspace is read-only");
+        assert_eq!(value["toolCalls"][0]["result"], "[redacted]");
         assert_eq!(value["toolCalls"][0]["status"], "failed");
     }
 
