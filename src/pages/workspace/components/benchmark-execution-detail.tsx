@@ -415,7 +415,10 @@ const BenchmarkExecutionDetail = ({
 										))}
 										{!execution?.metrics?.toolCalls.length ? (
 											<Table.Row id="empty">
-												<Table.Cell className="text-mute" colSpan={6}>
+												<Table.Cell
+													className="text-center align-middle text-mute"
+													colSpan={6}
+												>
 													{t("benchmark.results.noToolCalls")}
 												</Table.Cell>
 											</Table.Row>
