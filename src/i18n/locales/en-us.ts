@@ -403,6 +403,23 @@ const enUS = {
 			recent: "Recent",
 			renameConversation: "Rename",
 			benchmarks: "Benchmarks",
+			benchmarkMountActions: "More actions for {{benchmark}}",
+			pinBenchmarkMount: "Pin",
+			unpinBenchmarkMount: "Unpin",
+			benchmarkMountPin: {
+				pinned: 'Pinned Benchmark "{{benchmark}}"',
+				unpinned: 'Unpinned Benchmark "{{benchmark}}"',
+				failed:
+					"The Benchmark pin state could not be updated. Please try again",
+			},
+			benchmarkUnmount: {
+				title: "Unmount Benchmark?",
+				description:
+					'"{{benchmark}}" will be removed from this Workspace. Existing evaluation results are kept.',
+				confirm: "Unmount",
+				success: 'Unmounted Benchmark "{{benchmark}}"',
+				failed: "The Benchmark could not be unmounted. Please try again",
+			},
 			mountedSkills: "Mounted skills",
 			mountedSkillActions: "More actions for {{skill}}",
 			unmountSkillFromWorkspace: "Remove",
