@@ -129,6 +129,28 @@ impl BenchmarkRepository {
         }))
     }
 
+    /// Finds the single unfinished edit protected by the definition-level unique index.
+    pub(crate) async fn draft_for_benchmark(
+        &self,
+        benchmark_id: &str,
+    ) -> Result<Option<BenchmarkDraft>, DbErr> {
+        let row = draft::Entity::find()
+            .filter(draft::Column::BenchmarkId.eq(benchmark_id))
+            .one(&self.database)
+            .await?;
+        let Some(row) = row else {
+            return Ok(None);
+        };
+        Ok(Some(BenchmarkDraft {
+            id: row.id,
+            benchmark_id: row.benchmark_id,
+            revision: row.revision,
+            document: serde_json::from_str(&row.content_json)
+                .map_err(|error| DbErr::Json(error.to_string()))?,
+            updated_at_ms: row.updated_at_ms,
+        }))
+    }
+
     /// A publication atomically consumes its reviewed draft and freezes every case.
     pub(crate) async fn publish(
         &self,

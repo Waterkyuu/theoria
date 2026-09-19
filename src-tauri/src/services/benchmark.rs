@@ -427,6 +427,14 @@ impl BenchmarkService {
                     if definition.summary.author != "myself" || definition.summary.archived {
                         return Err(AppError::BenchmarkReadOnly);
                     }
+                    if let Some(draft) = self
+                        .repository
+                        .draft_for_benchmark(&benchmark_id)
+                        .await
+                        .map_err(|_| AppError::BenchmarkDatabaseFailed)?
+                    {
+                        return Ok(draft);
+                    }
                     Some(benchmark_id)
                 }
                 None => None,
@@ -965,6 +973,69 @@ mod tests {
                     .document,
                 draft.document
             );
+            database.close().await.expect("database should close");
+        });
+    }
+
+    #[test]
+    fn editing_a_benchmark_reopens_its_existing_draft() {
+        tauri::async_runtime::block_on(async {
+            let database = connect_sqlite("sqlite::memory:")
+                .await
+                .expect("database should open");
+            Migrator::up(&database, None)
+                .await
+                .expect("schema should initialize");
+            let service = BenchmarkService::new(
+                BenchmarkRepository::new(database.clone()),
+                PathBuf::new(),
+                verifier(),
+            );
+            let tag = service.create_tag("Code", "Code").await.expect("tag");
+            let document = BenchmarkDocument {
+                schema_version: 1,
+                name: "Personal suite".to_string(),
+                description: "Editable benchmark".to_string(),
+                tag_id: Some(tag.id),
+                source: None,
+                cases: vec![BenchmarkCase {
+                    name: "One".to_string(),
+                    prompt: "Return 42".to_string(),
+                    timeout_minutes: 1,
+                    input_files: Vec::new(),
+                    checks: vec![BenchmarkCheck::Answer {
+                        expected: "42".to_string(),
+                    }],
+                }],
+            };
+            let initial = service
+                .save_draft(None, None, None, document.clone())
+                .await
+                .expect("initial draft");
+            let published = service
+                .publish(&initial.id, initial.revision)
+                .await
+                .expect("published benchmark");
+            let mut edited_document = document.clone();
+            edited_document.cases[0].prompt = "Return forty-two".to_string();
+            let existing = service
+                .save_draft(
+                    None,
+                    None,
+                    Some(published.summary.id.clone()),
+                    edited_document.clone(),
+                )
+                .await
+                .expect("linked draft");
+
+            let reopened = service
+                .save_draft(None, None, Some(published.summary.id), document)
+                .await
+                .expect("existing linked draft should reopen");
+
+            assert_eq!(reopened.id, existing.id);
+            assert_eq!(reopened.revision, existing.revision);
+            assert_eq!(reopened.document, edited_document);
             database.close().await.expect("database should close");
         });
     }
