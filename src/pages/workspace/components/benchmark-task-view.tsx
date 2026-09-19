@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Funnel, Magnifier } from "@gravity-ui/icons";
+import { Button } from "@heroui/react";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/share/page-header";
 import { ModalProvider } from "@/components/ui/modal-provider";
@@ -134,14 +135,15 @@ const BenchmarkTaskView = ({ taskId }: BenchmarkTaskViewProps) => {
 							value={result}
 						/>
 					</ModalProvider>
-					<button
-						aria-label={t("benchmark.results.statusFilter")}
-						className="rounded-md p-1 text-mute hover:text-ink focus-visible:outline-2 focus-visible:outline-focus-ring"
-						onClick={() => setFilterOpen(true)}
-						type="button"
+					<Button
+						className="min-h-8 shrink-0 gap-xs rounded-md border border-hairline bg-surface-card px-sm text-body-sm font-medium text-charcoal shadow-none outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
+						onPress={() => setFilterOpen(true)}
+						size="sm"
+						variant="secondary"
 					>
 						<Funnel aria-hidden="true" className="size-4" />
-					</button>
+						{t("benchmark.results.filter")}
+					</Button>
 					<BenchmarkTaskActions detail={detail} />
 				</div>
 			</PageHeader>

@@ -206,6 +206,7 @@ const enUS = {
 					json_mismatch: "The JSON output did not match.",
 				},
 				searchCases: "Search cases",
+				filter: "Filter",
 				agentFilter: "Agent",
 				statusFilter: "Status",
 				allAgents: "All Agents",

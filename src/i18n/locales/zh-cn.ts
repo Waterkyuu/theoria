@@ -204,6 +204,7 @@ const zhCN = {
 					json_mismatch: "JSON 输出不匹配。",
 				},
 				searchCases: "搜索 Case",
+				filter: "筛选",
 				agentFilter: "Agent",
 				statusFilter: "状态",
 				allAgents: "全部 Agent",
