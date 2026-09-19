@@ -230,14 +230,14 @@ const BenchmarkMountRow = ({
 			aria-label={name}
 			aria-level={3}
 			className={cn(
-				"group mt-xs flex h-8 items-center gap-[7px] rounded-md pl-12 pr-[6px] text-body-sm font-medium text-ink hover:bg-hairline",
+				"group mt-xs flex h-8 items-center gap-[7px] rounded-md pl-12 pr-[6px] text-body-sm font-medium hover:bg-hairline",
 				isActive && "bg-hairline",
 			)}
 			role="treeitem"
 			tabIndex={-1}
 		>
 			<button
-				className="min-w-0 flex-1 truncate text-left text-ink outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+				className="min-w-0 flex-1 truncate text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
 				onClick={() => onNavigate(mountPath)}
 				type="button"
 			>
