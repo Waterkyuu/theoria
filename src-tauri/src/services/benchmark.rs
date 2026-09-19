@@ -654,6 +654,22 @@ impl BenchmarkService {
             .map_err(|_| AppError::BenchmarkDatabaseFailed)?
             .ok_or(AppError::BenchmarkNotFound)
     }
+    /// Pins or unpins one Workspace mount while preserving its selected version.
+    pub(crate) async fn set_mount_pin(
+        &self,
+        workspace: &str,
+        mount: &str,
+        is_pinned: bool,
+    ) -> Result<BenchmarkMount, AppError> {
+        validate_id(workspace)?;
+        validate_id(mount)?;
+        let pinned_at_ms = if is_pinned { Some(now_ms()?) } else { None };
+        self.repository
+            .set_mount_pin(workspace, mount, pinned_at_ms)
+            .await
+            .map_err(|_| AppError::BenchmarkDatabaseFailed)?
+            .ok_or(AppError::BenchmarkNotFound)
+    }
     /// Unmount changes only the workspace relationship.
     pub(crate) async fn unmount(&self, workspace: &str, id: &str) -> Result<(), AppError> {
         self.repository
@@ -1129,7 +1145,7 @@ mod tests {
                 .save_draft(None, None, None, plain)
                 .await
                 .expect("second draft should save");
-            service
+            let other_published = service
                 .publish(&other.id, 1)
                 .await
                 .expect("second suite should publish");
@@ -1167,6 +1183,27 @@ mod tests {
                 .await
                 .expect("repeated mount should succeed");
             assert_eq!(mounted, repeated);
+            let other_mount = service
+                .mount(
+                    "workspace-1".to_string(),
+                    other_published.summary.id,
+                    other_published.version_id,
+                )
+                .await
+                .expect("second version should mount");
+            let pinned = service
+                .set_mount_pin("workspace-1", &mounted.id, true)
+                .await
+                .expect("mount should pin");
+            assert!(pinned.pinned_at_ms.is_some());
+            assert_eq!(
+                service
+                    .mounts("workspace-1", 0)
+                    .await
+                    .expect("pinned mounts should list first")[0]
+                    .id,
+                mounted.id
+            );
             let updated_mount = service
                 .update_mount("workspace-1", &mounted.id, &updated.version_id)
                 .await
@@ -1178,12 +1215,16 @@ mod tests {
                     .await
                     .expect("mounts should list")
                     .len(),
-                1
+                2
             );
             service
                 .unmount("workspace-1", &mounted.id)
                 .await
                 .expect("mount should detach");
+            service
+                .unmount("workspace-1", &other_mount.id)
+                .await
+                .expect("second mount should detach");
             assert!(service
                 .mounts("workspace-1", 0)
                 .await

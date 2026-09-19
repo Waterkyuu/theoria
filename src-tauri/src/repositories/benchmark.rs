@@ -428,6 +428,26 @@ impl BenchmarkRepository {
         Ok(updated)
     }
 
+    /// Updates one mount's pin timestamp without changing its selected Benchmark version.
+    pub(crate) async fn set_mount_pin(
+        &self,
+        workspace_id: &str,
+        mount_id: &str,
+        pinned_at_ms: Option<i64>,
+    ) -> Result<Option<BenchmarkMount>, DbErr> {
+        mount::Entity::update_many()
+            .col_expr(mount::Column::PinnedAtMs, Expr::value(pinned_at_ms))
+            .filter(mount::Column::Id.eq(mount_id))
+            .filter(mount::Column::WorkspaceId.eq(workspace_id))
+            .exec(&self.database)
+            .await?;
+        Ok(mount::Entity::find_by_id(mount_id)
+            .filter(mount::Column::WorkspaceId.eq(workspace_id))
+            .one(&self.database)
+            .await?
+            .map(mount_from_model))
+    }
+
     /// Loads bounded relationship pages without copying inputs into workspace sources.
     pub(crate) async fn mounts(
         &self,

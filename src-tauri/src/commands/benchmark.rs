@@ -6,8 +6,8 @@ use crate::dto::benchmark::{
     ImportBenchmarkAssetRequest, ImportBenchmarkFolderRequest, ListBenchmarkDraftsRequest,
     ListBenchmarksRequest, ListWorkspaceBenchmarksRequest, MountBenchmarkRequest,
     PreviewBenchmarkAssetRequest, PreviewBenchmarkImportRequest, PublishBenchmarkRequest,
-    SaveBenchmarkDraftRequest, SaveBenchmarkTextAssetRequest, UnmountBenchmarkRequest,
-    UpdateBenchmarkMountRequest,
+    SaveBenchmarkDraftRequest, SaveBenchmarkTextAssetRequest, SetBenchmarkMountPinRequest,
+    UnmountBenchmarkRequest, UpdateBenchmarkMountRequest,
 };
 use crate::error::IpcError;
 use crate::services::benchmark::BenchmarkService;
@@ -236,6 +236,18 @@ pub(crate) async fn update_benchmark_mount(
             &request.mount_id,
             &request.version_id,
         )
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+/// Changes whether one Workspace mount is ordered above ordinary mounts.
+#[tauri::command]
+pub(crate) async fn set_benchmark_mount_pin(
+    request: SetBenchmarkMountPinRequest,
+    service: State<'_, BenchmarkService>,
+) -> Result<BenchmarkMountResponse, IpcError> {
+    service
+        .set_mount_pin(&request.workspace_id, &request.mount_id, request.is_pinned)
         .await
         .map(Into::into)
         .map_err(Into::into)

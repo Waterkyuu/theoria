@@ -378,6 +378,7 @@ pub fn run() {
             commands::benchmark::list_benchmarks,
             commands::benchmark::get_benchmark,
             commands::benchmark::mount_benchmark,
+            commands::benchmark::set_benchmark_mount_pin,
             commands::benchmark::update_benchmark_mount,
             commands::benchmark::list_workspace_benchmarks,
             commands::benchmark::unmount_benchmark,
