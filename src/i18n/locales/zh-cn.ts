@@ -85,6 +85,7 @@ const zhCN = {
 				binary: "暂不支持二进制内容预览。",
 				contents: "文件内容",
 				chooseTitle: "选择 Benchmark 文件",
+				chooseApplication: "选择用于打开此文档的应用",
 				outputPath: "输出路径",
 				expectedContent: "预期内容",
 				checkKind: "验证类型",

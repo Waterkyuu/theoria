@@ -106,6 +106,16 @@ const previewBenchmarkAsset = (assetId: string) =>
 		{ request: { assetId } },
 	);
 
+/** Opens an opaque managed document with the application selected by the user.
+ * @example openBenchmarkAsset("asset-1", "/Applications/Preview.app")
+ */
+const openBenchmarkAsset = (assetId: string, applicationPath: string) =>
+	invokeWithResponseSchema(
+		"open_benchmark_asset",
+		EmptyBenchmarkResponseSchema,
+		{ request: { assetId, applicationPath } },
+	);
+
 /** Stores an editor buffer as a new immutable managed file revision.
  * @example saveBenchmarkTextAsset("input.txt", "content")
  */
@@ -298,6 +308,7 @@ export {
 	importBenchmarkFolder,
 	importBenchmarkAsset,
 	previewBenchmarkAsset,
+	openBenchmarkAsset,
 	saveBenchmarkTextAsset,
 	saveBenchmarkDraft,
 	publishBenchmark,

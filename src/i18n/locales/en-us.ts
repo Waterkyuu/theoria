@@ -86,6 +86,7 @@ const enUS = {
 				binary: "Binary preview is not available.",
 				contents: "File contents",
 				chooseTitle: "Choose a Benchmark file",
+				chooseApplication: "Choose an application to open this document",
 				outputPath: "Output path",
 				expectedContent: "Expected content",
 				checkKind: "Check type",

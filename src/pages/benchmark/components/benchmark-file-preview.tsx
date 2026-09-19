@@ -1,12 +1,43 @@
 import { useState } from "react";
 import { Button } from "@heroui/react";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useTranslation } from "react-i18next";
+import { CodeEditor } from "@/components/share/code-editor";
 import { CodePreview } from "@/components/share/code-preview";
 import { FileTypeIcon } from "@/components/share/file-type-icon";
 import { ModalProvider } from "@/components/ui/modal-provider";
 import { handleError } from "@/utils/error";
-import { previewBenchmarkAsset, saveBenchmarkTextAsset } from "@/api/benchmark";
+import {
+	openBenchmarkAsset,
+	previewBenchmarkAsset,
+	saveBenchmarkTextAsset,
+} from "@/api/benchmark";
 import type { BenchmarkAssetPreview, BenchmarkFile } from "@/types/benchmark";
+
+const EXTERNAL_PREVIEW_EXTENSIONS = new Set([
+	"doc",
+	"docx",
+	"key",
+	"numbers",
+	"odp",
+	"ods",
+	"odt",
+	"pages",
+	"pdf",
+	"ppt",
+	"pptx",
+	"rtf",
+	"xls",
+	"xlsx",
+]);
+
+/** Keeps document formats out of the bounded text and binary preview path.
+ * @example requiresExternalApplication("report.pdf")
+ */
+const requiresExternalApplication = (path: string) => {
+	const extension = path.split(".").pop()?.toLowerCase();
+	return extension ? EXTERNAL_PREVIEW_EXTENSIONS.has(extension) : false;
+};
 
 type BenchmarkFilePreviewProps = {
 	/** Whether the managed text can be saved as a new immutable asset. */
@@ -34,9 +65,19 @@ const BenchmarkFilePreview = ({
 	/** Defers managed-file reads until the user explicitly opens the preview. */
 	const openPreview = async () => {
 		if (pending) return;
-		setIsOpen(true);
 		setPending(true);
 		try {
+			if (requiresExternalApplication(file.path)) {
+				const applicationPath = await open({
+					directory: false,
+					multiple: false,
+					title: t("benchmark.file.chooseApplication"),
+				});
+				if (applicationPath)
+					await openBenchmarkAsset(file.assetId, applicationPath);
+				return;
+			}
+			setIsOpen(true);
 			const next = await previewBenchmarkAsset(file.assetId);
 			setPreview(next);
 			setText(next.text ?? "");
@@ -107,14 +148,16 @@ const BenchmarkFilePreview = ({
 						{preview.text === null ? (
 							<p className="text-body-sm">{t("benchmark.file.binary")}</p>
 						) : editable ? (
-							<label className="flex flex-col gap-sm text-body-sm">
-								{t("benchmark.file.contents")}
-								<textarea
-									className="min-h-80 rounded-md border border-hairline bg-canvas p-md font-mono text-body-sm outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-									onChange={(event) => setText(event.currentTarget.value)}
-									value={text}
-								/>
-							</label>
+							<div className="flex flex-col gap-sm text-body-sm">
+								<p>{t("benchmark.file.contents")}</p>
+								<div className="h-80 overflow-hidden rounded-md border border-hairline">
+									<CodeEditor
+										onChange={setText}
+										path={file.path}
+										value={text}
+									/>
+								</div>
+							</div>
 						) : (
 							<CodePreview path={file.path} value={preview.text} />
 						)}

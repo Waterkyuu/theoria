@@ -3,12 +3,30 @@ import "@testing-library/jest-dom/vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
-import { expect, it, vi } from "vitest";
+import { afterAll, beforeAll, expect, it, vi } from "vitest";
 import i18n from "@/i18n";
 import BenchmarkEditorPage from ".";
 const { invoke, open } = vi.hoisted(() => ({ invoke: vi.fn(), open: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open }));
+
+// JSDOM has no text layout; supply the geometry that CodeMirror measures.
+beforeAll(() => {
+	Object.defineProperty(Range.prototype, "getClientRects", {
+		configurable: true,
+		value: () => [],
+	});
+	Object.defineProperty(Range.prototype, "getBoundingClientRect", {
+		configurable: true,
+		value: () => new DOMRect(),
+	});
+});
+
+afterAll(() => {
+	Reflect.deleteProperty(Range.prototype, "getClientRects");
+	Reflect.deleteProperty(Range.prototype, "getBoundingClientRect");
+});
+
 it("retains the saved revision after publication fails so retry uses the latest draft", async () => {
 	await i18n.changeLanguage("en-US");
 	const document = {
@@ -173,7 +191,7 @@ it("uploads, previews, and edits files while preserving structured checks", asyn
 	);
 	await user.click(screen.getByRole("button", { name: "Preview" }));
 	const contents = await screen.findByRole("textbox", {
-		name: "File contents",
+		name: "input.txt",
 	});
 	await user.clear(contents);
 	await user.type(contents, "edited fixture");
