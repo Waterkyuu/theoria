@@ -206,6 +206,18 @@ const updateBenchmarkMount = (
 		request: { workspaceId, mountId, versionId },
 	});
 
+/** Changes whether one Workspace mount is ordered above ordinary mounts.
+ * @example setBenchmarkMountPin("workspace", "mount", true)
+ */
+const setBenchmarkMountPin = (
+	workspaceId: string,
+	mountId: string,
+	isPinned: boolean,
+) =>
+	invokeWithResponseSchema("set_benchmark_mount_pin", BenchmarkMountSchema, {
+		request: { workspaceId, mountId, isPinned },
+	});
+
 /**
  * Removes only the relationship.
  *
@@ -294,6 +306,7 @@ export {
 	listWorkspaceBenchmarks,
 	mountBenchmark,
 	updateBenchmarkMount,
+	setBenchmarkMountPin,
 	unmountBenchmark,
 	previewBenchmarkTask,
 	startBenchmarkTask,

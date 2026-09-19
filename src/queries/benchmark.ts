@@ -17,6 +17,8 @@ import {
 	listWorkspaceBenchmarks,
 	rerunBenchmarkTask,
 	startBenchmarkTask,
+	setBenchmarkMountPin,
+	unmountBenchmark,
 	updateBenchmarkMount,
 } from "@/api/benchmark";
 import { cancelTask } from "@/api/task";
@@ -25,6 +27,18 @@ import type {
 	RerunBenchmarkTaskInput,
 	StartBenchmarkTaskInput,
 } from "@/types/benchmark";
+
+type BenchmarkMountMutationInput = {
+	/** Stable relationship changed by a Workspace sidebar action. */
+	mountId: string;
+	/** Workspace that owns the relationship. */
+	workspaceId: string;
+};
+
+type SetBenchmarkMountPinInput = BenchmarkMountMutationInput & {
+	/** Whether the mount should appear in the pinned group. */
+	isPinned: boolean;
+};
 
 const BENCHMARK_TASK_POLL_INTERVAL_MS = 750;
 
@@ -143,6 +157,41 @@ const useUpdateBenchmarkMount = () => {
 	});
 };
 
+/** Persists pin state and refreshes the owning Workspace mount list. */
+const useSetBenchmarkMountPin = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({
+			isPinned,
+			mountId,
+			workspaceId,
+		}: SetBenchmarkMountPinInput) =>
+			setBenchmarkMountPin(workspaceId, mountId, isPinned),
+		onSuccess: (mount) => {
+			queryClient.invalidateQueries({
+				queryKey: ["benchmarks", "mounts", mount.workspaceId],
+			});
+		},
+	});
+};
+
+/** Removes one relationship and refreshes its Workspace mount list. */
+const useUnmountBenchmark = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({ mountId, workspaceId }: BenchmarkMountMutationInput) =>
+			unmountBenchmark(workspaceId, mountId).then(() => ({
+				mountId,
+				workspaceId,
+			})),
+		onSuccess: ({ workspaceId }) => {
+			queryClient.invalidateQueries({
+				queryKey: ["benchmarks", "mounts", workspaceId],
+			});
+		},
+	});
+};
+
 /** Polls only while the persisted Benchmark matrix can still change.
  * @example useBenchmarkTask("task-1")
  */
@@ -246,6 +295,8 @@ export {
 	useBenchmarkDrafts,
 	useWorkspaceBenchmarks,
 	useUpdateBenchmarkMount,
+	useSetBenchmarkMountPin,
+	useUnmountBenchmark,
 	useBenchmarkTask,
 	useBenchmarkExecutionArtifacts,
 	useBenchmarkExecutionArtifactPreview,
