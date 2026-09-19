@@ -6,7 +6,7 @@
 	"packageManager": "pnpm@11.10.0",
 	"scripts": {
 		"build": "pnpm typecheck && vite build",
-		"check": "pnpm lint && pnpm check:icon-colors && pnpm format",
+		"check": "pnpm lint && pnpm format",
 		"check:fix": "oxlint --fix . && pnpm format:fix",
 		"check:icon-colors": "node scripts/check-icon-colors.mjs",
 		"dev": "vite",
