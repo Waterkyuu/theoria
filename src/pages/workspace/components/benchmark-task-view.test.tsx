@@ -287,10 +287,14 @@ it("compares a case across agents and exposes complete tool call details", async
 		if (command === "list_benchmark_execution_artifacts") return [];
 		throw new Error(`Unexpected command: ${command}`);
 	});
+	const user = userEvent.setup();
 	renderTask();
 
 	expect(await screen.findByText("Case comparison")).toBeInTheDocument();
 	expect(screen.getByText("17,666")).toBeInTheDocument();
+	expect(screen.queryByText("4,203")).not.toBeInTheDocument();
+	await user.click(screen.getByRole("button", { name: /Tokens/ }));
+	expect(screen.getByText("4,203")).toBeInTheDocument();
 	expect(screen.getByText("write_file")).toBeInTheDocument();
 	expect(screen.getByText(/summary\.json/)).toBeInTheDocument();
 	expect(screen.getByText("workspace is read-only")).toBeInTheDocument();

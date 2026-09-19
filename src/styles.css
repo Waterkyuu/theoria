@@ -84,13 +84,6 @@
 	--radius-full: 9999px;
 }
 
-@layer components {
-	.benchmark-table .table__column {
-		border-radius: 0 !important;
-		background: var(--color-surface-card) !important;
-	}
-}
-
 /* Keep semantic spacing out of Tailwind's reserved width namespace. */
 @utility gap-* {
 	gap: --value(--app-spacing-*);

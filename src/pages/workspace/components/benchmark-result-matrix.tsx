@@ -95,7 +95,7 @@ const BenchmarkResultMatrix = ({
 				</label>
 			</div>
 
-			<Table className="benchmark-table min-h-0 flex-1" variant="secondary">
+			<Table className="min-h-0 flex-1 rounded-lg">
 				<Table.ScrollContainer className="h-full">
 					<Table.Content
 						aria-label={t("benchmark.results.case")}

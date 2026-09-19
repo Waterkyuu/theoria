@@ -2,11 +2,13 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import {
 	ChevronDown,
+	ChevronRight,
 	ChevronsCollapseUpRight,
 	ChevronsExpandUpRight,
 	Xmark,
 } from "@gravity-ui/icons";
-import { Table } from "@heroui/react";
+import type { Selection } from "@heroui/react";
+import { Button, Table } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { AgentIcon } from "@/components/share/agent-icon";
@@ -34,8 +36,8 @@ type CaseExecution = {
 type ComparisonRow = {
 	key: string;
 	label: string;
-	child?: boolean;
 	value: (item: CaseExecution) => ReactNode;
+	children?: ComparisonRow[];
 };
 
 const BenchmarkExecutionDetail = ({
@@ -55,6 +57,7 @@ const BenchmarkExecutionDetail = ({
 	const [activeTab, setActiveTab] = useState<DetailTab>("tools");
 	const [artifactPath, setArtifactPath] = useState<string | null>(null);
 	const [isFullscreen, setIsFullscreen] = useState(false);
+	const [expandedKeys, setExpandedKeys] = useState<Selection>(() => new Set());
 	const selected =
 		caseExecutions.find(({ agent }) => agent.id === agentId) ??
 		caseExecutions[0];
@@ -80,6 +83,43 @@ const BenchmarkExecutionDetail = ({
 		{ id: "checks", label: t("benchmark.results.checks") },
 		{ id: "artifacts", label: t("benchmark.results.artifacts") },
 	];
+	const tokenRows: ComparisonRow[] = [
+		{
+			key: "input-tokens",
+			label: t("benchmark.results.inputTokens"),
+			value: ({ execution: item }) =>
+				item?.metrics?.tokenUsage?.inputTokens.toLocaleString(i18n.language) ??
+				"—",
+		},
+		{
+			key: "output-tokens",
+			label: t("benchmark.results.outputTokens"),
+			value: ({ execution: item }) =>
+				item?.metrics?.tokenUsage?.outputTokens.toLocaleString(i18n.language) ??
+				"—",
+		},
+		{
+			key: "cached-tokens",
+			label: t("benchmark.results.cachedTokens"),
+			value: ({ execution: item }) =>
+				item?.metrics?.tokenUsage?.cachedInputTokens.toLocaleString(
+					i18n.language,
+				) ?? "—",
+		},
+	];
+	const toolRows: ComparisonRow[] = Array.from(
+		{ length: maxToolCalls },
+		(_, index) => ({
+			key: `tool-${index + 1}`,
+			label: t("benchmark.results.toolCall", { count: index + 1 }),
+			value: ({ execution: item }) => {
+				const call = item?.metrics?.toolCalls[index];
+				return call
+					? `${call.name} · ${formatDuration(call.durationMs)}`
+					: t("benchmark.results.noData");
+			},
+		}),
+	);
 	const comparisonRows: ComparisonRow[] = [
 		{
 			key: "status",
@@ -115,53 +155,63 @@ const BenchmarkExecutionDetail = ({
 		{
 			key: "tokens",
 			label: t("benchmark.results.tokens"),
+			children: tokenRows,
 			value: ({ execution: item }) =>
 				item?.metrics?.tokenUsage?.totalTokens.toLocaleString(i18n.language) ??
 				"—",
 		},
 		{
-			key: "input-tokens",
-			label: t("benchmark.results.inputTokens"),
-			child: true,
-			value: ({ execution: item }) =>
-				item?.metrics?.tokenUsage?.inputTokens.toLocaleString(i18n.language) ??
-				"—",
-		},
-		{
-			key: "output-tokens",
-			label: t("benchmark.results.outputTokens"),
-			child: true,
-			value: ({ execution: item }) =>
-				item?.metrics?.tokenUsage?.outputTokens.toLocaleString(i18n.language) ??
-				"—",
-		},
-		{
-			key: "cached-tokens",
-			label: t("benchmark.results.cachedTokens"),
-			child: true,
-			value: ({ execution: item }) =>
-				item?.metrics?.tokenUsage?.cachedInputTokens.toLocaleString(
-					i18n.language,
-				) ?? "—",
-		},
-		{
 			key: "tool-calls",
 			label: t("benchmark.results.toolCalls"),
+			children: toolRows,
 			value: ({ execution: item }) =>
 				item?.metrics?.toolCallCount.toLocaleString(i18n.language) ?? "—",
 		},
-		...Array.from({ length: maxToolCalls }, (_, index): ComparisonRow => ({
-			key: `tool-${index + 1}`,
-			label: t("benchmark.results.toolCall", { count: index + 1 }),
-			child: true,
-			value: ({ execution: item }) => {
-				const call = item?.metrics?.toolCalls[index];
-				return call
-					? `${call.name} · ${formatDuration(call.durationMs)}`
-					: t("benchmark.results.noData");
-			},
-		})),
 	];
+	const renderComparisonRow = (row: ComparisonRow) => (
+		<Table.Row id={row.key} textValue={row.label}>
+			<Table.Cell
+				className="sticky left-0 z-10 bg-surface-card font-medium text-charcoal"
+				textValue={row.label}
+			>
+				{({ hasChildItems, isDisabled, isExpanded, isTreeColumn }) => (
+					<span className="flex items-center gap-xs">
+						{hasChildItems && isTreeColumn ? (
+							<Button
+								aria-label={row.label}
+								className="min-w-0 rounded-md p-xs text-mute shadow-none"
+								isDisabled={isDisabled}
+								isIconOnly
+								size="sm"
+								slot="chevron"
+								variant="ghost"
+							>
+								<ChevronRight
+									aria-hidden="true"
+									className={cn(
+										"size-3 transition-transform duration-150 motion-reduce:transition-none",
+										isExpanded && "rotate-90",
+									)}
+								/>
+							</Button>
+						) : null}
+						<span>{row.label}</span>
+					</span>
+				)}
+			</Table.Cell>
+			{caseExecutions.map((item) => (
+				<Table.Cell
+					className="font-mono text-caption-sm tabular-nums text-ink"
+					key={item.agent.id}
+				>
+					{row.value(item)}
+				</Table.Cell>
+			))}
+			<Table.Collection items={row.children ?? []}>
+				{renderComparisonRow}
+			</Table.Collection>
+		</Table.Row>
+	);
 
 	return (
 		<aside
@@ -211,59 +261,54 @@ const BenchmarkExecutionDetail = ({
 			</header>
 
 			<div className="min-h-0 flex-1 overflow-auto">
-				<Table className="benchmark-table" variant="secondary">
-					<Table.ScrollContainer>
-						<Table.Content
-							aria-label={t("benchmark.results.caseComparison")}
-							className="min-w-max"
-						>
-							<Table.Header>
-								<Table.Column className="w-36" isRowHeader>
-									{t("benchmark.results.metric")}
-								</Table.Column>
-								{caseExecutions.map(({ agent }) => (
+				<div className="p-lg">
+					<Table className="rounded-lg">
+						<Table.ScrollContainer>
+							<Table.Content
+								aria-label={t("benchmark.results.caseComparison")}
+								className="min-w-max"
+								expandedKeys={expandedKeys}
+								onExpandedChange={setExpandedKeys}
+								treeColumn="metric"
+							>
+								<Table.Header>
 									<Table.Column
-										className="min-w-40"
-										id={agent.id}
-										key={agent.id}
+										className="sticky left-0 z-10 min-w-28 bg-surface-secondary"
+										id="metric"
+										isRowHeader
 									>
-										<span className="flex items-center gap-sm">
-											<AgentIcon
-												height={20}
-												name={agent.agentKind}
-												width={20}
-											/>
-											{t(`agentNames.${agent.agentKind}`)}
-										</span>
+										{t("benchmark.results.metric")}
 									</Table.Column>
-								))}
-							</Table.Header>
-							<Table.Body items={comparisonRows}>
-								{(row) => (
-									<Table.Row id={row.key}>
-										<Table.Cell
-											className={cn(
-												"bg-surface-secondary font-medium text-charcoal",
-												row.child && "pl-xl text-mute",
-											)}
+									{caseExecutions.map(({ agent }) => (
+										<Table.Column
+											className="min-w-36 text-ink"
+											id={agent.id}
+											key={agent.id}
 										>
-											{row.child ? "└ " : null}
-											{row.label}
-										</Table.Cell>
-										{caseExecutions.map((item) => (
-											<Table.Cell
-												className="font-mono text-caption-sm tabular-nums text-ink"
-												key={item.agent.id}
-											>
-												{row.value(item)}
-											</Table.Cell>
-										))}
-									</Table.Row>
-								)}
-							</Table.Body>
-						</Table.Content>
-					</Table.ScrollContainer>
-				</Table>
+											<span className="flex items-center gap-sm">
+												<AgentIcon
+													height={16}
+													name={agent.agentKind}
+													width={16}
+												/>
+												<span>{t(`agentNames.${agent.agentKind}`)}</span>
+												<span aria-hidden="true" className="text-mute">
+													·
+												</span>
+												<span className="font-mono text-caption-sm font-normal text-mute">
+													{t("unknownModel")}
+												</span>
+											</span>
+										</Table.Column>
+									))}
+								</Table.Header>
+								<Table.Body items={comparisonRows}>
+									{renderComparisonRow}
+								</Table.Body>
+							</Table.Content>
+						</Table.ScrollContainer>
+					</Table>
+				</div>
 
 				<div className="border-b border-hairline px-lg py-md">
 					<label className="flex items-center gap-md text-body-sm text-mute">
@@ -314,7 +359,7 @@ const BenchmarkExecutionDetail = ({
 
 				<div className="p-lg">
 					{activeTab === "tools" ? (
-						<Table className="benchmark-table" variant="secondary">
+						<Table className="rounded-lg">
 							<Table.ScrollContainer>
 								<Table.Content
 									aria-label={t("benchmark.results.toolDetails")}
