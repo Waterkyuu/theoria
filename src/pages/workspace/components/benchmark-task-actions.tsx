@@ -112,7 +112,10 @@ const BenchmarkTaskActions = ({ detail }: BenchmarkTaskActionsProps) => {
 						onClick={() => setRerunOpen(true)}
 						type="button"
 					>
-						<ArrowsRotateRight aria-hidden="true" className="size-4" />
+						<ArrowsRotateRight
+							aria-hidden="true"
+							className="size-4 text-charcoal"
+						/>
 					</button>
 					<ModalProvider
 						title={t("benchmark.rerun")}
