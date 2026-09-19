@@ -1,0 +1,331 @@
+name: Fix Codex Review Findings
+
+on:
+  pull_request_review:
+    types:
+      - submitted
+
+concurrency:
+  group: codex-review-fix-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  fix:
+    name: Fix maintainability review findings
+    if: >-
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'waterkyuu/codex-maintainability-') &&
+      startsWith(github.event.review.user.login, 'chatgpt-codex-connector')
+    runs-on: macos-latest
+    timeout-minutes: 90
+    env:
+      HUSKY: 0
+    steps:
+      - name: Checkout pull request head
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Prepare review context
+        id: review
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          REVIEW_BODY: ${{ github.event.review.body }}
+          REVIEW_ID: ${{ github.event.review.id }}
+          REVIEW_URL: ${{ github.event.review.html_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          comments_path="${RUNNER_TEMP}/codex-review-comments.json"
+          gh api \
+            "repos/${GH_REPO}/pulls/${PR_NUMBER}/reviews/${REVIEW_ID}/comments?per_page=100" \
+            > "${comments_path}"
+
+          comment_count="$(jq 'length' "${comments_path}")"
+          body_has_finding=false
+          if printf '%s' "${REVIEW_BODY}" | grep -Eiq '(^|[^[:alnum:]])P[01]([^[:digit:]]|$)'; then
+            body_has_finding=true
+          fi
+
+          if (( comment_count == 0 )) && [[ "${body_has_finding}" == "false" ]]; then
+            echo "The Codex review contains no P0 or P1 findings."
+            echo "should-fix=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          previous_fixes="$(
+            git log --format=%s "${BASE_SHA}..${HEAD_SHA}" \
+              | grep -Ec '^fix\(repo\): address Codex review findings$' \
+              || true
+          )"
+          if (( previous_fixes >= 2 )); then
+            echo "The pull request already reached the two-round automatic fix limit."
+            echo "should-fix=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          prompt_path=".codex-review-fix-prompt.md"
+          cp .github/codex/prompts/review-fix.md "${prompt_path}"
+          {
+            echo
+            echo "## Review data"
+            echo
+            jq -n \
+              --arg pull_request_url "${PR_URL}" \
+              --arg base_sha "${BASE_SHA}" \
+              --arg head_sha "${HEAD_SHA}" \
+              --arg review_url "${REVIEW_URL}" \
+              --arg review_body "${REVIEW_BODY}" \
+              --slurpfile comments "${comments_path}" \
+              '{
+                pull_request_url: $pull_request_url,
+                base_sha: $base_sha,
+                head_sha: $head_sha,
+                review_url: $review_url,
+                review_body: $review_body,
+                inline_comments: ($comments[0] | map({
+                  path,
+                  line,
+                  original_line,
+                  side,
+                  body,
+                  html_url
+                }))
+              }'
+          } >> "${prompt_path}"
+
+          echo "should-fix=true" >> "${GITHUB_OUTPUT}"
+
+      - name: Install pnpm
+        if: steps.review.outputs.should-fix == 'true'
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        if: steps.review.outputs.should-fix == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        if: steps.review.outputs.should-fix == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Set up Rust
+        if: steps.review.outputs.should-fix == 'true'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Restore Rust cache
+        if: steps.review.outputs.should-fix == 'true'
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri -> target
+
+      - name: Check DeepSeek credentials
+        if: steps.review.outputs.should-fix == 'true'
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        shell: bash
+        run: |
+          if [[ -z "${DEEPSEEK_API_KEY}" ]]; then
+            echo "DEEPSEEK_API_KEY repository secret is required." >&2
+            exit 1
+          fi
+
+      - name: Fix review findings with DeepSeek
+        if: steps.review.outputs.should-fix == 'true'
+        uses: openai/codex-action@v1
+        with:
+          allow-bot-users: chatgpt-codex-connector
+          openai-api-key: ${{ secrets.DEEPSEEK_API_KEY }}
+          responses-api-endpoint: https://api.deepseek.com/responses
+          prompt-file: .codex-review-fix-prompt.md
+          model: deepseek-flash
+          effort: high
+          sandbox: workspace-write
+          safety-strategy: drop-sudo
+          codex-args: '["--ephemeral"]'
+          output-file: ${{ runner.temp }}/codex-output.md
+
+      - name: Inspect proposed fixes
+        if: steps.review.outputs.should-fix == 'true'
+        id: changes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -f .codex-review-fix-prompt.md
+          changed_files="$({
+            git diff --name-only --diff-filter=ACDMRTUXB HEAD
+            git ls-files --others --exclude-standard
+          } | sort -u)"
+
+          if [[ -z "${changed_files}" ]]; then
+            echo "The action bot found no safe fixes."
+            echo "has-changes=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          changed_count="$(printf '%s\n' "${changed_files}" | wc -l | tr -d ' ')"
+          if (( changed_count > 5 )); then
+            echo "The action bot changed ${changed_count} files; the limit is 5." >&2
+            exit 1
+          fi
+
+          frontend=false
+          rust=false
+          tauri_build=false
+          non_test_lines=0
+          while IFS= read -r file; do
+            case "${file}" in
+              .github/workflows/* | .github/codex/*)
+                echo "The action bot changed protected automation file: ${file}" >&2
+                exit 1
+                ;;
+              pnpm-lock.yaml | src-tauri/Cargo.lock | */vendor/* | */generated/* | */migrations/*)
+                echo "The action bot changed a protected generated, vendored, migration, or lock file: ${file}" >&2
+                exit 1
+                ;;
+              src-tauri/*)
+                rust=true
+                ;;
+              *)
+                frontend=true
+                ;;
+            esac
+
+            case "${file}" in
+              src-tauri/Cargo.toml | src-tauri/tauri.conf.json | src-tauri/build.rs | \
+                src-tauri/capabilities/* | src-tauri/permissions/* | src-tauri/src/platform/*)
+                tauri_build=true
+                ;;
+            esac
+
+            case "${file}" in
+              *.test.* | *.spec.* | tests/* | */tests/*)
+                continue
+                ;;
+            esac
+
+            if git ls-files --error-unmatch -- "${file}" >/dev/null 2>&1; then
+              while IFS=$'\t' read -r additions deletions _; do
+                if [[ "${additions}" == "-" || "${deletions}" == "-" ]]; then
+                  echo "The action bot changed binary non-test file: ${file}" >&2
+                  exit 1
+                fi
+                non_test_lines=$((non_test_lines + additions + deletions))
+              done < <(git diff --numstat HEAD -- "${file}")
+            else
+              non_test_lines=$((non_test_lines + $(wc -l < "${file}")))
+            fi
+          done <<< "${changed_files}"
+
+          if (( non_test_lines >= 200 )); then
+            echo "The action bot changed ${non_test_lines} non-test lines; the limit is below 200." >&2
+            exit 1
+          fi
+
+          git diff HEAD --check
+          printf '%s\n' "${changed_files}"
+          echo "has-changes=true" >> "${GITHUB_OUTPUT}"
+          echo "frontend=${frontend}" >> "${GITHUB_OUTPUT}"
+          echo "rust=${rust}" >> "${GITHUB_OUTPUT}"
+          echo "tauri-build=${tauri_build}" >> "${GITHUB_OUTPUT}"
+
+      - name: Validate frontend fixes
+        if: steps.changes.outputs.frontend == 'true'
+        run: |
+          pnpm typecheck
+          pnpm check
+          pnpm test
+          pnpm build
+
+      - name: Validate Rust fixes
+        if: steps.changes.outputs.rust == 'true'
+        run: |
+          cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+          cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+          cargo test --manifest-path src-tauri/Cargo.toml --all-features
+          cargo check --manifest-path src-tauri/Cargo.toml --all-targets --all-features
+
+      - name: Validate Tauri build
+        if: steps.changes.outputs.tauri-build == 'true'
+        run: pnpm tauri build --no-bundle
+
+      - name: Commit and push fixes
+        if: steps.changes.outputs.has-changes == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REVIEW_URL: ${{ github.event.review.html_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git switch -C "${HEAD_REF}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add --all
+          git commit \
+            -m "fix(repo): address Codex review findings" \
+            -m $'- verify and fix actionable review findings\n- preserve behavior outside the reported defects\n- pass applicable project validation'
+          gh auth setup-git
+          git push origin "HEAD:refs/heads/${HEAD_REF}"
+
+          report_path="${RUNNER_TEMP}/codex-review-fix-comment.md"
+          {
+            echo "## Automated review fix"
+            echo
+            echo "The action bot processed findings from ${REVIEW_URL}."
+            echo
+            cat "${RUNNER_TEMP}/codex-output.md"
+            echo
+            echo "## Validation"
+            echo
+            echo "Applicable frontend, Rust, and Tauri checks passed before the fix was pushed."
+            echo
+            echo "<!-- codex-review-fix -->"
+          } > "${report_path}"
+          gh pr comment "${PR_NUMBER}" --body-file "${report_path}"
+
+      - name: Report findings that were not changed
+        if: >-
+          steps.review.outputs.should-fix == 'true' &&
+          steps.changes.outputs.has-changes == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REVIEW_URL: ${{ github.event.review.html_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          report_path="${RUNNER_TEMP}/codex-review-fix-comment.md"
+          {
+            echo "## Automated review fix"
+            echo
+            echo "The action bot inspected findings from ${REVIEW_URL} but made no safe changes."
+            echo
+            cat "${RUNNER_TEMP}/codex-output.md"
+            echo
+            echo "<!-- codex-review-fix -->"
+          } > "${report_path}"
+          gh pr comment "${PR_NUMBER}" --body-file "${report_path}"
