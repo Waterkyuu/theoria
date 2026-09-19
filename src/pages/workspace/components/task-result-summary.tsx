@@ -53,6 +53,14 @@ const metricObject = (result: TaskAgentResult | undefined, key: string) => {
 		: null;
 };
 
+const tokenMetric = (
+	result: TaskAgentResult | undefined,
+	key: "cachedInputTokens" | "inputTokens" | "outputTokens",
+) => {
+	const value = metricObject(result, "tokenUsage")?.[key];
+	return typeof value === "number" && Number.isFinite(value) ? value : null;
+};
+
 /**
  * Keeps only tool measurements that the summary can render safely.
  *
@@ -123,6 +131,30 @@ const TaskResultSummary = ({ onClose, task }: TaskResultSummaryProps) => {
 			},
 		}),
 	);
+	const tokenRows: MetricRow[] = [
+		{
+			key: "input-tokens",
+			label: t("taskSummary.inputTokens"),
+			value: (result) =>
+				tokenMetric(result, "inputTokens")?.toLocaleString(i18n.language) ??
+				unavailable,
+		},
+		{
+			key: "output-tokens",
+			label: t("taskSummary.outputTokens"),
+			value: (result) =>
+				tokenMetric(result, "outputTokens")?.toLocaleString(i18n.language) ??
+				unavailable,
+		},
+		{
+			key: "cached-tokens",
+			label: t("taskSummary.cachedTokens"),
+			value: (result) =>
+				tokenMetric(result, "cachedInputTokens")?.toLocaleString(
+					i18n.language,
+				) ?? unavailable,
+		},
+	];
 	const rows: MetricRow[] = [
 		{
 			key: "status",
@@ -145,6 +177,7 @@ const TaskResultSummary = ({ onClose, task }: TaskResultSummaryProps) => {
 		{
 			key: "tokens",
 			label: t("taskSummary.tokens"),
+			children: tokenRows,
 			value: (result) => {
 				const total = metricObject(result, "tokenUsage")?.totalTokens;
 				return typeof total === "number"
@@ -191,9 +224,13 @@ const TaskResultSummary = ({ onClose, task }: TaskResultSummaryProps) => {
 						{hasChildItems && isTreeColumn ? (
 							<Button
 								aria-label={t(
-									isExpanded
-										? "taskSummary.collapseToolCalls"
-										: "taskSummary.expandToolCalls",
+									row.key === "tokens"
+										? isExpanded
+											? "taskSummary.collapseTokenDetails"
+											: "taskSummary.expandTokenDetails"
+										: isExpanded
+											? "taskSummary.collapseToolCalls"
+											: "taskSummary.expandToolCalls",
 								)}
 								className="min-w-0 rounded-md p-xs text-mute shadow-none"
 								isDisabled={isDisabled}
