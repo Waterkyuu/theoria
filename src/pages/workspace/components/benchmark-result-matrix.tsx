@@ -1,45 +1,34 @@
-import { useState } from "react";
 import { Table } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
-import { SearchBox } from "@/components/ui/search-box";
-import { Select } from "@/components/ui/select";
 import type { BenchmarkTaskDetail } from "@/types/benchmark";
 
 type BenchmarkResultMatrixProps = {
 	detail: BenchmarkTaskDetail;
+	/** Changes the visible result page after pagination actions. */
+	onPageChange: (page: number) => void;
 	onSelect: (caseId: string) => void;
+	/** Zero-based page selected by the parent view. */
+	page: number;
+	/** Execution result selected by the page-level filter. */
+	result: string;
+	/** Case-name query entered through the page Header. */
+	search: string;
 	selectedCaseId: string | null;
 };
 
 const PAGE_SIZE = 20;
-const RESULTS = [
-	"passed",
-	"failed",
-	"queued",
-	"preparing",
-	"running",
-	"waiting_permission",
-	"collecting",
-	"evaluating",
-	"stopping",
-	"timed_out",
-	"agent_error",
-	"evaluation_error",
-	"interaction_required",
-	"cancelled",
-	"interrupted",
-] as const;
 
 const BenchmarkResultMatrix = ({
 	detail,
+	onPageChange,
 	onSelect,
+	page,
+	result,
+	search,
 	selectedCaseId,
 }: BenchmarkResultMatrixProps) => {
 	const { t } = useTranslation();
-	const [search, setSearch] = useState("");
-	const [result, setResult] = useState<(typeof RESULTS)[number] | "all">("all");
-	const [page, setPage] = useState(0);
 	const query = search.trim().toLowerCase();
 	const filteredCases = detail.cases.filter(
 		(benchmarkCase) =>
@@ -60,35 +49,6 @@ const BenchmarkResultMatrix = ({
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col bg-surface-card">
-			<div className="grid gap-sm border-b border-hairline p-md sm:grid-cols-[minmax(0,1fr)_10rem]">
-				<SearchBox
-					className="h-9 rounded-md border border-hairline bg-surface-card shadow-none"
-					onValueChange={(value) => {
-						setSearch(value);
-						setPage(0);
-					}}
-					placeholder={t("benchmark.results.searchCases")}
-					value={search}
-				/>
-				<Select
-					label={t("benchmark.results.statusFilter")}
-					labelClassName="sr-only"
-					onChange={(value) => {
-						if (value) setResult(value);
-						setPage(0);
-					}}
-					options={[
-						{ value: "all", label: t("benchmark.results.allStatuses") },
-						...RESULTS.map((value) => ({
-							value,
-							label: t(`benchmark.results.state.${value}`),
-						})),
-					]}
-					placeholder={t("benchmark.results.allStatuses")}
-					value={result}
-				/>
-			</div>
-
 			<div className="min-h-0 flex-1 overflow-auto">
 				<Table variant="secondary">
 					<Table.ScrollContainer>
@@ -171,7 +131,7 @@ const BenchmarkResultMatrix = ({
 					<div className="flex items-center gap-sm">
 						<button
 							disabled={currentPage === 0}
-							onClick={() => setPage(currentPage - 1)}
+							onClick={() => onPageChange(currentPage - 1)}
 							type="button"
 						>
 							{t("benchmark.results.previous")}
@@ -181,7 +141,7 @@ const BenchmarkResultMatrix = ({
 						</span>
 						<button
 							disabled={currentPage + 1 === pageCount}
-							onClick={() => setPage(currentPage + 1)}
+							onClick={() => onPageChange(currentPage + 1)}
 							type="button"
 						>
 							{t("benchmark.results.next")}

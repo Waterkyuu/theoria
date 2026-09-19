@@ -114,7 +114,7 @@ const BenchmarkTaskActions = ({ detail }: BenchmarkTaskActionsProps) => {
 					>
 						<ArrowsRotateRight
 							aria-hidden="true"
-							className="size-4 text-charcoal"
+							className="size-4 text-mute"
 						/>
 					</button>
 					<ModalProvider
