@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { useState } from "react";
 import {
-	ChevronDown,
 	ChevronRight,
 	ChevronsCollapseUpRight,
 	ChevronsExpandUpRight,
@@ -13,6 +12,7 @@ import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { AgentIcon } from "@/components/share/agent-icon";
 import { MarkdownContent } from "@/components/share/markdown-content";
+import { Select } from "@/components/ui/select";
 import { formatDuration, formatToolPayload } from "@/utils/common";
 import { BenchmarkFeedback } from "@/pages/benchmark/components/feedback";
 import {
@@ -311,30 +311,21 @@ const BenchmarkExecutionDetail = ({
 				</div>
 
 				<div className="border-b border-hairline px-lg py-md">
-					<label className="flex items-center gap-md text-body-sm text-mute">
-						{t("benchmark.results.agentDetail")}
-						<span className="relative">
-							<select
-								aria-label={t("benchmark.results.agentDetail")}
-								className="h-9 appearance-none rounded-md border border-hairline bg-surface-card pl-md pr-xl text-ink outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-								onChange={(event) => {
-									setAgentId(event.target.value);
-									setArtifactPath(null);
-								}}
-								value={selected?.agent.id ?? ""}
-							>
-								{caseExecutions.map(({ agent }) => (
-									<option key={agent.id} value={agent.id}>
-										{t(`agentNames.${agent.agentKind}`)}
-									</option>
-								))}
-							</select>
-							<ChevronDown
-								aria-hidden="true"
-								className="pointer-events-none absolute right-sm top-1/2 size-4 -translate-y-1/2"
-							/>
-						</span>
-					</label>
+					<Select
+						className="w-fit flex-row items-center gap-md text-body-sm [&_[data-slot=label]]:text-mute [&_[data-slot=select-trigger]]:min-w-36"
+						fullWidth={false}
+						label={t("benchmark.results.agentDetail")}
+						onChange={(value) => {
+							if (value) setAgentId(value);
+							setArtifactPath(null);
+						}}
+						options={caseExecutions.map(({ agent }) => ({
+							value: agent.id,
+							label: t(`agentNames.${agent.agentKind}`),
+						}))}
+						placeholder={t("benchmark.results.agentDetail")}
+						value={selected?.agent.id ?? null}
+					/>
 					<div className="mt-md flex gap-lg" role="tablist">
 						{tabs.map((tab) => (
 							<button
@@ -367,7 +358,7 @@ const BenchmarkExecutionDetail = ({
 								>
 									<Table.Header>
 										<Table.Column className="w-10">#</Table.Column>
-										<Table.Column className="w-32" isRowHeader>
+										<Table.Column className="w-48" isRowHeader>
 											{t("benchmark.results.tool")}
 										</Table.Column>
 										<Table.Column>
@@ -387,23 +378,23 @@ const BenchmarkExecutionDetail = ({
 												id={`${call.name}-${index}`}
 												key={`${call.name}-${index}`}
 											>
-												<Table.Cell className="align-top tabular-nums">
+												<Table.Cell className="align-middle tabular-nums">
 													{index + 1}
 												</Table.Cell>
-												<Table.Cell className="align-top font-mono">
+												<Table.Cell className="break-all align-middle font-mono">
 													{call.name}
 												</Table.Cell>
-												<Table.Cell className="align-top">
+												<Table.Cell className="align-middle">
 													<pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all bg-surface-soft p-sm font-mono text-caption-sm">
 														{formatToolPayload(call.arguments)}
 													</pre>
 												</Table.Cell>
-												<Table.Cell className="align-top">
+												<Table.Cell className="align-middle">
 													<pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all bg-surface-soft p-sm font-mono text-caption-sm">
 														{formatToolPayload(call.result)}
 													</pre>
 												</Table.Cell>
-												<Table.Cell className="align-top">
+												<Table.Cell className="align-middle">
 													<span
 														className={cn(
 															"rounded-md px-sm py-xs text-caption-sm",
@@ -417,7 +408,7 @@ const BenchmarkExecutionDetail = ({
 															: "—"}
 													</span>
 												</Table.Cell>
-												<Table.Cell className="align-top tabular-nums">
+												<Table.Cell className="align-middle tabular-nums">
 													{formatDuration(call.durationMs)}
 												</Table.Cell>
 											</Table.Row>

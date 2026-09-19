@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { ChevronDown } from "@gravity-ui/icons";
 import { Table } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { SearchBox } from "@/components/ui/search-box";
+import { Select } from "@/components/ui/select";
 import type { BenchmarkTaskDetail } from "@/types/benchmark";
 
 type BenchmarkResultMatrixProps = {
@@ -38,7 +38,7 @@ const BenchmarkResultMatrix = ({
 }: BenchmarkResultMatrixProps) => {
 	const { t } = useTranslation();
 	const [search, setSearch] = useState("");
-	const [result, setResult] = useState("all");
+	const [result, setResult] = useState<(typeof RESULTS)[number] | "all">("all");
 	const [page, setPage] = useState(0);
 	const query = search.trim().toLowerCase();
 	const filteredCases = detail.cases.filter(
@@ -70,29 +70,23 @@ const BenchmarkResultMatrix = ({
 					placeholder={t("benchmark.results.searchCases")}
 					value={search}
 				/>
-				<label className="relative min-w-0">
-					<span className="sr-only">{t("benchmark.results.statusFilter")}</span>
-					<select
-						aria-label={t("benchmark.results.statusFilter")}
-						className="h-9 w-full appearance-none rounded-md border border-hairline bg-surface-card pl-md pr-xl text-body-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-						onChange={(event) => {
-							setResult(event.target.value);
-							setPage(0);
-						}}
-						value={result}
-					>
-						<option value="all">{t("benchmark.results.allStatuses")}</option>
-						{RESULTS.map((value) => (
-							<option key={value} value={value}>
-								{t(`benchmark.results.state.${value}`)}
-							</option>
-						))}
-					</select>
-					<ChevronDown
-						aria-hidden="true"
-						className="pointer-events-none absolute right-sm top-1/2 size-4 -translate-y-1/2 text-mute"
-					/>
-				</label>
+				<Select
+					className="[&_[data-slot=label]]:sr-only"
+					label={t("benchmark.results.statusFilter")}
+					onChange={(value) => {
+						if (value) setResult(value);
+						setPage(0);
+					}}
+					options={[
+						{ value: "all", label: t("benchmark.results.allStatuses") },
+						...RESULTS.map((value) => ({
+							value,
+							label: t(`benchmark.results.state.${value}`),
+						})),
+					]}
+					placeholder={t("benchmark.results.allStatuses")}
+					value={result}
+				/>
 			</div>
 
 			<div className="min-h-0 flex-1 overflow-auto">
