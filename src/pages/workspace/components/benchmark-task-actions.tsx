@@ -107,16 +107,15 @@ const BenchmarkTaskActions = ({ detail }: BenchmarkTaskActionsProps) => {
 			) : null}
 			{terminal ? (
 				<>
-					<Button
+					<button
 						aria-label={t("benchmark.rerun")}
-						className="min-h-8 shrink-0 gap-xs rounded-md border border-hairline bg-surface-card px-sm text-body-sm font-medium text-charcoal shadow-none outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
-						onPress={() => setRerunOpen(true)}
-						size="sm"
-						variant="secondary"
+						className="flex h-7 items-center gap-xs rounded-md border border-hairline bg-surface-card px-sm text-caption-sm font-medium text-charcoal outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
+						onClick={() => setRerunOpen(true)}
+						type="button"
 					>
 						<ArrowsRotateRight aria-hidden="true" className="size-4" />
 						{t("benchmark.rerun")}
-					</Button>
+					</button>
 					<ModalProvider
 						title={t("benchmark.rerun")}
 						description={t("benchmark.rerunDescription")}

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Funnel, Magnifier } from "@gravity-ui/icons";
-import { Button } from "@heroui/react";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/share/page-header";
 import { ModalProvider } from "@/components/ui/modal-provider";
@@ -104,7 +103,7 @@ const BenchmarkTaskView = ({ taskId }: BenchmarkTaskViewProps) => {
 							search.trim() ? "benchmark-case-search-query" : undefined
 						}
 						aria-label={t("benchmark.results.searchCases")}
-						className="rounded-md p-1 text-mute hover:text-ink focus-visible:outline-2 focus-visible:outline-focus-ring"
+						className="flex size-7 shrink-0 items-center justify-center rounded-md border border-hairline bg-surface-card text-charcoal outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
 						onClick={() => setSearchOpen(true)}
 						type="button"
 					>
@@ -135,15 +134,14 @@ const BenchmarkTaskView = ({ taskId }: BenchmarkTaskViewProps) => {
 							value={result}
 						/>
 					</ModalProvider>
-					<Button
-						className="min-h-8 shrink-0 gap-xs rounded-md border border-hairline bg-surface-card px-sm text-body-sm font-medium text-charcoal shadow-none outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
-						onPress={() => setFilterOpen(true)}
-						size="sm"
-						variant="secondary"
+					<button
+						className="flex h-7 items-center gap-xs rounded-md border border-hairline bg-surface-card px-sm text-caption-sm font-medium text-charcoal outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
+						onClick={() => setFilterOpen(true)}
+						type="button"
 					>
 						<Funnel aria-hidden="true" className="size-4" />
 						{t("benchmark.results.filter")}
-					</Button>
+					</button>
 					<BenchmarkTaskActions detail={detail} />
 				</div>
 			</PageHeader>
