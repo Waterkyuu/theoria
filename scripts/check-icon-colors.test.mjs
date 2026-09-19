@@ -35,6 +35,25 @@ describe("findIconColorViolations", () => {
 		]);
 	});
 
+	it("rejects non-semantic icon colors inside JSX expressions", () => {
+		const source = `
+			import { Plus } from "@gravity-ui/icons";
+			const Example = ({ active }) => (
+				<>
+					<Plus className={"size-4 text-blue-300"} />
+					<Plus className={\`size-4 \${active ? "text-purple-500" : "text-ink"}\`} />
+					<Plus className={cn("size-4", active && "text-red-500")} />
+				</>
+			);
+		`;
+
+		expect(findIconColorViolations(source, "example.tsx")).toEqual([
+			expect.objectContaining({ line: 5, color: "text-blue-300" }),
+			expect.objectContaining({ line: 6, color: "text-purple-500" }),
+			expect.objectContaining({ line: 7, color: "text-red-500" }),
+		]);
+	});
+
 	it("ignores custom icons and inline SVG paint colors", () => {
 		const source = `
 			const Example = () => (

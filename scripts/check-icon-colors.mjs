@@ -44,13 +44,16 @@ const findIconColorViolations = (source, filePath) => {
 	);
 
 	for (const match of source.matchAll(iconPattern)) {
-		const className = /className\s*=\s*(?:"([^"]*)"|'([^']*)'|`([^`]*)`)/.exec(
-			match[2],
-		);
+		const className =
+			/className\s*=\s*(?:"[^"]*"|'[^']*'|`[^`]*`|{(?:[^{}]|{[^{}]*})*})/.exec(
+				match[2],
+			);
 		if (!className) continue;
-		const classes = (className[1] ?? className[2] ?? className[3]).split(/\s+/);
-		for (const classToken of classes) {
-			const color = /^(?:[\w-]+:)*?(text-(.+))$/.exec(classToken);
+		const colorPattern = new RegExp(
+			`(?:[\\w-]+:)*?(text-(${COLOR_NAME_PATTERN.source}|\\[[^\\]]+\\]))`,
+			"g",
+		);
+		for (const color of className[0].matchAll(colorPattern)) {
 			const isBlueFolder =
 				BLUE_FOLDER_ICONS.has(match[1]) && color?.[1] === "text-blue-300";
 			if (
