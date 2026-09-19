@@ -26,6 +26,30 @@ fn sanitize_tool_payload(mut value: serde_json::Value) -> serde_json::Value {
                 }
             }
             serde_json::Value::Array(items) => items.iter_mut().for_each(redact),
+            serde_json::Value::String(text) => {
+                let lowercase = text.to_ascii_lowercase();
+                if [
+                    "authorization",
+                    "api_key",
+                    "api-key",
+                    "apikey",
+                    "access_token",
+                    "access-token",
+                    "refresh_token",
+                    "refresh-token",
+                    "password",
+                    "secret",
+                    "bearer ",
+                    "--token ",
+                    "token=",
+                    "token:",
+                ]
+                .iter()
+                .any(|marker| lowercase.contains(marker))
+                {
+                    *text = "[redacted]".to_string();
+                }
+            }
             _ => {}
         }
     }
@@ -400,7 +424,8 @@ mod tests {
             "write_file",
             Some(serde_json::json!({
                 "path": "summary.json",
-                "authorization": "Bearer private"
+                "authorization": "Bearer private",
+                "command": "curl -H 'Authorization: Bearer private' https://example.com"
             })),
             Duration::ZERO,
         );
@@ -418,7 +443,8 @@ mod tests {
             call.arguments,
             Some(serde_json::json!({
                 "path": "summary.json",
-                "authorization": "[redacted]"
+                "authorization": "[redacted]",
+                "command": "[redacted]"
             }))
         );
         assert!(call.result.as_ref().is_some_and(|value| {
