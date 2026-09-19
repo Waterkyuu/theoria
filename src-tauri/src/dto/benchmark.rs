@@ -436,6 +436,16 @@ pub(crate) struct PreviewBenchmarkAssetRequest {
     pub(crate) asset_id: String,
 }
 
+/// Opens a managed document with an application explicitly selected by the user.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct OpenBenchmarkAssetRequest {
+    /// Opaque identifier returned by a prior managed import.
+    pub(crate) asset_id: String,
+    /// Application selected through the native file picker.
+    pub(crate) application_path: PathBuf,
+}
+
 /// Portable root document stored as `benchmark.json` in a Theoria template folder.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

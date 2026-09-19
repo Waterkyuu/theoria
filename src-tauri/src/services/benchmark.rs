@@ -329,6 +329,24 @@ impl BenchmarkService {
         })
     }
 
+    /// Resolves only a regular managed asset for an explicit external preview action.
+    pub(crate) async fn external_preview_asset_path(
+        &self,
+        asset_id: &str,
+    ) -> Result<PathBuf, AppError> {
+        if !safe_asset_id(asset_id) {
+            return Err(AppError::InvalidBenchmark);
+        }
+        let path = self.asset_directory.join(asset_id);
+        let metadata = tokio::fs::symlink_metadata(&path)
+            .await
+            .map_err(|_| AppError::BenchmarkAssetUnavailable)?;
+        if !metadata.is_file() || metadata.file_type().is_symlink() {
+            return Err(AppError::BenchmarkAssetUnavailable);
+        }
+        Ok(path)
+    }
+
     async fn copy_template_reference(
         &self,
         root: &std::path::Path,

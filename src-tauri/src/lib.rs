@@ -368,6 +368,7 @@ pub fn run() {
             commands::benchmark::create_benchmark_tag,
             commands::benchmark::import_benchmark_asset,
             commands::benchmark::import_benchmark_folder,
+            commands::benchmark::open_benchmark_asset,
             commands::benchmark::preview_benchmark_asset,
             commands::benchmark::preview_benchmark_import,
             commands::benchmark::save_benchmark_text_asset,
