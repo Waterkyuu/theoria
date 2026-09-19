@@ -71,6 +71,7 @@ impl BenchmarkTaskRepository {
                 workspace_id: Set(value.workspace_id),
                 benchmark_id: Set(value.benchmark_id),
                 version_id: Set(value.version_id),
+                pinned_at_ms: Set(value.pinned_at_ms),
                 created_at_ms: Set(value.created_at_ms),
             })
             .on_conflict(
@@ -176,6 +177,7 @@ impl BenchmarkTaskRepository {
                 workspace_id: row.workspace_id,
                 benchmark_id: row.benchmark_id,
                 version_id: row.version_id,
+                pinned_at_ms: row.pinned_at_ms,
                 created_at_ms: row.created_at_ms,
             }))
     }

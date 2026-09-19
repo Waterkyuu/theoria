@@ -619,6 +619,7 @@ impl BenchmarkService {
                 workspace_id: workspace,
                 benchmark_id: benchmark,
                 version_id: version,
+                pinned_at_ms: None,
                 created_at_ms: now_ms()?,
             })
             .await

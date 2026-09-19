@@ -385,6 +385,8 @@ pub(crate) struct BenchmarkMount {
     pub(crate) benchmark_id: String,
     /// Explicitly pinned content version.
     pub(crate) version_id: String,
+    /// Optional pin time used by Workspace navigation ordering.
+    pub(crate) pinned_at_ms: Option<i64>,
     /// Mount creation time in UTC milliseconds.
     pub(crate) created_at_ms: i64,
 }

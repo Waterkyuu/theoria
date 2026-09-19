@@ -356,6 +356,7 @@ impl BenchmarkRepository {
             workspace_id: Set(value.workspace_id.clone()),
             benchmark_id: Set(value.benchmark_id.clone()),
             version_id: Set(value.version_id),
+            pinned_at_ms: Set(value.pinned_at_ms),
             created_at_ms: Set(value.created_at_ms),
         })
         .on_conflict(
@@ -435,6 +436,7 @@ impl BenchmarkRepository {
     ) -> Result<Vec<BenchmarkMount>, DbErr> {
         Ok(mount::Entity::find()
             .filter(mount::Column::WorkspaceId.eq(workspace))
+            .order_by_desc(mount::Column::PinnedAtMs)
             .order_by_desc(mount::Column::CreatedAtMs)
             .order_by_asc(mount::Column::Id)
             .limit(30)
@@ -509,6 +511,7 @@ fn mount_from_model(row: mount::Model) -> BenchmarkMount {
         workspace_id: row.workspace_id,
         benchmark_id: row.benchmark_id,
         version_id: row.version_id,
+        pinned_at_ms: row.pinned_at_ms,
         created_at_ms: row.created_at_ms,
     }
 }
