@@ -792,6 +792,31 @@ describe("AppSidebar", () => {
 		expect(queryMocks.deleteTask).toHaveBeenCalledWith("benchmark-task");
 	});
 
+	it("does not offer deletion for an active Benchmark Task", async () => {
+		queryMocks.useTasks.mockImplementation((workspaceId: string | null) => ({
+			data: workspaceId
+				? [{ ...WORKSPACE_TASK, id: "benchmark-task", kind: "benchmark" }]
+				: [RECENT_TASK],
+			isLoading: false,
+			error: null,
+		}));
+		const user = userEvent.setup();
+		render(
+			<AppSidebar currentPath="/" onNavigate={vi.fn()}>
+				<main>content</main>
+			</AppSidebar>,
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: "当前任务的更多操作" }),
+		);
+
+		expect(
+			await screen.findByRole("menuitem", { name: "重命名" }),
+		).toBeInTheDocument();
+		expect(screen.queryByRole("menuitem", { name: "删除" })).toBeNull();
+	});
+
 	it("renames a Recent Task from the shared rename modal", async () => {
 		const user = userEvent.setup();
 		const toastSuccess = vi.spyOn(Toast.toast, "success");
