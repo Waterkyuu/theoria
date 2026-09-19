@@ -118,6 +118,7 @@ describe("TaskResultSummary", () => {
 		expect(within(summary).getByText("250 ms")).toBeInTheDocument();
 		expect(within(summary).getByText(/README\.md/)).toBeInTheDocument();
 		expect(within(summary).getByText(/file contents/)).toBeInTheDocument();
+		expect(within(summary).getByText("状态: 成功")).toBeInTheDocument();
 		expect(within(summary).getByText("workspace.search")).toBeInTheDocument();
 		expect(within(summary).getByText("1.20 s")).toBeInTheDocument();
 		const thirdCallLabel = within(summary).getByRole("rowheader", {

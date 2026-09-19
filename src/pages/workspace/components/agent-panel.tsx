@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { AgentIcon } from "@/components/share/agent-icon";
 import { MarkdownContent } from "@/components/share/markdown-content";
 import { formatDuration, formatToolPayload } from "@/utils/common";
+import type { ToolCallMetric } from "@/types/agent";
 import type {
 	TaskAgent,
 	TaskAgentResult,
@@ -30,7 +31,7 @@ type ToolCallSummary = {
 	durationMs: number | null;
 	arguments: unknown;
 	result: unknown;
-	status: string | null;
+	status: ToolCallMetric["status"] | null;
 };
 
 const STATUS_DOT_CLASSES: Record<TaskStatus, string> = {
@@ -93,7 +94,12 @@ const readLatestToolCall = (
 			name: record.name,
 			arguments: record.arguments ?? null,
 			result: record.result ?? null,
-			status: typeof record.status === "string" ? record.status : null,
+			status:
+				record.status === "completed" ||
+				record.status === "failed" ||
+				record.status === "incomplete"
+					? record.status
+					: null,
 			durationMs:
 				typeof record.durationMs === "number" &&
 				Number.isFinite(record.durationMs)
@@ -233,7 +239,10 @@ const AgentPanel = ({
 										</p>
 										{latestToolCall.status ? (
 											<p className="mt-[4px] text-[11px] text-mute">
-												{t("taskSummary.toolStatus")}: {latestToolCall.status}
+												{t("taskSummary.toolStatus")}:{" "}
+												{t(
+													`benchmark.results.toolStatus.${latestToolCall.status}`,
+												)}
 											</p>
 										) : null}
 									</div>

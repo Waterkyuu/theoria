@@ -11,6 +11,7 @@ import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { AgentIcon } from "@/components/share/agent-icon";
 import { formatDuration, formatToolPayload } from "@/utils/common";
+import type { ToolCallMetric } from "@/types/agent";
 import type { TaskAgentResult, TaskDetail } from "@/types/task";
 
 type TaskResultSummaryProps = {
@@ -36,7 +37,7 @@ type ToolCall = {
 	durationMs: number;
 	arguments: unknown;
 	result: unknown;
-	status: string | null;
+	status: ToolCallMetric["status"] | null;
 };
 
 /** Reads a numeric field from untyped persisted Comparison metrics. */
@@ -73,6 +74,12 @@ const metricToolCalls = (result: TaskAgentResult | undefined): ToolCall[] => {
 	return value.flatMap((toolCall) => {
 		if (typeof toolCall !== "object" || toolCall === null) return [];
 		const record = toolCall as Record<string, unknown>;
+		const status =
+			record.status === "completed" ||
+			record.status === "failed" ||
+			record.status === "incomplete"
+				? record.status
+				: null;
 		return typeof record.name === "string" &&
 			typeof record.durationMs === "number" &&
 			Number.isFinite(record.durationMs)
@@ -82,7 +89,7 @@ const metricToolCalls = (result: TaskAgentResult | undefined): ToolCall[] => {
 						durationMs: record.durationMs,
 						arguments: record.arguments ?? null,
 						result: record.result ?? null,
-						status: typeof record.status === "string" ? record.status : null,
+						status,
 					},
 				]
 			: [];
@@ -124,7 +131,10 @@ const TaskResultSummary = ({ onClose, task }: TaskResultSummaryProps) => {
 							{t("taskSummary.result")}: {formatToolPayload(toolCall.result)}
 						</p>
 						<p className="text-mute">
-							{t("taskSummary.toolStatus")}: {toolCall.status ?? unavailable}
+							{t("taskSummary.toolStatus")}:{" "}
+							{toolCall.status
+								? t(`benchmark.results.toolStatus.${toolCall.status}`)
+								: unavailable}
 						</p>
 					</div>
 				);

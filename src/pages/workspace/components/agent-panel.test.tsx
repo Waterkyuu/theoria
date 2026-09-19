@@ -93,6 +93,7 @@ describe("AgentPanel", () => {
 		expect(screen.getByText("workspace.read")).toBeInTheDocument();
 		expect(screen.getByText(/README\.md/)).toBeInTheDocument();
 		expect(screen.getByText(/file contents/)).toBeInTheDocument();
+		expect(screen.getByText("状态: 成功")).toBeInTheDocument();
 		expect(screen.getByText("2m 14s · 18.4k tokens")).toBeInTheDocument();
 		expect(screen.getByText("打开记录")).toBeInTheDocument();
 	});
