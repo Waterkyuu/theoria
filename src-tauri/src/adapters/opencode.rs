@@ -171,6 +171,12 @@ struct OpenCodeToolState {
     status: String,
     /// Tool interval timestamps supplied once execution finishes.
     time: Option<OpenCodeTime>,
+    /// Structured tool parameters supplied by OpenCode.
+    input: Option<serde_json::Value>,
+    /// Terminal tool output supplied by OpenCode.
+    output: Option<serde_json::Value>,
+    /// Terminal error payload supplied by OpenCode.
+    error: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -527,13 +533,16 @@ fn collect_opencode_events_cancellable(
                     }
                     if matches!(state.status.as_str(), "completed" | "error") {
                         if let Some(time) = state.time.and_then(completed_interval) {
-                            collector.record_tool_started(
+                            collector.record_tool_started_with_details(
                                 &part.id,
                                 &tool,
+                                state.input,
                                 protocol_elapsed(protocol_started_at_ms, time.start),
                             );
-                            collector.record_tool_finished(
+                            collector.record_tool_finished_with_details(
                                 &part.id,
+                                state.error.as_ref().or(state.output.as_ref()).cloned(),
+                                state.status == "error",
                                 protocol_elapsed(protocol_started_at_ms, time.end),
                             );
                         }
@@ -794,6 +803,15 @@ mod tests {
         assert_eq!(output.metrics.thinking_duration, Duration::from_millis(200));
         assert_eq!(output.metrics.tool_calls.len(), 1);
         assert_eq!(output.metrics.tool_calls[0].name, "read");
+        assert_eq!(
+            output.metrics.tool_calls[0].arguments,
+            Some(serde_json::json!({}))
+        );
+        assert_eq!(
+            output.metrics.tool_calls[0].result,
+            Some(serde_json::json!("ok"))
+        );
+        assert_eq!(output.metrics.tool_calls[0].status, "completed");
         assert_eq!(
             output.metrics.tool_calls[0].duration,
             Duration::from_millis(250)
