@@ -19,7 +19,44 @@ impl MigratorTrait for Migrator {
             Box::new(CreateBenchmarks),
             Box::new(RemoveBenchmarkFallbackTag),
             Box::new(AddBenchmarkMountPin),
+            Box::new(CascadeBenchmarkTaskDeletion),
         ]
+    }
+}
+
+/// Makes Benchmark execution history owned by its common Task deletion boundary.
+struct CascadeBenchmarkTaskDeletion;
+
+impl MigrationName for CascadeBenchmarkTaskDeletion {
+    fn name(&self) -> &str {
+        "m011_cascade_benchmark_task_deletion"
+    }
+}
+
+#[sea_orm_migration::async_trait::async_trait]
+impl MigrationTrait for CascadeBenchmarkTaskDeletion {
+    fn use_transaction(&self) -> Option<bool> {
+        Some(false)
+    }
+
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!(
+                "sql/m011_cascade_benchmark_task_deletion/up.sql"
+            ))
+            .await?;
+        Ok(())
+    }
+
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!(
+                "sql/m011_cascade_benchmark_task_deletion/down.sql"
+            ))
+            .await?;
+        Ok(())
     }
 }
 
@@ -588,6 +625,75 @@ mod tests {
                 .execute_unprepared("DELETE FROM benchmark_versions WHERE id = 'v'")
                 .await
                 .is_err());
+            database.close().await.expect("database should close");
+            std::fs::remove_file(path).expect("owned database should be removed");
+        });
+    }
+
+    #[test]
+    fn deleting_a_benchmark_task_cascades_its_matrix_and_preserves_reruns() {
+        tauri::async_runtime::block_on(async {
+            let (path, url) = temporary_database_url();
+            let database = connect_sqlite(&url).await.expect("database should connect");
+            Migrator::up(&database, None)
+                .await
+                .expect("schema should initialize");
+            database
+				.execute_unprepared(
+					r#"
+					INSERT INTO workspaces (id, name, source_kind, source_path, created_at_ms, updated_at_ms)
+					VALUES ('w', 'Workspace', 'external', '/tmp/project', 1, 1);
+					INSERT INTO benchmark_tags (id, name, icon) VALUES ('coding', 'Coding', 'Code');
+					INSERT INTO benchmarks (id, name, description, tag_id, author, created_at_ms, updated_at_ms)
+					VALUES ('b', 'Suite', 'One question', 'coding', 'myself', 1, 1);
+					INSERT INTO benchmark_versions (id, benchmark_id, number, content_json, created_at_ms)
+					VALUES ('v', 'b', 1, '{}', 1);
+					INSERT INTO benchmark_cases (id, version_id, position, name, content_json)
+					VALUES ('c', 'v', 0, 'One', '{}');
+					INSERT INTO tasks (id, kind, workspace_id, title, status, created_at_ms, updated_at_ms)
+					VALUES ('source', 'benchmark', 'w', 'Source', 'completed', 1, 1),
+					       ('rerun', 'benchmark', 'w', 'Rerun', 'completed', 2, 2);
+					INSERT INTO task_permissions (task_id, file_access, command_execution, created_at_ms)
+					VALUES ('source', 'allow_edits', 'ask', 1), ('rerun', 'allow_edits', 'ask', 2);
+					INSERT INTO benchmark_tasks (task_id, version_id, idempotency_key, request_json, rerun_of_task_id)
+					VALUES ('source', 'v', 'source-key', '{}', NULL),
+					       ('rerun', 'v', 'rerun-key', '{}', 'source');
+					INSERT INTO benchmark_task_agents (id, task_id, agent_kind, position)
+					VALUES ('a', 'source', 'codex', 0);
+					INSERT INTO benchmark_task_cases (id, task_id, case_id, version_id, position)
+					VALUES ('tc', 'source', 'c', 'v', 0);
+					INSERT INTO benchmark_case_executions (id, task_id, task_case_id, task_agent_id, phase, started_at_ms, finished_at_ms)
+					VALUES ('e', 'source', 'tc', 'a', 'finished', 1, 2);
+					INSERT INTO benchmark_evaluations (execution_id, verdict, validator_version, report_json, created_at_ms)
+					VALUES ('e', 'passed', 1, '{}', 2);
+					"#,
+				)
+				.await
+				.expect("Benchmark history should be reproducible");
+
+            let deleted = database
+                .execute_unprepared("DELETE FROM tasks WHERE id = 'source'")
+                .await;
+            assert!(
+                deleted.is_ok(),
+                "Benchmark Task should cascade: {deleted:?}"
+            );
+            let remaining = database
+                .query_one_raw(Statement::from_string(
+                    DatabaseBackend::Sqlite,
+                    "SELECT rerun_of_task_id FROM benchmark_tasks WHERE task_id = 'rerun'"
+                        .to_string(),
+                ))
+                .await
+                .expect("Rerun should query")
+                .expect("Rerun should remain");
+            assert_eq!(
+                remaining
+                    .try_get::<Option<String>>("", "rerun_of_task_id")
+                    .expect("Rerun source should decode"),
+                None
+            );
+
             database.close().await.expect("database should close");
             std::fs::remove_file(path).expect("owned database should be removed");
         });
