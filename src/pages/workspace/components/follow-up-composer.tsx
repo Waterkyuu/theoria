@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { ArrowUp } from "@gravity-ui/icons";
+import { ArrowUp, ChevronDown } from "@gravity-ui/icons";
+import { Dropdown } from "@heroui/react";
 import { useTranslation } from "react-i18next";
 import { AgentIcon } from "@/components/share/agent-icon";
+import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import type { TaskAgent } from "@/types/task";
 
 type FollowUpComposerProps = {
@@ -35,6 +37,13 @@ const FollowUpComposer = ({
 		targetId === "all" || resumableAgents.some((agent) => agent.id === targetId)
 			? targetId
 			: "all";
+	const selectedAgent = resumableAgents.find(
+		(agent) => agent.id === selectedTarget,
+	);
+	const selectedTargetLabel = selectedAgent
+		? t(`agentNames.${selectedAgent.agentKind}`)
+		: t("taskFollowUp.allAgents");
+	const hiddenAgentCount = Math.max(resumableAgents.length - 3, 0);
 
 	/** Sends the current message and retains the selected target for the next turn. */
 	const submitFollowUp = async () => {
@@ -47,30 +56,87 @@ const FollowUpComposer = ({
 	return (
 		<div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-canvas via-canvas to-transparent px-3 pb-3 pt-12 sm:px-xl sm:pb-xl">
 			<div className="pointer-events-auto mx-auto max-w-180 rounded-2xl border border-hairline-strong bg-surface-card shadow-md">
-				<div className="flex items-center gap-xs overflow-x-auto border-b border-hairline px-sm py-sm">
-					<button
-						aria-pressed={selectedTarget === "all"}
-						className="h-7 shrink-0 rounded-md px-sm text-caption-sm font-medium text-charcoal outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring aria-pressed:bg-surface-soft aria-pressed:text-ink"
-						onClick={() => setTargetId("all")}
-						type="button"
+				<div className="flex items-center border-b border-hairline px-sm py-sm">
+					<DropdownMenu
+						aria-label={t("taskFollowUp.agentSelection")}
+						className="w-72 max-w-[calc(100vw-24px)] overflow-hidden rounded-lg border border-hairline bg-canvas p-sm shadow-[0_16px_40px_rgba(0,0,0,0.12)]"
+						menuClassName="max-h-72 overflow-y-auto p-0"
+						placement="top start"
+						selectedKeys={[selectedTarget]}
+						selectionMode="single"
+						trigger={
+							<Dropdown.Trigger
+								aria-label={t("taskFollowUp.agentSelectionSummary", {
+									count: resumableAgents.length,
+									target: selectedTargetLabel,
+								})}
+								className="flex h-7 max-w-full items-center gap-sm rounded-md px-sm text-caption-sm text-charcoal outline-none hover:bg-surface-soft active:scale-100 focus-visible:ring-2 focus-visible:ring-focus-ring data-[pressed=true]:scale-100"
+								type="button"
+							>
+								<span className="shrink-0 text-caption-sm font-medium leading-4 text-ink">
+									{selectedTargetLabel}
+								</span>
+								<span aria-hidden="true" className="flex -space-x-2.5 isolate">
+									{resumableAgents.slice(0, 3).map((agent) => (
+										<span
+											className="relative grid size-5 place-items-center"
+											key={agent.id}
+										>
+											<AgentIcon
+												height={20}
+												name={agent.agentKind}
+												width={20}
+											/>
+										</span>
+									))}
+								</span>
+								{hiddenAgentCount > 0 ? (
+									<span className="text-[11px] tabular-nums text-body">
+										+{hiddenAgentCount}
+									</span>
+								) : null}
+								<ChevronDown aria-hidden="true" className="size-3 shrink-0" />
+							</Dropdown.Trigger>
+						}
 					>
-						{t("taskFollowUp.allAgents")}
-					</button>
-					{resumableAgents.map((agent) => (
-						<button
-							aria-label={t("taskFollowUp.targetAgent", {
-								agent: t(`agentNames.${agent.agentKind}`),
-							})}
-							aria-pressed={selectedTarget === agent.id}
-							className="flex h-7 shrink-0 items-center gap-xs rounded-md px-sm text-caption-sm text-charcoal outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring aria-pressed:bg-surface-soft aria-pressed:text-ink"
-							key={agent.id}
-							onClick={() => setTargetId(agent.id)}
-							type="button"
+						<Dropdown.Item
+							className="flex w-full items-center justify-between rounded-md px-md py-sm text-body-sm hover:bg-surface-soft"
+							id="all"
+							onAction={() => setTargetId("all")}
+							textValue={t("taskFollowUp.allAgents")}
 						>
-							<AgentIcon name={agent.agentKind} width={14} height={14} />
-							{t(`agentNames.${agent.agentKind}`)}
-						</button>
-					))}
+							<span className="font-medium">{t("taskFollowUp.allAgents")}</span>
+							<span className="text-caption-sm text-mute">
+								{resumableAgents.length}
+							</span>
+						</Dropdown.Item>
+						{resumableAgents.map((agent) => {
+							const agentName = t(`agentNames.${agent.agentKind}`);
+							const model = agent.modelSnapshot ?? t("unknownModel");
+							return (
+								<Dropdown.Item
+									aria-label={`${agentName} ${model}`}
+									className="flex w-full items-center gap-sm rounded-md px-md py-sm text-left hover:bg-surface-soft"
+									id={agent.id}
+									key={agent.id}
+									onAction={() => setTargetId(agent.id)}
+									textValue={`${agentName} ${model}`}
+								>
+									<span className="grid size-7 shrink-0 place-items-center">
+										<AgentIcon height={16} name={agent.agentKind} width={16} />
+									</span>
+									<span className="min-w-0 flex-1">
+										<span className="block text-body-sm font-medium text-ink">
+											{agentName}
+										</span>
+										<span className="block truncate font-mono text-caption-sm text-mute">
+											{model}
+										</span>
+									</span>
+								</Dropdown.Item>
+							);
+						})}
+					</DropdownMenu>
 				</div>
 				<div className="flex items-end gap-sm px-lg py-md">
 					<label className="sr-only" htmlFor="task-follow-up">

@@ -550,6 +550,8 @@ const zhCN = {
 			label: "继续任务",
 			placeholder: "继续向现有 Agent 发送消息…",
 			allAgents: "全部 Agent",
+			agentSelection: "选择接收消息的 Agent",
+			agentSelectionSummary: "{{target}}，任务中共 {{count}} 个 Agent",
 			targetAgent: "仅发送给 {{agent}}",
 			send: "发送继续任务",
 			sent: "已发送继续任务",

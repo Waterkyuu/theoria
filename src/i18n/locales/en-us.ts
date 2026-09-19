@@ -566,6 +566,8 @@ const enUS = {
 			label: "Continue task",
 			placeholder: "Send another message to the existing Agents…",
 			allAgents: "All Agents",
+			agentSelection: "Choose message recipients",
+			agentSelectionSummary: "{{target}}, {{count}} Agents in this task",
 			targetAgent: "Send only to {{agent}}",
 			send: "Send follow-up",
 			sent: "Follow-up sent",

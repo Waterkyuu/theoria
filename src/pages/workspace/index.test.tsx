@@ -602,7 +602,14 @@ describe("WorkspacePage", () => {
 			taskAgentIds: [],
 		});
 
-		await user.click(screen.getByRole("button", { name: "仅发送给 Codex" }));
+		await user.click(
+			screen.getByRole("button", {
+				name: "全部 Agent，任务中共 1 个 Agent",
+			}),
+		);
+		await user.click(
+			screen.getByRole("menuitemradio", { name: "Codex gpt-runtime" }),
+		);
 		await user.type(followUp, "Check Codex output");
 		await user.click(screen.getByRole("button", { name: "发送继续任务" }));
 		expect(apiMocks.continueTask).toHaveBeenLastCalledWith({
