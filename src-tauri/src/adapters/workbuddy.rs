@@ -1074,11 +1074,11 @@ mod tests {
         assert_eq!(output.metrics.tool_calls[0].name, "Bash");
         assert_eq!(
             output.metrics.tool_calls[0].arguments.as_ref(),
-            Some(&serde_json::json!({"command": "cat orders.json"}))
+            Some(&serde_json::json!({"command": "[redacted]"}))
         );
         assert_eq!(
             output.metrics.tool_calls[0].result,
-            Some(serde_json::json!("2 orders"))
+            Some(serde_json::json!("[redacted]"))
         );
         assert_eq!(output.metrics.tool_calls[0].status, "completed");
     }

@@ -6,49 +6,11 @@ fn sanitize_tool_payload(mut value: serde_json::Value) -> serde_json::Value {
     fn redact(value: &mut serde_json::Value) {
         match value {
             serde_json::Value::Object(fields) => {
-                for (key, field) in fields {
-                    let key = key.to_ascii_lowercase();
-                    if matches!(
-                        key.as_str(),
-                        "api_key"
-                            | "apikey"
-                            | "authorization"
-                            | "password"
-                            | "secret"
-                            | "token"
-                            | "access_token"
-                            | "refresh_token"
-                    ) {
-                        *field = serde_json::Value::String("[redacted]".to_string());
-                    } else {
-                        redact(field);
-                    }
-                }
+                fields.values_mut().for_each(redact);
             }
             serde_json::Value::Array(items) => items.iter_mut().for_each(redact),
             serde_json::Value::String(text) => {
-                let lowercase = text.to_ascii_lowercase();
-                if [
-                    "authorization",
-                    "api_key",
-                    "api-key",
-                    "apikey",
-                    "access_token",
-                    "access-token",
-                    "refresh_token",
-                    "refresh-token",
-                    "password",
-                    "secret",
-                    "bearer ",
-                    "--token ",
-                    "token=",
-                    "token:",
-                ]
-                .iter()
-                .any(|marker| lowercase.contains(marker))
-                {
-                    *text = "[redacted]".to_string();
-                }
+                *text = "[redacted]".to_string();
             }
             _ => {}
         }
@@ -406,12 +368,9 @@ mod tests {
 
         assert_eq!(
             call.arguments,
-            Some(serde_json::json!({"path": "summary.json"}))
+            Some(serde_json::json!({"path": "[redacted]"}))
         );
-        assert_eq!(
-            call.result,
-            Some(serde_json::json!("workspace is read-only"))
-        );
+        assert_eq!(call.result, Some(serde_json::json!("[redacted]")));
         assert_eq!(call.status, "failed");
     }
 
@@ -424,14 +383,28 @@ mod tests {
             "write_file",
             Some(serde_json::json!({
                 "path": "summary.json",
-                "authorization": "Bearer private",
+                "x-api-key": "sk-private",
                 "command": "curl -H 'Authorization: Bearer private' https://example.com"
             })),
             Duration::ZERO,
         );
         collector.record_tool_finished_with_details(
             "tool-1",
-            Some(serde_json::json!("x".repeat(MAX_TOOL_PAYLOAD_CHARS + 10))),
+            Some(serde_json::json!(
+                "-----BEGIN OPENSSH PRIVATE KEY----- private"
+            )),
+            false,
+            Duration::from_millis(1),
+        );
+        collector.record_tool_started_with_details(
+            "tool-2",
+            "structured_result",
+            None,
+            Duration::ZERO,
+        );
+        collector.record_tool_finished_with_details(
+            "tool-2",
+            Some(serde_json::json!(vec![false; MAX_TOOL_PAYLOAD_CHARS])),
             false,
             Duration::from_millis(1),
         );
@@ -442,12 +415,13 @@ mod tests {
         assert_eq!(
             call.arguments,
             Some(serde_json::json!({
-                "path": "summary.json",
-                "authorization": "[redacted]",
+                "path": "[redacted]",
+                "x-api-key": "[redacted]",
                 "command": "[redacted]"
             }))
         );
-        assert!(call.result.as_ref().is_some_and(|value| {
+        assert_eq!(call.result, Some(serde_json::json!("[redacted]")));
+        assert!(metrics.tool_calls[1].result.as_ref().is_some_and(|value| {
             value
                 .as_str()
                 .is_some_and(|text| text.chars().count() == MAX_TOOL_PAYLOAD_CHARS + 1)

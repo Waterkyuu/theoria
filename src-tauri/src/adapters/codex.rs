@@ -1161,11 +1161,11 @@ cat <&0 >/dev/null
         assert_eq!(output.metrics.tool_calls[0].name, "github.search");
         assert_eq!(
             output.metrics.tool_calls[0].arguments.as_ref(),
-            Some(&serde_json::json!({"path": "summary.json"}))
+            Some(&serde_json::json!({"path": "[redacted]"}))
         );
         assert_eq!(
             output.metrics.tool_calls[0].result,
-            Some(serde_json::json!({"message": "workspace is read-only"}))
+            Some(serde_json::json!({"message": "[redacted]"}))
         );
         assert_eq!(output.metrics.tool_calls[0].status, "failed");
         assert_eq!(output.metrics.compaction_count, Some(1));

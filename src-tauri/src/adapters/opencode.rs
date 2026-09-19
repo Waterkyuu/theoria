@@ -809,7 +809,7 @@ mod tests {
         );
         assert_eq!(
             output.metrics.tool_calls[0].result,
-            Some(serde_json::json!("ok"))
+            Some(serde_json::json!("[redacted]"))
         );
         assert_eq!(output.metrics.tool_calls[0].status, "completed");
         assert_eq!(

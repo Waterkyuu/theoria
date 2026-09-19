@@ -1001,11 +1001,11 @@ mod tests {
         assert_eq!(output.metrics.tool_calls[0].name, "Read");
         assert_eq!(
             output.metrics.tool_calls[0].arguments.as_ref(),
-            Some(&serde_json::json!({"file_path": "orders.json"}))
+            Some(&serde_json::json!({"file_path": "[redacted]"}))
         );
         assert_eq!(
             output.metrics.tool_calls[0].result,
-            Some(serde_json::json!("permission denied"))
+            Some(serde_json::json!("[redacted]"))
         );
         assert_eq!(output.metrics.tool_calls[0].status, "failed");
     }
