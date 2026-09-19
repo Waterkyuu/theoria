@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type KeyboardEvent, useState } from "react";
 import { Funnel, Magnifier } from "@gravity-ui/icons";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/share/page-header";
@@ -47,6 +47,16 @@ const BenchmarkTaskView = ({ taskId }: BenchmarkTaskViewProps) => {
 	const [result, setResult] = useState<(typeof RESULT_FILTERS)[number] | "all">(
 		"all",
 	);
+
+	/** Preserves native button keyboard behavior when the icon itself is the trigger.
+	 * @example handleSearchIconKeyDown(event)
+	 */
+	const handleSearchIconKeyDown = (event: KeyboardEvent<SVGSVGElement>) => {
+		if (event.key !== "Enter" && event.key !== " ") return;
+		event.preventDefault();
+		setSearchOpen(true);
+	};
+
 	if (!query.data) {
 		return (
 			<main className="h-dvh min-w-0 flex-1 overflow-y-auto bg-canvas p-xl">
@@ -98,17 +108,17 @@ const BenchmarkTaskView = ({ taskId }: BenchmarkTaskViewProps) => {
 							value={search}
 						/>
 					</ModalProvider>
-					<button
+					<Magnifier
 						aria-describedby={
 							search.trim() ? "benchmark-case-search-query" : undefined
 						}
 						aria-label={t("benchmark.results.searchCases")}
-						className="rounded-md p-1 text-mute hover:text-ink focus-visible:outline-2 focus-visible:outline-focus-ring"
+						className="size-4 shrink-0 cursor-pointer text-ink outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
 						onClick={() => setSearchOpen(true)}
-						type="button"
-					>
-						<Magnifier aria-hidden="true" className="size-4" />
-					</button>
+						onKeyDown={handleSearchIconKeyDown}
+						role="button"
+						tabIndex={0}
+					/>
 					<ModalProvider
 						isOpen={filterOpen}
 						onOpenChange={setFilterOpen}
@@ -135,12 +145,12 @@ const BenchmarkTaskView = ({ taskId }: BenchmarkTaskViewProps) => {
 						/>
 					</ModalProvider>
 					<button
-						aria-label={t("benchmark.results.statusFilter")}
-						className="rounded-md p-1 text-mute hover:text-ink focus-visible:outline-2 focus-visible:outline-focus-ring"
+						className="flex h-7 items-center gap-xs rounded-md border border-hairline bg-surface-card px-sm text-caption-sm font-medium text-charcoal outline-none hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-focus-ring"
 						onClick={() => setFilterOpen(true)}
 						type="button"
 					>
 						<Funnel aria-hidden="true" className="size-4" />
+						{t("benchmark.results.filter")}
 					</button>
 					<BenchmarkTaskActions detail={detail} />
 				</div>

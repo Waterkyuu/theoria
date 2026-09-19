@@ -315,11 +315,11 @@ const RunBoardPage = () => {
 						aria-describedby={
 							searchValue.trim() ? "run-board-search-query" : undefined
 						}
-						className="rounded-md p-1 text-mute hover:text-ink focus-visible:outline-2 focus-visible:outline-focus-ring"
+						className="rounded-md p-1 focus-visible:outline-2 focus-visible:outline-focus-ring"
 						onClick={() => setSearchOpen(true)}
 						type="button"
 					>
-						<Magnifier aria-hidden="true" className="size-4" />
+						<Magnifier aria-hidden="true" className="size-4 text-ink" />
 					</button>
 				</div>
 			</PageHeader>
