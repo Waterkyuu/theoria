@@ -236,6 +236,7 @@ const WorkspaceSidebarItem = ({
 							<div role="group">
 								{mounts.map((mount) => (
 									<BenchmarkMountRow
+										currentPath={currentPath}
 										key={mount.id}
 										mount={mount}
 										onNavigate={onNavigate}
