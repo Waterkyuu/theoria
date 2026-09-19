@@ -45,6 +45,7 @@ const BenchmarkMountActions = ({
 	name,
 	onUnmounted,
 }: BenchmarkMountActionsProps) => {
+	"use no memo";
 	const { t } = useTranslation();
 	const [isUnmountOpen, setIsUnmountOpen] = useState(false);
 	const pinMutation = useSetBenchmarkMountPin();
@@ -218,6 +219,7 @@ const BenchmarkMountRow = ({
 	mount,
 	onNavigate,
 }: BenchmarkMountRowProps) => {
+	"use no memo";
 	const { t } = useTranslation();
 	const query = useBenchmark(mount.benchmarkId, mount.versionId);
 	const name =

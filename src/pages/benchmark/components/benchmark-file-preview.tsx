@@ -56,6 +56,7 @@ const BenchmarkFilePreview = ({
 	file,
 	onChange,
 }: BenchmarkFilePreviewProps) => {
+	"use no memo";
 	const { t } = useTranslation();
 	const [isOpen, setIsOpen] = useState(false);
 	const [pending, setPending] = useState(false);
