@@ -55,13 +55,21 @@ jobs:
             "repos/${GH_REPO}/pulls/${PR_NUMBER}/reviews/${REVIEW_ID}/comments?per_page=100" \
             > "${comments_path}"
 
-          comment_count="$(jq 'length' "${comments_path}")"
+          inline_has_finding="$(
+            jq '
+              any(
+                .[];
+                (.body // "")
+                  | test("(^|[^[:alnum:]])P[01]([^[:digit:]]|$)"; "i")
+              )
+            ' "${comments_path}"
+          )"
           body_has_finding=false
           if printf '%s' "${REVIEW_BODY}" | grep -Eiq '(^|[^[:alnum:]])P[01]([^[:digit:]]|$)'; then
             body_has_finding=true
           fi
 
-          if (( comment_count == 0 )) && [[ "${body_has_finding}" == "false" ]]; then
+          if [[ "${inline_has_finding}" == "false" && "${body_has_finding}" == "false" ]]; then
             echo "The Codex review contains no P0 or P1 findings."
             echo "should-fix=false" >> "${GITHUB_OUTPUT}"
             exit 0
