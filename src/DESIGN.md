@@ -90,8 +90,6 @@ Components imported from `@gravity-ui/icons` use no more than three semantic col
 | muted       | `text-mute`   | `--color-mute`   | Secondary actions and supporting metadata  |
 | destructive | `text-danger` | `--color-danger` | Destructive actions and failure indicators |
 
-Brand and file-type assets retain their original colors and are outside this palette. `FolderFill` and `FolderOpenFill` retain `text-blue-300` as the single Gravity Icons exception. Icons inside filled controls inherit the control foreground only to preserve contrast; this does not introduce another semantic icon role.
-
 ## Tokens — Spacing & Shapes
 
 **Density:** comfortable
