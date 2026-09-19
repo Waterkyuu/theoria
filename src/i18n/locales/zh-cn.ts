@@ -207,7 +207,6 @@ const zhCN = {
 				statusFilter: "状态",
 				allAgents: "全部 Agent",
 				allStatuses: "全部状态",
-				filteredCases: "显示 {{count}} / {{total}} 个 Case",
 				noCases: "没有符合筛选条件的 Case。",
 				previous: "上一页",
 				next: "下一页",

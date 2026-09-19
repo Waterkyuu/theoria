@@ -209,7 +209,6 @@ const enUS = {
 				statusFilter: "Status",
 				allAgents: "All Agents",
 				allStatuses: "All statuses",
-				filteredCases: "{{count}} of {{total}} cases",
 				noCases: "No cases match these filters.",
 				previous: "Previous",
 				next: "Next",

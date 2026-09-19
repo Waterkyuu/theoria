@@ -355,6 +355,7 @@ it("filters matrix rows without changing the full-task aggregate", async () => {
 	renderTask();
 
 	expect(await screen.findByText("2/2")).toBeInTheDocument();
+	expect(screen.queryByText(/\d+ of \d+ cases/)).not.toBeInTheDocument();
 	const search = screen.getByRole("searchbox", { name: "Search cases" });
 	search.focus();
 	await user.keyboard("write");
