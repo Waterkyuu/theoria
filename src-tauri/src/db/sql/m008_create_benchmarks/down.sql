@@ -1,0 +1,11 @@
+DROP TABLE benchmark_evaluations;
+DROP TABLE benchmark_case_executions;
+DROP TABLE benchmark_task_cases;
+DROP TABLE benchmark_task_agents;
+DROP TABLE benchmark_tasks;
+DROP TABLE workspace_benchmarks;
+DROP TABLE benchmark_cases;
+DROP TABLE benchmark_versions;
+DROP TABLE benchmark_drafts;
+DROP TABLE benchmarks;
+DROP TABLE benchmark_tags;

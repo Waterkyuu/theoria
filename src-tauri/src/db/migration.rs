@@ -35,12 +35,15 @@ impl MigrationTrait for CreateBenchmarks {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .get_connection()
-            .execute_unprepared(include_str!("sql/benchmark.sql"))
+            .execute_unprepared(include_str!("sql/m008_create_benchmarks/up.sql"))
             .await?;
         Ok(())
     }
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager.get_connection().execute_unprepared("DROP TABLE benchmark_evaluations; DROP TABLE benchmark_case_executions; DROP TABLE benchmark_task_cases; DROP TABLE benchmark_task_agents; DROP TABLE benchmark_tasks; DROP TABLE workspace_benchmarks; DROP TABLE benchmark_cases; DROP TABLE benchmark_versions; DROP TABLE benchmark_drafts; DROP TABLE benchmarks; DROP TABLE benchmark_tags;").await?;
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!("sql/m008_create_benchmarks/down.sql"))
+            .await?;
         Ok(())
     }
 }
@@ -166,14 +169,7 @@ impl MigrationTrait for AddTaskPin {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .get_connection()
-            .execute_unprepared(
-                r#"
-                ALTER TABLE tasks ADD COLUMN pinned_at_ms INTEGER
-                    CHECK (pinned_at_ms IS NULL OR pinned_at_ms > 0);
-                CREATE INDEX idx_tasks_scope_pin_history
-                    ON tasks(workspace_id, pinned_at_ms DESC, created_at_ms DESC);
-                "#,
-            )
+            .execute_unprepared(include_str!("sql/m20260901_000007_add_task_pin/up.sql"))
             .await?;
         Ok(())
     }
@@ -181,12 +177,7 @@ impl MigrationTrait for AddTaskPin {
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .get_connection()
-            .execute_unprepared(
-                r#"
-                DROP INDEX idx_tasks_scope_pin_history;
-                ALTER TABLE tasks DROP COLUMN pinned_at_ms;
-                "#,
-            )
+            .execute_unprepared(include_str!("sql/m20260901_000007_add_task_pin/down.sql"))
             .await?;
         Ok(())
     }
@@ -496,7 +487,7 @@ mod tests {
                 .await
                 .expect("pre-benchmark schema should initialize");
             database
-                .execute_unprepared(include_str!("sql/benchmark.sql"))
+                .execute_unprepared(include_str!("sql/m008_create_benchmarks/up.sql"))
                 .await
                 .expect("benchmark schema fixture should initialize");
             database
