@@ -1,0 +1,56 @@
+import { describe, expect, it } from "vitest";
+import { findIconColorViolations } from "./check-icon-colors.mjs";
+
+describe("findIconColorViolations", () => {
+	it("allows semantic colors, blue folder identity, and currentColor SVG paint", () => {
+		const source = `
+			import { FolderFill, FolderOpenFill, Plus, TrashBin } from "@gravity-ui/icons";
+			const Example = () => (
+				<>
+					<Plus className="size-4 text-ink" />
+					<Plus className="size-4 text-mute" />
+					<TrashBin className="size-4 text-danger" />
+					<FolderFill className="size-4 text-blue-300" />
+					<FolderOpenFill className="size-4 text-blue-300" />
+					<svg fill="currentColor"><path fill="none" /></svg>
+				</>
+			);
+		`;
+
+		expect(findIconColorViolations(source, "example.tsx")).toEqual([]);
+	});
+
+	it("rejects non-semantic text colors on icon components", () => {
+		const source = `
+			import { Plus } from "@gravity-ui/icons";
+			const Example = () => (
+				<>
+					<Plus className="size-4 text-blue-300" />
+					<AgentIcon className="text-charcoal" name="codex" />
+					<span className="text-blue-300">Not an icon</span>
+				</>
+			);
+		`;
+
+		expect(findIconColorViolations(source, "example.tsx")).toEqual([
+			expect.objectContaining({ line: 5, color: "text-blue-300" }),
+			expect.objectContaining({ line: 6, color: "text-charcoal" }),
+		]);
+	});
+
+	it("rejects hardcoded SVG paint colors", () => {
+		const source = `
+			const Example = () => (
+				<svg fill="#fff" style={{ color: "rgb(0, 0, 0)" }}>
+					<path stroke="red" />
+				</svg>
+			);
+		`;
+
+		expect(findIconColorViolations(source, "example.tsx")).toEqual([
+			expect.objectContaining({ line: 3, color: "fill=#fff" }),
+			expect.objectContaining({ line: 3, color: "color=rgb(0, 0, 0)" }),
+			expect.objectContaining({ line: 4, color: "stroke=red" }),
+		]);
+	});
+});
