@@ -208,61 +208,24 @@ impl MigrationTrait for AllowWaitingTaskAgentTurns {
     }
 
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        rebuild_task_agent_turns(manager, "'waiting', 'completed', 'failed', 'stopped'", "").await
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!(
+                "sql/m20260831_000006_allow_waiting_task_agent_turns/up.sql"
+            ))
+            .await?;
+        Ok(())
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        rebuild_task_agent_turns(
-            manager,
-            "'completed', 'failed', 'stopped'",
-            "WHERE final_status <> 'waiting'",
-        )
-        .await
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!(
+                "sql/m20260831_000006_allow_waiting_task_agent_turns/down.sql"
+            ))
+            .await?;
+        Ok(())
     }
-}
-
-/// Rebuilds Task turns because SQLite cannot alter a CHECK constraint in place.
-async fn rebuild_task_agent_turns(
-    manager: &SchemaManager<'_>,
-    status_values: &str,
-    copy_filter: &str,
-) -> Result<(), DbErr> {
-    manager
-        .get_connection()
-        .execute_unprepared(&format!(
-            r#"
-            DROP INDEX idx_task_agent_turns_agent_sequence;
-            CREATE TABLE task_agent_turns_new (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                task_agent_id TEXT NOT NULL,
-                sequence INTEGER NOT NULL,
-                prompt TEXT NOT NULL,
-                final_status TEXT NOT NULL,
-                response_text TEXT,
-                metrics_json TEXT NOT NULL DEFAULT '{{}}',
-                created_at_ms INTEGER NOT NULL,
-                FOREIGN KEY (task_agent_id) REFERENCES task_agents(id) ON DELETE CASCADE,
-                UNIQUE (task_agent_id, sequence),
-                CHECK (sequence >= 0),
-                CHECK (length(trim(prompt)) BETWEEN 1 AND 16000),
-                CHECK (final_status IN ({status_values})),
-                CHECK (json_valid(metrics_json)),
-                CHECK (created_at_ms > 0)
-            );
-            INSERT INTO task_agent_turns_new
-                (id, task_agent_id, sequence, prompt, final_status, response_text,
-                 metrics_json, created_at_ms)
-            SELECT id, task_agent_id, sequence, prompt, final_status, response_text,
-                   metrics_json, created_at_ms
-            FROM task_agent_turns {copy_filter};
-            DROP TABLE task_agent_turns;
-            ALTER TABLE task_agent_turns_new RENAME TO task_agent_turns;
-            CREATE INDEX idx_task_agent_turns_agent_sequence
-                ON task_agent_turns(task_agent_id, sequence);
-            "#,
-        ))
-        .await?;
-    Ok(())
 }
 
 /// Preserves every Agent turn without changing the immutable Task configuration tables.
@@ -283,30 +246,9 @@ impl MigrationTrait for AddTaskAgentTurns {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .get_connection()
-            .execute_unprepared(
-                r#"
-                CREATE TABLE task_agent_turns (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    task_agent_id TEXT NOT NULL,
-                    sequence INTEGER NOT NULL,
-                    prompt TEXT NOT NULL,
-                    final_status TEXT NOT NULL,
-                    response_text TEXT,
-                    metrics_json TEXT NOT NULL DEFAULT '{}',
-                    created_at_ms INTEGER NOT NULL,
-                    FOREIGN KEY (task_agent_id) REFERENCES task_agents(id) ON DELETE CASCADE,
-                    UNIQUE (task_agent_id, sequence),
-                    CHECK (sequence >= 0),
-                    CHECK (length(trim(prompt)) BETWEEN 1 AND 16000),
-                    CHECK (final_status IN ('completed', 'failed', 'stopped')),
-                    CHECK (json_valid(metrics_json)),
-                    CHECK (created_at_ms > 0)
-                );
-
-                CREATE INDEX idx_task_agent_turns_agent_sequence
-                    ON task_agent_turns(task_agent_id, sequence);
-                "#,
-            )
+            .execute_unprepared(include_str!(
+                "sql/m20260831_000005_add_task_agent_turns/up.sql"
+            ))
             .await?;
         Ok(())
     }
@@ -314,7 +256,9 @@ impl MigrationTrait for AddTaskAgentTurns {
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .get_connection()
-            .execute_unprepared("DROP TABLE task_agent_turns;")
+            .execute_unprepared(include_str!(
+                "sql/m20260831_000005_add_task_agent_turns/down.sql"
+            ))
             .await?;
         Ok(())
     }
