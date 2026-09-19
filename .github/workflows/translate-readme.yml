@@ -55,7 +55,7 @@ jobs:
             --rawfile source README.md \
             --rawfile existing README.zh-CN.md \
             '{
-              model: "deepseek-v4-flash",
+              model: "deepseek-flash",
               thinking: { type: "disabled" },
               messages: [
                 {
