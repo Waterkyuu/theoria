@@ -754,10 +754,17 @@ describe("AppSidebar", () => {
 		expect(toastSuccess).toHaveBeenCalledWith("已删除任务“当前任务”");
 	});
 
-	it("does not offer permanent deletion for protected Benchmark history", async () => {
+	it("deletes completed Benchmark Tasks from the conversation menu", async () => {
 		queryMocks.useTasks.mockImplementation((workspaceId: string | null) => ({
 			data: workspaceId
-				? [{ ...WORKSPACE_TASK, id: "benchmark-task", kind: "benchmark" }]
+				? [
+						{
+							...WORKSPACE_TASK,
+							id: "benchmark-task",
+							kind: "benchmark",
+							status: "completed",
+						},
+					]
 				: [RECENT_TASK],
 			isLoading: false,
 			error: null,
@@ -776,7 +783,13 @@ describe("AppSidebar", () => {
 		expect(
 			await screen.findByRole("menuitem", { name: "重命名" }),
 		).toBeInTheDocument();
-		expect(screen.queryByRole("menuitem", { name: "删除" })).toBeNull();
+		await user.click(screen.getByRole("menuitem", { name: "删除" }));
+		const dialog = await screen.findByRole("alertdialog", {
+			name: "删除任务？",
+		});
+		await user.click(within(dialog).getByRole("button", { name: "删除任务" }));
+
+		expect(queryMocks.deleteTask).toHaveBeenCalledWith("benchmark-task");
 	});
 
 	it("renames a Recent Task from the shared rename modal", async () => {
