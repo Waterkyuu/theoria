@@ -110,6 +110,14 @@ jobs:
 
           echo "should-fix=true" >> "${GITHUB_OUTPUT}"
 
+      - name: Create theoria-autofix token
+        if: steps.review.outputs.should-fix == 'true'
+        id: autofix-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.THEORIA_AUTOFIX_CLIENT_ID }}
+          private-key: ${{ secrets.THEORIA_AUTOFIX_PRIVATE_KEY }}
+
       - name: Install pnpm
         if: steps.review.outputs.should-fix == 'true'
         uses: pnpm/action-setup@v6
@@ -272,7 +280,7 @@ jobs:
       - name: Commit and push fixes
         if: steps.changes.outputs.has-changes == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.autofix-token.outputs.token }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REVIEW_URL: ${{ github.event.review.html_url }}
@@ -281,8 +289,10 @@ jobs:
           set -euo pipefail
 
           git switch -C "${HEAD_REF}"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          bot_slug="${{ steps.autofix-token.outputs.app-slug }}"
+          bot_user_id="$(gh api "/users/${bot_slug}%5Bbot%5D" --jq .id)"
+          git config user.name "${bot_slug}[bot]"
+          git config user.email "${bot_user_id}+${bot_slug}[bot]@users.noreply.github.com"
           git add --all
           git commit \
             -m "fix(repo): address Codex review findings" \
@@ -311,7 +321,7 @@ jobs:
           steps.review.outputs.should-fix == 'true' &&
           steps.changes.outputs.has-changes == 'false'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.autofix-token.outputs.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REVIEW_URL: ${{ github.event.review.html_url }}
         shell: bash

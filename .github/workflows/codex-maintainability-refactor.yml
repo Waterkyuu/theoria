@@ -43,6 +43,14 @@ jobs:
 
           echo "should-run=true" >> "${GITHUB_OUTPUT}"
 
+      - name: Create theoria-autofix token
+        if: steps.preflight.outputs.should-run == 'true'
+        id: autofix-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.THEORIA_AUTOFIX_CLIENT_ID }}
+          private-key: ${{ secrets.THEORIA_AUTOFIX_PRIVATE_KEY }}
+
       - name: Checkout repository
         if: steps.preflight.outputs.should-run == 'true'
         uses: actions/checkout@v7
@@ -210,15 +218,17 @@ jobs:
       - name: Commit and open draft pull request
         if: steps.changes.outputs.has-changes == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.autofix-token.outputs.token }}
         shell: bash
         run: |
           set -euo pipefail
 
           branch="waterkyuu/codex-maintainability-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           git switch -c "${branch}"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          bot_slug="${{ steps.autofix-token.outputs.app-slug }}"
+          bot_user_id="$(gh api "/users/${bot_slug}%5Bbot%5D" --jq .id)"
+          git config user.name "${bot_slug}[bot]"
+          git config user.email "${bot_user_id}+${bot_slug}[bot]@users.noreply.github.com"
           git add --all
           git commit \
             -m "refactor(repo): reduce maintainability debt" \
