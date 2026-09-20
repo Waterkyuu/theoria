@@ -36,6 +36,11 @@ impl TaskStatus {
             _ => None,
         }
     }
+
+    /// Reports whether the lifecycle ended and cannot change without another Execution.
+    pub(crate) const fn is_terminal(self) -> bool {
+        matches!(self, Self::Completed | Self::Failed | Self::Stopped)
+    }
 }
 
 /// Determines which business owns a task's inputs and execution lifecycle.

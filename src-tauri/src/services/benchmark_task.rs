@@ -314,10 +314,7 @@ impl BenchmarkTaskService {
             Err(_) => return Err(AppError::BenchmarkConflict),
         }
         let source = self.get(&configuration.source_task_id).await?;
-        if !matches!(
-            source.task.status,
-            TaskStatus::Completed | TaskStatus::Failed | TaskStatus::Stopped
-        ) {
+        if !source.task.status.is_terminal() {
             return Err(AppError::InvalidTask);
         }
         let workspace_id = source
@@ -387,10 +384,7 @@ impl BenchmarkTaskService {
     /// Stops new matrix claims and signals the one active Agent owned by this Task.
     pub(crate) async fn cancel(&self, task_id: &str) -> Result<BenchmarkTaskDetail, AppError> {
         let detail = self.get(task_id).await?;
-        if matches!(
-            detail.task.status,
-            TaskStatus::Completed | TaskStatus::Failed | TaskStatus::Stopped
-        ) {
+        if detail.task.status.is_terminal() {
             return Ok(detail);
         }
         self.task_repository
