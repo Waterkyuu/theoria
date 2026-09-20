@@ -1,4 +1,4 @@
-use crate::domain::task::{TaskKind, TaskStatus};
+use crate::domain::task::TaskKind;
 use crate::domain::workspace::WorkspaceSourceKind;
 use crate::error::AppError;
 use crate::repositories::task::TaskRepository;
@@ -122,12 +122,7 @@ impl TaskCleanupService {
         };
         match task.kind {
             TaskKind::Work => self.execution_service.stop_task_and_wait(task_id).await?,
-            TaskKind::Benchmark
-                if !matches!(
-                    task.status,
-                    TaskStatus::Completed | TaskStatus::Failed | TaskStatus::Stopped
-                ) =>
-            {
+            TaskKind::Benchmark if !task.status.is_terminal() => {
                 return Err(AppError::InvalidTask);
             }
             TaskKind::Benchmark => {}

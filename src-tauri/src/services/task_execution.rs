@@ -73,10 +73,7 @@ impl TaskExecutionService {
             .iter()
             .find(|agent| agent.id == task_agent_id)
             .ok_or(AppError::TaskNotFound)?;
-        if matches!(
-            agent.status,
-            TaskStatus::Completed | TaskStatus::Failed | TaskStatus::Stopped
-        ) {
+        if agent.status.is_terminal() {
             return Ok(detail);
         }
         self.active_executions.stop(task_agent_id);

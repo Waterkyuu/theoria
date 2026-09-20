@@ -218,10 +218,7 @@ impl TaskRepository {
         result: TaskAgentResult,
         updated_at_ms: i64,
     ) -> Result<(), DbErr> {
-        if !matches!(
-            result.final_status,
-            TaskStatus::Completed | TaskStatus::Failed | TaskStatus::Stopped
-        ) {
+        if !result.final_status.is_terminal() {
             return Err(DbErr::Custom(
                 "Agent result status is not terminal".to_string(),
             ));
@@ -248,10 +245,7 @@ impl TaskRepository {
         session_id: Option<&str>,
         updated_at_ms: i64,
     ) -> Result<(), DbErr> {
-        if !matches!(
-            result.final_status,
-            TaskStatus::Completed | TaskStatus::Failed | TaskStatus::Stopped
-        ) {
+        if !result.final_status.is_terminal() {
             return Err(DbErr::Custom(
                 "Agent turn status is not terminal".to_string(),
             ));
