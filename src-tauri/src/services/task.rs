@@ -92,9 +92,11 @@ impl TaskService {
         if input.agents.is_empty() || input.agents.len() > 6 {
             return Err(AppError::InvalidTask);
         }
-        if !matches!(input.file_access.as_str(), "read_only" | "allow_edits")
-            || !matches!(input.command_execution.as_str(), "deny" | "ask" | "allow")
-        {
+        let permissions = TaskPermissions {
+            file_access: input.file_access,
+            command_execution: input.command_execution,
+        };
+        if !permissions.is_supported() {
             return Err(AppError::InvalidTask);
         }
         let sources = self
@@ -173,10 +175,7 @@ impl TaskService {
                 updated_at_ms: created_at_ms,
             },
             agents,
-            permissions: TaskPermissions {
-                file_access: input.file_access,
-                command_execution: input.command_execution,
-            },
+            permissions,
             skills: prepared.skills,
             results: Vec::new(),
             turns: Vec::new(),
