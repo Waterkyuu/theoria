@@ -919,14 +919,7 @@ fn validate_configuration(configuration: &BenchmarkTaskConfiguration) -> Result<
             .collect::<HashSet<_>>()
             .len()
             != configuration.agent_kinds.len()
-        || !matches!(
-            configuration.permissions.file_access.as_str(),
-            "read_only" | "allow_edits"
-        )
-        || !matches!(
-            configuration.permissions.command_execution.as_str(),
-            "deny" | "ask" | "allow"
-        )
+        || !configuration.permissions.is_supported()
     {
         Err(AppError::InvalidBenchmark)
     } else {
@@ -947,14 +940,7 @@ fn validate_rerun_configuration(
             .collect::<HashSet<_>>()
             .len()
             != configuration.agent_kinds.len()
-        || !matches!(
-            configuration.permissions.file_access.as_str(),
-            "read_only" | "allow_edits"
-        )
-        || !matches!(
-            configuration.permissions.command_execution.as_str(),
-            "deny" | "ask" | "allow"
-        )
+        || !configuration.permissions.is_supported()
     {
         Err(AppError::InvalidBenchmark)
     } else {

@@ -127,6 +127,14 @@ pub(crate) struct TaskPermissions {
     pub(crate) command_execution: String,
 }
 
+impl TaskPermissions {
+    /// Reports whether both identifiers are supported values the adapters can enforce.
+    pub(crate) fn is_supported(&self) -> bool {
+        matches!(self.file_access.as_str(), "read_only" | "allow_edits")
+            && matches!(self.command_execution.as_str(), "deny" | "ask" | "allow")
+    }
+}
+
 /// Project Skill folder captured into one Task Baseline.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TaskSkill {
@@ -193,4 +201,26 @@ pub(crate) struct TaskDetail {
     pub(crate) results: Vec<TaskAgentResult>,
     /// Complete ordered turn transcript for every Agent Execution.
     pub(crate) turns: Vec<TaskAgentTurn>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::TaskPermissions;
+
+    fn permissions(file_access: &str, command_execution: &str) -> TaskPermissions {
+        TaskPermissions {
+            file_access: file_access.to_string(),
+            command_execution: command_execution.to_string(),
+        }
+    }
+
+    #[test]
+    fn accepts_only_supported_permission_identifiers() {
+        assert!(permissions("read_only", "deny").is_supported());
+        assert!(permissions("allow_edits", "ask").is_supported());
+        assert!(permissions("allow_edits", "allow").is_supported());
+        assert!(!permissions("write", "deny").is_supported());
+        assert!(!permissions("read_only", "yes").is_supported());
+        assert!(!permissions("", "").is_supported());
+    }
 }
