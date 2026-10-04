@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+	type QueryClient,
+	useMutation,
+	useQuery,
+	useQueryClient,
+} from "@tanstack/react-query";
 import {
 	continueTask,
 	createTask,
@@ -41,6 +46,14 @@ const taskKeys = {
 		[...taskKeys.all, "detail", taskId ?? "draft"] as const,
 };
 
+/** Seeds one mutated Task detail and refreshes the list that owns it. */
+const syncTaskCaches = (queryClient: QueryClient, detail: TaskDetail) => {
+	queryClient.setQueryData(taskKeys.detail(detail.task.id), detail);
+	queryClient.invalidateQueries({
+		queryKey: taskKeys.list(detail.task.workspaceId),
+	});
+};
+
 /** Loads global Recent or one Workspace's Task list. */
 const useTasks = (workspaceId: string | null) =>
 	useQuery({
@@ -81,12 +94,7 @@ const useCreateTask = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: (request: CreateTaskRequest) => createTask(request),
-		onSuccess: (detail) => {
-			queryClient.setQueryData(taskKeys.detail(detail.task.id), detail);
-			queryClient.invalidateQueries({
-				queryKey: taskKeys.list(detail.task.workspaceId),
-			});
-		},
+		onSuccess: (detail) => syncTaskCaches(queryClient, detail),
 	});
 };
 
@@ -95,12 +103,7 @@ const useRunTask = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: (taskId: string) => runTaskExecutions(taskId),
-		onSuccess: (detail) => {
-			queryClient.setQueryData(taskKeys.detail(detail.task.id), detail);
-			queryClient.invalidateQueries({
-				queryKey: taskKeys.list(detail.task.workspaceId),
-			});
-		},
+		onSuccess: (detail) => syncTaskCaches(queryClient, detail),
 	});
 };
 
@@ -134,12 +137,7 @@ const useContinueTask = () => {
 				queryClient.setQueryData(context.detailKey, context.previous);
 			}
 		},
-		onSuccess: (detail) => {
-			queryClient.setQueryData(taskKeys.detail(detail.task.id), detail);
-			queryClient.invalidateQueries({
-				queryKey: taskKeys.list(detail.task.workspaceId),
-			});
-		},
+		onSuccess: (detail) => syncTaskCaches(queryClient, detail),
 	});
 };
 
