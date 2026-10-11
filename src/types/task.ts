@@ -152,6 +152,12 @@ type TaskDetail = z.infer<typeof TaskDetailSchema>;
 type CreateTaskRequest = z.infer<typeof CreateTaskRequestSchema>;
 type ContinueTaskRequest = z.infer<typeof ContinueTaskRequestSchema>;
 
+/** Reports whether an aggregate Task can still change without another Execution.
+ * @example isActiveTaskStatus("running"); // true
+ */
+const isActiveTaskStatus = (status: TaskStatus | undefined) =>
+	status === "preparing" || status === "running";
+
 export type {
 	ContinueTaskRequest,
 	CreateTaskRequest,
@@ -170,4 +176,5 @@ export {
 	ContinueTaskRequestSchema,
 	CreateTaskRequestSchema,
 	TaskStatusSchema,
+	isActiveTaskStatus,
 };
