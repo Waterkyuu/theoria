@@ -21,6 +21,7 @@ import type {
 	CreateTaskRequest,
 	TaskDetail,
 } from "@/types/task";
+import { isActiveTaskStatus } from "@/types/task";
 
 type RenameTaskInput = {
 	/** Stable Task identifier whose title changes. */
@@ -72,9 +73,7 @@ const useTask = (taskId: string | null) =>
 		enabled: taskId !== null,
 		refetchInterval: (query) => {
 			const status = query.state.data?.task.status;
-			return status === "preparing" || status === "running"
-				? TASK_POLL_INTERVAL_MS
-				: false;
+			return isActiveTaskStatus(status) ? TASK_POLL_INTERVAL_MS : false;
 		},
 	});
 
