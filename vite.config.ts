@@ -1,3 +1,4 @@
+import optimizeLocales from "@react-aria/optimize-locales-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { fileURLToPath } from "node:url";
@@ -8,7 +9,11 @@ const devPort = Number(process.env.THEORIA_DEV_PORT ?? 1420);
 
 // https://vite.dev/config/
 export default defineConfig({
-	plugins: [react({ compiler: true }), tailwindcss()],
+	plugins: [
+		react({ compiler: true }),
+		tailwindcss(),
+		optimizeLocales.vite({ locales: ["en-US", "zh-CN"] }),
+	],
 	resolve: {
 		alias: {
 			"@": fileURLToPath(new URL("./src", import.meta.url)),

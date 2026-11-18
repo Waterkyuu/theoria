@@ -54,6 +54,7 @@
 		"zod": "^4.6.7"
 	},
 	"devDependencies": {
+		"@react-aria/optimize-locales-plugin": "^2.1.0",
 		"@tailwindcss/vite": "^4.3.5",
 		"@tauri-apps/cli": "^2",
 		"@testing-library/jest-dom": "^7.0.1",
