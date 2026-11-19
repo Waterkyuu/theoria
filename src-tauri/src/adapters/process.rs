@@ -106,7 +106,13 @@ pub(crate) fn run_owned_command(
         .stdin(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
-        .map_err(|_| AppError::BenchmarkVerifierUnavailable)?;
+        .map_err(|error| {
+            if error.kind() == std::io::ErrorKind::NotFound {
+                AppError::BenchmarkVerifierUnavailable
+            } else {
+                AppError::WorkerFailed
+            }
+        })?;
     let reader = child.stdout.take().map(|mut stdout| {
         std::thread::spawn(move || {
             let mut retained = Vec::new();

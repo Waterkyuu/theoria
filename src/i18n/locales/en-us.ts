@@ -18,7 +18,7 @@ const enUS = {
 				check: "Check again",
 				checking: "Checking environment…",
 				installHarbor: "Install required Harbor version",
-				installDocker: "Install Docker",
+				installDocker: "Set up or repair Docker",
 				startDocker: "Start Docker Desktop",
 				prepareVerifier: "Prepare verification image",
 				help: "Docker setup help",
@@ -30,7 +30,7 @@ const enUS = {
 					"Could not prepare the environment. Check your connection and Docker permissions, then try again.",
 				retry: "Environment check failed. Try again.",
 				state: {
-					missing: "Not installed",
+					missing: "Not detected",
 					unavailable: "Not running or not accessible",
 					versionMismatch: "A different version is installed",
 					wrongEngine: "Switch Docker to Linux containers",

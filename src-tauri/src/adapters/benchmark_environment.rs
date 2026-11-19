@@ -32,20 +32,37 @@ pub(crate) enum EnvironmentAction {
     PrepareVerifier,
 }
 
-/// Includes bundled CLI locations that are often absent from desktop application PATHs.
+/// Honors the selected CLI before checking Docker Desktop locations absent from GUI PATHs.
 pub(crate) fn docker_executable() -> std::path::PathBuf {
-    let bundled = match std::env::consts::OS {
-        "macos" => Some(std::path::PathBuf::from(
-            "/Applications/Docker.app/Contents/Resources/bin/docker",
-        )),
-        "windows" => std::env::var_os("ProgramFiles").map(|root| {
-            std::path::PathBuf::from(root).join("Docker/Docker/resources/bin/docker.exe")
-        }),
-        _ => None,
-    };
-    bundled
-        .filter(|path| path.is_file())
-        .unwrap_or_else(|| "docker".into())
+    use std::path::PathBuf;
+    let name = format!("docker{}", std::env::consts::EXE_SUFFIX);
+    let mut directories: Vec<PathBuf> = std::env::var_os("PATH")
+        .map(|path| std::env::split_paths(&path).collect())
+        .unwrap_or_default();
+    if let Some(home) = dirs::home_dir() {
+        directories.push(home.join(".docker/bin"));
+        if std::env::consts::OS == "macos" {
+            directories.push(home.join("Applications/Docker.app/Contents/Resources/bin"));
+        }
+    }
+    match std::env::consts::OS {
+        "macos" => directories.extend([
+            PathBuf::from("/Applications/Docker.app/Contents/Resources/bin"),
+            PathBuf::from("/usr/local/bin"),
+            PathBuf::from("/opt/homebrew/bin"),
+        ]),
+        "windows" => {
+            if let Some(root) = std::env::var_os("ProgramFiles") {
+                directories.push(PathBuf::from(root).join("Docker/Docker/resources/bin"));
+            }
+        }
+        _ => directories.extend([PathBuf::from("/usr/local/bin"), PathBuf::from("/usr/bin")]),
+    }
+    directories
+        .into_iter()
+        .map(|directory| directory.join(&name))
+        .find(|path| path.is_file())
+        .unwrap_or_else(|| name.into())
 }
 
 /// Read-only checks do not install tools, start Docker, or download images.
@@ -318,7 +335,45 @@ mod tests {
             inspect_paths(&root.join("absent"), &root.join("absent")).docker,
             DependencyState::Missing
         );
+        assert_eq!(
+            inspect_paths(&harbor, &root).docker,
+            DependencyState::Unavailable,
+            "a launch error must not report Docker as uninstalled"
+        );
         std::fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn discovers_the_user_docker_cli_without_a_terminal_path() {
+        const CHILD_HOME: &str = "THEORIA_DOCKER_DISCOVERY_HOME";
+        if let Some(home) = std::env::var_os(CHILD_HOME) {
+            assert_eq!(
+                super::docker_executable(),
+                PathBuf::from(home).join(".docker/bin/docker")
+            );
+            return;
+        }
+        let (root, _, docker) = fixture();
+        let user_bin = root.join(".docker/bin");
+        std::fs::create_dir_all(&user_bin).expect("user CLI directory");
+        std::fs::copy(docker, user_bin.join("docker")).expect("user Docker CLI");
+        let status = std::process::Command::new(std::env::current_exe().expect("test executable"))
+            .args([
+                "--exact",
+                "adapters::benchmark_environment::tests::discovers_the_user_docker_cli_without_a_terminal_path",
+                "--nocapture",
+            ])
+            .env(CHILD_HOME, &root)
+            .env("HOME", &root)
+            .env("PATH", "")
+            .status()
+            .expect("isolated desktop environment");
+        std::fs::remove_dir_all(root).expect("cleanup");
+        assert!(
+            status.success(),
+            "Docker must be found outside the terminal PATH"
+        );
     }
     #[test]
     fn installs_only_into_the_application_owned_tool_directory() {

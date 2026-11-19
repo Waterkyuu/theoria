@@ -77,13 +77,13 @@ it("opens official Docker installation without claiming installation completed",
 		screen.getByRole("button", { name: "Set up evaluation environment" }),
 	);
 	await user.click(
-		await screen.findByRole("button", { name: "Install Docker" }),
+		await screen.findByRole("button", { name: "Set up or repair Docker" }),
 	);
 	expect(openUrl).toHaveBeenCalledWith(
 		"https://docs.docker.com/desktop/setup/install/windows-install/",
 	);
 	const dialog = screen.getByRole("dialog", { name: "Evaluation environment" });
-	expect(within(dialog).getAllByText("Not installed")).toHaveLength(2);
+	expect(within(dialog).getAllByText("Not detected")).toHaveLength(2);
 	expect(
 		within(dialog).getByRole("button", { name: "Check again" }),
 	).toBeEnabled();

@@ -18,7 +18,7 @@ const zhCN = {
 				check: "重新检测",
 				checking: "正在检测环境…",
 				installHarbor: "安装所需 Harbor 版本",
-				installDocker: "安装 Docker",
+				installDocker: "安装或修复 Docker",
 				startDocker: "启动 Docker Desktop",
 				prepareVerifier: "准备验证镜像",
 				help: "Docker 安装与修复帮助",
@@ -29,7 +29,7 @@ const zhCN = {
 				failed: "环境准备失败，请检查网络和 Docker 访问权限后重试。",
 				retry: "环境检测失败，请重试。",
 				state: {
-					missing: "尚未安装",
+					missing: "未检测到",
 					unavailable: "尚未启动或无法访问",
 					versionMismatch: "已安装其他版本",
 					wrongEngine: "请切换为 Linux 容器模式",
