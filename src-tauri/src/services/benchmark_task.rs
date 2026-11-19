@@ -1191,6 +1191,9 @@ fn evaluate_checks(
         results.push(result);
     }
     Ok(BenchmarkEvaluationReport {
+        rewards: None,
+        runner_version: None,
+        task_checksum: None,
         passed: results.iter().all(|check| check.passed),
         checks: results,
     })
@@ -1381,6 +1384,8 @@ fn execution_metrics(
     metrics: &crate::domain::agent_run::AgentRunMetrics,
 ) -> BenchmarkExecutionMetrics {
     BenchmarkExecutionMetrics {
+        cost_nano_usd: None,
+        runtime: None,
         total_duration_ms: u64::try_from(metrics.total_duration.as_millis()).unwrap_or(u64::MAX),
         time_to_first_token_ms: metrics
             .time_to_first_token

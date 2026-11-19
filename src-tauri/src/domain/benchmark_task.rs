@@ -41,6 +41,24 @@ pub(crate) enum BenchmarkRunner {
     },
 }
 
+impl BenchmarkRunner {
+    /// Only tested, fixed releases may launch external code.
+    pub(crate) fn validate(&self) -> Result<(), crate::error::AppError> {
+        match self {
+            Self::Native => Ok(()),
+            Self::Harbor { dataset, version }
+                if matches!(
+                    (dataset.as_str(), version.as_str()),
+                    ("terminal-bench", "2.0") | ("swebench-verified", "1.0")
+                ) =>
+            {
+                Ok(())
+            }
+            _ => Err(crate::error::AppError::InvalidBenchmark),
+        }
+    }
+}
+
 /// Immutable experiment inputs, also embedded in the idempotent request snapshot.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields, default)]
@@ -90,6 +108,12 @@ impl BenchmarkRunOptions {
         for profile in &self.profiles {
             if AgentKind::parse(&profile.agent_kind).is_none()
                 || profile.label.len() > 120
+                || profile.version.as_ref().is_some_and(|version| {
+                    !version.starts_with(|character: char| character.is_ascii_digit())
+                        || !version
+                            .bytes()
+                            .all(|byte| byte.is_ascii_alphanumeric() || b".-".contains(&byte))
+                })
                 || [&profile.model, &profile.mode, &profile.version]
                     .into_iter()
                     .flatten()
@@ -102,18 +126,15 @@ impl BenchmarkRunOptions {
                 return Err(AppError::InvalidBenchmark);
             }
         }
-        if let BenchmarkRunner::Harbor { dataset, version } = &self.runner {
-            if !matches!(
-                (dataset.as_str(), version.as_str()),
-                ("terminal-bench", "2.0") | ("swebench-verified", "1.0")
-            ) || self.profiles.is_empty()
+        self.runner.validate()?;
+        if matches!(self.runner, BenchmarkRunner::Harbor { .. })
+            && (self.profiles.is_empty()
                 || self
                     .profiles
                     .iter()
-                    .any(|p| p.model.is_none() || p.agent_kind == "workbuddy")
-            {
-                return Err(AppError::InvalidBenchmark);
-            }
+                    .any(|profile| profile.model.is_none() || profile.agent_kind == "workbuddy"))
+        {
+            return Err(AppError::InvalidBenchmark);
         }
         Ok(())
     }
@@ -310,6 +331,12 @@ pub(crate) struct BenchmarkCaseExecution {
 pub(crate) struct BenchmarkExecutionMetrics {
     /// Full Agent execution duration in milliseconds.
     pub(crate) total_duration_ms: u64,
+    /// Provider-reported charge in billionths of USD; missing is never zero.
+    #[serde(default)]
+    pub(crate) cost_nano_usd: Option<u64>,
+    /// Runtime metadata actually reported by an external runner.
+    #[serde(default)]
+    pub(crate) runtime: Option<BenchmarkAgentProfile>,
     /// Delay until the first non-empty Agent response delta.
     pub(crate) time_to_first_token_ms: Option<u64>,
     /// Token categories when the source Agent reports them.
@@ -407,6 +434,15 @@ pub(crate) struct BenchmarkEvaluationCheck {
 pub(crate) struct BenchmarkEvaluationReport {
     /// Whether every required check succeeded.
     pub(crate) passed: bool,
+    /// Unmodified numeric rewards supplied by the upstream verifier.
+    #[serde(default)]
+    pub(crate) rewards: Option<std::collections::BTreeMap<String, serde_json::Number>>,
+    /// Exact harness release used to interpret the upstream protocol.
+    #[serde(default)]
+    pub(crate) runner_version: Option<String>,
+    /// Content checksum of the exact upstream task used by the trial.
+    #[serde(default)]
+    pub(crate) task_checksum: Option<String>,
     /// Ordered public check results.
     pub(crate) checks: Vec<BenchmarkEvaluationCheck>,
 }

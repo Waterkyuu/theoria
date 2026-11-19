@@ -211,6 +211,9 @@ fn parse_report(bytes: &[u8]) -> Result<BenchmarkEvaluationReport, AppError> {
         return Err(AppError::InvalidBenchmark);
     }
     Ok(BenchmarkEvaluationReport {
+        rewards: None,
+        runner_version: None,
+        task_checksum: None,
         passed: report.passed,
         checks: report
             .checks
