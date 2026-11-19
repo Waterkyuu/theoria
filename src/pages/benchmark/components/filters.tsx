@@ -6,7 +6,7 @@ import {
 	Tag,
 	Timeline,
 } from "@gravity-ui/icons";
-import { Button } from "@heroui/react";
+import { Button, Spinner } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { Popover } from "@/components/ui/popover";
@@ -25,7 +25,7 @@ type FiltersProps = {
 	/** Query values reset catalog pagination when changed. */
 	value: BenchmarkFilters;
 	/** Available local tags. */
-	tags: BenchmarkTag[];
+	tags: BenchmarkTag[] | undefined;
 	/** Replaces the selected filters. */
 	onChange: (filters: BenchmarkFilters) => void;
 };
@@ -42,7 +42,7 @@ const BenchmarkFiltersBar = ({ value, tags, onChange }: FiltersProps) => {
 	const [sortOpen, setSortOpen] = useState(false);
 	const [authorOpen, setAuthorOpen] = useState(false);
 	const isAllSelected = !value.tagIds.length && !value.author && !value.search;
-	const tagsWithDotColors = tags.map((tag, index) => ({
+	const tagsWithDotColors = (tags ?? []).map((tag, index) => ({
 		color: TAG_DOT_COLORS[index % TAG_DOT_COLORS.length],
 		tag,
 	}));
@@ -108,6 +108,15 @@ const BenchmarkFiltersBar = ({ value, tags, onChange }: FiltersProps) => {
 					role="group"
 					aria-label={t("benchmark.tags")}
 				>
+					{tags === undefined && (
+						<div className="flex justify-center py-md">
+							<Spinner
+								aria-label={t("common.loading")}
+								role="status"
+								size="sm"
+							/>
+						</div>
+					)}
 					{tagsWithDotColors
 						.filter(({ tag }) =>
 							tag.name.toLowerCase().includes(tagSearch.toLowerCase()),

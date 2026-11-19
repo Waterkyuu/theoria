@@ -16,7 +16,7 @@ type BenchmarkImportModalProps = {
 	/** Closes the flow without importing the selected folder. */
 	onClose: () => void;
 	/** Local classifications available for the imported personal draft. */
-	tags: BenchmarkTag[];
+	tags: BenchmarkTag[] | undefined;
 };
 
 const BLOCKING_ISSUES = new Set(["too_many_files", "import_too_large"]);
@@ -178,9 +178,13 @@ const BenchmarkImportModal = ({
 						</div>
 					) : null}
 					<Select
+						isLoading={tags === undefined}
 						label={t("benchmark.tag")}
 						onChange={setTagId}
-						options={tags.map((tag) => ({ label: tag.name, value: tag.id }))}
+						options={(tags ?? []).map((tag) => ({
+							label: tag.name,
+							value: tag.id,
+						}))}
 						placeholder={t("benchmark.chooseTag")}
 						value={tagId}
 					/>

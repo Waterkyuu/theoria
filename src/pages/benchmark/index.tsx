@@ -29,6 +29,7 @@ const BenchmarkPage = () => {
 	const [addingPublic, setAddingPublic] = useState(false);
 	const query = useBenchmarks(filters);
 	const tags = useBenchmarkTags();
+	const availableTags = tags.isLoading ? undefined : (tags.data ?? []);
 	const cards = query.data?.pages.flat() ?? [];
 	return (
 		<main className="flex h-full min-h-0 flex-col">
@@ -80,7 +81,7 @@ const BenchmarkPage = () => {
 				<BenchmarkFiltersBar
 					value={filters}
 					onChange={setFilters}
-					tags={tags.data ?? []}
+					tags={availableTags}
 				/>
 				<BenchmarkFeedback failed={tags.isError} retry={() => tags.refetch()} />
 				<div className="mt-xl">
@@ -153,14 +154,14 @@ const BenchmarkPage = () => {
 			)}
 			{addingPublic ? (
 				<PublicBenchmarkModal
-					tags={tags.data ?? []}
+					tags={availableTags}
 					onClose={() => setAddingPublic(false)}
 				/>
 			) : null}
 			<BenchmarkImportModal
 				isOpen={importing}
 				onClose={() => setImporting(false)}
-				tags={tags.data ?? []}
+				tags={availableTags}
 			/>
 		</main>
 	);

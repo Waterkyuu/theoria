@@ -139,3 +139,24 @@ it("uses fixed color dots instead of tag icons in the tag dropdown", async () =>
 	expect(seventhDot).toHaveClass("size-2.5", "rounded-full");
 	expect(seventhDot?.className).toBe(firstDot?.className);
 });
+
+it("replaces the tag loading indicator with filter options", async () => {
+	const user = userEvent.setup();
+	const value: BenchmarkFilters = {
+		search: "",
+		tagIds: [],
+		author: null,
+		sort: "newest",
+	};
+	const onChange = vi.fn();
+	const { rerender } = render(
+		<BenchmarkFiltersBar value={value} tags={undefined} onChange={onChange} />,
+	);
+	await user.click(screen.getByRole("button", { name: "标签" }));
+	expect(screen.getByRole("status", { name: "正在加载" })).toBeVisible();
+	rerender(
+		<BenchmarkFiltersBar value={value} tags={tags} onChange={onChange} />,
+	);
+	expect(screen.getByRole("checkbox", { name: "Coding" })).toBeVisible();
+	expect(screen.queryByRole("status")).not.toBeInTheDocument();
+});

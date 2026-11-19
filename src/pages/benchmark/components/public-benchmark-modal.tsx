@@ -11,7 +11,7 @@ import type { BenchmarkDraft, BenchmarkTag } from "@/types/benchmark";
 
 type PublicBenchmarkModalProps = {
 	/** Existing personal classifications; adding a public source does not create tags. */
-	tags: BenchmarkTag[];
+	tags: BenchmarkTag[] | undefined;
 	/** Closes the catalog-controlled setup flow. */
 	onClose: () => void;
 };
@@ -26,7 +26,8 @@ const PublicBenchmarkModal = ({ tags, onClose }: PublicBenchmarkModalProps) => {
 	const [dataset, setDataset] = useState<
 		"terminal-bench" | "swebench-verified"
 	>("terminal-bench");
-	const [tagId, setTagId] = useState<string | null>(tags[0]?.id ?? null);
+	const [selectedTagId, setTagId] = useState<string | null | undefined>();
+	const tagId = selectedTagId === undefined ? tags?.[0]?.id : selectedTagId;
 	const [taskNames, setTaskNames] = useState("");
 	const [pending, setPending] = useState(false);
 	const [draft, setDraft] = useState<BenchmarkDraft | null>(null);
@@ -110,12 +111,16 @@ const PublicBenchmarkModal = ({ tags, onClose }: PublicBenchmarkModalProps) => {
 				]}
 			/>
 			<Select
+				isLoading={tags === undefined}
 				label={t("benchmark.tag")}
 				placeholder={t("benchmark.chooseTag")}
-				value={tagId}
+				value={tagId ?? null}
 				onChange={setTagId}
 				isDisabled={pending}
-				options={tags.map((tag) => ({ value: tag.id, label: tag.name }))}
+				options={(tags ?? []).map((tag) => ({
+					value: tag.id,
+					label: tag.name,
+				}))}
 			/>
 			<label className="flex flex-col gap-xs text-body-sm text-charcoal">
 				{t("benchmark.public.taskNames")}
