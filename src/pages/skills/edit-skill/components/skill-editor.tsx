@@ -106,14 +106,21 @@ const parentDirectory = (path: string) =>
 	path.slice(0, Math.max(0, path.lastIndexOf("/")));
 
 type SkillEditorProps = {
-	/** Existing identity selects replacement instead of creation. */
+	/**
+	 * Existing identity selects replacement instead of creation.
+	 */
 	skillId?: string;
-	/** Loaded once before mounting so late query responses cannot erase edits. */
+	/**
+	 * Loaded once before mounting so late query responses cannot erase edits.
+	 */
 	initialDraft?: EditorSkillFiles;
 };
 
-/** Reuses the same file operations for new and existing managed directories.
- * @example <SkillEditor skillId="skill-1" initialDraft={draft} />
+/**
+ * Reuses the same file operations for new and existing managed directories.
+ *
+ * @example
+ * <SkillEditor skillId="skill-1" initialDraft={draft} />
  */
 const SkillEditor = ({ skillId, initialDraft }: SkillEditorProps) => {
 	const { t } = useTranslation();

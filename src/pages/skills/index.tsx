@@ -26,7 +26,9 @@ import { SkillLibraryTable } from "./components/skill-library-table";
 import { WorkspaceMountModal } from "./components/workspace-mount-modal";
 
 type LibrarySkill = Skill & {
-	/** Number of persisted Workspace mount relationships. */
+	/**
+	 * Number of persisted Workspace mount relationships.
+	 */
 	mountedCount: number;
 };
 
@@ -89,7 +91,9 @@ const SkillsPage = () => {
 		return matchesFilter && searchableText.includes(searchTerm);
 	});
 
-	/** Opens the Skill-specific native picker and delegates validation to native storage. */
+	/**
+	 * Opens the Skill-specific native picker and delegates validation to native storage.
+	 */
 	const importSkillFolder = async () => {
 		if (importSkillMutation.isPending) return;
 		try {
@@ -105,7 +109,9 @@ const SkillsPage = () => {
 		}
 	};
 
-	/** Imports every Skill discovered at one repository URL after user confirmation. */
+	/**
+	 * Imports every Skill discovered at one repository URL after user confirmation.
+	 */
 	const importSkillFromGit = async () => {
 		const trimmedGitUrl = gitUrl.trim();
 		if (!trimmedGitUrl || importGitSkillMutation.isPending) return;
@@ -127,7 +133,9 @@ const SkillsPage = () => {
 		}
 	};
 
-	/** Refreshes a Git Skill from the remote URL retained by native storage. */
+	/**
+	 * Refreshes a Git Skill from the remote URL retained by native storage.
+	 */
 	const updateGitSkill = async (skillId: string) => {
 		if (updateGitSkillMutation.isPending) return;
 		try {
@@ -145,7 +153,9 @@ const SkillsPage = () => {
 		}
 	};
 
-	/** Removes the confirmed selection and reports the user-triggered request outcome. */
+	/**
+	 * Removes the confirmed selection and reports the user-triggered request outcome.
+	 */
 	const removeSelectedSkills = async (skillIds: string[]) => {
 		if (removeSkillsMutation.isPending) return;
 		try {

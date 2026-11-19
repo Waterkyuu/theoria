@@ -11,8 +11,11 @@ vi.mock("@/api/skill", async (original) => ({
 	readEditorSkill,
 }));
 
-/** Route parameters select creation or loading while query behavior remains real.
- * @example renderPage("/skills/edit-skill")
+/**
+ * Route parameters select creation or loading while query behavior remains real.
+ *
+ * @example
+ * renderPage("/skills/edit-skill")
  */
 const renderPage = (path = "/skills/edit-skill?skillId=skill-1") =>
 	render(

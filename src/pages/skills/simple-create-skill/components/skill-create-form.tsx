@@ -12,7 +12,9 @@ import { useNavigate } from "react-router";
 import { handleError } from "@/utils/error";
 import { useCreatePlatformSkill } from "@/queries/skill";
 
-/** Keeps simple creation fields and submission feedback together within the dedicated page. */
+/**
+ * Keeps simple creation fields and submission feedback together within the dedicated page.
+ */
 const SkillCreateForm = () => {
 	const { t } = useTranslation();
 	const navigate = useNavigate();

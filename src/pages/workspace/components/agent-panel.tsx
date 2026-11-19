@@ -11,17 +11,29 @@ import type {
 } from "@/types/task";
 
 type AgentPanelProps = {
-	/** Frozen Agent Execution represented by this panel. */
+	/**
+	 * Frozen Agent Execution represented by this panel.
+	 */
 	agent: TaskAgent;
-	/** Initial Task prompt shared by every sibling Agent. */
+	/**
+	 * Initial Task prompt shared by every sibling Agent.
+	 */
 	prompt: string;
-	/** Collected terminal result when execution has finished. */
+	/**
+	 * Collected terminal result when execution has finished.
+	 */
 	result?: TaskAgentResult;
-	/** Ordered exchanges preserved for this Agent session. */
+	/**
+	 * Ordered exchanges preserved for this Agent session.
+	 */
 	turns?: TaskAgentTurn[];
-	/** Requests cooperative cancellation for only this Agent. */
+	/**
+	 * Requests cooperative cancellation for only this Agent.
+	 */
 	onStop: (taskAgentId: string) => void;
-	/** Prevents repeated stop requests while native state is updating. */
+	/**
+	 * Prevents repeated stop requests while native state is updating.
+	 */
 	stopPending: boolean;
 };
 

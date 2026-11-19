@@ -13,25 +13,45 @@ import { FileTypeIcon } from "@/components/share/file-type-icon";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 
 type FileTreeProps = {
-	/** Relative files and explicit folders marked by a trailing slash. */
+	/**
+	 * Relative files and explicit folders marked by a trailing slash.
+	 */
 	paths: string[];
-	/** Current prefix, empty at the skill root. */
+	/**
+	 * Current prefix, empty at the skill root.
+	 */
 	prefix?: string;
-	/** Selected file or folder that determines where new entries are created. */
+	/**
+	 * Selected file or folder that determines where new entries are created.
+	 */
 	selectedPath: string;
-	/** Switches documents without discarding edits. */
+	/**
+	 * Switches documents without discarding edits.
+	 */
 	onSelect: (path: string) => void;
-	/** Requests a draft operation from the page that owns all file contents. */
+	/**
+	 * Requests a draft operation from the page that owns all file contents.
+	 */
 	onAction: (action: "rename" | "delete", path: string) => void;
-	/** Prevents changes while the directory snapshot is being saved. */
+	/**
+	 * Prevents changes while the directory snapshot is being saved.
+	 */
 	isDisabled: boolean;
-	/** Selects a folder independently of the document open in the editor. */
+	/**
+	 * Selects a folder independently of the document open in the editor.
+	 */
 	onSelectFolder: (path: string) => void;
-	/** Parent directory where the inline creation field belongs. */
+	/**
+	 * Parent directory where the inline creation field belongs.
+	 */
 	draftParent?: string;
-	/** Existing entry being renamed, or null when creating a new entry. */
+	/**
+	 * Existing entry being renamed, or null when creating a new entry.
+	 */
 	draftPath?: string | null;
-	/** Inline name field shared with the page-owned validation and draft state. */
+	/**
+	 * Inline name field shared with the page-owned validation and draft state.
+	 */
 	draftInput?: ReactNode;
 };
 
