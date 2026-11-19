@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { CircleQuestion } from "@gravity-ui/icons";
 import { Button, toast } from "@heroui/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -158,10 +159,12 @@ const BenchmarkEnvironmentSetup = ({
 							</Button>
 						) : null}
 						<Button
+							className="gap-2 font-normal text-mute hover:text-charcoal"
 							variant="ghost"
 							isDisabled={pending}
 							onPress={installDocker}
 						>
+							<CircleQuestion aria-hidden="true" className="size-4 shrink-0" />
 							{t("benchmark.environment.help")}
 						</Button>
 					</div>
