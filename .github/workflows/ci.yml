@@ -50,6 +50,21 @@ jobs:
       - name: Build frontend
         run: pnpm build
 
+      - name: Install Chromium for Playwright
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run browser end-to-end tests
+        run: pnpm test:e2e
+
+      - name: Upload Playwright failure traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
   rust:
     name: Rust (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
