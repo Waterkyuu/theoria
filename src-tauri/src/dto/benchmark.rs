@@ -452,6 +452,9 @@ pub(crate) struct OpenBenchmarkAssetRequest {
 pub(crate) struct BenchmarkImportTemplate {
     /// Portable format version understood by this application.
     pub(crate) schema_version: u32,
+    /// Pinned external dataset reference, or the built-in native runner.
+    #[serde(default)]
+    pub(crate) runner: crate::domain::benchmark_task::BenchmarkRunner,
     /// Proposed catalog title, defaulted for field-level preview validation.
     #[serde(default)]
     pub(crate) name: String,

@@ -217,6 +217,7 @@ impl BenchmarkService {
                 None,
                 None,
                 BenchmarkDocument {
+                    runner: template.runner,
                     schema_version: template.schema_version,
                     name: template.name,
                     description: template.description,
@@ -785,6 +786,7 @@ async fn inspect_template_file(
 
 fn preview_document(template: &BenchmarkImportTemplate) -> BenchmarkDocument {
     BenchmarkDocument {
+        runner: template.runner.clone(),
         schema_version: template.schema_version,
         name: template.name.clone(),
         description: template.description.clone(),
@@ -960,6 +962,7 @@ mod tests {
                     None,
                     None,
                     BenchmarkDocument {
+                        runner: Default::default(),
                         schema_version: 1,
                         name: String::new(),
                         description: String::new(),
@@ -1011,6 +1014,7 @@ mod tests {
             );
             let tag = service.create_tag("Code", "Code").await.expect("tag");
             let document = BenchmarkDocument {
+                runner: Default::default(),
                 schema_version: 1,
                 name: "Personal suite".to_string(),
                 description: "Editable benchmark".to_string(),
@@ -1090,6 +1094,7 @@ mod tests {
                     None,
                     None,
                     BenchmarkDocument {
+                        runner: Default::default(),
                         schema_version: 1,
                         name: "Python suite".to_string(),
                         description: "Validate output".to_string(),
@@ -1156,6 +1161,7 @@ mod tests {
                 .await
                 .expect("tag should save");
             let document = BenchmarkDocument {
+                runner: Default::default(),
                 schema_version: 1,
                 name: "Case_% suite".to_string(),
                 description: "Two cases".to_string(),

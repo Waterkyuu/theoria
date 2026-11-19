@@ -1562,6 +1562,7 @@ mod tests {
                 .expect("input asset");
             let catalog = BenchmarkService::new(repository.clone(), directory.clone(), verifier());
             let document = BenchmarkDocument {
+                runner: Default::default(),
                 schema_version: 1,
                 name: "Two cases".into(),
                 description: "Fixed suite".into(),
@@ -1725,6 +1726,7 @@ mod tests {
             let catalog = BenchmarkService::new(repository.clone(), PathBuf::new(), verifier());
             let tag = catalog.create_tag("Coding", "Code").await.expect("tag");
             let document = BenchmarkDocument {
+                runner: Default::default(),
                 schema_version: 1,
                 name: "Two cases".into(),
                 description: "Fixed suite".into(),
@@ -1907,6 +1909,7 @@ mod tests {
                     None,
                     None,
                     BenchmarkDocument {
+                        runner: Default::default(),
                         schema_version: 1,
                         name: "Two cases".into(),
                         description: "Fixed suite".into(),
@@ -2176,6 +2179,7 @@ mod tests {
                     None,
                     None,
                     BenchmarkDocument {
+                        runner: Default::default(),
                         schema_version: 1,
                         name: "Worker failure".into(),
                         description: "Finalizes detached execution".into(),
@@ -2296,6 +2300,7 @@ mod tests {
                     None,
                     None,
                     BenchmarkDocument {
+                        runner: Default::default(),
                         schema_version: 1,
                         name: "Two cases".into(),
                         description: "Fixed suite".into(),

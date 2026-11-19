@@ -7,6 +7,9 @@ use std::collections::HashSet;
 pub(crate) struct BenchmarkDocument {
     /// Template format understood by this application.
     pub(crate) schema_version: u32,
+    /// Upstream environment and scoring protocol; absent in historical native suites.
+    #[serde(default)]
+    pub(crate) runner: crate::domain::benchmark_task::BenchmarkRunner,
     /// Catalog title, allowed to be empty in a draft.
     pub(crate) name: String,
     /// Purpose and expected Agent work.
@@ -132,6 +135,9 @@ impl BenchmarkDocument {
     /// Applies publication requirements without preventing incomplete draft editing.
     pub(crate) fn publication_issues(&self) -> Vec<BenchmarkValidationIssue> {
         let mut issues = Vec::new();
+        if self.runner.validate().is_err() {
+            issue(&mut issues, "runner", "unsupported_runner");
+        }
         if self.schema_version != 1 {
             issue(&mut issues, "schemaVersion", "unsupported_schema");
         }
@@ -166,7 +172,11 @@ impl BenchmarkDocument {
                     "invalid_timeout",
                 );
             }
-            if case.checks.is_empty() || case.checks.len() > 32 {
+            if matches!(
+                self.runner,
+                crate::domain::benchmark_task::BenchmarkRunner::Native
+            ) && (case.checks.is_empty() || case.checks.len() > 32)
+            {
                 issue(&mut issues, &format!("{field}.checks"), "checks_required");
             }
             if case.input_files.len() > 256 {
@@ -174,6 +184,22 @@ impl BenchmarkDocument {
                     &mut issues,
                     &format!("{field}.inputFiles"),
                     "too_many_files",
+                );
+            }
+            if matches!(
+                self.runner,
+                crate::domain::benchmark_task::BenchmarkRunner::Harbor { .. }
+            ) && (!case
+                .name
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || b"-_.".contains(&byte))
+                || !case.input_files.is_empty()
+                || !case.checks.is_empty())
+            {
+                issue(
+                    &mut issues,
+                    &format!("{field}.name"),
+                    "invalid_external_task",
                 );
             }
             let mut paths = HashSet::new();
@@ -258,6 +284,23 @@ mod tests {
     use super::{BenchmarkCase, BenchmarkCheck, BenchmarkDocument, BenchmarkFile};
 
     #[test]
+    fn external_references_keep_upstream_tasks_and_scoring_unchanged() {
+        let document = serde_json::from_value::<BenchmarkDocument>(serde_json::json!({
+            "schemaVersion":1, "name":"Terminal-Bench smoke", "description":"Pinned upstream subset",
+            "tagId":"coding", "source":"Harbor", "runner":{"kind":"harbor","dataset":"terminal-bench","version":"2.0"},
+            "cases":[{"name":"build-cython-ext", "prompt":"Run upstream task", "timeoutMinutes":30,"inputFiles":[],"checks":[]}]
+        }));
+        assert!(
+            document.is_ok(),
+            "a dataset reference must retain its upstream runner: {document:?}"
+        );
+        assert!(document
+            .expect("external reference")
+            .publication_issues()
+            .is_empty());
+    }
+
+    #[test]
     fn publication_rejects_missing_criteria_duplicate_cases_and_escaping_paths() {
         let case = BenchmarkCase {
             name: "Same".into(),
@@ -270,6 +313,7 @@ mod tests {
             checks: vec![],
         };
         let document = BenchmarkDocument {
+            runner: Default::default(),
             schema_version: 1,
             name: "Suite".into(),
             description: "Measure work".into(),
@@ -285,6 +329,7 @@ mod tests {
     #[test]
     fn publication_rejects_invalid_json_criteria() {
         let document = BenchmarkDocument {
+            runner: Default::default(),
             schema_version: 1,
             name: "JSON suite".to_string(),
             description: "Validate output".to_string(),
