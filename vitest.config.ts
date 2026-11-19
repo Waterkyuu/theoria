@@ -10,7 +10,7 @@ export default defineConfig({
 		},
 	},
 	test: {
-		exclude: [...configDefaults.exclude, ".github/scripts/**"],
+		exclude: [...configDefaults.exclude, ".github/scripts/**", "e2e/**"],
 		css: true,
 		environment: "jsdom",
 		maxWorkers: 5,
