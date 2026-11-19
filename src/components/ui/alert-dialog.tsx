@@ -15,43 +15,75 @@ type AlertDialogIconStatus = ComponentProps<
 type AlertDialogTriggerProps = Pick<ButtonProps, "onPress">;
 
 type AlertDialogBaseProps = {
-	/** The cancel button label. Falls back to the shared translation when omitted. */
+	/**
+	 * The cancel button label. Falls back to the shared translation when omitted.
+	 */
 	cancelText?: string;
-	/** Custom dialog content rendered below the title and description. */
+	/**
+	 * Custom dialog content rendered below the title and description.
+	 */
 	children?: ReactNode;
-	/** Additional classes applied to the dialog content card. */
+	/**
+	 * Additional classes applied to the dialog content card.
+	 */
 	className?: string;
-	/** The confirm button label. Falls back to the shared translation when omitted. */
+	/**
+	 * The confirm button label. Falls back to the shared translation when omitted.
+	 */
 	confirmText?: string;
-	/** Whether the confirm button is disabled. */
+	/**
+	 * Whether the confirm button is disabled.
+	 */
 	isConfirmDisabled?: boolean;
-	/** Business callback invoked when the confirm button is pressed. */
+	/**
+	 * Business callback invoked when the confirm button is pressed.
+	 */
 	onConfirm: () => void;
-	/** The icon status. Defaults to danger. */
+	/**
+	 * The icon status. Defaults to danger.
+	 */
 	status?: AlertDialogIconStatus;
-	/** The size forwarded to the underlying AlertDialog. Defaults to md. */
+	/**
+	 * The size forwarded to the underlying AlertDialog. Defaults to md.
+	 */
 	size?: AlertDialogSize;
-	/** Optional description rendered below the title. */
+	/**
+	 * Optional description rendered below the title.
+	 */
 	description?: string;
-	/** The dialog title. */
+	/**
+	 * The dialog title.
+	 */
 	title: string;
 };
 
 type AlertDialogControlledProps = {
-	/** The open state in controlled mode. */
+	/**
+	 * The open state in controlled mode.
+	 */
 	isOpen: boolean;
-	/** Called when the dialog requests an open state change. */
+	/**
+	 * Called when the dialog requests an open state change.
+	 */
 	onOpenChange: (isOpen: boolean) => void;
-	/** Controlled mode does not accept an internal trigger element. */
+	/**
+	 * Controlled mode does not accept an internal trigger element.
+	 */
 	trigger?: never;
 };
 
 type AlertDialogUncontrolledProps = {
-	/** Uncontrolled mode does not accept an external open state. */
+	/**
+	 * Uncontrolled mode does not accept an external open state.
+	 */
 	isOpen?: never;
-	/** Called when the internal open state changes. */
+	/**
+	 * Called when the internal open state changes.
+	 */
 	onOpenChange?: (isOpen: boolean) => void;
-	/** A pressable element used to open the dialog. */
+	/**
+	 * A pressable element used to open the dialog.
+	 */
 	trigger: ReactElement<AlertDialogTriggerProps>;
 };
 

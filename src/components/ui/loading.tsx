@@ -2,7 +2,9 @@ import { Spinner } from "@heroui/react";
 import { useTranslation } from "react-i18next";
 
 type LoadingProps = {
-	/** The layout scope occupied by the loading indicator. */
+	/**
+	 * The layout scope occupied by the loading indicator.
+	 */
 	variant: "page" | "section";
 };
 
@@ -17,7 +19,9 @@ const loadingStyles = {
 	},
 } as const;
 
-/** Renders a loading indicator for a full page or a content section. */
+/**
+ * Renders a loading indicator for a full page or a content section.
+ */
 const Loading = ({ variant }: LoadingProps) => {
 	const { t } = useTranslation();
 	const { className, size } = loadingStyles[variant];

@@ -10,37 +10,63 @@ type DrawerPlacement = NonNullable<DrawerContentProps["placement"]>;
 type DrawerTriggerProps = Pick<ButtonProps, "onPress">;
 
 type DrawerBaseProps = {
-	/** Custom drawer content rendered below the title and description. */
+	/**
+	 * Custom drawer content rendered below the title and description.
+	 */
 	children?: ReactNode;
-	/** Additional classes applied to the drawer panel. */
+	/**
+	 * Additional classes applied to the drawer panel.
+	 */
 	className?: string;
-	/** Optional description rendered below the title. */
+	/**
+	 * Optional description rendered below the title.
+	 */
 	description?: string;
-	/** Optional actions rendered in the drawer footer. */
+	/**
+	 * Optional actions rendered in the drawer footer.
+	 */
 	footer?: ReactNode;
-	/** Whether outside interaction and drag gestures can close the drawer. */
+	/**
+	 * Whether outside interaction and drag gestures can close the drawer.
+	 */
 	isDismissable?: boolean;
-	/** The edge from which the drawer enters. Defaults to right. */
+	/**
+	 * The edge from which the drawer enters. Defaults to right.
+	 */
 	placement?: DrawerPlacement;
-	/** The drawer title. */
+	/**
+	 * The drawer title.
+	 */
 	title: string;
 };
 
 type DrawerControlledProps = {
-	/** The open state in controlled mode. */
+	/**
+	 * The open state in controlled mode.
+	 */
 	isOpen: boolean;
-	/** Called when the drawer requests an open state change. */
+	/**
+	 * Called when the drawer requests an open state change.
+	 */
 	onOpenChange: (isOpen: boolean) => void;
-	/** Controlled mode does not accept an internal trigger element. */
+	/**
+	 * Controlled mode does not accept an internal trigger element.
+	 */
 	trigger?: never;
 };
 
 type DrawerUncontrolledProps = {
-	/** Uncontrolled mode does not accept an external open state. */
+	/**
+	 * Uncontrolled mode does not accept an external open state.
+	 */
 	isOpen?: never;
-	/** Called when the internal open state changes. */
+	/**
+	 * Called when the internal open state changes.
+	 */
 	onOpenChange?: (isOpen: boolean) => void;
-	/** A pressable element used to open the drawer. */
+	/**
+	 * A pressable element used to open the drawer.
+	 */
 	trigger: ReactElement<DrawerTriggerProps>;
 };
 

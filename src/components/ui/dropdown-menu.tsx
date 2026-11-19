@@ -10,23 +10,41 @@ import {
 import { useTranslation } from "react-i18next";
 
 type DropdownMenuItemProps<T extends string> = {
-	/** Nested actions displayed in a submenu. */
+	/**
+	 * Nested actions displayed in a submenu.
+	 */
 	children?: readonly DropdownMenuItemProps<T>[];
-	/** Whether the item uses the danger visual treatment. */
+	/**
+	 * Whether the item uses the danger visual treatment.
+	 */
 	danger?: boolean;
-	/** Optional decorative icon rendered before the item label. */
+	/**
+	 * Optional decorative icon rendered before the item label.
+	 */
 	icon?: ReactElement;
-	/** Stable business action returned by the menu-level callback. */
+	/**
+	 * Stable business action returned by the menu-level callback.
+	 */
 	id: T;
-	/** Whether the item is disabled. */
+	/**
+	 * Whether the item is disabled.
+	 */
 	isDisabled?: boolean;
-	/** Translation key used as both the visible label and accessible text value. */
+	/**
+	 * Translation key used as both the visible label and accessible text value.
+	 */
 	labelKey: string;
-	/** Whether to insert a separator before this item. */
+	/**
+	 * Whether to insert a separator before this item.
+	 */
 	separated?: boolean;
-	/** Test identifier rendered as data-testid. */
+	/**
+	 * Test identifier rendered as data-testid.
+	 */
 	testId?: string;
-	/** Optional indicator rendered after the item label. */
+	/**
+	 * Optional indicator rendered after the item label.
+	 */
 	trailingIcon?: ReactElement;
 };
 
@@ -34,27 +52,49 @@ type DropdownMenuProps<T extends string> = Pick<
 	HeroDropdownMenuProps<object>,
 	"selectionMode" | "selectedKeys" | "onSelectionChange" | "aria-label"
 > & {
-	/** Rich menu items or sections for selection menus; replaces the action item shorthand. */
+	/**
+	 * Rich menu items or sections for selection menus; replaces the action item shorthand.
+	 */
 	children?: ReactNode;
-	/** Additional classes applied to the floating popover. */
+	/**
+	 * Additional classes applied to the floating popover.
+	 */
 	className?: string;
-	/** Whether the menu closes after an item is selected. Defaults to true. */
+	/**
+	 * Whether the menu closes after an item is selected. Defaults to true.
+	 */
 	closeOnSelect?: boolean;
-	/** Translation key rendered as the optional menu header. */
+	/**
+	 * Translation key rendered as the optional menu header.
+	 */
 	headerKey?: string;
-	/** Additional classes applied to every menu item. */
+	/**
+	 * Additional classes applied to every menu item.
+	 */
 	itemClassName?: string;
-	/** Business actions rendered by the menu. */
+	/**
+	 * Business actions rendered by the menu.
+	 */
 	items?: readonly DropdownMenuItemProps<T>[];
-	/** Additional classes applied to the menu list. */
+	/**
+	 * Additional classes applied to the menu list.
+	 */
 	menuClassName?: string;
-	/** Distance in pixels between the trigger and popover. Defaults to 4. */
+	/**
+	 * Distance in pixels between the trigger and popover. Defaults to 4.
+	 */
 	offset?: DropdownPopoverProps["offset"];
-	/** Receives the selected business action for centralized dispatch. */
+	/**
+	 * Receives the selected business action for centralized dispatch.
+	 */
 	onAction?: (action: T) => void;
-	/** Preferred popover placement. Defaults to bottom start. */
+	/**
+	 * Preferred popover placement. Defaults to bottom start.
+	 */
 	placement?: DropdownPopoverProps["placement"];
-	/** Pressable element that opens the menu, such as a HeroUI Button. */
+	/**
+	 * Pressable element that opens the menu, such as a HeroUI Button.
+	 */
 	trigger: ReactElement;
 };
 

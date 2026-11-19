@@ -2,19 +2,33 @@ import type { ReactNode } from "react";
 import { Checkbox as HeroUICheckbox } from "@heroui/react";
 
 type CheckBoxProps = {
-	/** Additional classes applied to the checkbox root. */
+	/**
+	 * Additional classes applied to the checkbox root.
+	 */
 	className?: string;
-	/** Whether the checkbox is disabled. */
+	/**
+	 * Whether the checkbox is disabled.
+	 */
 	isDisabled?: boolean;
-	/** Whether the checkbox displays an indeterminate state. */
+	/**
+	 * Whether the checkbox displays an indeterminate state.
+	 */
 	isIndeterminate?: boolean;
-	/** The controlled selected state. */
+	/**
+	 * The controlled selected state.
+	 */
 	isSelected: boolean;
-	/** The clickable label rendered beside the checkbox control. */
+	/**
+	 * The clickable label rendered beside the checkbox control.
+	 */
 	label: ReactNode;
-	/** Called with the next selected state. */
+	/**
+	 * Called with the next selected state.
+	 */
 	onChange: (isSelected: boolean) => void;
-	/** The visual emphasis of the checkbox. Defaults to primary. */
+	/**
+	 * The visual emphasis of the checkbox. Defaults to primary.
+	 */
 	variant?: "primary" | "secondary";
 };
 

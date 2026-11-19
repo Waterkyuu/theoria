@@ -19,16 +19,25 @@ import type { Task } from "@/types/task";
 import type { Workspace } from "@/types/workspace";
 
 type WorkspaceSidebarItemProps = {
-	/** Active path used for the existing workspace selection treatment. */
+	/**
+	 * Active path used for the existing workspace selection treatment.
+	 */
 	currentPath: string;
-	/** Navigates without reloading the desktop shell. */
+	/**
+	 * Navigates without reloading the desktop shell.
+	 */
 	onNavigate: (path: string) => void;
-	/** Persisted Workspace rendered with the original Figma tree structure. */
+	/**
+	 * Persisted Workspace rendered with the original Figma tree structure.
+	 */
 	workspace: Workspace;
 };
 
-/** Keeps active Benchmark writers out of the terminal-only deletion flow.
- * @example canDeleteTask({ kind: "benchmark", status: "completed" })
+/**
+ * Keeps active Benchmark writers out of the terminal-only deletion flow.
+ *
+ * @example
+ * canDeleteTask({ kind: "benchmark", status: "completed" })
  */
 const canDeleteTask = (task: Pick<Task, "kind" | "status">) =>
 	task.kind === "work" ||
@@ -36,7 +45,9 @@ const canDeleteTask = (task: Pick<Task, "kind" | "status">) =>
 	task.status === "failed" ||
 	task.status === "stopped";
 
-/** Reserves two fixed-height tree rows while the expanded group's records load. */
+/**
+ * Reserves two fixed-height tree rows while the expanded group's records load.
+ */
 const SidebarLoadingRows = () => {
 	const { t } = useTranslation();
 	return (
