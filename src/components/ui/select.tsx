@@ -4,7 +4,9 @@ import {
 	Select as HeroUISelect,
 	Label,
 	ListBox,
+	Skeleton,
 } from "@heroui/react";
+import { useTranslation } from "react-i18next";
 
 type SelectOption<T extends string> = {
 	/** Optional supporting text rendered below the option label. */
@@ -28,6 +30,8 @@ type SelectProps<T extends string> = {
 	fullWidth?: boolean;
 	/** Whether the select is disabled. */
 	isDisabled?: boolean;
+	/** Whether the options are still loading for the first time. */
+	isLoading?: boolean;
 	/** Whether the current value is invalid. */
 	isInvalid?: boolean;
 	/** Whether a value is required. */
@@ -69,6 +73,7 @@ const Select = <T extends string>({
 	fullWidth = true,
 	isDisabled = false,
 	isInvalid = false,
+	isLoading = false,
 	isRequired = false,
 	label,
 	labelClassName,
@@ -78,46 +83,57 @@ const Select = <T extends string>({
 	placeholder,
 	value,
 	variant = "primary",
-}: SelectProps<T>) => (
-	<HeroUISelect<SelectOption<T>>
-		className={className}
-		fullWidth={fullWidth}
-		isDisabled={isDisabled}
-		isInvalid={isInvalid}
-		isRequired={isRequired}
-		name={name}
-		onChange={(nextValue) => onChange(nextValue as T | null)}
-		placeholder={placeholder}
-		value={value}
-		variant={variant}
-	>
-		<Label className={labelClassName}>{label}</Label>
-		<HeroUISelect.Trigger>
-			<HeroUISelect.Value />
-			<HeroUISelect.Indicator />
-		</HeroUISelect.Trigger>
-		{description && <Description>{description}</Description>}
-		{errorMessage && <FieldError>{errorMessage}</FieldError>}
-		<HeroUISelect.Popover>
-			<ListBox>
-				{options.map((option) => (
-					<ListBox.Item
-						id={option.value}
-						isDisabled={option.isDisabled}
-						key={option.value}
-						textValue={option.label}
-					>
-						<Label>{option.label}</Label>
-						{option.description && (
-							<Description>{option.description}</Description>
-						)}
-						<ListBox.ItemIndicator />
-					</ListBox.Item>
-				))}
-			</ListBox>
-		</HeroUISelect.Popover>
-	</HeroUISelect>
-);
+}: SelectProps<T>) => {
+	const { t } = useTranslation();
+	return (
+		<HeroUISelect<SelectOption<T>>
+			className={className}
+			fullWidth={fullWidth}
+			isDisabled={isDisabled || isLoading}
+			isInvalid={isInvalid}
+			isRequired={isRequired}
+			name={name}
+			onChange={(nextValue) => onChange(nextValue as T | null)}
+			placeholder={placeholder}
+			value={value}
+			variant={variant}
+		>
+			<Label className={labelClassName}>{label}</Label>
+			<HeroUISelect.Trigger>
+				{isLoading ? (
+					<Skeleton
+						className="h-4 w-2/3 rounded"
+						role="status"
+						aria-label={t("common.loading")}
+					/>
+				) : (
+					<HeroUISelect.Value />
+				)}
+				<HeroUISelect.Indicator />
+			</HeroUISelect.Trigger>
+			{description && <Description>{description}</Description>}
+			{errorMessage && <FieldError>{errorMessage}</FieldError>}
+			<HeroUISelect.Popover>
+				<ListBox>
+					{options.map((option) => (
+						<ListBox.Item
+							id={option.value}
+							isDisabled={option.isDisabled}
+							key={option.value}
+							textValue={option.label}
+						>
+							<Label>{option.label}</Label>
+							{option.description && (
+								<Description>{option.description}</Description>
+							)}
+							<ListBox.ItemIndicator />
+						</ListBox.Item>
+					))}
+				</ListBox>
+			</HeroUISelect.Popover>
+		</HeroUISelect>
+	);
+};
 
 export type { SelectOption, SelectProps };
 export { Select };

@@ -342,6 +342,7 @@ const enUS = {
 		expandSidebar: "Expand sidebar",
 		loadingPage: "Loading page",
 		common: {
+			loading: "Loading",
 			done: "Done",
 			cancel: "Cancel",
 			delete: "Delete",

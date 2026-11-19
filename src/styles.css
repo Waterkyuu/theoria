@@ -162,6 +162,17 @@
 }
 
 @layer base {
+	:root {
+		--skeleton-animation: pulse;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.skeleton {
+			--animate-pulse: none;
+			--animate-skeleton: none;
+		}
+	}
+
 	:root,
 	.light,
 	.default,

@@ -334,6 +334,7 @@ const zhCN = {
 		expandSidebar: "展开侧边栏",
 		loadingPage: "正在加载页面",
 		common: {
+			loading: "正在加载",
 			done: "完成",
 			cancel: "取消",
 			delete: "删除",
