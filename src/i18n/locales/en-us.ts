@@ -1,6 +1,42 @@
 const enUS = {
 	translation: {
 		benchmark: {
+			environment: {
+				action: "Set up evaluation environment",
+				title: "Evaluation environment",
+				description:
+					"Check what is missing and prepare it here. No terminal commands are needed for Harbor or the verification image.",
+				harbor: "Harbor 0.26.0",
+				docker: "Docker engine",
+				verifierImage: "Python verification image",
+				imageHint:
+					"Only needed for native suites with Python checks. Public benchmarks use their own task images.",
+				harborHint:
+					"Harbor and its Python runtime are installed privately for Theoria, without replacing your global tools.",
+				dockerHint:
+					"Complete Docker's official installer and first-run setup, then return here. Administrator approval or a restart may be required.",
+				check: "Check again",
+				checking: "Checking environment…",
+				installHarbor: "Install required Harbor version",
+				installDocker: "Install Docker",
+				startDocker: "Start Docker Desktop",
+				prepareVerifier: "Prepare verification image",
+				help: "Docker setup help",
+				busy: "Preparing environment… This may take several minutes. You can return to this screen later.",
+				completed: "Environment checked",
+				starting: "Docker startup requested. Checking until it is ready.",
+				opened: "Official Docker installation opened. Return here after setup.",
+				failed:
+					"Could not prepare the environment. Check your connection and Docker permissions, then try again.",
+				retry: "Environment check failed. Try again.",
+				state: {
+					missing: "Not installed",
+					unavailable: "Not running or not accessible",
+					versionMismatch: "A different version is installed",
+					wrongEngine: "Switch Docker to Linux containers",
+					ready: "Ready",
+				},
+			},
 			public: {
 				action: "Add public benchmark",
 				dataset: "Dataset release",

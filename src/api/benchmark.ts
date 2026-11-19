@@ -1,5 +1,6 @@
 import { invokeWithResponseSchema } from "@/api/ipc";
 import {
+	BenchmarkEnvironmentSchema,
 	BenchmarkDraftIdsSchema,
 	BenchmarkAssetPreviewSchema,
 	BenchmarkSummariesSchema,
@@ -18,6 +19,7 @@ import {
 	EmptyBenchmarkResponseSchema,
 } from "@/types/benchmark";
 import type {
+	BenchmarkEnvironmentAction,
 	BenchmarkDocument,
 	BenchmarkFilters,
 	BenchmarkPreviewInput,
@@ -353,7 +355,31 @@ const getBenchmarkTask = (taskId: string) =>
 		request: { taskId },
 	});
 
+/**
+ * Reads actual dependencies without installing software or launching agents.
+ */
+const inspectBenchmarkEnvironment = () =>
+	invokeWithResponseSchema(
+		"inspect_benchmark_environment",
+		BenchmarkEnvironmentSchema,
+	);
+
+/**
+ * Fixed actions prevent webview input from becoming arbitrary host commands.
+ *
+ * @example
+ * repairBenchmarkEnvironment("installHarbor")
+ */
+const repairBenchmarkEnvironment = (action: BenchmarkEnvironmentAction) =>
+	invokeWithResponseSchema(
+		"repair_benchmark_environment",
+		BenchmarkEnvironmentSchema,
+		{ action },
+	);
+
 export {
+	inspectBenchmarkEnvironment,
+	repairBenchmarkEnvironment,
 	listBenchmarks,
 	getBenchmark,
 	archiveBenchmark,

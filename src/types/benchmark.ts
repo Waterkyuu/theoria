@@ -1070,7 +1070,40 @@ type RerunBenchmarkTaskInput = Pick<
 	idempotencyKey: string;
 };
 
+const BenchmarkDependencyStateSchema = z.enum([
+	"missing",
+	"unavailable",
+	"versionMismatch",
+	"wrongEngine",
+	"ready",
+]);
+const BenchmarkEnvironmentSchema = z.object({
+	/**
+	 * Installed runner compatibility, including the required fixed version.
+	 */
+	harbor: BenchmarkDependencyStateSchema,
+	/**
+	 * A Linux-container engine must be reachable, not merely installed.
+	 */
+	docker: BenchmarkDependencyStateSchema,
+	/**
+	 * Cached image needed only for native Python validation.
+	 */
+	verifierImage: BenchmarkDependencyStateSchema,
+	/**
+	 * Official OS-specific Docker installation entry returned by the backend.
+	 */
+	dockerInstallUrl: z.url(),
+});
+type BenchmarkEnvironment = z.infer<typeof BenchmarkEnvironmentSchema>;
+type BenchmarkEnvironmentAction =
+	| "installHarbor"
+	| "startDocker"
+	| "prepareVerifier";
+
 export type {
+	BenchmarkEnvironment,
+	BenchmarkEnvironmentAction,
 	BenchmarkRunOptions,
 	BenchmarkRunner,
 	BenchmarkAgentProfile,
@@ -1096,6 +1129,7 @@ export type {
 };
 
 export {
+	BenchmarkEnvironmentSchema,
 	BenchmarkFileSchema,
 	BenchmarkAssetPreviewSchema,
 	BenchmarkImportPreviewSchema,

@@ -1,6 +1,41 @@
 const zhCN = {
 	translation: {
 		benchmark: {
+			environment: {
+				action: "准备评测环境",
+				title: "评测运行环境",
+				description:
+					"自动检查缺少的组件，在这里完成准备。安装 Harbor 和准备验证镜像无需输入终端命令。",
+				harbor: "Harbor 0.26.0",
+				docker: "Docker 引擎",
+				verifierImage: "Python 验证镜像",
+				imageHint:
+					"仅原生题集含 Python 校验时需要。公开评测使用各自的题目镜像。",
+				harborHint:
+					"Harbor 和 Python 运行时安装在 Theoria 专用目录，不替换你的全局工具。",
+				dockerHint:
+					"完成 Docker 官方安装和首次启动设置后，回到这里继续。安装可能需要管理员确认或重启。",
+				check: "重新检测",
+				checking: "正在检测环境…",
+				installHarbor: "安装所需 Harbor 版本",
+				installDocker: "安装 Docker",
+				startDocker: "启动 Docker Desktop",
+				prepareVerifier: "准备验证镜像",
+				help: "Docker 安装与修复帮助",
+				busy: "正在准备环境，可能需要几分钟。你可以稍后返回此页面查看。",
+				completed: "环境检测完成",
+				starting: "已请求启动 Docker，正在等待引擎就绪。",
+				opened: "已打开 Docker 官方安装页面，完成后返回即可。",
+				failed: "环境准备失败，请检查网络和 Docker 访问权限后重试。",
+				retry: "环境检测失败，请重试。",
+				state: {
+					missing: "尚未安装",
+					unavailable: "尚未启动或无法访问",
+					versionMismatch: "已安装其他版本",
+					wrongEngine: "请切换为 Linux 容器模式",
+					ready: "已就绪",
+				},
+			},
 			public: {
 				action: "添加公开评测",
 				dataset: "评测集版本",
