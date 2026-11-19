@@ -32,8 +32,11 @@ const EXTERNAL_PREVIEW_EXTENSIONS = new Set([
 	"xlsx",
 ]);
 
-/** Keeps document formats out of the bounded text and binary preview path.
- * @example requiresExternalApplication("report.pdf")
+/**
+ * Keeps document formats out of the bounded text and binary preview path.
+ *
+ * @example
+ * requiresExternalApplication("report.pdf")
  */
 const requiresExternalApplication = (path: string) => {
 	const extension = path.split(".").pop()?.toLowerCase();
@@ -41,16 +44,25 @@ const requiresExternalApplication = (path: string) => {
 };
 
 type BenchmarkFilePreviewProps = {
-	/** Whether the managed text can be saved as a new immutable asset. */
+	/**
+	 * Whether the managed text can be saved as a new immutable asset.
+	 */
 	editable?: boolean;
-	/** Opaque managed file reference selected by the user. */
+	/**
+	 * Opaque managed file reference selected by the user.
+	 */
 	file: BenchmarkFile;
-	/** Replaces the draft reference after a successful text edit. */
+	/**
+	 * Replaces the draft reference after a successful text edit.
+	 */
 	onChange?: (file: BenchmarkFile) => void;
 };
 
-/** Loads bounded content only when the user asks to inspect one managed Benchmark file.
- * @example <BenchmarkFilePreview file={file} />
+/**
+ * Loads bounded content only when the user asks to inspect one managed Benchmark file.
+ *
+ * @example
+ * <BenchmarkFilePreview file={file} />
  */
 const BenchmarkFilePreview = ({
 	editable = false,
@@ -64,7 +76,9 @@ const BenchmarkFilePreview = ({
 	const [preview, setPreview] = useState<BenchmarkAssetPreview | null>(null);
 	const [text, setText] = useState("");
 
-	/** Defers managed-file reads until the user explicitly opens the preview. */
+	/**
+	 * Defers managed-file reads until the user explicitly opens the preview.
+	 */
 	const openPreview = async () => {
 		if (pending) return;
 		setPending(true);
@@ -91,7 +105,9 @@ const BenchmarkFilePreview = ({
 		}
 	};
 
-	/** Replaces the draft reference instead of mutating an immutable managed asset. */
+	/**
+	 * Replaces the draft reference instead of mutating an immutable managed asset.
+	 */
 	const save = async () => {
 		if (!preview || preview.text === null || pending) return;
 		setPending(true);

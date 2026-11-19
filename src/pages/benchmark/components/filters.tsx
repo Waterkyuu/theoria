@@ -22,11 +22,17 @@ const TAG_DOT_COLORS = [
 ] as const;
 
 type FiltersProps = {
-	/** Query values reset catalog pagination when changed. */
+	/**
+	 * Query values reset catalog pagination when changed.
+	 */
 	value: BenchmarkFilters;
-	/** Available local tags. */
+	/**
+	 * Available local tags.
+	 */
 	tags: BenchmarkTag[] | undefined;
-	/** Replaces the selected filters. */
+	/**
+	 * Replaces the selected filters.
+	 */
 	onChange: (filters: BenchmarkFilters) => void;
 };
 

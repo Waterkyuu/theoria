@@ -19,9 +19,13 @@ import { BenchmarkFeedback } from "./feedback";
 import { BenchmarkMountModal } from "./mount-modal";
 
 type DetailProps = {
-	/** Definition selected by catalog or workspace mount. */
+	/**
+	 * Definition selected by catalog or workspace mount.
+	 */
 	benchmarkId: string;
-	/** Workspace context pins the content and enables configuration. */
+	/**
+	 * Workspace context pins the content and enables configuration.
+	 */
 	mount?: BenchmarkMount;
 };
 
@@ -41,8 +45,11 @@ const BenchmarkDetailView = ({ benchmarkId, mount }: DetailProps) => {
 	const navigate = useNavigate();
 	const client = useQueryClient();
 
-	/** Opens immutable content as either a linked personal edit or an independent copy.
-	 * @example createDraft(detail.summary.id)
+	/**
+	 * Opens immutable content as either a linked personal edit or an independent copy.
+	 *
+	 * @example
+	 * createDraft(detail.summary.id)
 	 */
 	const createDraft = async (definitionId: string | null) => {
 		if (!query.data || pending) return;
@@ -64,7 +71,9 @@ const BenchmarkDetailView = ({ benchmarkId, mount }: DetailProps) => {
 		}
 	};
 
-	/** Removes only this mount; published versions and results remain intact. */
+	/**
+	 * Removes only this mount; published versions and results remain intact.
+	 */
 	const unmount = async () => {
 		if (!mount || pending) return;
 		setPending(true);
@@ -82,7 +91,9 @@ const BenchmarkDetailView = ({ benchmarkId, mount }: DetailProps) => {
 		}
 	};
 	const detail = query.data;
-	/** Archives only the currently loaded personal definition. */
+	/**
+	 * Archives only the currently loaded personal definition.
+	 */
 	const archive = async () => {
 		if (!detail || archiveMutation.isPending) return;
 		try {
@@ -92,7 +103,9 @@ const BenchmarkDetailView = ({ benchmarkId, mount }: DetailProps) => {
 			handleError(error, "Benchmark archive failed", true);
 		}
 	};
-	/** Updates an existing mount only when its displayed version is stale. */
+	/**
+	 * Updates an existing mount only when its displayed version is stale.
+	 */
 	const updateMount = async () => {
 		if (!detail || !mount || updateMountMutation.isPending) return;
 		try {

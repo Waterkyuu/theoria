@@ -11,18 +11,27 @@ import { importBenchmarkFolder, previewBenchmarkImport } from "@/api/benchmark";
 import type { BenchmarkImportPreview, BenchmarkTag } from "@/types/benchmark";
 
 type BenchmarkImportModalProps = {
-	/** Whether the catalog import flow is visible. */
+	/**
+	 * Whether the catalog import flow is visible.
+	 */
 	isOpen: boolean;
-	/** Closes the flow without importing the selected folder. */
+	/**
+	 * Closes the flow without importing the selected folder.
+	 */
 	onClose: () => void;
-	/** Local classifications available for the imported personal draft. */
+	/**
+	 * Local classifications available for the imported personal draft.
+	 */
 	tags: BenchmarkTag[] | undefined;
 };
 
 const BLOCKING_ISSUES = new Set(["too_many_files", "import_too_large"]);
 
-/** Previews a portable template before copying it into managed storage.
- * @example <BenchmarkImportModal isOpen onClose={close} tags={tags} />
+/**
+ * Previews a portable template before copying it into managed storage.
+ *
+ * @example
+ * <BenchmarkImportModal isOpen onClose={close} tags={tags} />
  */
 const BenchmarkImportModal = ({
 	isOpen,
@@ -42,7 +51,9 @@ const BenchmarkImportModal = ({
 		BLOCKING_ISSUES.has(issue.code),
 	);
 
-	/** Clears picker state so reopening cannot accidentally import an earlier folder. */
+	/**
+	 * Clears picker state so reopening cannot accidentally import an earlier folder.
+	 */
 	const close = () => {
 		setSourcePath(null);
 		setPreview(null);
@@ -51,7 +62,9 @@ const BenchmarkImportModal = ({
 		onClose();
 	};
 
-	/** Reads only the folder explicitly selected through the native picker. */
+	/**
+	 * Reads only the folder explicitly selected through the native picker.
+	 */
 	const chooseFolder = async () => {
 		if (pending) return;
 		try {
@@ -74,7 +87,9 @@ const BenchmarkImportModal = ({
 		}
 	};
 
-	/** Imports only a reviewed preview with a selected personal Tag. */
+	/**
+	 * Imports only a reviewed preview with a selected personal Tag.
+	 */
 	const importDraft = async () => {
 		if (!sourcePath || !tagId || !preview || pending || hasBlockingIssue)
 			return;

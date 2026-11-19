@@ -17,9 +17,13 @@ import type {
 } from "@/types/benchmark";
 
 type ConfigurationProps = {
-	/** Fixed workspace version used for every check. */
+	/**
+	 * Fixed workspace version used for every check.
+	 */
 	mount: BenchmarkMount;
-	/** Published runner; native remains the default for historical definitions. */
+	/**
+	 * Published runner; native remains the default for historical definitions.
+	 */
 	runner?: BenchmarkRunner;
 };
 
@@ -74,13 +78,17 @@ const BenchmarkConfiguration = ({
 		repetitions <= 10;
 	const pending = checking || startMutation.isPending;
 
-	/** Invalidates both the preflight result and its retry identity when inputs change. */
+	/**
+	 * Invalidates both the preflight result and its retry identity when inputs change.
+	 */
 	const invalidatePreview = () => {
 		setPreview(null);
 		idempotencyKey.current = null;
 	};
 
-	/** Shows the exact checked configuration and does not pretend that execution has started. */
+	/**
+	 * Shows the exact checked configuration and does not pretend that execution has started.
+	 */
 	const check = async () => {
 		if (!agents.length || pending || !validOptions) return;
 		setChecking(true);
@@ -105,7 +113,9 @@ const BenchmarkConfiguration = ({
 		}
 	};
 
-	/** Creates one Task for the checked request and opens its persisted result route. */
+	/**
+	 * Creates one Task for the checked request and opens its persisted result route.
+	 */
 	const start = async () => {
 		if (!preview || preview.issues.length || pending) return;
 		idempotencyKey.current ??= crypto.randomUUID();
