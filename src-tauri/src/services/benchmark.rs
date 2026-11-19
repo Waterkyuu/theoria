@@ -891,7 +891,7 @@ mod tests {
     use std::sync::Arc;
 
     fn verifier() -> Arc<dyn BenchmarkVerifier> {
-        Arc::new(SystemBenchmarkVerifier)
+        Arc::new(SystemBenchmarkVerifier::default())
     }
 
     #[test]

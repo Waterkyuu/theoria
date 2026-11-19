@@ -168,7 +168,8 @@ pub fn run() {
                     .map_err(std::io::Error::other)?;
                 Ok::<_, std::io::Error>(database)
             })?;
-            let benchmark_verifier: Arc<dyn BenchmarkVerifier> = Arc::new(SystemBenchmarkVerifier);
+            let benchmark_verifier: Arc<dyn BenchmarkVerifier> =
+                Arc::new(SystemBenchmarkVerifier::default());
             let benchmark_task_service = BenchmarkTaskService::new(
                 BenchmarkRepository::new(comparison_database.clone()),
                 BenchmarkTaskRepository::new(comparison_database.clone()),

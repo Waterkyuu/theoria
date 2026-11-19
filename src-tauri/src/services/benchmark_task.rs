@@ -1493,7 +1493,7 @@ mod tests {
     use std::time::Duration;
 
     fn verifier() -> Arc<dyn BenchmarkVerifier> {
-        Arc::new(SystemBenchmarkVerifier)
+        Arc::new(SystemBenchmarkVerifier::default())
     }
 
     #[test]

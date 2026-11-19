@@ -1,6 +1,10 @@
 use crate::error::AppError;
 use crate::platform::process::running_process_names;
+use std::io::Read;
 use std::path::Path;
+use std::process::{Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, Instant};
 use sysinfo::System;
 
 /// One point-in-time snapshot of whether each supported Agent has a matching local process.
@@ -89,6 +93,94 @@ where
     states
 }
 
+/// Drains bounded output and always reaps owned children; quiet jobs do not retain terminal logs.
+pub(crate) fn run_owned_command(
+    command: &mut Command,
+    timeout: Duration,
+    cancelled: &AtomicBool,
+) -> Result<Vec<u8>, AppError> {
+    if cancelled.load(Ordering::Acquire) {
+        return Err(AppError::WorkerFailed);
+    }
+    let mut child = command
+        .stdin(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|_| AppError::BenchmarkVerifierUnavailable)?;
+    let reader = child.stdout.take().map(|mut stdout| {
+        std::thread::spawn(move || {
+            let mut retained = Vec::new();
+            let mut buffer = [0; 4096];
+            loop {
+                let read = stdout
+                    .read(&mut buffer)
+                    .map_err(|_| AppError::WorkerFailed)?;
+                if read == 0 {
+                    return Ok::<_, AppError>(retained);
+                }
+                let remaining = (256 * 1024 + 1usize).saturating_sub(retained.len());
+                retained.extend_from_slice(&buffer[..read.min(remaining)]);
+            }
+        })
+    });
+    let deadline = Instant::now() + timeout;
+    let result = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                break if status.success() {
+                    Ok(())
+                } else {
+                    Err(AppError::WorkerFailed)
+                }
+            }
+            Err(_) => {
+                child.kill().map_err(|_| AppError::WorkerFailed)?;
+                child.wait().map_err(|_| AppError::WorkerFailed)?;
+                break Err(AppError::WorkerFailed);
+            }
+            Ok(None) => {}
+        }
+        if cancelled.load(Ordering::Acquire) || Instant::now() >= deadline {
+            // Give cooperative runners time to clean up before reaping an owned process.
+            let pid = sysinfo::Pid::from_u32(child.id());
+            let mut system = sysinfo::System::new();
+            system.refresh_processes_specifics(
+                sysinfo::ProcessesToUpdate::Some(&[pid]),
+                false,
+                sysinfo::ProcessRefreshKind::nothing(),
+            );
+            let signalled = system
+                .process(pid)
+                .is_some_and(|process| process.kill_with(sysinfo::Signal::Term).unwrap_or(false));
+            if !signalled {
+                child.kill().map_err(|_| AppError::WorkerFailed)?;
+            }
+            let cleanup_deadline = Instant::now() + Duration::from_secs(15);
+            while child
+                .try_wait()
+                .map_err(|_| AppError::WorkerFailed)?
+                .is_none()
+            {
+                if Instant::now() >= cleanup_deadline {
+                    child.kill().map_err(|_| AppError::WorkerFailed)?;
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            child.wait().map_err(|_| AppError::WorkerFailed)?;
+            break Err(AppError::WorkerFailed);
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    };
+    let output = reader
+        .map(|reader| reader.join().map_err(|_| AppError::WorkerFailed))
+        .transpose()?
+        .transpose()?
+        .unwrap_or_default();
+    result?;
+    Ok(output)
+}
+
 #[cfg(test)]
 mod tests {
     use super::process_states_from_names;
@@ -129,5 +221,50 @@ mod tests {
         assert!(!states.codex);
         assert!(!states.opencode);
         assert!(!states.workbuddy);
+    }
+    #[test]
+    fn cancelling_an_owned_process_reaps_it_without_waiting_for_its_timeout() {
+        use std::sync::{
+            atomic::{AtomicBool, Ordering},
+            Arc,
+        };
+        use std::time::{Duration, Instant};
+        let root =
+            std::env::temp_dir().join(format!("theoria-owned-process-{}", std::process::id()));
+        std::fs::create_dir_all(&root).expect("fixture");
+        let executable = root.join(format!("engine{}", std::env::consts::EXE_SUFFIX));
+        let compiled = std::process::Command::new("rustc")
+            .arg(
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("tests/fixtures/benchmark-docker.rs"),
+            )
+            .arg("-o")
+            .arg(&executable)
+            .status()
+            .expect("compile engine fixture");
+        assert!(compiled.success());
+        let ready = root.join("ready");
+        let cancellation = Arc::new(AtomicBool::new(false));
+        let stopped = cancellation.clone();
+        let child_ready = ready.clone();
+        let worker = std::thread::spawn(move || {
+            let mut command = std::process::Command::new(executable);
+            command
+                .arg("wait")
+                .arg(child_ready)
+                .stdout(std::process::Stdio::null());
+            super::run_owned_command(&mut command, Duration::from_secs(60), &stopped)
+        });
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !ready.exists() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        cancellation.store(true, Ordering::Release);
+        assert!(worker.join().expect("worker").is_err());
+        assert!(
+            ready.exists(),
+            "the real child must have started before cancellation"
+        );
+        std::fs::remove_dir_all(root).expect("cleanup");
     }
 }
