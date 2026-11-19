@@ -3,7 +3,9 @@ type UtilityCallback = (...args: never[]) => unknown;
 type ControlledFunction<T extends UtilityCallback> = ((
 	...args: Parameters<T>
 ) => void) & {
-	/** Cancels the pending callback invocation. */
+	/**
+	 * Cancels the pending callback invocation.
+	 */
 	cancel: () => void;
 };
 

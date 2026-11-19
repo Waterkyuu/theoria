@@ -1,8 +1,11 @@
 import { LanguageDescription } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
 
-/** Keeps filename aliases consistent between editable and read-only code views.
- * @example matchEditorLanguage("scripts/.zshrc")
+/**
+ * Keeps filename aliases consistent between editable and read-only code views.
+ *
+ * @example
+ * matchEditorLanguage("scripts/.zshrc")
  */
 const matchEditorLanguage = (path: string) => {
 	const filename = (path.split(/[\\/]/).pop() ?? path)

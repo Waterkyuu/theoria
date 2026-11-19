@@ -9,11 +9,17 @@ import {
 } from "@/constants/file-icons";
 
 type FileIconAppearance = {
-	/** Local SVG asset for the resolved file type. */
+	/**
+	 * Local SVG asset for the resolved file type.
+	 */
 	src: string;
-	/** Alternative asset for light themes when provided by the icon set. */
+	/**
+	 * Alternative asset for light themes when provided by the icon set.
+	 */
 	light?: string;
-	/** Optional tint; omitted icons retain their original SVG colors. */
+	/**
+	 * Optional tint; omitted icons retain their original SVG colors.
+	 */
 	color?: string;
 };
 

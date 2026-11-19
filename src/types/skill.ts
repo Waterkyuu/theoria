@@ -2,32 +2,54 @@ import { z } from "zod";
 
 const SkillSourceTypeSchema = z.literal(["local_folder", "platform", "git"]);
 const SkillSchema = z.object({
-	/** Stable Skill Library identifier. */
+	/**
+	 * Stable Skill Library identifier.
+	 */
 	id: z.string().min(1),
-	/** Folder name copied beneath project Skill snapshots. */
+	/**
+	 * Folder name copied beneath project Skill snapshots.
+	 */
 	folderName: z.string().min(1),
-	/** User-visible Skill name. */
+	/**
+	 * User-visible Skill name.
+	 */
 	displayName: z.string().min(1),
-	/** Capability summary parsed from SKILL.md. */
+	/**
+	 * Capability summary parsed from SKILL.md.
+	 */
 	description: z.string(),
-	/** Origin retained after the Skill is copied into managed storage. */
+	/**
+	 * Origin retained after the Skill is copied into managed storage.
+	 */
 	sourceType: SkillSourceTypeSchema,
-	/** Original source folder when one is available. */
+	/**
+	 * Original source folder when one is available.
+	 */
 	sourcePath: z.string().nullable(),
-	/** Creation time in Unix milliseconds. */
+	/**
+	 * Creation time in Unix milliseconds.
+	 */
 	createdAtMs: z.int().nonnegative(),
-	/** Latest metadata update time in Unix milliseconds. */
+	/**
+	 * Latest metadata update time in Unix milliseconds.
+	 */
 	updatedAtMs: z.int().nonnegative(),
 });
 
 const SkillsSchema = z.array(SkillSchema);
 
 const EditorSkillFilesSchema = z.object({
-	/** Editable UTF-8 files, keyed by relative path. */
+	/**
+	 * Editable UTF-8 files, keyed by relative path.
+	 */
 	files: z.record(z.string(), z.string()),
-	/** Complete directory list, including empty folders. */
+	/**
+	 * Complete directory list, including empty folders.
+	 */
 	directories: z.array(z.string()),
-	/** Destination-to-original paths for files that stay on disk. */
+	/**
+	 * Destination-to-original paths for files that stay on disk.
+	 */
 	retainedFiles: z.record(z.string(), z.string()),
 });
 const EmptySkillResponseSchema = z.null();
