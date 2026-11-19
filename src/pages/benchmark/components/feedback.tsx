@@ -29,7 +29,7 @@ const BenchmarkFeedback = ({
 	if (loading) return <Loading variant="section" />;
 	if (failed)
 		return (
-			<div className="space-y-md py-xl" role="alert">
+			<div className="flex flex-col items-start gap-md py-xl" role="alert">
 				<p>{t("benchmark.loadFailed")}</p>
 				<Button onPress={retry} variant="secondary">
 					{t("benchmark.retry")}
