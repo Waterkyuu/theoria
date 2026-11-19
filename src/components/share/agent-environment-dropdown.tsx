@@ -15,11 +15,17 @@ import type {
 } from "@/types/agent";
 
 type AgentEnvironmentDropdownProps = {
-	/** Agent products shown in the environment panel and counted as running. */
+	/**
+	 * Agent products shown in the environment panel and counted as running.
+	 */
 	agentKinds: readonly AgentKind[];
-	/** Latest local process snapshot, or null while the first snapshot is pending. */
+	/**
+	 * Latest local process snapshot, or null while the first snapshot is pending.
+	 */
 	agentProcesses: AgentProcessStates | null;
-	/** Installation and runtime probe state for every supported Agent product. */
+	/**
+	 * Installation and runtime probe state for every supported Agent product.
+	 */
 	environmentRuntimes: Record<AgentKind, AgentRuntimeState>;
 };
 
@@ -146,7 +152,9 @@ const AgentEnvironmentDropdown = ({
 		setIsOpen(false);
 	};
 
-	/** Opens the Dropdown only after the trigger gesture is confirmed as a click. */
+	/**
+	 * Opens the Dropdown only after the trigger gesture is confirmed as a click.
+	 */
 	const openDropdown = () => {
 		if (suppressClick.current) {
 			suppressClick.current = false;

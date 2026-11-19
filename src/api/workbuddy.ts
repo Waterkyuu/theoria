@@ -7,7 +7,9 @@ import {
 	AgentRuntimeStatusSchema,
 } from "@/types/agent";
 
-/** Checks the local WorkBuddy account state through the Tauri backend. */
+/**
+ * Checks the local WorkBuddy account state through the Tauri backend.
+ */
 const checkWorkBuddyLogin = () =>
 	invokeWithResponseSchema("check_workbuddy_login", AgentLoginStatusSchema);
 

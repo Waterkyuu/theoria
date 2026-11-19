@@ -19,11 +19,17 @@ import { useTasks } from "@/queries/task";
 import { useWorkspaces } from "@/queries/workspace";
 
 type AppSidebarProps = {
-	/** Active browser path used to highlight the current navigation item. */
+	/**
+	 * Active browser path used to highlight the current navigation item.
+	 */
 	currentPath: string;
-	/** Page content rendered inside the shared workspace. */
+	/**
+	 * Page content rendered inside the shared workspace.
+	 */
 	children: ReactNode;
-	/** Changes the active application route without reloading the page. */
+	/**
+	 * Changes the active application route without reloading the page.
+	 */
 	onNavigate: (path: string) => void;
 };
 
