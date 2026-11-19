@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { Puzzle, TrashBin } from "@gravity-ui/icons";
-import { Checkbox, Pagination, type Selection, Table } from "@heroui/react";
+import {
+	Checkbox,
+	Pagination,
+	type Selection,
+	Skeleton,
+	Table,
+} from "@heroui/react";
 import { useTranslation } from "react-i18next";
 import { AlertDialog } from "@/components/ui/alert-dialog";
 import type { Skill } from "@/types/skill";
@@ -38,7 +44,6 @@ type SkillLibraryTableProps = {
 const STATUS_TRANSLATION_KEYS = {
 	importFailed: "skills.importFailed",
 	loadFailed: "skills.loadFailed",
-	loading: "skills.loading",
 } as const;
 
 /** Keeps the table scan-friendly and its page height predictable across the library. */
@@ -99,6 +104,7 @@ const SkillLibraryTable = ({
 					onSelectionChange={setSelectedKeys}
 					selectedKeys={selectedKeys}
 					selectionMode="multiple"
+					disabledKeys={status ? ["status"] : []}
 					onRowAction={
 						onEditSkill ? (key) => onEditSkill(String(key)) : undefined
 					}
@@ -216,9 +222,23 @@ const SkillLibraryTable = ({
 									className="h-24 text-center text-body-sm text-mute"
 									colSpan={5}
 								>
-									<span role={status === "loading" ? "status" : "alert"}>
-										{t(STATUS_TRANSLATION_KEYS[status])}
-									</span>
+									{status === "loading" ? (
+										<div
+											aria-label={t("skills.loading")}
+											className="flex items-center gap-lg"
+											role="status"
+										>
+											<Skeleton className="size-5 shrink-0 rounded" />
+											<div className="flex flex-1 flex-col gap-sm">
+												<Skeleton className="h-5 w-1/3 rounded" />
+												<Skeleton className="h-4 w-2/3 rounded" />
+											</div>
+										</div>
+									) : (
+										<span role="alert">
+											{t(STATUS_TRANSLATION_KEYS[status])}
+										</span>
+									)}
 								</Table.Cell>
 							</Table.Row>
 						) : null}

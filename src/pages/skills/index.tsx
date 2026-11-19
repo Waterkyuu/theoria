@@ -256,7 +256,7 @@ const SkillsPage = () => {
 					}
 					onRemoveSkills={removeSelectedSkills}
 					onUpdateSkill={updateGitSkill}
-					skills={visibleSkills}
+					skills={isLoading ? [] : visibleSkills}
 					status={tableStatus}
 				/>
 			</div>

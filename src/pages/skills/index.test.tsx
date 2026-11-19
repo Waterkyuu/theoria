@@ -408,7 +408,10 @@ describe("SkillsPage", () => {
 			error: null,
 		});
 		const { rerender } = render(<SkillsPage />);
-		expect(screen.getByRole("status")).toHaveTextContent("正在加载技能");
+		expect(screen.getByRole("status", { name: "正在加载技能" })).toBeVisible();
+		expect(
+			screen.queryByRole("button", { name: "挂载" }),
+		).not.toBeInTheDocument();
 
 		queryMocks.useSkills.mockReturnValueOnce({
 			data: undefined,
