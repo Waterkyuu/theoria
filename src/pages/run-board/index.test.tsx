@@ -71,7 +71,11 @@ describe("RunBoardPage", () => {
 		});
 		render(<RunBoardPage />);
 
+		expect(screen.getAllByRole("status", { name: "正在加载" })).toHaveLength(4);
 		expect(await screen.findAllByRole("article")).toHaveLength(4);
+		expect(
+			screen.queryByRole("status", { name: "正在加载" }),
+		).not.toBeInTheDocument();
 		expect(screen.queryByText("仓库架构审计")).not.toBeInTheDocument();
 		expect(apiMocks.checkAgentActivities).toHaveBeenCalledOnce();
 

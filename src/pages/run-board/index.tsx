@@ -5,11 +5,12 @@ import {
 	useState,
 } from "react";
 import { Clock, Grip, Magnifier } from "@gravity-ui/icons";
-import { Card, Chip, ProgressBar } from "@heroui/react";
+import { Card, Chip, ProgressBar, Skeleton } from "@heroui/react";
 import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { AgentIcon } from "@/components/share/agent-icon";
 import { PageHeader } from "@/components/share/page-header";
+import { Loading } from "@/components/ui/loading";
 import { ModalProvider } from "@/components/ui/modal-provider";
 import { SearchBox } from "@/components/ui/search-box";
 import { checkAgentActivities, onAgentActivitiesChanged } from "@/api/agent";
@@ -88,11 +89,11 @@ const RunBoardPage = () => {
 				| null) ?? BOARD_STATUSES,
 	);
 	const activeDrag = useRef<ActivePanelDrag | null>(null);
-	const [activities, setActivities] = useState<AgentActivity[]>([]);
+	const [activities, setActivities] = useState<AgentActivity[]>();
 	const [searchOpen, setSearchOpen] = useState(false);
 	const [searchValue, setSearchValue] = useState("");
 	const searchTerm = searchValue.trim().toLocaleLowerCase(i18n.language);
-	const searchResults = activities.filter(
+	const searchResults = (activities ?? []).filter(
 		(item) =>
 			(item.title ?? "")
 				.toLocaleLowerCase(i18n.language)
@@ -242,7 +243,7 @@ const RunBoardPage = () => {
 					setActivities(response.activities);
 				}
 			} catch {
-				if (isActive) {
+				if (isActive && !receivedEvent) {
 					setActivities([]);
 				}
 			}
@@ -285,7 +286,9 @@ const RunBoardPage = () => {
 							value={searchValue}
 						/>
 						<div className="max-h-80 space-y-1 overflow-y-auto">
-							{searchResults.length > 0 ? (
+							{activities === undefined ? (
+								<Loading variant="section" />
+							) : searchResults.length > 0 ? (
 								searchResults.map((item) => (
 									<button
 										className="flex w-full min-w-0 items-center gap-3 rounded-md px-3 py-2 text-left hover:bg-surface-soft focus-visible:outline-2 focus-visible:outline-focus-ring"
@@ -332,7 +335,9 @@ const RunBoardPage = () => {
 					>
 						{layout.map((status) => {
 							const presentation = STATUS_PRESENTATIONS[status];
-							const items = activities.filter((item) => item.status === status);
+							const items = (activities ?? []).filter(
+								(item) => item.status === status,
+							);
 
 							return (
 								<section
@@ -390,7 +395,7 @@ const RunBoardPage = () => {
 												{t(`runBoard.status.${status}`)}
 											</span>
 											<span className="shrink-0 font-normal text-mute">
-												{items.length}
+												{activities && items.length}
 											</span>
 										</h2>
 									</header>
@@ -399,7 +404,17 @@ const RunBoardPage = () => {
 										className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-1"
 										data-testid={`run-board-list-${status}`}
 									>
-										{items.length > 0 ? (
+										{activities === undefined ? (
+											<div
+												aria-label={t("common.loading")}
+												role="status"
+												className="flex h-48 w-72 max-w-full flex-col gap-md rounded-xl border border-hairline bg-surface-card p-3"
+											>
+												<Skeleton className="h-4 w-1/3 rounded" />
+												<Skeleton className="h-5 w-3/4 rounded" />
+												<Skeleton className="mt-auto h-4 w-1/2 rounded" />
+											</div>
+										) : items.length > 0 ? (
 											items.map((item) => {
 												const contextPercentage =
 													item.contextUsage &&
