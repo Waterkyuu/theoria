@@ -16,20 +16,32 @@ import type { ToolCallMetric } from "@/types/agent";
 import type { TaskAgentResult, TaskDetail } from "@/types/task";
 
 type TaskResultSummaryProps = {
-	/** Closes the supplementary split without changing Task state. */
+	/**
+	 * Closes the supplementary split without changing Task state.
+	 */
 	onClose: () => void;
-	/** Restored Task conditions and current Agent results. */
+	/**
+	 * Restored Task conditions and current Agent results.
+	 */
 	task: TaskDetail;
 };
 
 type MetricRow = {
-	/** Stable key used by HeroUI to track expansion state. */
+	/**
+	 * Stable key used by HeroUI to track expansion state.
+	 */
 	key: string;
-	/** Stable translation-backed row label. */
+	/**
+	 * Stable translation-backed row label.
+	 */
 	label: string;
-	/** Extracts one display value from an Agent result. */
+	/**
+	 * Extracts one display value from an Agent result.
+	 */
 	value: (result: TaskAgentResult | undefined) => ReactNode;
-	/** Detail rows revealed when this metric is expanded. */
+	/**
+	 * Detail rows revealed when this metric is expanded.
+	 */
 	children?: MetricRow[];
 };
 
@@ -41,13 +53,17 @@ type ToolCall = {
 	status: ToolCallMetric["status"] | null;
 };
 
-/** Reads a numeric field from untyped persisted Comparison metrics. */
+/**
+ * Reads a numeric field from untyped persisted Comparison metrics.
+ */
 const metricNumber = (result: TaskAgentResult | undefined, key: string) => {
 	const value = result?.metrics[key];
 	return typeof value === "number" && Number.isFinite(value) ? value : null;
 };
 
-/** Reads an object field from untyped persisted Comparison metrics. */
+/**
+ * Reads an object field from untyped persisted Comparison metrics.
+ */
 const metricObject = (result: TaskAgentResult | undefined, key: string) => {
 	const value = result?.metrics[key];
 	return typeof value === "object" && value !== null
@@ -66,7 +82,8 @@ const tokenMetric = (
 /**
  * Keeps only tool measurements that the summary can render safely.
  *
- * @example metricToolCalls(result)[0]?.durationMs
+ * @example
+ * metricToolCalls(result)[0]?.durationMs
  */
 const metricToolCalls = (result: TaskAgentResult | undefined): ToolCall[] => {
 	const value = result?.metrics.toolCalls;
@@ -97,7 +114,9 @@ const metricToolCalls = (result: TaskAgentResult | undefined): ToolCall[] => {
 	});
 };
 
-/** Renders the documented read-only Task-level Comparison split. */
+/**
+ * Renders the documented read-only Task-level Comparison split.
+ */
 const TaskResultSummary = ({ onClose, task }: TaskResultSummaryProps) => {
 	const { i18n, t } = useTranslation();
 	const [isFullscreen, setIsFullscreen] = useState(false);
@@ -222,7 +241,8 @@ const TaskResultSummary = ({ onClose, task }: TaskResultSummaryProps) => {
 	/**
 	 * Nests tool measurements under their aggregate count using HeroUI's tree rows.
 	 *
-	 * @example <Table.Body items={rows}>{renderMetricRow}</Table.Body>
+	 * @example
+	 * <Table.Body items={rows}>{renderMetricRow}</Table.Body>
 	 */
 	const renderMetricRow = (row: MetricRow) => (
 		<Table.Row id={row.key} textValue={row.label}>

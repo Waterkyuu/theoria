@@ -16,34 +16,60 @@ import type { Skill } from "@/types/skill";
 import type { CreateTaskRequest } from "@/types/task";
 
 type ComposerSubmission = {
-	/** Normalized initial Task request. */
+	/**
+	 * Normalized initial Task request.
+	 */
 	prompt: string;
-	/** Agent products with model settings frozen from their latest runtime probe. */
+	/**
+	 * Agent products with model settings frozen from their latest runtime probe.
+	 */
 	agents: CreateTaskRequest["agents"];
-	/** Explicit Skill Library choices allowed for an ordinary Task. */
+	/**
+	 * Explicit Skill Library choices allowed for an ordinary Task.
+	 */
 	skillIds: string[];
-	/** File mutation policy frozen after the first successful submission. */
+	/**
+	 * File mutation policy frozen after the first successful submission.
+	 */
 	fileAccess: CreateTaskRequest["fileAccess"];
-	/** Command approval policy frozen after the first successful submission. */
+	/**
+	 * Command approval policy frozen after the first successful submission.
+	 */
 	commandExecution: CreateTaskRequest["commandExecution"];
 };
 
 type ComposerProps = {
-	/** Agent kinds that can be selected by the composer. */
+	/**
+	 * Agent kinds that can be selected by the composer.
+	 */
 	agentKinds: readonly AgentKind[];
-	/** Latest native process state used to show only running agents. */
+	/**
+	 * Latest native process state used to show only running agents.
+	 */
 	agentProcesses: AgentProcessStates | null;
-	/** Runtime details displayed beside each running agent. */
+	/**
+	 * Runtime details displayed beside each running agent.
+	 */
 	environmentRuntimes: Record<AgentKind, AgentRuntimeState>;
-	/** Skills available for selection or displayed as locked Workspace mounts. */
+	/**
+	 * Skills available for selection or displayed as locked Workspace mounts.
+	 */
 	availableSkills: Skill[];
-	/** Prevents duplicate submission while Task preparation is in progress. */
+	/**
+	 * Prevents duplicate submission while Task preparation is in progress.
+	 */
 	isSubmitting: boolean;
-	/** Receives the complete immutable Task selection after submission. */
+	/**
+	 * Receives the complete immutable Task selection after submission.
+	 */
 	onSubmit: (submission: ComposerSubmission) => Promise<void>;
-	/** True when Skills come from Workspace mounts instead of per-Task choices. */
+	/**
+	 * True when Skills come from Workspace mounts instead of per-Task choices.
+	 */
 	workspaceSkillsLocked: boolean;
-	/** Workspace shown below the composer, or undefined on the homepage. */
+	/**
+	 * Workspace shown below the composer, or undefined on the homepage.
+	 */
 	workspaceName?: string;
 };
 
@@ -84,7 +110,9 @@ const Composer = ({
 	const isSlashAutocompleteOpen =
 		isAgentMenuOpen || prompt.trimEnd().endsWith("/");
 
-	/** Freezes the latest runtime settings so later global changes cannot alter this Task. */
+	/**
+	 * Freezes the latest runtime settings so later global changes cannot alter this Task.
+	 */
 	const submitTask = async () => {
 		const task = prompt.trim();
 		if (!task || selectedAgents.length === 0 || isSubmitting) return;

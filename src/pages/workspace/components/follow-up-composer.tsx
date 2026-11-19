@@ -7,11 +7,17 @@ import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import type { TaskAgent } from "@/types/task";
 
 type FollowUpComposerProps = {
-	/** Frozen Agent Executions that may receive another message. */
+	/**
+	 * Frozen Agent Executions that may receive another message.
+	 */
 	agents: TaskAgent[];
-	/** Prevents duplicate messages while native sessions are running. */
+	/**
+	 * Prevents duplicate messages while native sessions are running.
+	 */
 	isSubmitting: boolean;
-	/** Sends one trimmed message to every resumable Agent or one selected Agent. */
+	/**
+	 * Sends one trimmed message to every resumable Agent or one selected Agent.
+	 */
 	onSubmit: (prompt: string, taskAgentIds: string[]) => Promise<void>;
 };
 
@@ -45,7 +51,9 @@ const FollowUpComposer = ({
 		: t("taskFollowUp.allAgents");
 	const hiddenAgentCount = Math.max(resumableAgents.length - 3, 0);
 
-	/** Sends the current message and retains the selected target for the next turn. */
+	/**
+	 * Sends the current message and retains the selected target for the next turn.
+	 */
 	const submitFollowUp = async () => {
 		const message = prompt.trim();
 		if (!message || isSubmitting) return;

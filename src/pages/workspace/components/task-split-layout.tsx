@@ -4,18 +4,26 @@ import { Group, Panel, Separator } from "react-resizable-panels";
 const COMPACT_LAYOUT_QUERY = "(max-width: 767px)";
 
 type TaskSplitLayoutProps = {
-	/** Agent run panels that occupy the primary side of the layout. */
+	/**
+	 * Agent run panels that occupy the primary side of the layout.
+	 */
 	children: ReactNode;
 	contentDefaultSize?: string;
-	/** Accessible description for the draggable divider. */
+	/**
+	 * Accessible description for the draggable divider.
+	 */
 	resizerLabel: string;
 	summaryDefaultSize?: string;
 	summaryResizeBehavior?: "preserve-pixel-size" | "preserve-relative-size";
-	/** Optional result summary shown in the secondary panel. */
+	/**
+	 * Optional result summary shown in the secondary panel.
+	 */
 	summary: ReactNode;
 };
 
-/** Tracks the breakpoint where the result summary becomes an overlay. */
+/**
+ * Tracks the breakpoint where the result summary becomes an overlay.
+ */
 const useCompactLayout = () => {
 	const [isCompact, setIsCompact] = useState(
 		() => window.matchMedia(COMPACT_LAYOUT_QUERY).matches,
@@ -32,7 +40,9 @@ const useCompactLayout = () => {
 	return isCompact;
 };
 
-/** Keeps the desktop panes resizable while preserving the mobile overlay. */
+/**
+ * Keeps the desktop panes resizable while preserving the mobile overlay.
+ */
 const TaskSplitLayout = ({
 	children,
 	contentDefaultSize = "60%",

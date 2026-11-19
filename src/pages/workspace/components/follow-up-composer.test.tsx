@@ -22,7 +22,9 @@ const AGENTS: TaskAgent[] = [
 
 /**
  * Renders the continuation composer with a full six-Agent Task.
- * @example renderFollowUpComposer();
+ *
+ * @example
+ * renderFollowUpComposer();
  */
 const renderFollowUpComposer = () => {
 	const onSubmit = vi.fn().mockResolvedValue(undefined);

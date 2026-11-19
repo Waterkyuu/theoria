@@ -42,9 +42,13 @@ import type {
 import type { CreateTaskRequest, TaskDetail } from "@/types/task";
 
 type WorkspacePageProps = {
-	/** Workspace route identifier, or undefined for a normal Task. */
+	/**
+	 * Workspace route identifier, or undefined for a normal Task.
+	 */
 	workspaceId?: string;
-	/** Existing Task restored into this surface, or undefined for a new Task draft. */
+	/**
+	 * Existing Task restored into this surface, or undefined for a new Task draft.
+	 */
 	taskId?: string;
 };
 
@@ -69,7 +73,9 @@ const PANEL_GRID_CLASSES: Record<number, string> = {
 	6: "grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3",
 };
 
-/** Derives a compact immutable Task title from the first meaningful prompt line. */
+/**
+ * Derives a compact immutable Task title from the first meaningful prompt line.
+ */
 const taskTitleFromPrompt = (prompt: string) =>
 	prompt
 		.split("\n")
@@ -77,7 +83,9 @@ const taskTitleFromPrompt = (prompt: string) =>
 		?.trim()
 		.slice(0, 80) ?? prompt.slice(0, 80);
 
-/** Moves the BrowserRouter to the stable Task URL only after native creation returns an id. */
+/**
+ * Moves the BrowserRouter to the stable Task URL only after native creation returns an id.
+ */
 const openCreatedTask = (task: TaskDetail) => {
 	const path = task.task.workspaceId
 		? `/workspaces/${encodeURIComponent(task.task.workspaceId)}/task/${encodeURIComponent(task.task.id)}`
@@ -138,7 +146,9 @@ const WorkTaskPage = ({ workspaceId, taskId }: WorkspacePageProps) => {
 	useEffect(() => {
 		let isActive = true;
 
-		/** Applies native process snapshots only while this Workspace remains mounted. */
+		/**
+		 * Applies native process snapshots only while this Workspace remains mounted.
+		 */
 		const applyProcessStates = (states: AgentProcessStates) => {
 			if (isActive) setAgentProcesses(states);
 		};
@@ -162,7 +172,9 @@ const WorkTaskPage = ({ workspaceId, taskId }: WorkspacePageProps) => {
 		};
 	}, []);
 
-	/** Creates the Task once, opens its stable route, and starts sibling Executions concurrently. */
+	/**
+	 * Creates the Task once, opens its stable route, and starts sibling Executions concurrently.
+	 */
 	const submitTask = async (submission: ComposerSubmission) => {
 		const request: CreateTaskRequest = {
 			workspaceId: workspaceId ?? null,
@@ -200,7 +212,9 @@ const WorkTaskPage = ({ workspaceId, taskId }: WorkspacePageProps) => {
 		}
 	};
 
-	/** Continues the restored Task without changing any frozen configuration. */
+	/**
+	 * Continues the restored Task without changing any frozen configuration.
+	 */
 	const continueExistingTask = async (
 		prompt: string,
 		taskAgentIds: string[],
@@ -223,7 +237,9 @@ const WorkTaskPage = ({ workspaceId, taskId }: WorkspacePageProps) => {
 		}
 	};
 
-	/** Stops one Agent from its panel and reports the explicit user request outcome. */
+	/**
+	 * Stops one Agent from its panel and reports the explicit user request outcome.
+	 */
 	const stopTaskAgent = (taskAgentId: string) => {
 		if (stopTaskAgentMutation.isPending) return;
 		const agentKind = task?.agents.find(
@@ -359,7 +375,9 @@ const WorkTaskPage = ({ workspaceId, taskId }: WorkspacePageProps) => {
 	);
 };
 
-/** Resolves the common Task header before mounting exactly one type-specific detail surface. */
+/**
+ * Resolves the common Task header before mounting exactly one type-specific detail surface.
+ */
 const WorkspacePage = (props: WorkspacePageProps) => {
 	const taskHeader = useTaskHeader(props.taskId ?? null);
 	if (props.taskId && taskHeader.isLoading) {
