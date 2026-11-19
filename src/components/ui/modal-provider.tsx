@@ -10,35 +10,59 @@ type ModalProviderSize = NonNullable<ModalContainerProps["size"]>;
 type ModalProviderTriggerProps = Pick<ButtonProps, "onPress">;
 
 type ModalProviderBaseProps = {
-	/** Custom modal content rendered below the title and description. */
+	/**
+	 * Custom modal content rendered below the title and description.
+	 */
 	children?: ReactNode;
-	/** Additional classes applied to the modal content card. */
+	/**
+	 * Additional classes applied to the modal content card.
+	 */
 	className?: string;
-	/** Optional description rendered below the title. */
+	/**
+	 * Optional description rendered below the title.
+	 */
 	description?: string;
-	/** Optional actions rendered in the modal footer. */
+	/**
+	 * Optional actions rendered in the modal footer.
+	 */
 	footer?: ReactNode;
-	/** The size forwarded to the underlying Modal. Defaults to md. */
+	/**
+	 * The size forwarded to the underlying Modal. Defaults to md.
+	 */
 	size?: ModalProviderSize;
-	/** The modal title, including optional decorative content. */
+	/**
+	 * The modal title, including optional decorative content.
+	 */
 	title: string | ReactElement;
 };
 
 type ModalProviderControlledProps = {
-	/** The open state in controlled mode. */
+	/**
+	 * The open state in controlled mode.
+	 */
 	isOpen: boolean;
-	/** Called when the modal requests an open state change. */
+	/**
+	 * Called when the modal requests an open state change.
+	 */
 	onOpenChange: (isOpen: boolean) => void;
-	/** Controlled mode does not accept an internal trigger element. */
+	/**
+	 * Controlled mode does not accept an internal trigger element.
+	 */
 	trigger?: never;
 };
 
 type ModalProviderUncontrolledProps = {
-	/** Uncontrolled mode does not accept an external open state. */
+	/**
+	 * Uncontrolled mode does not accept an external open state.
+	 */
 	isOpen?: never;
-	/** Called when the internal open state changes. */
+	/**
+	 * Called when the internal open state changes.
+	 */
 	onOpenChange?: (isOpen: boolean) => void;
-	/** A pressable element used to open the modal. */
+	/**
+	 * A pressable element used to open the modal.
+	 */
 	trigger: ReactElement<ModalProviderTriggerProps>;
 };
 

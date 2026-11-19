@@ -2,19 +2,33 @@ import type { ReactNode } from "react";
 import { Description, Switch as HeroUISwitch } from "@heroui/react";
 
 type SwitchProps = {
-	/** Additional classes applied to the switch root. */
+	/**
+	 * Additional classes applied to the switch root.
+	 */
 	className?: string;
-	/** Supporting text rendered below the clickable switch content. */
+	/**
+	 * Supporting text rendered below the clickable switch content.
+	 */
 	description?: string;
-	/** Whether the switch is disabled. */
+	/**
+	 * Whether the switch is disabled.
+	 */
 	isDisabled?: boolean;
-	/** The controlled selected state. */
+	/**
+	 * The controlled selected state.
+	 */
 	isSelected: boolean;
-	/** The clickable label rendered beside the switch control. */
+	/**
+	 * The clickable label rendered beside the switch control.
+	 */
 	label: ReactNode;
-	/** Called with the next selected state. */
+	/**
+	 * Called with the next selected state.
+	 */
 	onChange: (isSelected: boolean) => void;
-	/** The visual size of the switch. Defaults to md. */
+	/**
+	 * The visual size of the switch. Defaults to md.
+	 */
 	size?: "sm" | "md" | "lg";
 };
 

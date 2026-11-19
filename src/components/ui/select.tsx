@@ -9,48 +9,88 @@ import {
 import { useTranslation } from "react-i18next";
 
 type SelectOption<T extends string> = {
-	/** Optional supporting text rendered below the option label. */
+	/**
+	 * Optional supporting text rendered below the option label.
+	 */
 	description?: string;
-	/** Whether the option cannot be selected. */
+	/**
+	 * Whether the option cannot be selected.
+	 */
 	isDisabled?: boolean;
-	/** The user-visible option label. */
+	/**
+	 * The user-visible option label.
+	 */
 	label: string;
-	/** The stable business value returned when the option is selected. */
+	/**
+	 * The stable business value returned when the option is selected.
+	 */
 	value: T;
 };
 
 type SelectProps<T extends string> = {
-	/** Additional classes applied to the select root. */
+	/**
+	 * Additional classes applied to the select root.
+	 */
 	className?: string;
-	/** Optional supporting text rendered below the trigger. */
+	/**
+	 * Optional supporting text rendered below the trigger.
+	 */
 	description?: string;
-	/** Validation message rendered when the select is invalid. */
+	/**
+	 * Validation message rendered when the select is invalid.
+	 */
 	errorMessage?: string;
-	/** Whether the select fills the width of its container. Defaults to true. */
+	/**
+	 * Whether the select fills the width of its container. Defaults to true.
+	 */
 	fullWidth?: boolean;
-	/** Whether the select is disabled. */
+	/**
+	 * Whether the select is disabled.
+	 */
 	isDisabled?: boolean;
-	/** Whether the options are still loading for the first time. */
+	/**
+	 * Whether the options are still loading for the first time.
+	 */
 	isLoading?: boolean;
-	/** Whether the current value is invalid. */
+	/**
+	 * Whether the current value is invalid.
+	 */
 	isInvalid?: boolean;
-	/** Whether a value is required. */
+	/**
+	 * Whether a value is required.
+	 */
 	isRequired?: boolean;
-	/** The user-visible and accessible field label. */
+	/**
+	 * The user-visible and accessible field label.
+	 */
 	label: string;
-	/** Additional classes applied only to the field label. */
+	/**
+	 * Additional classes applied only to the field label.
+	 */
 	labelClassName?: string;
-	/** The field name used during native form submission. */
+	/**
+	 * The field name used during native form submission.
+	 */
 	name?: string;
-	/** Called with the next selected business value. */
+	/**
+	 * Called with the next selected business value.
+	 */
 	onChange: (value: T | null) => void;
-	/** The options available for selection. */
+	/**
+	 * The options available for selection.
+	 */
 	options: readonly SelectOption<T>[];
-	/** Text displayed when no option is selected. */
+	/**
+	 * Text displayed when no option is selected.
+	 */
 	placeholder: string;
-	/** The controlled selected business value. */
+	/**
+	 * The controlled selected business value.
+	 */
 	value: T | null;
-	/** The visual emphasis of the select. Defaults to primary. */
+	/**
+	 * The visual emphasis of the select. Defaults to primary.
+	 */
 	variant?: "primary" | "secondary";
 };
 

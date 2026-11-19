@@ -7,31 +7,51 @@ import {
 type PopoverPlacement = NonNullable<PopoverContentProps["placement"]>;
 
 type PopoverBaseProps = {
-	/** The rich content rendered below the popover title. */
+	/**
+	 * The rich content rendered below the popover title.
+	 */
 	children: ReactNode;
-	/** Additional classes applied to the popover content container. */
+	/**
+	 * Additional classes applied to the popover content container.
+	 */
 	className?: string;
-	/** The preferred placement relative to the trigger. Defaults to bottom. */
+	/**
+	 * The preferred placement relative to the trigger. Defaults to bottom.
+	 */
 	placement?: PopoverPlacement;
-	/** Whether to render an arrow pointing to the trigger. */
+	/**
+	 * Whether to render an arrow pointing to the trigger.
+	 */
 	showArrow?: boolean;
-	/** The accessible title rendered at the top of the popover. */
+	/**
+	 * The accessible title rendered at the top of the popover.
+	 */
 	title: string;
-	/** The element that opens the popover. */
+	/**
+	 * The element that opens the popover.
+	 */
 	trigger: ReactElement;
 };
 
 type PopoverControlledProps = {
-	/** The open state in controlled mode. */
+	/**
+	 * The open state in controlled mode.
+	 */
 	isOpen: boolean;
-	/** Called when the popover requests an open state change. */
+	/**
+	 * Called when the popover requests an open state change.
+	 */
 	onOpenChange: (isOpen: boolean) => void;
 };
 
 type PopoverUncontrolledProps = {
-	/** Uncontrolled mode does not accept an external open state. */
+	/**
+	 * Uncontrolled mode does not accept an external open state.
+	 */
 	isOpen?: never;
-	/** Called when the internal open state changes. */
+	/**
+	 * Called when the internal open state changes.
+	 */
 	onOpenChange?: (isOpen: boolean) => void;
 };
 

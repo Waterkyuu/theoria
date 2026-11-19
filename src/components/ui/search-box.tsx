@@ -3,19 +3,31 @@ import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 
 type SearchBoxProps = {
-	/** Optional field styling for the surrounding surface. */
+	/**
+	 * Optional field styling for the surrounding surface.
+	 */
 	className?: string;
-	/** Whether the search input is disabled. */
+	/**
+	 * Whether the search input is disabled.
+	 */
 	isDisabled?: boolean;
-	/** Called with the next search value whenever the input changes. */
+	/**
+	 * Called with the next search value whenever the input changes.
+	 */
 	onValueChange: (value: string) => void;
-	/** The input placeholder. Falls back to the shared translation when omitted. */
+	/**
+	 * The input placeholder. Falls back to the shared translation when omitted.
+	 */
 	placeholder?: string;
-	/** The current search value. */
+	/**
+	 * The current search value.
+	 */
 	value: string;
 };
 
-/** Renders a controlled search input with a leading search icon. */
+/**
+ * Renders a controlled search input with a leading search icon.
+ */
 const SearchBox = ({
 	className,
 	isDisabled = false,

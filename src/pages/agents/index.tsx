@@ -1,7 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/share/page-header";
 
-/** Renders the reserved Agent access page surface. */
+/**
+ * Renders the reserved Agent access page surface.
+ */
 const AgentsPage = () => {
 	const { t } = useTranslation();
 
