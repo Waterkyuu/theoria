@@ -1,6 +1,45 @@
 import { z } from "zod";
 import { AgentKindSchema } from "@/types/agent";
 
+const BenchmarkRunnerSchema = z.discriminatedUnion("kind", [
+	z.object({
+		/** Built-in local environment and checks. */
+		kind: z.literal("native"),
+	}),
+	z.object({
+		/** Upstream container runner. */
+		kind: z.literal("harbor"),
+		/** Registry dataset identifier. */
+		dataset: z.string(),
+		/** Fixed upstream release. */
+		version: z.string(),
+	}),
+]);
+
+const BenchmarkAgentProfileSchema = z.object({
+	/** Local product or corresponding Harbor integration. */
+	agentKind: AgentKindSchema,
+	/** Distinguishes configurations of the same product. */
+	label: z.string(),
+	/** Explicit requested model; null means unknown local default. */
+	model: z.string().nullable(),
+	/** Explicit reasoning effort or mode. */
+	mode: z.string().nullable(),
+	/** Pinned CLI version when supported by the runner. */
+	version: z.string().nullable(),
+});
+
+const BenchmarkRunOptionsSchema = z.object({
+	/** Published zero-based positions; null selects all cases. */
+	casePositions: z.array(z.number().int().nonnegative()).nullable(),
+	/** Independent trials per case and configuration. */
+	repetitions: z.number().int().min(1).max(10),
+	/** Immutable model and mode choices. */
+	profiles: z.array(BenchmarkAgentProfileSchema).max(8),
+	/** Environment and scoring protocol. */
+	runner: BenchmarkRunnerSchema,
+});
+
 const BenchmarkFileSchema = z.object({
 	/** Portable path within one case. */
 	path: z.string(),
@@ -396,6 +435,8 @@ const BenchmarkTaskDetailSchema = z.object({
 	fileAccess: z.enum(["read_only", "allow_edits"]),
 	/** Frozen command execution policy. */
 	commandExecution: z.enum(["deny", "ask", "allow"]),
+	/** Immutable experiment inputs, absent on legacy responses. */
+	runOptions: BenchmarkRunOptionsSchema.optional(),
 	/** Aggregate matrix completion counts. */
 	progress: z.object({
 		/** Number of planned matrix cells. */
@@ -418,6 +459,8 @@ const BenchmarkTaskDetailSchema = z.object({
 			agentKind: AgentKindSchema,
 			/** Stable matrix column order. */
 			position: z.number().int().nonnegative(),
+			/** Frozen requested configuration, absent in legacy responses. */
+			profile: BenchmarkAgentProfileSchema.optional(),
 			/** Number of passing evaluations for this Agent. */
 			passed: z.number().int().nonnegative(),
 			/** Number of failing evaluations for this Agent. */
@@ -464,6 +507,8 @@ const BenchmarkTaskDetailSchema = z.object({
 			taskCaseId: z.string().min(1),
 			/** Frozen Task Agent row used by this cell. */
 			taskAgentId: z.string().min(1),
+			/** Independent one-based trial number. */
+			attempt: z.number().int().positive().optional(),
 			/** Database-constrained lifecycle phase for this execution cell. */
 			phase: z.literal([
 				"queued",
@@ -542,6 +587,10 @@ type BenchmarkFilters = {
 	sort: "newest" | "updated" | "oldest" | "alphabetical";
 };
 
+type BenchmarkRunOptions = z.infer<typeof BenchmarkRunOptionsSchema>;
+type BenchmarkRunner = z.infer<typeof BenchmarkRunnerSchema>;
+type BenchmarkAgentProfile = z.infer<typeof BenchmarkAgentProfileSchema>;
+
 type BenchmarkPreviewInput = Pick<
 	BenchmarkPreview,
 	"agentKinds" | "fileAccess" | "commandExecution"
@@ -552,6 +601,8 @@ type BenchmarkPreviewInput = Pick<
 	mountId: string;
 	/** Version shown before the check. */
 	expectedVersionId: string;
+	/** Optional experiment choices for older callers. */
+	runOptions?: BenchmarkRunOptions;
 };
 
 type StartBenchmarkTaskInput = BenchmarkPreviewInput & {
@@ -563,6 +614,8 @@ type RerunBenchmarkTaskInput = Pick<
 	BenchmarkTaskDetail,
 	"fileAccess" | "commandExecution"
 > & {
+	/** Omitted options preserve the source experiment. */
+	runOptions?: BenchmarkRunOptions;
 	/** Terminal Benchmark Task whose immutable version is reused. */
 	sourceTaskId: string;
 	/** Local Agent products selected for the fresh execution matrix. */
@@ -574,6 +627,9 @@ type RerunBenchmarkTaskInput = Pick<
 };
 
 export type {
+	BenchmarkRunOptions,
+	BenchmarkRunner,
+	BenchmarkAgentProfile,
 	BenchmarkDocument,
 	BenchmarkFile,
 	BenchmarkCheck,

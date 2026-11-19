@@ -1,6 +1,18 @@
 const enUS = {
 	translation: {
 		benchmark: {
+			experiment: {
+				repetitions: "Trials per case",
+				caseNumbers: "Case numbers",
+				caseHint:
+					"Leave empty for all cases, or enter numbers such as 1, 3, 5.",
+				model: "Model {{number}}",
+				mode: "Reasoning / mode {{number}}",
+				version: "CLI version {{number}}",
+				configuration: "Configuration {{number}}",
+				duplicate: "Add configuration",
+				remove: "Remove configuration",
+			},
 			automaticChecks: "Automatic checks",
 			filterAuthor: "Filter by author",
 			checkKinds: {

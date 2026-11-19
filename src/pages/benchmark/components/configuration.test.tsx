@@ -132,3 +132,58 @@ it("starts a checked benchmark once and opens its task route", async () => {
 	});
 	expect(await screen.findByText("Benchmark result")).toBeInTheDocument();
 });
+
+it("includes a case subset and repeated trials in the checked launch", async () => {
+	await i18n.changeLanguage("en-US");
+	invoke.mockImplementation(async (command: string) => {
+		if (command === "preview_benchmark_task")
+			return {
+				versionId: "version-1",
+				versionNumber: 1,
+				name: "Answer suite",
+				cases: [{ position: 1, name: "Second", timeoutMinutes: 1 }],
+				agentKinds: ["codex"],
+				executionCount: 3,
+				fileAccess: "allow_edits",
+				commandExecution: "allow",
+				issues: [],
+			};
+		if (command === "start_benchmark_task") return task;
+		throw new Error(`Unexpected command: ${command}`);
+	});
+	const user = userEvent.setup();
+	render(
+		<QueryClientProvider client={new QueryClient()}>
+			<MemoryRouter>
+				<BenchmarkConfiguration mount={mount} />
+			</MemoryRouter>
+		</QueryClientProvider>,
+	);
+	await user.click(
+		screen.getByRole("button", { name: "Configure evaluation" }),
+	);
+	await user.click(screen.getByText("Codex"));
+	const repetitions = screen.getByRole("spinbutton", {
+		name: "Trials per case",
+	});
+	await user.clear(repetitions);
+	await user.type(repetitions, "3");
+	await user.type(screen.getByRole("textbox", { name: "Case numbers" }), "2");
+	await user.type(
+		screen.getByRole("textbox", { name: "Model 1" }),
+		"test-model",
+	);
+	await user.click(screen.getByRole("button", { name: "Check prerequisites" }));
+	await screen.findByText("No missing prerequisites found.");
+	expect(invoke).toHaveBeenCalledWith("preview_benchmark_task", {
+		request: expect.objectContaining({
+			runOptions: expect.objectContaining({
+				casePositions: [1],
+				repetitions: 3,
+				profiles: [
+					expect.objectContaining({ agentKind: "codex", model: "test-model" }),
+				],
+			}),
+		}),
+	});
+});
