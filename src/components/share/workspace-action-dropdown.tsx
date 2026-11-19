@@ -20,9 +20,13 @@ import {
 import type { Workspace } from "@/types/workspace";
 
 type WorkspaceActionDropdownProps = {
-	/** Called after removal so active Workspace routes can leave safely. */
+	/**
+	 * Called after removal so active Workspace routes can leave safely.
+	 */
 	onRemoved?: () => void;
-	/** Persisted Workspace represented by the existing action menu. */
+	/**
+	 * Persisted Workspace represented by the existing action menu.
+	 */
 	workspace: Workspace;
 };
 
@@ -51,7 +55,9 @@ const WorkspaceActionDropdown = ({
 	const isConfirmed =
 		!requiresManagedConfirmation || managedConfirmation === workspace.name;
 
-	/** Removes the Workspace collection after applying source-specific protection. */
+	/**
+	 * Removes the Workspace collection after applying source-specific protection.
+	 */
 	const confirmRemove = async () => {
 		if (!isConfirmed || removeWorkspaceMutation.isPending) return;
 		try {
@@ -72,7 +78,9 @@ const WorkspaceActionDropdown = ({
 		}
 	};
 
-	/** Toggles persisted pin state so the refreshed sidebar receives database ordering. */
+	/**
+	 * Toggles persisted pin state so the refreshed sidebar receives database ordering.
+	 */
 	const setPinState = async () => {
 		if (setWorkspacePinMutation.isPending) return;
 		try {
@@ -98,7 +106,9 @@ const WorkspaceActionDropdown = ({
 		}
 	};
 
-	/** Persists the shared modal value and keeps it open when validation fails. */
+	/**
+	 * Persists the shared modal value and keeps it open when validation fails.
+	 */
 	const renameWorkspace = async (name: string) => {
 		try {
 			await renameWorkspaceMutation.mutateAsync({
@@ -115,7 +125,9 @@ const WorkspaceActionDropdown = ({
 		}
 	};
 
-	/** Dispatches implemented Workspace actions. */
+	/**
+	 * Dispatches implemented Workspace actions.
+	 */
 	const handleMenuAction = (action: WorkspaceMenuAction) => {
 		const actions: Partial<Record<WorkspaceMenuAction, () => void>> = {
 			pin: setPinState,

@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
 
 type PageHeaderProps = {
-	/** Page-specific title and actions arranged inside the shared top bar. */
+	/**
+	 * Page-specific title and actions arranged inside the shared top bar.
+	 */
 	children: ReactNode;
 };
 

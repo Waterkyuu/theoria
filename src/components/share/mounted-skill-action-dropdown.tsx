@@ -9,9 +9,13 @@ import { handleError } from "@/utils/error";
 import { useUnmountWorkspaceSkill } from "@/queries/skill";
 
 type MountedSkillActionDropdownProps = {
-	/** Managed Skill mounted into the current Workspace. */
+	/**
+	 * Managed Skill mounted into the current Workspace.
+	 */
 	skill: { folderName: string; id: string };
-	/** Workspace owning the mount relationship. */
+	/**
+	 * Workspace owning the mount relationship.
+	 */
 	workspace: { id: string; name: string };
 };
 
@@ -41,7 +45,9 @@ const MountedSkillActionDropdown = ({
 		},
 	];
 
-	/** Removes one Skill mount only from this Workspace. */
+	/**
+	 * Removes one Skill mount only from this Workspace.
+	 */
 	const confirmUnmount = async () => {
 		if (unmountSkillMutation.isPending) return;
 		try {

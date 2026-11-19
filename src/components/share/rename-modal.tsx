@@ -3,25 +3,45 @@ import { Button, Input, Label, TextField } from "@heroui/react";
 import { ModalProvider } from "@/components/ui/modal-provider";
 
 type RenameModalProps = {
-	/** Guidance shown below the modal title. */
+	/**
+	 * Guidance shown below the modal title.
+	 */
 	description: string;
-	/** Current persisted name restored whenever editing is cancelled. */
+	/**
+	 * Current persisted name restored whenever editing is cancelled.
+	 */
 	initialName: string;
-	/** Controls whether an external action menu has opened the modal. */
+	/**
+	 * Controls whether an external action menu has opened the modal.
+	 */
 	isOpen: boolean;
-	/** Disables repeated submissions while persistence is in progress. */
+	/**
+	 * Disables repeated submissions while persistence is in progress.
+	 */
 	isPending?: boolean;
-	/** Accessible label for the name input. */
+	/**
+	 * Accessible label for the name input.
+	 */
 	label: string;
-	/** Text shown on the secondary close action. */
+	/**
+	 * Text shown on the secondary close action.
+	 */
 	cancelText: string;
-	/** Updates the controlled modal state. */
+	/**
+	 * Updates the controlled modal state.
+	 */
 	onOpenChange: (isOpen: boolean) => void;
-	/** Persists a trimmed name and reports whether the modal may close. */
+	/**
+	 * Persists a trimmed name and reports whether the modal may close.
+	 */
 	onRename: (name: string) => Promise<boolean>;
-	/** Text shown on the primary save action. */
+	/**
+	 * Text shown on the primary save action.
+	 */
 	saveText: string;
-	/** Accessible modal heading. */
+	/**
+	 * Accessible modal heading.
+	 */
 	title: string;
 };
 
@@ -46,13 +66,17 @@ const RenameModal = ({
 	const [name, setName] = useState(initialName);
 	const trimmedName = name.trim();
 
-	/** Restores persisted text after cancellation so stale edits never reopen. */
+	/**
+	 * Restores persisted text after cancellation so stale edits never reopen.
+	 */
 	const handleOpenChange = (nextIsOpen: boolean) => {
 		if (!nextIsOpen) setName(initialName);
 		onOpenChange(nextIsOpen);
 	};
 
-	/** Closes only after the caller confirms persistence succeeded. */
+	/**
+	 * Closes only after the caller confirms persistence succeeded.
+	 */
 	const handleRename = async () => {
 		if (!trimmedName || isPending) return;
 		if (await onRename(trimmedName)) handleOpenChange(false);

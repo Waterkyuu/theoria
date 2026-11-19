@@ -18,15 +18,25 @@ import { handleError } from "@/utils/error";
 import { useDeleteTask, useRenameTask, useSetTaskPin } from "@/queries/task";
 
 type TaskActionDropdownProps = {
-	/** Whether the Task kind supports permanent deletion. */
+	/**
+	 * Whether the Task kind supports permanent deletion.
+	 */
 	canDelete?: boolean;
-	/** Called after deletion so an active route can return to its Composer. */
+	/**
+	 * Called after deletion so an active route can return to its Composer.
+	 */
 	onDeleted?: () => void;
-	/** Persisted timestamp that controls pin state within the Task's sidebar scope. */
+	/**
+	 * Persisted timestamp that controls pin state within the Task's sidebar scope.
+	 */
 	pinnedAtMs?: number | null;
-	/** Stable Task identifier removed with its owned run files. */
+	/**
+	 * Stable Task identifier removed with its owned run files.
+	 */
 	taskId: string;
-	/** Task name included in the menu trigger's accessible label. */
+	/**
+	 * Task name included in the menu trigger's accessible label.
+	 */
 	taskName: string;
 };
 
@@ -55,7 +65,9 @@ const TaskActionDropdown = ({
 	const supportsPinning = pinnedAtMs !== undefined;
 	const isPinned = pinnedAtMs !== null && pinnedAtMs !== undefined;
 
-	/** Removes Task persistence and owned run files after explicit confirmation. */
+	/**
+	 * Removes Task persistence and owned run files after explicit confirmation.
+	 */
 	const confirmDelete = async () => {
 		if (deleteTaskMutation.isPending) return;
 		try {
@@ -75,7 +87,9 @@ const TaskActionDropdown = ({
 		}
 	};
 
-	/** Persists the modal value and keeps it open when the request fails. */
+	/**
+	 * Persists the modal value and keeps it open when the request fails.
+	 */
 	const renameTask = async (title: string) => {
 		try {
 			await renameTaskMutation.mutateAsync({ taskId, title });
@@ -87,7 +101,9 @@ const TaskActionDropdown = ({
 		}
 	};
 
-	/** Toggles persisted pin state for any Task rendered in a sidebar list. */
+	/**
+	 * Toggles persisted pin state for any Task rendered in a sidebar list.
+	 */
 	const setPinState = async () => {
 		if (!supportsPinning || setTaskPinMutation.isPending) return;
 		try {

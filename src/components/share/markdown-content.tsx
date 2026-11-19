@@ -6,17 +6,24 @@ import remarkMath from "remark-math";
 import "katex/dist/katex.min.css";
 
 type MarkdownContentProps = {
-	/** Markdown source rendered without changing its stored representation. */
+	/**
+	 * Markdown source rendered without changing its stored representation.
+	 */
 	children: string;
 };
 
 type MarkdownTableProps = {
-	/** Parsed header and body supplied by the Markdown renderer. */
+	/**
+	 * Parsed header and body supplied by the Markdown renderer.
+	 */
 	children?: ReactNode;
 };
 
-/** Keeps wide tables scrollable inside the preview without widening the editor.
- * @example <MarkdownTable><tbody><tr><td>Content</td></tr></tbody></MarkdownTable>
+/**
+ * Keeps wide tables scrollable inside the preview without widening the editor.
+ *
+ * @example
+ * <MarkdownTable><tbody><tr><td>Content</td></tr></tbody></MarkdownTable>
  */
 const MarkdownTable = ({ children }: MarkdownTableProps) => (
 	<div className="my-4 max-w-full overflow-x-auto">
@@ -26,8 +33,11 @@ const MarkdownTable = ({ children }: MarkdownTableProps) => (
 	</div>
 );
 
-/** Shares table and math support across skill previews and Agent responses, with bundled offline fonts.
- * @example <MarkdownContent>{"Inline $x^2$"}</MarkdownContent>
+/**
+ * Shares table and math support across skill previews and Agent responses, with bundled offline fonts.
+ *
+ * @example
+ * <MarkdownContent>{"Inline $x^2$"}</MarkdownContent>
  */
 const MarkdownContent = ({ children }: MarkdownContentProps) => (
 	<div className="min-w-0 [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden [&_.katex-display]:py-2">
