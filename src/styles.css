@@ -257,9 +257,11 @@
 		background: var(--color-canvas);
 	}
 
-	* {
-		scrollbar-color: var(--color-hairline-strong) transparent;
-		scrollbar-width: thin;
+	@supports not selector(::-webkit-scrollbar) {
+		* {
+			scrollbar-color: var(--color-hairline-strong) transparent;
+			scrollbar-width: thin;
+		}
 	}
 
 	::-webkit-scrollbar {
@@ -268,13 +270,14 @@
 	}
 
 	::-webkit-scrollbar-track {
-		margin: 6px;
+		margin: 14px;
 		background: transparent;
 	}
 
 	::-webkit-scrollbar-thumb {
+		border: 1px solid transparent;
 		border-radius: var(--radius-full);
-		background: var(--color-hairline-strong);
+		background: var(--color-hairline-strong) padding-box;
 	}
 
 	button,
