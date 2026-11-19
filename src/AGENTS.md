@@ -219,6 +219,16 @@ cn("px-2 py-1", isActive && "px-4", { "text-red-500": hasError });
 4. Keep examples concise and show the smallest usable invocation. Avoid lengthy business explanations.
 5. Never add emojis to comments.
 6. When modifying code, do not remove an existing comment without updating the corresponding code. If code that already has comments is modified, update or supplement those comments as needed.
+7. All JSDoc comments, including function documentation and field comments, must use multiline formatting. Put `/**` on its own line, start each content line with ` *`, and put ` */` on its own line. Leave a blank ` *` line between the description and `@example`. Put `@example` on its own line and its usage example on the following line. Do not put the description on the opening line.
+
+```tsx
+/**
+ * Probes only when opened so hidden setup dialogs do not start background checks.
+ *
+ * @example
+ * <BenchmarkEnvironmentSetup onChange={invalidatePreview} />
+ */
+```
 
 ### Excessive packaging is strictly prohibited
 
