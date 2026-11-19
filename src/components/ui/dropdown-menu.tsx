@@ -26,6 +26,8 @@ type DropdownMenuItemProps<T extends string> = {
 	separated?: boolean;
 	/** Test identifier rendered as data-testid. */
 	testId?: string;
+	/** Optional indicator rendered after the item label. */
+	trailingIcon?: ReactElement;
 };
 
 type DropdownMenuProps<T extends string> = Pick<
@@ -108,6 +110,7 @@ const DropdownMenu = <T extends string>({
 				<Label className={item.danger ? "text-danger" : undefined}>
 					{label}
 				</Label>
+				{item.trailingIcon}
 				{item.children ? <Dropdown.SubmenuIndicator /> : null}
 			</Dropdown.Item>
 		);

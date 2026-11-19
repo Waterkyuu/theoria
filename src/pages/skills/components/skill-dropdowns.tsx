@@ -1,10 +1,21 @@
-import { BarsDescendingAlignCenter, Check, Plus } from "@gravity-ui/icons";
+import {
+	BarsDescendingAlignCenter,
+	Check,
+	CodeFork,
+	FolderOpen,
+	PencilToSquare,
+	Plus,
+} from "@gravity-ui/icons";
 import { Button } from "@heroui/react";
-import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 
 const SKILL_SOURCE_FILTERS = ["git", "platform", "local_folder"] as const;
+const SKILL_SOURCE_ICONS = {
+	git: CodeFork,
+	platform: PencilToSquare,
+	local_folder: FolderOpen,
+};
 const SKILL_FILTERS = ["all", "mounted", ...SKILL_SOURCE_FILTERS] as const;
 const SKILL_ADD_ITEMS = [
 	{
@@ -81,16 +92,18 @@ const SkillFilterDropdown = ({
 		<DropdownMenu
 			headerKey="skills.filterMenu.title"
 			itemClassName="min-w-40"
-			items={SKILL_SOURCE_FILTERS.map((filter) => ({
-				icon: (
-					<Check
-						aria-hidden="true"
-						className={cn("size-4", activeFilter !== filter && "invisible")}
-					/>
-				),
-				id: filter,
-				labelKey: `skills.filters.${filter}`,
-			}))}
+			items={SKILL_SOURCE_FILTERS.map((filter) => {
+				const SourceIcon = SKILL_SOURCE_ICONS[filter];
+				return {
+					icon: <SourceIcon aria-hidden="true" className="size-4 shrink-0" />,
+					id: filter,
+					labelKey: `skills.filters.${filter}`,
+					trailingIcon:
+						activeFilter === filter ? (
+							<Check aria-hidden="true" className="ms-auto size-4 shrink-0" />
+						) : undefined,
+				};
+			})}
 			onAction={onAction}
 			placement="bottom end"
 			trigger={
