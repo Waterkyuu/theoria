@@ -48,7 +48,10 @@ for (const width of [375, 768, 960, 1024, 1440]) {
 			exact: true,
 		});
 		await expect(
-			environment.getByRole("button", { name: "Install Docker", exact: true }),
+			environment.getByRole("button", {
+				name: "Set up or repair Docker",
+				exact: true,
+			}),
 		).toBeVisible();
 		await expect(
 			environment.getByRole("button", {
