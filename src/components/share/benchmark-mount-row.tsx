@@ -240,10 +240,18 @@ const BenchmarkMountRow = ({
 		>
 			<button
 				className="min-w-0 flex-1 truncate text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+				aria-label={name}
 				onClick={() => onNavigate(mountPath)}
 				type="button"
 			>
-				{name}
+				{query.isLoading ? (
+					<span
+						aria-hidden="true"
+						className="block h-4 w-2/3 animate-pulse rounded bg-hairline motion-reduce:animate-none"
+					/>
+				) : (
+					name
+				)}
 			</button>
 			<div
 				className={cn(

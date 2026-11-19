@@ -36,6 +36,21 @@ const canDeleteTask = (task: Pick<Task, "kind" | "status">) =>
 	task.status === "failed" ||
 	task.status === "stopped";
 
+/** Reserves two fixed-height tree rows while the expanded group's records load. */
+const SidebarLoadingRows = () => {
+	const { t } = useTranslation();
+	return (
+		<div
+			aria-label={t("loadingPage")}
+			className="space-y-xs py-xs pl-12"
+			role="status"
+		>
+			<div className="h-8 animate-pulse rounded-md bg-hairline motion-reduce:animate-none" />
+			<div className="h-8 animate-pulse rounded-md bg-hairline motion-reduce:animate-none" />
+		</div>
+	);
+};
+
 /**
  * Connects one persisted Workspace to the existing expandable sidebar tree.
  *
@@ -165,14 +180,7 @@ const WorkspaceSidebarItem = ({
 
 						{isConversationsExpanded ? (
 							tasksQuery.isLoading ? (
-								<div
-									aria-label={t("loadingPage")}
-									className="space-y-xs py-xs pl-12"
-									role="status"
-								>
-									<div className="h-8 animate-pulse rounded-md bg-hairline motion-reduce:animate-none" />
-									<div className="h-8 animate-pulse rounded-md bg-hairline motion-reduce:animate-none" />
-								</div>
+								<SidebarLoadingRows />
 							) : (
 								tasks.map((task) => (
 									<div
@@ -235,15 +243,21 @@ const WorkspaceSidebarItem = ({
 								{t("workspaceSidebar.benchmarks")}
 							</span>
 							<span className="text-caption-sm tabular-nums text-mute">
-								{benchmarksQuery.isLoading
-									? "…"
-									: benchmarksQuery.isError
-										? "—"
-										: `${mounts.length}${benchmarksQuery.hasNextPage ? "+" : ""}`}
+								{benchmarksQuery.isLoading ? (
+									<span
+										aria-hidden="true"
+										className="block size-3 animate-pulse rounded-sm bg-hairline-strong motion-reduce:animate-none"
+									/>
+								) : benchmarksQuery.isError ? (
+									"—"
+								) : (
+									`${mounts.length}${benchmarksQuery.hasNextPage ? "+" : ""}`
+								)}
 							</span>
 						</button>
 						{isBenchmarksExpanded && (
 							<div role="group">
+								{benchmarksQuery.isLoading && <SidebarLoadingRows />}
 								{mounts.map((mount) => (
 									<BenchmarkMountRow
 										currentPath={currentPath}
@@ -304,14 +318,7 @@ const WorkspaceSidebarItem = ({
 						</button>
 						{isSkillsExpanded ? (
 							skillsQuery.isLoading ? (
-								<div
-									aria-label={t("loadingPage")}
-									className="space-y-xs py-xs pl-12"
-									role="status"
-								>
-									<div className="h-8 animate-pulse rounded-md bg-hairline motion-reduce:animate-none" />
-									<div className="h-8 animate-pulse rounded-md bg-hairline motion-reduce:animate-none" />
-								</div>
+								<SidebarLoadingRows />
 							) : (
 								(skillsQuery.data ?? []).map((skill) => (
 									<div
