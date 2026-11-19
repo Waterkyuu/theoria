@@ -1,6 +1,7 @@
 mod adapters {
     pub(crate) mod activity;
     pub(crate) mod agent;
+    pub(crate) mod benchmark_environment;
     pub(crate) mod benchmark_verifier;
     pub(crate) mod claude;
     pub(crate) mod codex;
@@ -359,6 +360,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::benchmark::archive_benchmark,
+            commands::benchmark_task::inspect_benchmark_environment,
+            commands::benchmark_task::repair_benchmark_environment,
             commands::benchmark_task::get_benchmark_task,
             commands::benchmark_task::list_benchmark_execution_artifacts,
             commands::benchmark_task::preview_benchmark_task,

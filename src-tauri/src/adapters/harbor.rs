@@ -80,12 +80,16 @@ struct HarborException {
 }
 
 /// Pinning the executable protects the stored config/result protocol from silent CLI changes.
-fn executable() -> PathBuf {
+pub(crate) fn executable(app_data: &Path) -> PathBuf {
     let name = if cfg!(windows) {
         "harbor.exe"
     } else {
         "harbor"
     };
+    let managed = app_data.join("benchmark-tools").join("bin").join(name);
+    if managed.is_file() {
+        return managed;
+    }
     let local = dirs::home_dir().map(|home| home.join(".local").join("bin").join(name));
     local
         .filter(|path| path.is_file())
@@ -94,11 +98,12 @@ fn executable() -> PathBuf {
 
 /// The desktop preflight checks runner and Docker independently of host CLI login state.
 pub(crate) fn preflight(
+    executable: &Path,
     cancelled: &AtomicBool,
 ) -> Result<(), crate::domain::benchmark_task::BenchmarkPreflightIssueKind> {
     use crate::domain::benchmark_task::BenchmarkPreflightIssueKind;
     let version = run_owned_command(
-        Command::new(executable())
+        Command::new(executable)
             .arg("--version")
             .stdout(Stdio::piped()),
         Duration::from_secs(10),
@@ -112,7 +117,7 @@ pub(crate) fn preflight(
         return Err(BenchmarkPreflightIssueKind::RunnerUnavailable);
     }
     run_owned_command(
-        Command::new("docker")
+        Command::new(super::benchmark_environment::docker_executable())
             .args(["info", "--format", "{{.ServerVersion}}"])
             .stdout(Stdio::null()),
         Duration::from_secs(10),
@@ -329,6 +334,7 @@ fn completed_trial(
 
 /// Keeps the upstream job outside the public workspace so resume never erases its progress.
 pub(crate) fn run_trial(
+    executable: &Path,
     runner: &BenchmarkRunner,
     task: &str,
     profile: &BenchmarkAgentProfile,
@@ -348,7 +354,7 @@ pub(crate) fn run_trial(
     let imported = if let Some(previous) = previous {
         previous
     } else {
-        preflight(cancelled).map_err(|_| AppError::BenchmarkVerifierUnavailable)?;
+        preflight(executable, cancelled).map_err(|_| AppError::BenchmarkVerifierUnavailable)?;
         let config = root.join("config.json");
         std::fs::write(
             &config,
@@ -356,7 +362,7 @@ pub(crate) fn run_trial(
                 .map_err(|_| AppError::InvalidBenchmark)?,
         )
         .map_err(|_| AppError::TaskPreparationFailed)?;
-        let mut command = Command::new(executable());
+        let mut command = Command::new(executable);
         if job.join("config.json").is_file() {
             command.args(["jobs", "resume", "--job-path"]).arg(&job);
         } else {
@@ -490,6 +496,7 @@ mod tests {
             ..Default::default()
         };
         let imported = super::run_trial(
+            &root.join("unused-runner"),
             &runner,
             "build-cython-ext",
             &profile,

@@ -135,3 +135,20 @@ pub(crate) async fn resume_benchmark_task(
         .map(Into::into)
         .map_err(Into::into)
 }
+
+/// Read-only dependency checks report actual availability without running an experiment.
+#[tauri::command]
+pub(crate) async fn inspect_benchmark_environment(
+    service: State<'_, BenchmarkTaskService>,
+) -> Result<crate::adapters::benchmark_environment::BenchmarkEnvironment, IpcError> {
+    service.environment().await.map_err(Into::into)
+}
+
+/// Only fixed setup actions are exposed; callers cannot supply commands or download URLs.
+#[tauri::command]
+pub(crate) async fn repair_benchmark_environment(
+    action: crate::adapters::benchmark_environment::EnvironmentAction,
+    service: State<'_, BenchmarkTaskService>,
+) -> Result<crate::adapters::benchmark_environment::BenchmarkEnvironment, IpcError> {
+    service.repair_environment(action).await.map_err(Into::into)
+}

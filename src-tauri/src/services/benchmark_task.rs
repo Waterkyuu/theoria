@@ -60,6 +60,8 @@ pub(crate) struct BenchmarkTaskService {
     asset_directory: PathBuf,
     /// Root of Task-owned baselines and execution artifacts.
     app_data_directory: PathBuf,
+    /// Serializes explicit setup mutations across dialogs.
+    environment_setup: Arc<tokio::sync::Mutex<()>>,
     /// Bounds active Agent calls across every Benchmark Task owned by this service.
     execution_slots: Arc<tokio::sync::Semaphore>,
     /// Task identifiers paired with cancellation signals owned by this service.
@@ -81,12 +83,44 @@ impl BenchmarkTaskService {
             task_repository,
             asset_directory: app_data.join("benchmark-assets"),
             app_data_directory: app_data,
+            environment_setup: Arc::new(tokio::sync::Mutex::new(())),
             execution_slots: Arc::new(tokio::sync::Semaphore::new(
                 MAX_CONCURRENT_BENCHMARK_EXECUTIONS,
             )),
             active_tasks: ActiveBenchmarkTasks::default(),
             verifier,
         }
+    }
+
+    /// Setup stays independent of task creation and never blocks the async runtime.
+    pub(crate) async fn environment(
+        &self,
+    ) -> Result<crate::adapters::benchmark_environment::BenchmarkEnvironment, AppError> {
+        let app_data = self.app_data_directory.clone();
+        tokio::task::spawn_blocking(move || {
+            crate::adapters::benchmark_environment::inspect(&app_data)
+        })
+        .await
+        .map_err(|_| AppError::WorkerFailed)
+    }
+
+    /// An owned setup worker retains serialization even if the initiating webview closes.
+    pub(crate) async fn repair_environment(
+        &self,
+        action: crate::adapters::benchmark_environment::EnvironmentAction,
+    ) -> Result<crate::adapters::benchmark_environment::BenchmarkEnvironment, AppError> {
+        let guard = self
+            .environment_setup
+            .clone()
+            .try_lock_owned()
+            .map_err(|_| AppError::BenchmarkConflict)?;
+        let app_data = self.app_data_directory.clone();
+        tokio::task::spawn_blocking(move || {
+            let _guard = guard;
+            crate::adapters::benchmark_environment::repair(&app_data, action)
+        })
+        .await
+        .map_err(|_| AppError::WorkerFailed)?
     }
 
     /// Runs preflight through the shared local Agent login boundary.
@@ -661,6 +695,7 @@ impl BenchmarkTaskService {
                 .map_err(|_| AppError::BenchmarkDatabaseFailed);
         }
         if matches!(benchmark_runner, BenchmarkRunner::Harbor { .. }) {
+            let harbor_executable = crate::adapters::harbor::executable(&self.app_data_directory);
             let external_profile = agent.profile.clone();
             let external_task = case.content.name.clone();
             let external_workspace = workspace.clone();
@@ -669,6 +704,7 @@ impl BenchmarkTaskService {
                 std::time::Duration::from_secs(u64::from(case.content.timeout_minutes) * 60);
             let result = tokio::task::spawn_blocking(move || {
                 crate::adapters::harbor::run_trial(
+                    &harbor_executable,
                     &benchmark_runner,
                     &external_task,
                     &external_profile,
@@ -1011,8 +1047,9 @@ impl BenchmarkTaskService {
             configuration.run_options.runner,
             BenchmarkRunner::Harbor { .. }
         ) {
-            if let Err(kind) = tokio::task::spawn_blocking(|| {
-                crate::adapters::harbor::preflight(&AtomicBool::new(false))
+            let harbor_executable = crate::adapters::harbor::executable(&self.app_data_directory);
+            if let Err(kind) = tokio::task::spawn_blocking(move || {
+                crate::adapters::harbor::preflight(&harbor_executable, &AtomicBool::new(false))
             })
             .await
             .map_err(|_| AppError::WorkerFailed)?

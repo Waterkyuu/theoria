@@ -44,18 +44,10 @@ pub(crate) trait BenchmarkVerifier: Send + Sync {
     ) -> Result<BenchmarkEvaluationReport, AppError>;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub(crate) struct SystemBenchmarkVerifier {
-    /// Container engine executable; never a host-OS capability flag.
-    docker: PathBuf,
-}
-
-impl Default for SystemBenchmarkVerifier {
-    fn default() -> Self {
-        Self {
-            docker: PathBuf::from("docker"),
-        }
-    }
+    /// Explicit engine override; normal runs discover newly installed Docker on each invocation.
+    docker: Option<PathBuf>,
 }
 
 impl BenchmarkVerifier for SystemBenchmarkVerifier {
@@ -98,7 +90,11 @@ impl SystemBenchmarkVerifier {
             std::process::id(),
             CONTAINER_SEQUENCE.fetch_add(1, Ordering::Relaxed)
         );
-        let mut command = Command::new(&self.docker);
+        let docker = self
+            .docker
+            .clone()
+            .unwrap_or_else(super::benchmark_environment::docker_executable);
+        let mut command = Command::new(&docker);
         command
             .args(["run", "--rm", "--pull", "never", "--name"])
             .arg(&name)
@@ -137,7 +133,7 @@ impl SystemBenchmarkVerifier {
         if report.is_err() {
             // Killing a Docker CLI does not stop its container; remove only this invocation's name.
             run_owned_command(
-                Command::new(&self.docker)
+                Command::new(&docker)
                     .args(["rm", "--force", &name])
                     .stdout(Stdio::null()),
                 Duration::from_secs(5),
@@ -251,7 +247,7 @@ mod tests {
             .expect("compile the portable engine fixture");
         assert!(status.success());
         let verifier = SystemBenchmarkVerifier {
-            docker: executable.clone(),
+            docker: Some(executable.clone()),
         };
         let script = root.join("validator.py");
         std::fs::write(&script, "def validate(workspace):\n    return {'passed':False,'checks':[{'passed':False,'message':'native','path':None}]}\n").expect("validator");
