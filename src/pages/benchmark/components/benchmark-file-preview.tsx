@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { CodeEditor } from "@/components/share/code-editor";
 import { CodePreview } from "@/components/share/code-preview";
 import { FileTypeIcon } from "@/components/share/file-type-icon";
+import { Loading } from "@/components/ui/loading";
 import { ModalProvider } from "@/components/ui/modal-provider";
 import { handleError } from "@/utils/error";
 import {
@@ -83,6 +84,7 @@ const BenchmarkFilePreview = ({
 			setPreview(next);
 			setText(next.text ?? "");
 		} catch (error) {
+			setIsOpen(false);
 			handleError(error, "Benchmark asset preview failed", true);
 		} finally {
 			setPending(false);
@@ -133,7 +135,7 @@ const BenchmarkFilePreview = ({
 					</span>
 				}
 				footer={
-					editable && preview?.text !== null ? (
+					editable && preview && preview.text !== null ? (
 						<Button isPending={pending} onPress={save}>
 							{t("benchmark.file.save")}
 						</Button>
@@ -164,7 +166,7 @@ const BenchmarkFilePreview = ({
 						)}
 					</>
 				) : (
-					<p className="text-body-sm text-mute">{t("common.loading")}</p>
+					<Loading variant="section" />
 				)}
 			</ModalProvider>
 		</>
