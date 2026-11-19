@@ -160,6 +160,8 @@ const BenchmarkDocumentSchema = z.object({
 	tagId: z.string().nullable(),
 	/** Optional provenance. */
 	source: z.string().nullable(),
+	/** Pinned upstream protocol, absent for historical native suites. */
+	runner: BenchmarkRunnerSchema.optional(),
 	/** Complete ordered suite. */
 	cases: z.array(BenchmarkCaseSchema),
 });
@@ -273,6 +275,8 @@ const BenchmarkPreviewSchema = z.object({
 				"agent_check_failed",
 				"asset_unavailable",
 				"verifier_unavailable",
+				"runner_unavailable",
+				"environment_unavailable",
 			]),
 			/** Affected product. */
 			agentKind: AgentKindSchema.nullable(),
@@ -302,6 +306,12 @@ const BenchmarkValidationErrorSchema = z.object({
 });
 
 const BenchmarkEvaluationReportSchema = z.object({
+	/** Upstream content identity retained with this score. */
+	taskChecksum: z.string().nullable().optional(),
+	/** Original numeric upstream verifier rewards. */
+	rewards: z.record(z.string(), z.number()).nullable().optional(),
+	/** Exact external harness release. */
+	runnerVersion: z.string().nullable().optional(),
 	/** Overall result; true only when every public check passed. */
 	passed: z.boolean(),
 	/** Bounded public checks returned by built-in or controlled validators. */
@@ -342,6 +352,10 @@ const BenchmarkArtifactPreviewSchema = z.object({
 const BenchmarkArtifactFilesSchema = z.array(BenchmarkArtifactFileSchema);
 
 const BenchmarkExecutionMetricsSchema = z.object({
+	/** Provider-reported charge in billionths of USD; missing is unknown. */
+	costNanoUsd: z.number().int().nonnegative().nullable().optional(),
+	/** Runtime metadata actually reported by the external runner. */
+	runtime: BenchmarkAgentProfileSchema.nullable().optional(),
 	/** Full Agent execution duration in milliseconds. */
 	totalDurationMs: z.number().int().nonnegative(),
 	/** Delay until the first non-empty Agent response delta. */

@@ -191,7 +191,10 @@ const BenchmarkDetailView = ({ benchmarkId, mount }: DetailProps) => {
 												}
 											/>
 										) : null}
-										<BenchmarkConfiguration mount={mount} />
+										<BenchmarkConfiguration
+											mount={mount}
+											runner={detail.document.runner}
+										/>
 										<AlertDialog
 											title={t("benchmark.unmountConfirm")}
 											confirmText={t("benchmark.unmount")}

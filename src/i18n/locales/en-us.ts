@@ -1,6 +1,21 @@
 const enUS = {
 	translation: {
 		benchmark: {
+			public: {
+				action: "Add public benchmark",
+				dataset: "Dataset release",
+				taskNames: "Upstream task names",
+				taskHint:
+					"Enter exact task names, separated by commas or newlines. This creates a subset experiment, not an official full-dataset score.",
+				description:
+					"A pinned upstream task subset evaluated with its original environment and verifier.",
+				requirements:
+					"Requires Harbor 0.26.0, Docker, and credentials available to the container agent. Setup and results stay local.",
+				runtimeHint:
+					"Harbor runs these tasks in Docker. Specify a model for every configuration. The upstream runner controls tool access and scoring.",
+				added: "Public benchmark added",
+			},
+
 			experiment: {
 				repetitions: "Trials per case",
 				caseNumbers: "Case numbers",
@@ -128,7 +143,8 @@ const enUS = {
 			mountUpdated: "Mounted version updated",
 			configure: "Configure evaluation",
 			agents: "Local Agents",
-			modelHint: "Uses each local Agent product’s model settings.",
+			modelHint:
+				"Explicit models and modes are saved with this run. Empty values inherit local settings and remain marked as unknown.",
 			fileAccess: "File access",
 			commandExecution: "Command execution",
 			read_only: "Read only",
@@ -165,6 +181,21 @@ const enUS = {
 				stopped: "Stopped",
 			},
 			results: {
+				experimentSummary: "Experiment summary",
+				passRateSummary: "Pass rate: {{value}}",
+				durationSummary: "Duration: {{value}}",
+				tokenSummary: "Tokens: {{value}}",
+				costSummary: "Cost: {{value}}",
+				coverageSummary:
+					"Measurements: duration {{duration}}/{{total}} · tokens {{tokens}}/{{total}} · cost {{cost}}/{{total}}",
+				unknownModel: "Unknown local default",
+				externalTiming:
+					"External durations include environment preparation and verification. Partial runs and custom subsets are not official full-dataset scores.",
+				trial: "Trial",
+				trialNumber: "Trial {{number}}",
+				runtime: "Reported runtime",
+				cost: "Reported cost",
+
 				progress: "Progress",
 				completed: "complete",
 				passed: "Passed",
@@ -210,6 +241,8 @@ const enUS = {
 				duration: "Execution duration",
 				checks: "Validation checks",
 				checkMessage: {
+					upstream_passed: "Upstream verifier passed",
+					upstream_failed: "Upstream verifier failed",
 					answer_matched: "The final answer matched.",
 					answer_mismatch: "The final answer did not match.",
 					file_exists: "The required file exists.",
@@ -248,6 +281,7 @@ const enUS = {
 					stopping: "Stopping",
 					timed_out: "Timed out",
 					agent_error: "Agent error",
+					environment_error: "Environment error",
 					evaluation_error: "Evaluation error",
 					interaction_required: "Input required",
 					cancelled: "Cancelled",
@@ -293,7 +327,12 @@ const enUS = {
 				agent_not_authenticated: "Agent is not authenticated",
 				agent_check_failed: "Could not check Agent",
 				asset_unavailable: "Starting material is unavailable",
-				verifier_unavailable: "Validator environment is unavailable",
+				runner_unavailable:
+					"Install Harbor 0.26.0 with uv tool install harbor==0.26.0.",
+				environment_unavailable:
+					"Start Docker and check that its engine is available.",
+				verifier_unavailable:
+					"Start Docker and pull python:3.13.18-slim to enable Python validation",
 			},
 		},
 		appName: "theoria",

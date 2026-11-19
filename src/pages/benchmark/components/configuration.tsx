@@ -65,6 +65,9 @@ const BenchmarkConfiguration = ({
 		runner,
 	};
 	const validOptions =
+		(runner.kind === "native" ||
+			(profiles.length > 0 &&
+				profiles.every((profile) => profile.model?.trim()))) &&
 		validCases &&
 		Number.isInteger(repetitions) &&
 		repetitions >= 1 &&
@@ -130,7 +133,13 @@ const BenchmarkConfiguration = ({
 			title={t("benchmark.configure")}
 			trigger={<Button>{t("benchmark.configure")}</Button>}
 		>
-			<p className="text-body-sm text-body">{t("benchmark.modelHint")}</p>
+			<p className="text-body-sm text-body">
+				{t(
+					runner.kind === "harbor"
+						? "benchmark.public.runtimeHint"
+						: "benchmark.modelHint",
+				)}
+			</p>
 			<fieldset className="flex flex-col gap-md" disabled={pending}>
 				<legend className="mb-sm text-body-sm font-medium">
 					{t("benchmark.agents")}
@@ -139,7 +148,9 @@ const BenchmarkConfiguration = ({
 					<CheckBox
 						key={kind}
 						label={AGENTS[kind]}
-						isDisabled={pending}
+						isDisabled={
+							pending || (runner.kind === "harbor" && kind === "workbuddy")
+						}
 						isSelected={agents.includes(kind)}
 						onChange={(selected) => {
 							setProfiles((current) =>
@@ -257,8 +268,14 @@ const BenchmarkConfiguration = ({
 								variant="ghost"
 								isDisabled={profiles.length === 1}
 								onPress={() => {
-									setProfiles(
-										profiles.filter((_, position) => position !== index),
+									const remaining = profiles.filter(
+										(_, position) => position !== index,
+									);
+									setProfiles(remaining);
+									setAgents(
+										agents.filter((kind) =>
+											remaining.some((item) => item.agentKind === kind),
+										),
 									);
 									invalidatePreview();
 								}}
@@ -269,34 +286,38 @@ const BenchmarkConfiguration = ({
 					</div>
 				))}
 			</fieldset>
-			<Select
-				isDisabled={pending}
-				label={t("benchmark.fileAccess")}
-				placeholder={t("benchmark.fileAccess")}
-				value={fileAccess}
-				onChange={(value) => {
-					if (value) setFileAccess(value);
-					invalidatePreview();
-				}}
-				options={(["read_only", "allow_edits"] as const).map((value) => ({
-					value,
-					label: t(`benchmark.${value}`),
-				}))}
-			/>
-			<Select
-				isDisabled={pending}
-				label={t("benchmark.commandExecution")}
-				placeholder={t("benchmark.commandExecution")}
-				value={commands}
-				onChange={(value) => {
-					if (value) setCommands(value);
-					invalidatePreview();
-				}}
-				options={(["deny", "ask", "allow"] as const).map((value) => ({
-					value,
-					label: t(`benchmark.${value}`),
-				}))}
-			/>
+			{runner.kind === "native" ? (
+				<>
+					<Select
+						isDisabled={pending}
+						label={t("benchmark.fileAccess")}
+						placeholder={t("benchmark.fileAccess")}
+						value={fileAccess}
+						onChange={(value) => {
+							if (value) setFileAccess(value);
+							invalidatePreview();
+						}}
+						options={(["read_only", "allow_edits"] as const).map((value) => ({
+							value,
+							label: t(`benchmark.${value}`),
+						}))}
+					/>
+					<Select
+						isDisabled={pending}
+						label={t("benchmark.commandExecution")}
+						placeholder={t("benchmark.commandExecution")}
+						value={commands}
+						onChange={(value) => {
+							if (value) setCommands(value);
+							invalidatePreview();
+						}}
+						options={(["deny", "ask", "allow"] as const).map((value) => ({
+							value,
+							label: t(`benchmark.${value}`),
+						}))}
+					/>
+				</>
+			) : null}
 			<Button
 				isPending={checking}
 				isDisabled={!agents.length || !validOptions || startMutation.isPending}

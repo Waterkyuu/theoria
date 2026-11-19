@@ -1,6 +1,20 @@
 const zhCN = {
 	translation: {
 		benchmark: {
+			public: {
+				action: "添加公开评测",
+				dataset: "评测集版本",
+				taskNames: "上游题目名称",
+				taskHint:
+					"填写准确的上游题目名称，用逗号或换行分隔。这是子集实验，不能作为官方完整评测成绩。",
+				description: "固定版本的上游题目子集，使用原始环境与评分器。",
+				requirements:
+					"需要 Harbor 0.26.0、Docker，以及容器内 Agent 可用的凭证。运行配置和结果保存在本地。",
+				runtimeHint:
+					"Harbor 在 Docker 中运行这些题目。请为每份配置指定模型，工具权限与评分由上游运行器管理。",
+				added: "公开评测已添加",
+			},
+
 			experiment: {
 				repetitions: "Trials per case",
 				caseNumbers: "Case numbers",
@@ -163,6 +177,21 @@ const zhCN = {
 				stopped: "已停止",
 			},
 			results: {
+				experimentSummary: "实验汇总",
+				passRateSummary: "通过率：{{value}}",
+				durationSummary: "耗时：{{value}}",
+				tokenSummary: "Token：{{value}}",
+				costSummary: "费用：{{value}}",
+				coverageSummary:
+					"数据覆盖：耗时 {{duration}}/{{total}} · Token {{tokens}}/{{total}} · 费用 {{cost}}/{{total}}",
+				unknownModel: "未知的本地默认模型",
+				externalTiming:
+					"外部评测耗时包含环境准备与评分。未完成运行和自选子集不作为官方完整评测成绩。",
+				trial: "试验",
+				trialNumber: "第 {{number}} 次试验",
+				runtime: "实际运行配置",
+				cost: "已报告费用",
+
 				progress: "进度",
 				completed: "完成",
 				passed: "通过",
@@ -208,6 +237,8 @@ const zhCN = {
 				duration: "执行耗时",
 				checks: "验证结果",
 				checkMessage: {
+					upstream_passed: "上游评分器通过",
+					upstream_failed: "上游评分器未通过",
 					answer_matched: "最终答案匹配。",
 					answer_mismatch: "最终答案不匹配。",
 					file_exists: "要求的文件存在。",
@@ -246,6 +277,7 @@ const zhCN = {
 					stopping: "停止中",
 					timed_out: "超时",
 					agent_error: "Agent 错误",
+					environment_error: "环境错误",
 					evaluation_error: "评分错误",
 					interaction_required: "需要输入",
 					cancelled: "已取消",
@@ -288,7 +320,11 @@ const zhCN = {
 				agent_not_authenticated: "Agent 未登录",
 				agent_check_failed: "无法检查 Agent 状态",
 				asset_unavailable: "起始材料不可用",
-				verifier_unavailable: "验证环境不可用",
+				runner_unavailable:
+					"请运行 uv tool install harbor==0.26.0 安装固定版本。",
+				environment_unavailable: "请启动 Docker 并确认引擎可用。",
+				verifier_unavailable:
+					"请启动 Docker 并拉取 python:3.13.18-slim 以启用 Python 验证",
 			},
 		},
 		appName: "theoria",
