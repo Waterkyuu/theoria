@@ -47,15 +47,20 @@ const getBenchmark = (benchmarkId: string, versionId: string | null = null) =>
 		request: { benchmarkId, versionId },
 	});
 
-/** Hides one personal definition from the default catalog without deleting history.
- * @example archiveBenchmark("suite")
+/**
+ * Hides one personal definition from the default catalog without deleting history.
+ *
+ * @example
+ * archiveBenchmark("suite")
  */
 const archiveBenchmark = (benchmarkId: string) =>
 	invokeWithResponseSchema("archive_benchmark", BenchmarkDetailSchema, {
 		request: { benchmarkId },
 	});
 
-/** Loads available classifications. */
+/**
+ * Loads available classifications.
+ */
 const listBenchmarkTags = () =>
 	invokeWithResponseSchema("list_benchmark_tags", BenchmarkTagsSchema);
 
@@ -70,8 +75,11 @@ const createBenchmarkTag = (name: string, icon: string) =>
 		request: { name, icon },
 	});
 
-/** Inspects one picker-selected Theoria folder without creating persistence.
- * @example previewBenchmarkImport("/templates/example")
+/**
+ * Inspects one picker-selected Theoria folder without creating persistence.
+ *
+ * @example
+ * previewBenchmarkImport("/templates/example")
  */
 const previewBenchmarkImport = (sourcePath: string) =>
 	invokeWithResponseSchema(
@@ -80,24 +88,33 @@ const previewBenchmarkImport = (sourcePath: string) =>
 		{ request: { sourcePath } },
 	);
 
-/** Copies a reviewed template folder into one editable personal draft.
- * @example importBenchmarkFolder("/templates/example", "tag-1")
+/**
+ * Copies a reviewed template folder into one editable personal draft.
+ *
+ * @example
+ * importBenchmarkFolder("/templates/example", "tag-1")
  */
 const importBenchmarkFolder = (sourcePath: string, tagId: string) =>
 	invokeWithResponseSchema("import_benchmark_folder", BenchmarkDraftSchema, {
 		request: { sourcePath, tagId },
 	});
 
-/** Copies one picker-selected file into managed Benchmark storage.
- * @example importBenchmarkAsset("/tmp/input.txt", "input.txt")
+/**
+ * Copies one picker-selected file into managed Benchmark storage.
+ *
+ * @example
+ * importBenchmarkAsset("/tmp/input.txt", "input.txt")
  */
 const importBenchmarkAsset = (sourcePath: string, path: string) =>
 	invokeWithResponseSchema("import_benchmark_asset", BenchmarkFileSchema, {
 		request: { sourcePath, path },
 	});
 
-/** Returns a bounded managed-file preview without exposing its native path.
- * @example previewBenchmarkAsset("asset-1")
+/**
+ * Returns a bounded managed-file preview without exposing its native path.
+ *
+ * @example
+ * previewBenchmarkAsset("asset-1")
  */
 const previewBenchmarkAsset = (assetId: string) =>
 	invokeWithResponseSchema(
@@ -106,8 +123,11 @@ const previewBenchmarkAsset = (assetId: string) =>
 		{ request: { assetId } },
 	);
 
-/** Opens an opaque managed document with the application selected by the user.
- * @example openBenchmarkAsset("asset-1", "/Applications/Preview.app")
+/**
+ * Opens an opaque managed document with the application selected by the user.
+ *
+ * @example
+ * openBenchmarkAsset("asset-1", "/Applications/Preview.app")
  */
 const openBenchmarkAsset = (assetId: string, applicationPath: string) =>
 	invokeWithResponseSchema(
@@ -116,8 +136,11 @@ const openBenchmarkAsset = (assetId: string, applicationPath: string) =>
 		{ request: { assetId, applicationPath } },
 	);
 
-/** Stores an editor buffer as a new immutable managed file revision.
- * @example saveBenchmarkTextAsset("input.txt", "content")
+/**
+ * Stores an editor buffer as a new immutable managed file revision.
+ *
+ * @example
+ * saveBenchmarkTextAsset("input.txt", "content")
  */
 const saveBenchmarkTextAsset = (path: string, text: string) =>
 	invokeWithResponseSchema("save_benchmark_text_asset", BenchmarkFileSchema, {
@@ -204,8 +227,11 @@ const mountBenchmark = (
 		request: { workspaceId, benchmarkId, versionId },
 	});
 
-/** Explicitly changes the version pinned by an existing workspace mount.
- * @example updateBenchmarkMount("workspace", "mount", "version-2")
+/**
+ * Explicitly changes the version pinned by an existing workspace mount.
+ *
+ * @example
+ * updateBenchmarkMount("workspace", "mount", "version-2")
  */
 const updateBenchmarkMount = (
 	workspaceId: string,
@@ -216,8 +242,11 @@ const updateBenchmarkMount = (
 		request: { workspaceId, mountId, versionId },
 	});
 
-/** Changes whether one Workspace mount is ordered above ordinary mounts.
- * @example setBenchmarkMountPin("workspace", "mount", true)
+/**
+ * Changes whether one Workspace mount is ordered above ordinary mounts.
+ *
+ * @example
+ * setBenchmarkMountPin("workspace", "mount", true)
  */
 const setBenchmarkMountPin = (
 	workspaceId: string,
@@ -250,16 +279,22 @@ const previewBenchmarkTask = (request: BenchmarkPreviewInput) =>
 		request,
 	});
 
-/** Creates one immutable task plan and starts its background execution.
- * @example startBenchmarkTask(input)
+/**
+ * Creates one immutable task plan and starts its background execution.
+ *
+ * @example
+ * startBenchmarkTask(input)
  */
 const startBenchmarkTask = (request: StartBenchmarkTaskInput) =>
 	invokeWithResponseSchema("start_benchmark_task", BenchmarkTaskDetailSchema, {
 		request,
 	});
 
-/** Lists final files for one execution with changes from its Case baseline.
- * @example listBenchmarkExecutionArtifacts("task-1", "execution-1")
+/**
+ * Lists final files for one execution with changes from its Case baseline.
+ *
+ * @example
+ * listBenchmarkExecutionArtifacts("task-1", "execution-1")
  */
 const listBenchmarkExecutionArtifacts = (taskId: string, executionId: string) =>
 	invokeWithResponseSchema(
@@ -268,8 +303,11 @@ const listBenchmarkExecutionArtifacts = (taskId: string, executionId: string) =>
 		{ request: { taskId, executionId } },
 	);
 
-/** Reads one bounded final-file preview without exposing its native path.
- * @example previewBenchmarkExecutionArtifact("task-1", "execution-1", "result.txt")
+/**
+ * Reads one bounded final-file preview without exposing its native path.
+ *
+ * @example
+ * previewBenchmarkExecutionArtifact("task-1", "execution-1", "result.txt")
  */
 const previewBenchmarkExecutionArtifact = (
 	taskId: string,
@@ -282,24 +320,33 @@ const previewBenchmarkExecutionArtifact = (
 		{ request: { taskId, executionId, path } },
 	);
 
-/** Creates a fresh Task from one terminal run while preserving its published version.
- * @example rerunBenchmarkTask(input)
+/**
+ * Creates a fresh Task from one terminal run while preserving its published version.
+ *
+ * @example
+ * rerunBenchmarkTask(input)
  */
 const rerunBenchmarkTask = (request: RerunBenchmarkTaskInput) =>
 	invokeWithResponseSchema("rerun_benchmark_task", BenchmarkTaskDetailSchema, {
 		request,
 	});
 
-/** Resumes unfinished trials while preserving the original experiment and completed scores.
- * @example resumeBenchmarkTask("task-1")
+/**
+ * Resumes unfinished trials while preserving the original experiment and completed scores.
+ *
+ * @example
+ * resumeBenchmarkTask("task-1")
  */
 const resumeBenchmarkTask = (taskId: string) =>
 	invokeWithResponseSchema("resume_benchmark_task", BenchmarkTaskDetailSchema, {
 		request: { taskId },
 	});
 
-/** Restores the latest persisted matrix state for one Benchmark Task.
- * @example getBenchmarkTask("task-1")
+/**
+ * Restores the latest persisted matrix state for one Benchmark Task.
+ *
+ * @example
+ * getBenchmarkTask("task-1")
  */
 const getBenchmarkTask = (taskId: string) =>
 	invokeWithResponseSchema("get_benchmark_task", BenchmarkTaskDetailSchema, {

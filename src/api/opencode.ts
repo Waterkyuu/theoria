@@ -7,7 +7,9 @@ import {
 	AgentRuntimeStatusSchema,
 } from "@/types/agent";
 
-/** Checks OpenCode credentials and resolved runtime configuration through official CLI commands. */
+/**
+ * Checks OpenCode credentials and resolved runtime configuration through official CLI commands.
+ */
 const checkOpenCodeLogin = () =>
 	invokeWithResponseSchema("check_opencode_login", AgentLoginStatusSchema);
 

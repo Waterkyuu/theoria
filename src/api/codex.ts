@@ -7,7 +7,9 @@ import {
 	AgentRuntimeStatusSchema,
 } from "@/types/agent";
 
-/** Checks the local Codex credential state through the Tauri backend. */
+/**
+ * Checks the local Codex credential state through the Tauri backend.
+ */
 const checkCodexLogin = () =>
 	invokeWithResponseSchema("check_codex_login", AgentLoginStatusSchema);
 
@@ -32,7 +34,9 @@ const getCodexRuntimeConfig = () =>
 		AgentRuntimeConfigSchema,
 	);
 
-/** Subscribes to native changes in the effective local Codex configuration. */
+/**
+ * Subscribes to native changes in the effective local Codex configuration.
+ */
 const onCodexConfigChanged = (listener: (config: AgentRuntimeConfig) => void) =>
 	listenWithResponseSchema(
 		"codex-config-changed",

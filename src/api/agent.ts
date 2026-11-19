@@ -6,7 +6,9 @@ import {
 	AgentProcessStatesSchema,
 } from "@/types/agent";
 
-/** Reads the latest cached task lifecycle snapshot from the native monitor. */
+/**
+ * Reads the latest cached task lifecycle snapshot from the native monitor.
+ */
 const checkAgentActivities = () =>
 	invokeWithResponseSchema(
 		"check_agent_activities",
@@ -28,7 +30,9 @@ const onAgentActivitiesChanged = (
 		listener,
 	);
 
-/** Reads one lightweight running-process snapshot for every supported Agent. */
+/**
+ * Reads one lightweight running-process snapshot for every supported Agent.
+ */
 const checkAgentProcesses = () =>
 	invokeWithResponseSchema("check_agent_processes", AgentProcessStatesSchema);
 

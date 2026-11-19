@@ -7,7 +7,9 @@ import {
 	AgentRuntimeStatusSchema,
 } from "@/types/agent";
 
-/** Checks the local Claude Code credential state through the Tauri backend. */
+/**
+ * Checks the local Claude Code credential state through the Tauri backend.
+ */
 const checkClaudeLogin = () =>
 	invokeWithResponseSchema("check_claude_login", AgentLoginStatusSchema);
 
