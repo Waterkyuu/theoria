@@ -377,7 +377,7 @@ const BenchmarkExecutionDetail = ({
 							<button
 								aria-selected={activeTab === tab.id}
 								className={cn(
-									"border-b-2 border-transparent pb-sm text-body-sm text-mute",
+									"border-b-2 border-transparent pb-sm text-caption-sm text-mute",
 									activeTab === tab.id && "border-ink font-medium text-ink",
 								)}
 								key={tab.id}
