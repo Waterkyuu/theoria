@@ -71,6 +71,7 @@ type ModalProviderProps = ModalProviderBaseProps &
 
 /**
  * Renders a general-purpose modal that supports controlled state or an internal trigger.
+ * Stacked fields and actions keep their size while long content scrolls inside the body.
  *
  * @example
  * <ModalProvider
@@ -101,7 +102,7 @@ const ModalProvider = ({
 						<HeroUIModal.Heading>{title}</HeroUIModal.Heading>
 					</HeroUIModal.Header>
 					{(description || children) && (
-						<HeroUIModal.Body className="flex flex-col gap-3">
+						<HeroUIModal.Body className="flex flex-col gap-3 [&>*]:shrink-0">
 							{description && <p>{description}</p>}
 							{children}
 						</HeroUIModal.Body>
