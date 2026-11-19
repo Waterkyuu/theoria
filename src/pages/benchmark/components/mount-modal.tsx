@@ -73,15 +73,13 @@ const BenchmarkMountModal = ({ benchmark, onClose }: MountProps) => {
 				</Button>
 			}
 		>
-			<BenchmarkFeedback
-				loading={query.isLoading}
-				failed={query.isError}
-				retry={() => query.refetch()}
-			/>
+			<BenchmarkFeedback failed={query.isError} retry={() => query.refetch()} />
 			{query.data?.length === 0 ? (
 				<p>{t("benchmark.noWorkspaces")}</p>
 			) : (
 				<Select
+					isDisabled={query.isError}
+					isLoading={query.isLoading}
 					label={t("benchmark.workspace")}
 					placeholder={t("benchmark.chooseWorkspace")}
 					value={workspaceId}

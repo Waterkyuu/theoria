@@ -15,7 +15,10 @@ const WorkspaceBenchmarkPage = () => {
 	if (!mount)
 		return (
 			<BenchmarkFeedback
-				loading={query.isLoading || query.isFetching || query.hasNextPage}
+				loading={
+					!query.isError &&
+					(query.isLoading || query.isFetching || query.hasNextPage)
+				}
 				failed={query.isError || (!query.isLoading && !query.hasNextPage)}
 				retry={() => query.refetch()}
 			/>
