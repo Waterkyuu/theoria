@@ -9,6 +9,7 @@ import { BenchmarkFeedback } from "@/pages/benchmark/components/feedback";
 import { useBenchmarkTask } from "@/queries/benchmark";
 import { BenchmarkExecutionDetail } from "./benchmark-execution-detail";
 import { BenchmarkResultMatrix } from "./benchmark-result-matrix";
+import { BenchmarkRunSummary } from "./benchmark-run-summary";
 import { BenchmarkTaskActions } from "./benchmark-task-actions";
 import { TaskSplitLayout } from "./task-split-layout";
 
@@ -30,6 +31,7 @@ const RESULT_FILTERS = [
 	"timed_out",
 	"agent_error",
 	"evaluation_error",
+	"environment_error",
 	"interaction_required",
 	"cancelled",
 	"interrupted",
@@ -197,6 +199,7 @@ const BenchmarkTaskView = ({ taskId }: BenchmarkTaskViewProps) => {
 							{detail.progress.errors} {t("benchmark.results.errors")}
 						</span>
 					</div>
+					<BenchmarkRunSummary detail={detail} />
 					<BenchmarkResultMatrix
 						detail={detail}
 						onPageChange={setPage}

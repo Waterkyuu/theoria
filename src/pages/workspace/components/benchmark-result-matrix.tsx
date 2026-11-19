@@ -98,7 +98,9 @@ const BenchmarkResultMatrix = ({
 												<p className="tabular-nums text-charcoal">
 													{t("benchmark.results.casePassSummary", {
 														passed,
-														total: detail.agents.length,
+														total:
+															detail.agents.length *
+															(detail.runOptions?.repetitions ?? 1),
 													})}
 												</p>
 												<p className="mt-xs text-caption-sm text-mute">

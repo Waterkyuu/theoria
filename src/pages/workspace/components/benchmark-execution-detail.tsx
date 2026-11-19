@@ -47,10 +47,15 @@ const BenchmarkExecutionDetail = ({
 }: BenchmarkExecutionDetailProps) => {
 	const { i18n, t } = useTranslation();
 	const benchmarkCase = detail.cases.find((item) => item.id === caseId);
+	const [attempt, setAttempt] = useState(1);
+	const repetitions = detail.runOptions?.repetitions ?? 1;
 	const caseExecutions = detail.agents.map((agent) => ({
 		agent,
 		execution: detail.executions.find(
-			(item) => item.taskCaseId === caseId && item.taskAgentId === agent.id,
+			(item) =>
+				item.taskCaseId === caseId &&
+				item.taskAgentId === agent.id &&
+				(item.attempt ?? 1) === attempt,
 		),
 	}));
 	const [agentId, setAgentId] = useState(caseExecutions[0]?.agent.id ?? "");
@@ -64,7 +69,7 @@ const BenchmarkExecutionDetail = ({
 	const execution = selected?.execution;
 	const artifacts = useBenchmarkExecutionArtifacts(
 		detail.task.id,
-		execution?.id ?? null,
+		execution?.phase === "finished" ? execution.id : null,
 	);
 	const artifactPreview = useBenchmarkExecutionArtifactPreview(
 		detail.task.id,
@@ -145,6 +150,29 @@ const BenchmarkExecutionDetail = ({
 			label: t("benchmark.results.totalDuration"),
 			value: ({ execution: item }) =>
 				formatDuration(item?.metrics?.totalDurationMs ?? null),
+		},
+		{
+			key: "runtime",
+			label: t("benchmark.results.runtime"),
+			value: ({ execution: item, agent }) =>
+				[
+					item?.metrics?.runtime?.model ?? agent.profile?.model,
+					item?.metrics?.runtime?.version,
+				]
+					.filter(Boolean)
+					.join(" · ") || "—",
+		},
+		{
+			key: "cost",
+			label: t("benchmark.results.cost"),
+			value: ({ execution: item }) =>
+				item?.metrics?.costNanoUsd == null
+					? "—"
+					: new Intl.NumberFormat(i18n.language, {
+							style: "currency",
+							currency: "USD",
+							maximumFractionDigits: 6,
+						}).format(item.metrics.costNanoUsd / 1e9),
 		},
 		{
 			key: "first-token",
@@ -311,6 +339,23 @@ const BenchmarkExecutionDetail = ({
 				</div>
 
 				<div className="border-b border-hairline px-lg py-md">
+					{repetitions > 1 ? (
+						<Select
+							label={t("benchmark.results.trial")}
+							placeholder={t("benchmark.results.trial")}
+							value={String(attempt)}
+							onChange={(value) => {
+								if (value) setAttempt(Number(value));
+								setArtifactPath(null);
+							}}
+							options={Array.from({ length: repetitions }, (_, index) => ({
+								value: String(index + 1),
+								label: t("benchmark.results.trialNumber", {
+									number: index + 1,
+								}),
+							}))}
+						/>
+					) : null}
 					<Select
 						className="w-fit flex-row items-center gap-md text-body-sm [&_[data-slot=select-trigger]]:min-w-36"
 						fullWidth={false}
@@ -322,7 +367,7 @@ const BenchmarkExecutionDetail = ({
 						}}
 						options={caseExecutions.map(({ agent }) => ({
 							value: agent.id,
-							label: t(`agentNames.${agent.agentKind}`),
+							label: agent.profile?.label || t(`agentNames.${agent.agentKind}`),
 						}))}
 						placeholder={t("benchmark.results.agentDetail")}
 						value={selected?.agent.id ?? null}
@@ -437,6 +482,11 @@ const BenchmarkExecutionDetail = ({
 									t("benchmark.results.noResponse")}
 							</MarkdownContent>
 						</div>
+					) : null}
+					{activeTab === "checks" && execution?.report?.rewards ? (
+						<pre className="mb-md overflow-auto rounded-md bg-surface-soft p-md text-caption-sm">
+							{JSON.stringify(execution.report.rewards, null, 2)}
+						</pre>
 					) : null}
 					{activeTab === "checks" ? (
 						<div className="divide-y divide-hairline border-y border-hairline">

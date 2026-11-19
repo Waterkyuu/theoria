@@ -371,3 +371,85 @@ it("filters matrix rows without changing the full-task aggregate", async () => {
 	expect(screen.getByRole("row", { name: /Write file/ })).toBeInTheDocument();
 	expect(screen.getByText("2/2")).toBeInTheDocument();
 });
+
+it("resumes an interrupted experiment without creating a fresh run", async () => {
+	const interrupted = task("failed");
+	interrupted.completionReason = "interrupted";
+	invoke.mockImplementation(async (command: string) => {
+		if (command === "get_benchmark_task") return interrupted;
+		if (command === "resume_benchmark_task") return task("running");
+		throw new Error(`Unexpected command: ${command}`);
+	});
+	const user = userEvent.setup();
+	renderTask();
+	await user.click(
+		await screen.findByRole("button", { name: "Resume unfinished trials" }),
+	);
+	await waitFor(() =>
+		expect(invoke).toHaveBeenCalledWith("resume_benchmark_task", {
+			request: { taskId: "task-1" },
+		}),
+	);
+	expect(invoke).not.toHaveBeenCalledWith(
+		"rerun_benchmark_task",
+		expect.anything(),
+	);
+});
+
+it("shows aggregate pass rate and leaves unreported costs unknown", async () => {
+	const completed = task("completed");
+	invoke.mockImplementation(async (command: string) => {
+		if (command === "get_benchmark_task") return completed;
+		if (command === "list_benchmark_execution_artifacts") return [];
+		throw new Error(`Unexpected command: ${command}`);
+	});
+	renderTask();
+	expect(await screen.findByText("Pass rate: 100%")).toBeInTheDocument();
+	expect(screen.getByText("Cost: —")).toBeInTheDocument();
+	expect(screen.getByText("Tokens: 4")).toBeInTheDocument();
+});
+
+it("switches independent repetitions without showing the first trial's response", async () => {
+	const completed = task("completed");
+	completed.runOptions = {
+		repetitions: 2,
+		casePositions: null,
+		profiles: [],
+		runner: { kind: "native" },
+	};
+	completed.agents[0] = {
+		...completed.agents[0],
+		total: 2,
+		passed: 1,
+		failed: 1,
+		passRate: 0.5,
+	};
+	completed.executions = [1, 2].map((attempt) => ({
+		id: `execution-${attempt}`,
+		taskCaseId: "task-case-1",
+		taskAgentId: "task-agent-1",
+		attempt,
+		phase: "finished",
+		result: attempt === 1 ? "passed" : "failed",
+		terminationReason: null,
+		responseText: attempt === 1 ? "First response" : "Second response",
+		metrics: null,
+		startedAtMs: 1,
+		finishedAtMs: 2,
+		verdict: attempt === 1 ? "passed" : "failed",
+		report: null,
+	}));
+	invoke.mockImplementation(async (command: string) => {
+		if (command === "get_benchmark_task") return completed;
+		if (command === "list_benchmark_execution_artifacts") return [];
+		throw new Error(`Unexpected command: ${command}`);
+	});
+	const user = userEvent.setup();
+	renderTask();
+	await user.click(await screen.findByRole("tab", { name: "Agent response" }));
+	expect(screen.getByText("First response")).toBeInTheDocument();
+	await user.click(screen.getByRole("button", { name: /Trial/ }));
+	await user.click(await screen.findByRole("option", { name: "Trial 2" }));
+	expect(screen.getByText("Second response")).toBeInTheDocument();
+	expect(screen.queryByText("First response")).not.toBeInTheDocument();
+});
