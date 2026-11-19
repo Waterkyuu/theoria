@@ -11,17 +11,27 @@ import type { Workspace } from "@/types/workspace";
 
 type CreateWorkspaceInput =
 	| {
-			/** User-visible Workspace name. */
+			/**
+			 * User-visible Workspace name.
+			 */
 			name: string;
-			/** Theoria owns the empty template directory. */
+			/**
+			 * Theoria owns the empty template directory.
+			 */
 			sourceKind: "managed";
 	  }
 	| {
-			/** User-visible Workspace name. */
+			/**
+			 * User-visible Workspace name.
+			 */
 			name: string;
-			/** User keeps ownership of the registered directory. */
+			/**
+			 * User keeps ownership of the registered directory.
+			 */
 			sourceKind: "external";
-			/** Absolute directory registered without copying or mutation. */
+			/**
+			 * Absolute directory registered without copying or mutation.
+			 */
 			sourcePath: string;
 	  };
 
@@ -30,11 +40,15 @@ const workspaceKeys = {
 	list: () => [...workspaceKeys.all, "list"] as const,
 };
 
-/** Loads reusable Workspace sources for routing and Task composition. */
+/**
+ * Loads reusable Workspace sources for routing and Task composition.
+ */
 const useWorkspaces = () =>
 	useQuery({ queryKey: workspaceKeys.list(), queryFn: listWorkspaces });
 
-/** Creates either supported Workspace source and refreshes the existing tree. */
+/**
+ * Creates either supported Workspace source and refreshes the existing tree.
+ */
 const useCreateWorkspace = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
@@ -49,27 +63,41 @@ const useCreateWorkspace = () => {
 };
 
 type RemoveWorkspaceInput = {
-	/** Whether deletion of Theoria-owned managed template files was confirmed. */
+	/**
+	 * Whether deletion of Theoria-owned managed template files was confirmed.
+	 */
 	managedFilesConfirmed: boolean;
-	/** Workspace collection removed with its Tasks and Skill mounts. */
+	/**
+	 * Workspace collection removed with its Tasks and Skill mounts.
+	 */
 	workspaceId: string;
 };
 
 type SetWorkspacePinInput = {
-	/** Whether the Workspace should appear in the pinned section of the ordering. */
+	/**
+	 * Whether the Workspace should appear in the pinned section of the ordering.
+	 */
 	isPinned: boolean;
-	/** Workspace whose persisted pin state changes. */
+	/**
+	 * Workspace whose persisted pin state changes.
+	 */
 	workspaceId: string;
 };
 
 type RenameWorkspaceInput = {
-	/** New user-visible Workspace name. */
+	/**
+	 * New user-visible Workspace name.
+	 */
 	name: string;
-	/** Workspace whose persisted name changes. */
+	/**
+	 * Workspace whose persisted name changes.
+	 */
 	workspaceId: string;
 };
 
-/** Persists a Workspace name and refreshes sidebar consumers. */
+/**
+ * Persists a Workspace name and refreshes sidebar consumers.
+ */
 const useRenameWorkspace = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
@@ -80,7 +108,9 @@ const useRenameWorkspace = () => {
 	});
 };
 
-/** Persists a Workspace pin change and refreshes the ordered sidebar list. */
+/**
+ * Persists a Workspace pin change and refreshes the ordered sidebar list.
+ */
 const useSetWorkspacePin = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
@@ -91,7 +121,9 @@ const useSetWorkspacePin = () => {
 	});
 };
 
-/** Removes a Workspace collection and refreshes all affected navigation data. */
+/**
+ * Removes a Workspace collection and refreshes all affected navigation data.
+ */
 const useRemoveWorkspace = () => {
 	const queryClient = useQueryClient();
 	return useMutation({

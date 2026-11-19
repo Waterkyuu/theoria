@@ -13,13 +13,19 @@ import { AppSidebar } from "@/components/share/app-sidebar";
 
 type LastTaskContext =
 	| {
-			/** Selects the ordinary Task composer as the startup destination. */
+			/**
+			 * Selects the ordinary Task composer as the startup destination.
+			 */
 			scope: "task";
 	  }
 	| {
-			/** Selects a Workspace-bound Task composer as the startup destination. */
+			/**
+			 * Selects a Workspace-bound Task composer as the startup destination.
+			 */
 			scope: "workspace";
-			/** Workspace restored without persisting navigation state in SQLite. */
+			/**
+			 * Workspace restored without persisting navigation state in SQLite.
+			 */
 			workspaceId: string;
 	  };
 

@@ -38,14 +38,18 @@ const applyThemePreference = (preference: ThemePreference) => {
 	document.documentElement.style.colorScheme = activeTheme;
 };
 
-/** Keeps a system-based preference synchronized when the operating system changes. */
+/**
+ * Keeps a system-based preference synchronized when the operating system changes.
+ */
 const synchronizeSystemTheme = () => {
 	if (getThemePreference() === "system") {
 		applyThemePreference("system");
 	}
 };
 
-/** Applies the saved theme before React renders and subscribes to system changes. */
+/**
+ * Applies the saved theme before React renders and subscribes to system changes.
+ */
 const initializeTheme = () => {
 	if (!systemThemeMediaQuery) {
 		systemThemeMediaQuery = window.matchMedia(SYSTEM_DARK_QUERY);
