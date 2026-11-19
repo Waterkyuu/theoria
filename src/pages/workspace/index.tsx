@@ -5,6 +5,7 @@ import { cn } from "cnfast";
 import { useTranslation } from "react-i18next";
 import { AgentEnvironmentDropdown } from "@/components/share/agent-environment-dropdown";
 import { PageHeader } from "@/components/share/page-header";
+import { Loading } from "@/components/ui/loading";
 import { handleError } from "@/utils/error";
 import { promisePool } from "@/utils/promise-pool";
 import { checkAgentProcesses, onAgentProcessStatesChanged } from "@/api/agent";
@@ -287,10 +288,10 @@ const WorkTaskPage = ({ workspaceId, taskId }: WorkspacePageProps) => {
 					{taskQuery.isLoading && taskId ? (
 						<div
 							aria-label={t("taskPanel.loading")}
-							className="grid gap-lg"
+							className="mx-auto grid w-full max-w-330 gap-lg"
 							role="status"
 						>
-							<div className="h-40 animate-pulse rounded-xl bg-surface-soft motion-reduce:animate-none" />
+							<div className="h-125 animate-pulse rounded-xl bg-surface-soft motion-reduce:animate-none" />
 						</div>
 					) : null}
 					{task ? (
@@ -363,11 +364,9 @@ const WorkspacePage = (props: WorkspacePageProps) => {
 	const taskHeader = useTaskHeader(props.taskId ?? null);
 	if (props.taskId && taskHeader.isLoading) {
 		return (
-			<main
-				aria-label="Loading task"
-				className="h-dvh min-w-0 flex-1 animate-pulse bg-surface-soft"
-				role="status"
-			/>
+			<main className="min-w-0 flex-1">
+				<Loading variant="page" />
+			</main>
 		);
 	}
 	if (props.taskId && taskHeader.isError) {
