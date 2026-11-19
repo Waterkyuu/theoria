@@ -362,6 +362,7 @@ pub fn run() {
             commands::benchmark_task::preview_benchmark_task,
             commands::benchmark_task::preview_benchmark_execution_artifact,
             commands::benchmark_task::rerun_benchmark_task,
+            commands::benchmark_task::resume_benchmark_task,
             commands::benchmark_task::start_benchmark_task,
             commands::task::cancel_task,
             commands::benchmark::list_benchmark_tags,

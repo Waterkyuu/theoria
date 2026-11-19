@@ -481,6 +481,69 @@ impl BenchmarkTaskRepository {
         Ok(task_ids.len() as u64)
     }
 
+    /// Requeues only process-interrupted cells, preserving every committed score and artifact.
+    pub(crate) async fn resume_interrupted(&self, task_id: &str, now: i64) -> Result<bool, DbErr> {
+        let transaction = self.database.begin().await?;
+        let eligible = Query::select()
+            .column(benchmark_task::Column::TaskId)
+            .from(benchmark_task::Entity)
+            .and_where(benchmark_task::Column::CompletionReason.eq("interrupted"))
+            .and_where(benchmark_task::Column::CancelRequested.eq(false))
+            .to_owned();
+        let updated = task::Entity::update_many()
+            .col_expr(task::Column::Status, Expr::value("preparing"))
+            .col_expr(task::Column::UpdatedAtMs, Expr::value(now))
+            .filter(task::Column::Id.eq(task_id))
+            .filter(task::Column::Status.eq("failed"))
+            .filter(task::Column::Id.in_subquery(eligible))
+            .exec(&transaction)
+            .await?;
+        if updated.rows_affected == 0 {
+            transaction.rollback().await?;
+            return Ok(false);
+        }
+        benchmark_execution::Entity::update_many()
+            .col_expr(benchmark_execution::Column::Phase, Expr::value("queued"))
+            .col_expr(
+                benchmark_execution::Column::TerminationReason,
+                Expr::value(Option::<String>::None),
+            )
+            .col_expr(
+                benchmark_execution::Column::SessionId,
+                Expr::value(Option::<String>::None),
+            )
+            .col_expr(
+                benchmark_execution::Column::ResponseText,
+                Expr::value(Option::<String>::None),
+            )
+            .col_expr(
+                benchmark_execution::Column::MetricsJson,
+                Expr::value(Option::<String>::None),
+            )
+            .col_expr(
+                benchmark_execution::Column::StartedAtMs,
+                Expr::value(Option::<i64>::None),
+            )
+            .col_expr(
+                benchmark_execution::Column::FinishedAtMs,
+                Expr::value(Option::<i64>::None),
+            )
+            .filter(benchmark_execution::Column::TaskId.eq(task_id))
+            .filter(benchmark_execution::Column::TerminationReason.eq("interrupted"))
+            .exec(&transaction)
+            .await?;
+        benchmark_task::Entity::update_many()
+            .col_expr(
+                benchmark_task::Column::CompletionReason,
+                Expr::value(Option::<String>::None),
+            )
+            .filter(benchmark_task::Column::TaskId.eq(task_id))
+            .exec(&transaction)
+            .await?;
+        transaction.commit().await?;
+        Ok(true)
+    }
+
     /// Marks a newly created task as runnable after its complete plan is visible.
     pub(crate) async fn mark_running(&self, task_id: &str, now: i64) -> Result<(), DbErr> {
         task::Entity::update_many()

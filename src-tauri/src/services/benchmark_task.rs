@@ -426,6 +426,24 @@ impl BenchmarkTaskService {
         self.get(task_id).await
     }
 
+    /// Explicitly resumes an interrupted run without changing its immutable plan.
+    pub(crate) async fn resume_and_execute(
+        &self,
+        task_id: &str,
+        caches: AgentRuntimeCaches,
+    ) -> Result<BenchmarkTaskDetail, AppError> {
+        if !self
+            .task_repository
+            .resume_interrupted(task_id, now_ms()?)
+            .await
+            .map_err(|_| AppError::BenchmarkDatabaseFailed)?
+        {
+            return Err(AppError::InvalidTask);
+        }
+        self.dispatch(task_id.to_string(), caches);
+        self.get(task_id).await
+    }
+
     /// Runs independent matrix cells concurrently and persists each score as it finishes.
     pub(crate) async fn execute_with(
         &self,
@@ -467,7 +485,20 @@ impl BenchmarkTaskService {
         cancellation: Arc<AtomicBool>,
     ) -> Result<(), AppError> {
         let runner = Arc::new(runner);
-        let detail = self.get(task_id).await?;
+        let mut detail = self.get(task_id).await?;
+        if detail.task.status == TaskStatus::Failed
+            && detail.completion_reason.as_deref() == Some("interrupted")
+        {
+            if !self
+                .task_repository
+                .resume_interrupted(task_id, now_ms()?)
+                .await
+                .map_err(|_| AppError::BenchmarkDatabaseFailed)?
+            {
+                return Err(AppError::InvalidTask);
+            }
+            detail = self.get(task_id).await?;
+        }
         if detail.task.status == TaskStatus::Stopped && detail.cancel_requested {
             return Ok(());
         }
@@ -805,6 +836,9 @@ impl BenchmarkTaskService {
                 .join("executions")
                 .join(execution_id)
                 .join("workspace");
+            if workspace.exists() {
+                std::fs::remove_dir_all(&workspace).map_err(|_| AppError::TaskPreparationFailed)?;
+            }
             copy_directory(&baseline, &workspace)?;
             Ok(workspace)
         })
@@ -2002,6 +2036,62 @@ mod tests {
                 .await
                 .expect("artifact preview");
             assert_eq!(preview.text.as_deref(), Some("42"));
+            // Simulate one process-owned cell interrupted before its evaluation committed.
+            let pending_id = &completed.executions[0].id;
+            benchmark_evaluation::Entity::delete_by_id(pending_id)
+                .exec(&database)
+                .await
+                .expect("uncommitted score");
+            use sea_orm::{ColumnTrait, ConnectionTrait, QueryFilter};
+            database
+                .execute_unprepared("UPDATE tasks SET status = 'running' WHERE kind = 'benchmark'")
+                .await
+                .expect("active run");
+            benchmark_execution::Entity::update_many()
+                .col_expr(
+                    benchmark_execution::Column::Phase,
+                    sea_orm::sea_query::Expr::value("running"),
+                )
+                .filter(benchmark_execution::Column::Id.eq(pending_id))
+                .exec(&database)
+                .await
+                .expect("interrupted cell");
+            service.recover_interrupted().await.expect("restart");
+            let recovered_calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+            let resumed_calls = recovered_calls.clone();
+            let resumed = service
+                .execute_with(&completed.task.id, move |request| {
+                    resumed_calls.fetch_add(1, Ordering::Relaxed);
+                    assert!(
+                        !request.working_directory.join("result.txt").exists(),
+                        "unfinished native trials must restart from their baseline"
+                    );
+                    Ok(AgentSessionRunOutput {
+                        output: AgentRunOutput {
+                            response: "42".into(),
+                            metrics: AgentRunMetricsCollector::default()
+                                .finish(Duration::from_millis(5)),
+                        },
+                        session_id: None,
+                        outcome: AgentTurnOutcome::Completed,
+                    })
+                })
+                .await;
+            assert!(
+                resumed.is_ok(),
+                "interrupted trials should resume: {resumed:?}"
+            );
+            assert_eq!(
+                recovered_calls.load(Ordering::Relaxed),
+                1,
+                "finished trials must never run again"
+            );
+            let restored = service.get(&completed.task.id).await.expect("restored run");
+            assert_eq!(restored.task.status, TaskStatus::Completed);
+            assert!(restored
+                .executions
+                .iter()
+                .all(|cell| cell.verdict.as_deref() == Some("passed")));
             catalog
                 .unmount("workspace", &mount.id)
                 .await

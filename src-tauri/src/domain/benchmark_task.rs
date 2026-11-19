@@ -43,24 +43,16 @@ pub(crate) enum BenchmarkRunner {
 
 /// Immutable experiment inputs, also embedded in the idempotent request snapshot.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields, default)]
 pub(crate) struct BenchmarkRunOptions {
     /// Published zero-based case positions; null means the whole suite.
-    #[serde(default)]
     pub(crate) case_positions: Option<Vec<usize>>,
     /// Independent trials per case and profile, never automatic retries.
-    #[serde(default = "one_repetition")]
     pub(crate) repetitions: u32,
     /// Explicit configurations; empty preserves the legacy product selection.
-    #[serde(default)]
     pub(crate) profiles: Vec<BenchmarkAgentProfile>,
     /// Owns environment preparation and scoring for this experiment.
-    #[serde(default)]
     pub(crate) runner: BenchmarkRunner,
-}
-
-fn one_repetition() -> u32 {
-    1
 }
 
 impl Default for BenchmarkRunOptions {

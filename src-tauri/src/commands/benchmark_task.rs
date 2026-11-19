@@ -114,3 +114,24 @@ pub(crate) async fn preview_benchmark_execution_artifact(
         .map(Into::into)
         .map_err(Into::into)
 }
+
+/// Resumes unfinished trials from an interrupted immutable experiment.
+#[tauri::command]
+pub(crate) async fn resume_benchmark_task(
+    request: GetBenchmarkTaskRequest,
+    service: State<'_, BenchmarkTaskService>,
+    codex_cache: State<'_, CodexRuntimeDefaultsCache>,
+    claude_cache: State<'_, ClaudeRuntimeSettingsCache>,
+) -> Result<BenchmarkTaskDetailResponse, IpcError> {
+    service
+        .resume_and_execute(
+            &request.task_id,
+            AgentRuntimeCaches {
+                codex: codex_cache.inner().clone(),
+                claude: claude_cache.inner().clone(),
+            },
+        )
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
