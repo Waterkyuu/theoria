@@ -11,6 +11,14 @@ for (const width of [375, 768, 960, 1024, 1440]) {
 				__TAURI_INTERNALS__: {
 					async invoke(command: string) {
 						if (command === "set_backend_locale") return null;
+						if (command === "inspect_benchmark_environment")
+							return {
+								harbor: "missing",
+								docker: "missing",
+								verifierImage: "unavailable",
+								dockerInstallUrl:
+									"https://docs.docker.com/desktop/setup/install/linux/",
+							};
 						if (command === "list_benchmark_tags")
 							return [{ id: "coding", name: "Coding", icon: "Code" }];
 						if (
@@ -32,6 +40,30 @@ for (const width of [375, 768, 960, 1024, 1440]) {
 			exact: true,
 		});
 		await expect(modal).toBeVisible();
+		await modal
+			.getByRole("button", { name: "Set up evaluation environment" })
+			.click();
+		const environment = page.getByRole("dialog", {
+			name: "Evaluation environment",
+			exact: true,
+		});
+		await expect(
+			environment.getByRole("button", { name: "Install Docker", exact: true }),
+		).toBeVisible();
+		await expect(
+			environment.getByRole("button", {
+				name: "Install required Harbor version",
+			}),
+		).toBeVisible();
+		expect(
+			await page.evaluate(
+				() => document.documentElement.scrollWidth <= window.innerWidth,
+			),
+		).toBe(true);
+		await environment
+			.getByRole("button", { name: "Close", exact: true })
+			.click();
+
 		await expect(modal.getByText(/Harbor 0.26.0/)).toBeVisible();
 		await modal
 			.getByRole("textbox", { name: "Upstream task names" })

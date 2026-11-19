@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/select";
 import { handleError } from "@/utils/error";
 import { saveBenchmarkDraft, publishBenchmark } from "@/api/benchmark";
 import type { BenchmarkDraft, BenchmarkTag } from "@/types/benchmark";
+import { BenchmarkEnvironmentSetup } from "./environment-setup";
 
 type PublicBenchmarkModalProps = {
 	/**
@@ -106,6 +107,7 @@ const PublicBenchmarkModal = ({ tags, onClose }: PublicBenchmarkModalProps) => {
 			<p className="text-body-sm text-charcoal">
 				{t("benchmark.public.requirements")}
 			</p>
+			<BenchmarkEnvironmentSetup />
 			<Select
 				label={t("benchmark.public.dataset")}
 				placeholder={t("benchmark.public.dataset")}

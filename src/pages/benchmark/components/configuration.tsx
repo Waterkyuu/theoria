@@ -15,6 +15,7 @@ import type {
 	BenchmarkPreview,
 	BenchmarkPreviewInput,
 } from "@/types/benchmark";
+import { BenchmarkEnvironmentSetup } from "./environment-setup";
 
 type ConfigurationProps = {
 	/**
@@ -150,6 +151,7 @@ const BenchmarkConfiguration = ({
 						: "benchmark.modelHint",
 				)}
 			</p>
+			<BenchmarkEnvironmentSetup onChange={invalidatePreview} />
 			<fieldset className="flex flex-col gap-md" disabled={pending}>
 				<legend className="mb-sm text-body-sm font-medium">
 					{t("benchmark.agents")}

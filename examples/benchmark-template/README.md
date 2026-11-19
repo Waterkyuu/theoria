@@ -13,7 +13,9 @@ The Python validator returns only the documented public report shape. It receive
 ## Python verifier environment
 
 Python checks use the same Docker sandbox on Windows, macOS, and Linux. Start a Linux-container
-Docker engine and pull the fixed verifier image once with `docker pull python:3.13.18-slim`.
+Docker engine. Open **Set up evaluation environment** from the benchmark configuration or public
+benchmark setup. The application detects the runner, engine, and verifier image separately. Use
+**Prepare verification image** to download the fixed Python image without entering terminal commands.
 Theoria probes the actual engine and image; it does not disable verification based on host OS.
 Validators run with networking disabled, read-only mounts, and bounded CPU, memory, and runtime.
 
@@ -50,8 +52,20 @@ Public references currently accept up to 100 explicitly selected tasks. They are
 experiments, not official full-dataset leaderboard scores. Use the upstream task identifiers;
 Theoria does not download and browse the full task catalog in this release.
 
-Install the pinned runner with `uv tool install harbor==0.26.0`, start Docker, and configure
-credentials supported by the selected Harbor agent. A host CLI login does not establish container
+Open **Set up evaluation environment** and choose **Install required Harbor version**. Theoria
+downloads a fixed checksum-verified uv bootstrap and installs Harbor and Python under its own
+application data directory. Existing global tools and shell configuration are not replaced. A
+working archive extractor (`tar`, included on supported desktop systems) is required. Initial
+preparation downloads software from upstream and can take several minutes.
+
+If Docker is missing, **Install Docker** opens the official installation instructions for the
+current operating system. Complete the system installer and first-run setup there; administrator
+approval or a restart may be necessary. For an installed, inaccessible engine, **Start Docker
+Desktop** requests startup and checks readiness. Existing Docker Engine installations are accepted
+when a Linux-container engine is reachable; service permissions and host virtualization remain
+system configuration responsibilities. Returning to the dialog rechecks actual state.
+
+Configure credentials supported by the selected Harbor agent. A host CLI login does not establish container
 credentials. Preflight checks Harbor's version and Docker separately from native agent logins.
 
 Each execution owns a single-trial Harbor job with automatic retries disabled. Harbor manages its
