@@ -24,6 +24,7 @@
 		"tauri": "node scripts/tauri.mjs",
 		"test": "vitest run",
 		"test:coverage": "vitest run --coverage",
+		"test:e2e": "playwright test",
 		"test:watch": "vitest",
 		"typecheck": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit"
 	},
@@ -54,6 +55,7 @@
 		"zod": "^4.6.2"
 	},
 	"devDependencies": {
+		"@playwright/test": "^1.65.1",
 		"@tailwindcss/vite": "^4.3.3",
 		"@tauri-apps/cli": "^2",
 		"@testing-library/jest-dom": "^7.0.1",
