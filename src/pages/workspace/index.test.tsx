@@ -131,6 +131,7 @@ vi.mock("@/queries/benchmark", () => ({
 		isPending: false,
 		mutate: vi.fn(),
 	}),
+	useResumeBenchmarkTask: () => ({ isPending: false, mutate: vi.fn() }),
 	useRerunBenchmarkTask: () => ({
 		isPending: false,
 		mutateAsync: vi.fn(),

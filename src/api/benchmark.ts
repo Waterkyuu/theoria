@@ -290,6 +290,14 @@ const rerunBenchmarkTask = (request: RerunBenchmarkTaskInput) =>
 		request,
 	});
 
+/** Resumes unfinished trials while preserving the original experiment and completed scores.
+ * @example resumeBenchmarkTask("task-1")
+ */
+const resumeBenchmarkTask = (taskId: string) =>
+	invokeWithResponseSchema("resume_benchmark_task", BenchmarkTaskDetailSchema, {
+		request: { taskId },
+	});
+
 /** Restores the latest persisted matrix state for one Benchmark Task.
  * @example getBenchmarkTask("task-1")
  */
@@ -324,5 +332,6 @@ export {
 	listBenchmarkExecutionArtifacts,
 	previewBenchmarkExecutionArtifact,
 	rerunBenchmarkTask,
+	resumeBenchmarkTask,
 	getBenchmarkTask,
 };

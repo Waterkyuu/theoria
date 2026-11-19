@@ -141,6 +141,8 @@ const zhCN = {
 			cancelRun: "取消运行",
 			cancelling: "正在取消",
 			cancelRequested: "已请求取消评测",
+			resume: "继续未完成的试验",
+			resumed: "已继续未完成的试验",
 			rerun: "重新运行",
 			rerunDescription:
 				"发布版本与完整 Case 集保持不变，可以重新选择 Agent 和权限。",

@@ -143,6 +143,8 @@ const enUS = {
 			cancelRun: "Cancel run",
 			cancelling: "Cancelling",
 			cancelRequested: "Cancellation requested",
+			resume: "Resume unfinished trials",
+			resumed: "Unfinished trials resumed",
 			rerun: "Rerun",
 			rerunDescription:
 				"The published version and complete case set stay fixed. You can change Agents and permissions.",

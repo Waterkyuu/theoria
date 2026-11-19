@@ -12,6 +12,7 @@ import { AGENT_KINDS } from "@/constants/agent";
 import {
 	useCancelBenchmarkTask,
 	useRerunBenchmarkTask,
+	useResumeBenchmarkTask,
 } from "@/queries/benchmark";
 import type { BenchmarkTaskDetail } from "@/types/benchmark";
 
@@ -38,6 +39,7 @@ const BenchmarkTaskActions = ({ detail }: BenchmarkTaskActionsProps) => {
 	const navigate = useNavigate();
 	const cancelMutation = useCancelBenchmarkTask();
 	const rerunMutation = useRerunBenchmarkTask();
+	const resumeMutation = useResumeBenchmarkTask();
 	const idempotencyKey = useRef<string | null>(null);
 	const [agents, setAgents] = useState(
 		detail.agents.map((agent) => agent.agentKind),
@@ -49,6 +51,14 @@ const BenchmarkTaskActions = ({ detail }: BenchmarkTaskActionsProps) => {
 	const active =
 		detail.task.status === "preparing" || detail.task.status === "running";
 	const terminal = TERMINAL_TASK_STATUSES.has(detail.task.status);
+
+	/** Resumes the original plan; completed trials retain their evaluation and artifacts. */
+	const resume = () => {
+		resumeMutation.mutate(detail.task.id, {
+			onSuccess: () => Toast.toast.success(t("benchmark.resumed")),
+			onError: (error) => handleError(error, "Benchmark resume failed", true),
+		});
+	};
 
 	/** Requests cooperative cancellation only while this Task is still active. */
 	const cancel = () => {
@@ -91,6 +101,18 @@ const BenchmarkTaskActions = ({ detail }: BenchmarkTaskActionsProps) => {
 
 	return (
 		<div className="flex shrink-0 items-center gap-sm">
+			{detail.task.status === "failed" &&
+			detail.completionReason === "interrupted" &&
+			!detail.cancelRequested ? (
+				<Button
+					size="sm"
+					variant="secondary"
+					isPending={resumeMutation.isPending}
+					onPress={resume}
+				>
+					{t("benchmark.resume")}
+				</Button>
+			) : null}
 			{active ? (
 				<button
 					aria-label={
@@ -141,6 +163,10 @@ const BenchmarkTaskActions = ({ detail }: BenchmarkTaskActionsProps) => {
 							{AGENT_KINDS.map((kind) => (
 								<CheckBox
 									isSelected={agents.includes(kind)}
+									isDisabled={
+										detail.runOptions?.runner.kind === "harbor" &&
+										!detail.agents.some((agent) => agent.agentKind === kind)
+									}
 									key={kind}
 									label={t(`agentNames.${kind}`)}
 									onChange={(selected) => {
@@ -154,32 +180,38 @@ const BenchmarkTaskActions = ({ detail }: BenchmarkTaskActionsProps) => {
 								/>
 							))}
 						</fieldset>
-						<Select
-							label={t("benchmark.fileAccess")}
-							onChange={(value) => {
-								if (value) setFileAccess(value);
-								idempotencyKey.current = null;
-							}}
-							options={(["read_only", "allow_edits"] as const).map((value) => ({
-								label: t(`benchmark.${value}`),
-								value,
-							}))}
-							placeholder={t("benchmark.fileAccess")}
-							value={fileAccess}
-						/>
-						<Select
-							label={t("benchmark.commandExecution")}
-							onChange={(value) => {
-								if (value) setCommands(value);
-								idempotencyKey.current = null;
-							}}
-							options={(["deny", "ask", "allow"] as const).map((value) => ({
-								label: t(`benchmark.${value}`),
-								value,
-							}))}
-							placeholder={t("benchmark.commandExecution")}
-							value={commands}
-						/>
+						{detail.runOptions?.runner.kind !== "harbor" ? (
+							<>
+								<Select
+									label={t("benchmark.fileAccess")}
+									onChange={(value) => {
+										if (value) setFileAccess(value);
+										idempotencyKey.current = null;
+									}}
+									options={(["read_only", "allow_edits"] as const).map(
+										(value) => ({
+											label: t(`benchmark.${value}`),
+											value,
+										}),
+									)}
+									placeholder={t("benchmark.fileAccess")}
+									value={fileAccess}
+								/>
+								<Select
+									label={t("benchmark.commandExecution")}
+									onChange={(value) => {
+										if (value) setCommands(value);
+										idempotencyKey.current = null;
+									}}
+									options={(["deny", "ask", "allow"] as const).map((value) => ({
+										label: t(`benchmark.${value}`),
+										value,
+									}))}
+									placeholder={t("benchmark.commandExecution")}
+									value={commands}
+								/>{" "}
+							</>
+						) : null}
 					</ModalProvider>
 				</>
 			) : null}

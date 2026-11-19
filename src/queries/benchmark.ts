@@ -16,6 +16,7 @@ import {
 	previewBenchmarkExecutionArtifact,
 	listWorkspaceBenchmarks,
 	rerunBenchmarkTask,
+	resumeBenchmarkTask,
 	startBenchmarkTask,
 	setBenchmarkMountPin,
 	unmountBenchmark,
@@ -286,6 +287,24 @@ const useRerunBenchmarkTask = () => {
 	});
 };
 
+/** Restarts polling on the same task and clears previews of interrupted trial artifacts. */
+const useResumeBenchmarkTask = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: resumeBenchmarkTask,
+		onSuccess: (detail) => {
+			queryClient.setQueryData(benchmarkTaskKey(detail.task.id), detail);
+			queryClient.invalidateQueries({ queryKey: ["tasks"] });
+			queryClient.invalidateQueries({
+				queryKey: ["benchmark-execution-artifacts", detail.task.id],
+			});
+			queryClient.invalidateQueries({
+				queryKey: ["benchmark-execution-artifact", detail.task.id],
+			});
+		},
+	});
+};
+
 export {
 	useBenchmarks,
 	useBenchmarkTags,
@@ -302,5 +321,6 @@ export {
 	useBenchmarkExecutionArtifactPreview,
 	useCancelBenchmarkTask,
 	useRerunBenchmarkTask,
+	useResumeBenchmarkTask,
 	useStartBenchmarkTask,
 };
