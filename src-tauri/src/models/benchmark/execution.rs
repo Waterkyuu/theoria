@@ -13,6 +13,8 @@ pub(crate) struct Model {
     pub(crate) task_case_id: String,
     /// Frozen Task Agent row used by this cell.
     pub(crate) task_agent_id: String,
+    /// One-based independent trial, distinct from infrastructure retries.
+    pub(crate) attempt: i64,
     /// Lifecycle phase constrained by the database to queued, preparing, running,
     /// waiting_permission, collecting, evaluating, stopping, or finished.
     pub(crate) phase: String,

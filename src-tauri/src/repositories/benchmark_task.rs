@@ -1,8 +1,8 @@
 use crate::domain::agent_kind::AgentKind;
 use crate::domain::benchmark::BenchmarkMount;
 use crate::domain::benchmark_task::{
-    BenchmarkCaseExecution, BenchmarkExecutionResult, BenchmarkTaskAgent, BenchmarkTaskCase,
-    BenchmarkTaskDetail, NewBenchmarkTaskPlan,
+    BenchmarkCaseExecution, BenchmarkExecutionResult, BenchmarkRunOptions, BenchmarkTaskAgent,
+    BenchmarkTaskCase, BenchmarkTaskDetail, NewBenchmarkTaskPlan,
 };
 use crate::domain::task::{Task, TaskKind, TaskPermissions, TaskStatus};
 use crate::models::benchmark::{
@@ -58,6 +58,7 @@ impl BenchmarkTaskRepository {
             task,
             benchmark,
             agent_kinds,
+            run_options,
             permissions: task_permissions,
             idempotency_key,
             request_json,
@@ -116,17 +117,25 @@ impl BenchmarkTaskRepository {
         .insert(&transaction)
         .await?;
 
-        for (position, agent_kind) in agent_kinds.iter().enumerate() {
+        let profiles = run_options.agent_profiles(&agent_kinds);
+        for (position, profile) in profiles.iter().enumerate() {
             task_agent::ActiveModel {
                 id: Set(format!("{}-agent-{position}", task.id)),
                 task_id: Set(task.id.clone()),
-                agent_kind: Set(agent_kind.as_str().to_string()),
+                agent_kind: Set(profile.agent_kind.clone()),
                 position: Set(position as i64),
             }
             .insert(&transaction)
             .await?;
         }
         for (position, _) in benchmark.document.cases.iter().enumerate() {
+            if run_options
+                .case_positions
+                .as_ref()
+                .is_some_and(|positions| !positions.contains(&position))
+            {
+                continue;
+            }
             let task_case_id = format!("{}-case-{position}", task.id);
             task_case::ActiveModel {
                 id: Set(task_case_id.clone()),
@@ -137,22 +146,28 @@ impl BenchmarkTaskRepository {
             }
             .insert(&transaction)
             .await?;
-            for agent_position in 0..agent_kinds.len() {
-                benchmark_execution::ActiveModel {
-                    id: Set(format!("{}-execution-{position}-{agent_position}", task.id)),
-                    task_id: Set(task.id.clone()),
-                    task_case_id: Set(task_case_id.clone()),
-                    task_agent_id: Set(format!("{}-agent-{agent_position}", task.id)),
-                    phase: Set("queued".to_string()),
-                    termination_reason: Set(None),
-                    session_id: Set(None),
-                    response_text: Set(None),
-                    metrics_json: Set(None),
-                    started_at_ms: Set(None),
-                    finished_at_ms: Set(None),
+            for agent_position in 0..profiles.len() {
+                for attempt in 1..=run_options.repetitions {
+                    benchmark_execution::ActiveModel {
+                        id: Set(format!(
+                            "{}-execution-{position}-{agent_position}-{attempt}",
+                            task.id
+                        )),
+                        attempt: Set(i64::from(attempt)),
+                        task_id: Set(task.id.clone()),
+                        task_case_id: Set(task_case_id.clone()),
+                        task_agent_id: Set(format!("{}-agent-{agent_position}", task.id)),
+                        phase: Set("queued".to_string()),
+                        termination_reason: Set(None),
+                        session_id: Set(None),
+                        response_text: Set(None),
+                        metrics_json: Set(None),
+                        started_at_ms: Set(None),
+                        finished_at_ms: Set(None),
+                    }
+                    .insert(&transaction)
+                    .await?;
                 }
-                .insert(&transaction)
-                .await?;
             }
         }
         transaction.commit().await?;
@@ -211,6 +226,15 @@ impl BenchmarkTaskRepository {
             .one(&self.database)
             .await?
             .ok_or_else(|| DbErr::Custom("Benchmark task extension is missing".into()))?;
+        let request: serde_json::Value = serde_json::from_str(&extension.request_json)
+            .map_err(|error| DbErr::Json(error.to_string()))?;
+        let run_options = request
+            .get("runOptions")
+            .cloned()
+            .map(serde_json::from_value::<BenchmarkRunOptions>)
+            .transpose()
+            .map_err(|error| DbErr::Json(error.to_string()))?
+            .unwrap_or_default();
         let version = version::Entity::find_by_id(&extension.version_id)
             .one(&self.database)
             .await?
@@ -235,6 +259,14 @@ impl BenchmarkTaskRepository {
                     id: row.id,
                     agent_kind: AgentKind::parse(&row.agent_kind)
                         .ok_or_else(|| DbErr::Custom("Invalid benchmark agent".into()))?,
+                    profile: run_options
+                        .profiles
+                        .get(row.position as usize)
+                        .cloned()
+                        .unwrap_or_else(|| crate::domain::benchmark_task::BenchmarkAgentProfile {
+                            agent_kind: row.agent_kind.clone(),
+                            ..Default::default()
+                        }),
                     position: usize::try_from(row.position)
                         .map_err(|_| DbErr::Custom("Invalid agent position".into()))?,
                 })
@@ -317,6 +349,8 @@ impl BenchmarkTaskRepository {
                     id: row.id,
                     task_case_id: row.task_case_id,
                     task_agent_id: row.task_agent_id,
+                    attempt: u32::try_from(row.attempt)
+                        .map_err(|_| DbErr::Custom("Invalid trial number".into()))?,
                     phase: row.phase,
                     termination_reason: row.termination_reason,
                     session_id: row.session_id,
@@ -340,6 +374,7 @@ impl BenchmarkTaskRepository {
             result_completeness: extension.result_completeness,
             completion_reason: extension.completion_reason,
             cancel_requested: extension.cancel_requested,
+            run_options,
             permissions: TaskPermissions {
                 file_access: permission.file_access,
                 command_execution: permission.command_execution,

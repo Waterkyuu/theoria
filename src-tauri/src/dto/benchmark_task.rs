@@ -2,7 +2,7 @@ use crate::domain::agent_kind::AgentKind;
 use crate::domain::benchmark_task::{
     BenchmarkArtifactFile, BenchmarkArtifactPreview, BenchmarkEvaluationReport,
     BenchmarkExecutionMetrics, BenchmarkPreflightIssueKind, BenchmarkRerunConfiguration,
-    BenchmarkTaskConfiguration, BenchmarkTaskDetail, BenchmarkTaskPreview,
+    BenchmarkRunOptions, BenchmarkTaskConfiguration, BenchmarkTaskDetail, BenchmarkTaskPreview,
 };
 use crate::domain::task::TaskPermissions;
 use crate::dto::task::TaskResponse;
@@ -25,6 +25,9 @@ pub(crate) struct PreviewBenchmarkTaskRequest {
     pub(crate) file_access: String,
     /// Explicit command permission.
     pub(crate) command_execution: String,
+    /// Optional experiment inputs; old clients retain one full-suite trial.
+    #[serde(default)]
+    pub(crate) run_options: BenchmarkRunOptions,
 }
 
 impl TryFrom<PreviewBenchmarkTaskRequest> for BenchmarkTaskConfiguration {
@@ -41,6 +44,7 @@ impl TryFrom<PreviewBenchmarkTaskRequest> for BenchmarkTaskConfiguration {
             mount_id: request.mount_id,
             expected_version_id: request.expected_version_id,
             agent_kinds,
+            run_options: request.run_options,
             permissions: TaskPermissions {
                 file_access: request.file_access,
                 command_execution: request.command_execution,
@@ -65,6 +69,9 @@ pub(crate) struct StartBenchmarkTaskRequest {
     pub(crate) file_access: String,
     /// Explicit command permission.
     pub(crate) command_execution: String,
+    /// Optional experiment inputs; old clients retain one full-suite trial.
+    #[serde(default)]
+    pub(crate) run_options: BenchmarkRunOptions,
     /// Client retry identity for this exact launch request.
     pub(crate) idempotency_key: String,
 }
@@ -80,6 +87,7 @@ impl TryFrom<&StartBenchmarkTaskRequest> for BenchmarkTaskConfiguration {
             agent_kinds: request.agent_kinds.clone(),
             file_access: request.file_access.clone(),
             command_execution: request.command_execution.clone(),
+            run_options: request.run_options.clone(),
         }
         .try_into()
     }
@@ -123,6 +131,9 @@ pub(crate) struct RerunBenchmarkTaskRequest {
     pub(crate) source_task_id: String,
     /// Ordered unique local product identifiers.
     pub(crate) agent_kinds: Vec<String>,
+    /// Absent options preserve the original subset and repetition count.
+    #[serde(default)]
+    pub(crate) run_options: Option<BenchmarkRunOptions>,
     /// Explicit file permission for the new Task.
     pub(crate) file_access: String,
     /// Explicit command permission for the new Task.
@@ -145,6 +156,7 @@ impl TryFrom<&RerunBenchmarkTaskRequest> for BenchmarkRerunConfiguration {
         Ok(Self {
             source_task_id: request.source_task_id.clone(),
             agent_kinds,
+            run_options: request.run_options.clone(),
             permissions: TaskPermissions {
                 file_access: request.file_access.clone(),
                 command_execution: request.command_execution.clone(),
@@ -207,14 +219,29 @@ impl From<BenchmarkTaskPreview> for BenchmarkTaskPreviewResponse {
             version_id: preview.benchmark.version_id,
             version_number: preview.benchmark.version_number,
             name: preview.benchmark.document.name,
-            execution_count: preview.benchmark.document.cases.len()
-                * configuration.agent_kinds.len(),
+            execution_count: configuration
+                .run_options
+                .case_positions
+                .as_ref()
+                .map_or(preview.benchmark.document.cases.len(), Vec::len)
+                * configuration
+                    .run_options
+                    .agent_profiles(&configuration.agent_kinds)
+                    .len()
+                * configuration.run_options.repetitions as usize,
             cases: preview
                 .benchmark
                 .document
                 .cases
                 .into_iter()
                 .enumerate()
+                .filter(|(position, _)| {
+                    configuration
+                        .run_options
+                        .case_positions
+                        .as_ref()
+                        .is_none_or(|positions| positions.contains(position))
+                })
                 .map(|(position, case)| BenchmarkTaskCasePreviewResponse {
                     position,
                     name: case.name,
@@ -271,6 +298,8 @@ pub(crate) struct BenchmarkTaskDetailResponse {
     completion_reason: Option<String>,
     /// Whether the user requested cancellation.
     cancel_requested: bool,
+    /// Immutable experiment inputs captured at launch.
+    run_options: BenchmarkRunOptions,
     /// Frozen file access policy.
     file_access: String,
     /// Frozen command execution policy.
@@ -356,6 +385,8 @@ struct BenchmarkTaskAgentResponse {
     agent_kind: &'static str,
     /// Stable matrix column order.
     position: usize,
+    /// Frozen requested configuration for this matrix column.
+    profile: crate::domain::benchmark_task::BenchmarkAgentProfile,
     /// Number of passing evaluations for this Agent.
     passed: usize,
     /// Number of failing evaluations for this Agent.
@@ -402,6 +433,8 @@ struct BenchmarkCaseExecutionResponse {
     task_case_id: String,
     /// Frozen Task Agent row used by this cell.
     task_agent_id: String,
+    /// One-based independent trial number.
+    attempt: u32,
     /// Stable preparation, running, or finished phase.
     phase: String,
     /// Verdict, terminal reason, or current phase displayed in the matrix.
@@ -485,11 +518,12 @@ impl From<BenchmarkTaskDetail> for BenchmarkTaskDetailResponse {
                     id: agent.id.clone(),
                     agent_kind: agent.agent_kind.as_str(),
                     position: agent.position,
+                    profile: agent.profile.clone(),
                     passed,
                     failed,
-                    total: detail.cases.len(),
-                    pass_rate: (countable == detail.cases.len())
-                        .then(|| passed as f64 / detail.cases.len() as f64),
+                    total: cells.len(),
+                    pass_rate: (countable == cells.len() && !cells.is_empty())
+                        .then(|| passed as f64 / cells.len() as f64),
                     total_duration_ms,
                     duration_coverage,
                     total_tokens,
@@ -508,6 +542,7 @@ impl From<BenchmarkTaskDetail> for BenchmarkTaskDetailResponse {
             result_completeness: detail.result_completeness,
             completion_reason: detail.completion_reason,
             cancel_requested: detail.cancel_requested,
+            run_options: detail.run_options,
             file_access: detail.permissions.file_access,
             command_execution: detail.permissions.command_execution,
             progress: BenchmarkTaskProgressResponse {
@@ -543,6 +578,7 @@ impl From<BenchmarkTaskDetail> for BenchmarkTaskDetailResponse {
                         id: execution.id,
                         task_case_id: execution.task_case_id,
                         task_agent_id: execution.task_agent_id,
+                        attempt: execution.attempt,
                         phase: execution.phase,
                         result,
                         termination_reason: execution.termination_reason,
@@ -562,6 +598,23 @@ impl From<BenchmarkTaskDetail> for BenchmarkTaskDetailResponse {
 #[cfg(test)]
 mod tests {
     use super::PreviewBenchmarkTaskRequest;
+
+    #[test]
+    fn launch_accepts_versioned_profiles_subsets_and_repetitions() {
+        let request = serde_json::json!({
+            "workspaceId":"w", "mountId":"m", "expectedVersionId":"v",
+            "agentKinds":["codex"], "fileAccess":"allow_edits", "commandExecution":"allow",
+            "runOptions": {"casePositions":[1], "repetitions":3, "profiles":[
+                {"agentKind":"codex", "label":"Baseline", "model":"model-a", "mode":"high"},
+                {"agentKind":"codex", "label":"Candidate", "model":"model-b"}
+            ]}
+        });
+        let parsed = serde_json::from_value::<PreviewBenchmarkTaskRequest>(request);
+        assert!(
+            parsed.is_ok(),
+            "run options must reach the immutable plan: {parsed:?}"
+        );
+    }
 
     #[test]
     fn launch_contract_requires_permissions_and_rejects_model_overrides() {

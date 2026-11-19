@@ -175,6 +175,9 @@ impl BenchmarkTaskService {
         if !benchmark.document.publication_issues().is_empty() {
             return Err(AppError::InvalidBenchmark);
         }
+        configuration
+            .run_options
+            .validate(benchmark.document.cases.len())?;
         let now = now_ms()?;
         let task = Task {
             id: next_id("benchmark-task")?,
@@ -192,6 +195,7 @@ impl BenchmarkTaskService {
                 task,
                 benchmark,
                 agent_kinds: configuration.agent_kinds,
+                run_options: configuration.run_options,
                 permissions: configuration.permissions,
                 idempotency_key: idempotency_key.to_string(),
                 request_json,
@@ -303,16 +307,7 @@ impl BenchmarkTaskService {
         if idempotency_key.is_empty() || idempotency_key.len() > 200 {
             return Err(AppError::InvalidBenchmark);
         }
-        let request_json = rerun_configuration_json(&configuration)?;
-        match self
-            .task_repository
-            .by_idempotency_key(idempotency_key, &request_json)
-            .await
-        {
-            Ok(Some(detail)) => return Ok(detail),
-            Ok(None) => {}
-            Err(_) => return Err(AppError::BenchmarkConflict),
-        }
+        let mut request_json = rerun_configuration_json(&configuration)?;
         let source = self.get(&configuration.source_task_id).await?;
         if !matches!(
             source.task.status,
@@ -331,6 +326,31 @@ impl BenchmarkTaskService {
             .await
             .map_err(|_| AppError::BenchmarkDatabaseFailed)?
             .ok_or(AppError::BenchmarkNotFound)?;
+        let mut run_options = configuration
+            .run_options
+            .clone()
+            .unwrap_or_else(|| source.run_options.clone());
+        run_options.profiles.retain(|profile| {
+            configuration
+                .agent_kinds
+                .iter()
+                .any(|kind| kind.as_str() == profile.agent_kind)
+        });
+        run_options.validate(benchmark.document.cases.len())?;
+        let mut snapshot: serde_json::Value =
+            serde_json::from_str(&request_json).map_err(|_| AppError::InvalidBenchmark)?;
+        snapshot["runOptions"] =
+            serde_json::to_value(&run_options).map_err(|_| AppError::InvalidBenchmark)?;
+        request_json = serde_json::to_string(&snapshot).map_err(|_| AppError::InvalidBenchmark)?;
+        match self
+            .task_repository
+            .by_idempotency_key(idempotency_key, &request_json)
+            .await
+        {
+            Ok(Some(detail)) => return Ok(detail),
+            Ok(None) => {}
+            Err(_) => return Err(AppError::BenchmarkConflict),
+        }
         let current_mount = self
             .task_repository
             .mount_for_benchmark(&workspace_id, &source.benchmark_id)
@@ -368,6 +388,7 @@ impl BenchmarkTaskService {
                 task,
                 benchmark,
                 agent_kinds: configuration.agent_kinds,
+                run_options,
                 permissions: configuration.permissions,
                 idempotency_key: idempotency_key.to_string(),
                 request_json,
@@ -468,34 +489,35 @@ impl BenchmarkTaskService {
                 if cancellation.load(Ordering::Acquire) {
                     break 'cases;
                 }
-                let Some(execution) = detail.executions.iter().find(|execution| {
-                    execution.task_case_id == case.id && execution.task_agent_id == agent.id
-                }) else {
-                    cancellation.store(true, Ordering::Release);
-                    failure = Some(AppError::BenchmarkDatabaseFailed);
-                    break 'cases;
-                };
-                while workers.len() >= MAX_CONCURRENT_BENCHMARK_EXECUTIONS {
-                    if let Some(result) = workers.join_next().await {
-                        if let Err(error) = result.unwrap_or(Err(AppError::WorkerFailed)) {
-                            cancellation.store(true, Ordering::Release);
-                            failure = Some(error);
-                            break 'cases;
+                for execution in detail.executions.iter().filter(|execution| {
+                    execution.task_case_id == case.id
+                        && execution.task_agent_id == agent.id
+                        && execution.phase == "queued"
+                }) {
+                    while workers.len() >= MAX_CONCURRENT_BENCHMARK_EXECUTIONS {
+                        if let Some(result) = workers.join_next().await {
+                            if let Err(error) = result.unwrap_or(Err(AppError::WorkerFailed)) {
+                                cancellation.store(true, Ordering::Release);
+                                failure = Some(error);
+                                break 'cases;
+                            }
                         }
                     }
+                    let worker = self.clone();
+                    let cell = BenchmarkCellWork {
+                        task_id: task_id.to_string(),
+                        case: case.clone(),
+                        agent: agent.clone(),
+                        execution: execution.clone(),
+                        permissions: detail.permissions.clone(),
+                        baseline_error: baseline.as_ref().err().cloned(),
+                    };
+                    let cancellation = cancellation.clone();
+                    let runner = runner.clone();
+                    workers.spawn(
+                        async move { worker.execute_cell(cell, cancellation, runner).await },
+                    );
                 }
-                let worker = self.clone();
-                let cell = BenchmarkCellWork {
-                    task_id: task_id.to_string(),
-                    case: case.clone(),
-                    agent: agent.clone(),
-                    execution: execution.clone(),
-                    permissions: detail.permissions.clone(),
-                    baseline_error: baseline.as_ref().err().cloned(),
-                };
-                let cancellation = cancellation.clone();
-                let runner = runner.clone();
-                workers.spawn(async move { worker.execute_cell(cell, cancellation, runner).await });
             }
         }
         while let Some(result) = workers.join_next().await {
@@ -590,8 +612,8 @@ impl BenchmarkTaskService {
             working_directory: workspace.clone(),
             file_access: permissions.file_access,
             command_execution: permissions.command_execution,
-            model: None,
-            mode: None,
+            model: agent.profile.model.clone(),
+            mode: agent.profile.mode.clone(),
             session_id: None,
             timeout: std::time::Duration::from_secs(u64::from(case.content.timeout_minutes) * 60),
             cancellation: cancellation.clone(),
@@ -819,6 +841,9 @@ impl BenchmarkTaskService {
         {
             return Err(AppError::InvalidBenchmark);
         }
+        configuration
+            .run_options
+            .validate(benchmark.document.cases.len())?;
         let uses_python = benchmark.document.cases.iter().any(|case| {
             case.checks
                 .iter()
@@ -834,6 +859,14 @@ impl BenchmarkTaskService {
         };
         let mut issues = Vec::new();
         for (position, case) in benchmark.document.cases.iter().enumerate() {
+            if configuration
+                .run_options
+                .case_positions
+                .as_ref()
+                .is_some_and(|positions| !positions.contains(&position))
+            {
+                continue;
+            }
             let mut missing_asset = false;
             for file in case
                 .input_files
@@ -910,6 +943,15 @@ impl BenchmarkTaskService {
 }
 
 fn validate_configuration(configuration: &BenchmarkTaskConfiguration) -> Result<(), AppError> {
+    configuration.run_options.validate(100)?;
+    if configuration.run_options.profiles.iter().any(|profile| {
+        !configuration
+            .agent_kinds
+            .iter()
+            .any(|kind| kind.as_str() == profile.agent_kind)
+    }) {
+        return Err(AppError::InvalidBenchmark);
+    }
     if [
         &configuration.workspace_id,
         &configuration.mount_id,
@@ -987,6 +1029,7 @@ fn configuration_json(configuration: &BenchmarkTaskConfiguration) -> Result<Stri
         "agentKinds": configuration.agent_kinds.iter().map(|kind| kind.as_str()).collect::<Vec<_>>(),
         "fileAccess": configuration.permissions.file_access,
         "commandExecution": configuration.permissions.command_execution,
+        "runOptions": configuration.run_options,
     }))
     .map_err(|_| AppError::InvalidBenchmark)
 }
@@ -1000,6 +1043,7 @@ fn rerun_configuration_json(
         "fileAccess": configuration.permissions.file_access,
         "commandExecution": configuration.permissions.command_execution,
         "restoreMount": configuration.restore_mount,
+        "runOptions": configuration.run_options,
     }))
     .map_err(|_| AppError::InvalidBenchmark)
 }
@@ -1520,6 +1564,7 @@ mod tests {
                 workspace_id: "workspace".into(),
                 mount_id: mount.id,
                 expected_version_id: detail.version_id,
+                run_options: Default::default(),
                 agent_kinds: vec![AgentKind::Claude, AgentKind::Codex],
                 permissions: TaskPermissions {
                     file_access: "read_only".into(),
@@ -1679,12 +1724,14 @@ mod tests {
                 workspace_id: "workspace".into(),
                 mount_id: mount.id,
                 expected_version_id: detail.version_id,
+                run_options: Default::default(),
                 agent_kinds: vec![AgentKind::Claude, AgentKind::Codex],
                 permissions: TaskPermissions {
                     file_access: "read_only".into(),
                     command_execution: "deny".into(),
                 },
             };
+            let experiment_configuration = configuration.clone();
             let service = BenchmarkTaskService::new(
                 repository,
                 BenchmarkTaskRepository::new(database.clone()),
@@ -1723,6 +1770,34 @@ mod tests {
                 execution.phase == "finished"
                     && execution.termination_reason.as_deref() == Some("interrupted")
             }));
+            let mut experiment = experiment_configuration;
+            experiment.run_options = serde_json::from_value(serde_json::json!({
+                "casePositions":[1], "repetitions":3, "profiles":[
+                    {"agentKind":"codex","label":"Baseline","model":"model-a","mode":"high"},
+                    {"agentKind":"codex","label":"Candidate","model":"model-b"}
+                ]
+            }))
+            .expect("experiment options");
+            let experiment = service
+                .start(experiment, "experiment")
+                .await
+                .expect("experiment plan");
+            assert_eq!(experiment.cases.len(), 1);
+            assert_eq!(experiment.cases[0].position, 1);
+            assert_eq!(experiment.agents.len(), 2);
+            assert_eq!(
+                experiment.agents[1].profile.model.as_deref(),
+                Some("model-b")
+            );
+            assert_eq!(experiment.executions.len(), 6);
+            assert_eq!(
+                experiment
+                    .executions
+                    .iter()
+                    .filter(|cell| cell.attempt == 3)
+                    .count(),
+                2
+            );
             database.close().await.expect("close database");
         });
     }
@@ -1838,6 +1913,7 @@ mod tests {
                         workspace_id: "workspace".into(),
                         mount_id: mount.id.clone(),
                         expected_version_id: published.version_id,
+                        run_options: Default::default(),
                         agent_kinds: vec![AgentKind::Claude, AgentKind::Codex],
                         permissions: TaskPermissions {
                             file_access: "read_only".into(),
@@ -1931,6 +2007,7 @@ mod tests {
                 .await
                 .expect("remove source mount");
             let rerun_configuration = BenchmarkRerunConfiguration {
+                run_options: None,
                 source_task_id: completed.task.id.clone(),
                 agent_kinds: vec![AgentKind::Codex],
                 permissions: TaskPermissions {
@@ -2046,6 +2123,7 @@ mod tests {
                         workspace_id: "workspace".into(),
                         mount_id: mount.id,
                         expected_version_id: published.version_id,
+                        run_options: Default::default(),
                         agent_kinds: vec![AgentKind::Codex],
                         permissions: TaskPermissions {
                             file_access: "read_only".into(),
@@ -2168,6 +2246,7 @@ mod tests {
                         workspace_id: "workspace".into(),
                         mount_id: mount.id,
                         expected_version_id: published.version_id,
+                        run_options: Default::default(),
                         agent_kinds: vec![AgentKind::Codex],
                         permissions: TaskPermissions {
                             file_access: "read_only".into(),

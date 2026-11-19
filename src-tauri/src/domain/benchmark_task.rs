@@ -7,6 +7,141 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::Duration;
 
+/// Explicit, portable settings frozen before a benchmark starts; credentials never belong here.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct BenchmarkAgentProfile {
+    /// Product identifier; validated before it reaches the runtime.
+    pub(crate) agent_kind: String,
+    /// Distinguishes configurations of the same product.
+    #[serde(default)]
+    pub(crate) label: String,
+    /// Explicit model, or unknown when inheriting a historical local default.
+    #[serde(default)]
+    pub(crate) model: Option<String>,
+    /// Reasoning effort or product mode.
+    #[serde(default)]
+    pub(crate) mode: Option<String>,
+    /// Requested CLI version; external runners can pin it during installation.
+    #[serde(default)]
+    pub(crate) version: Option<String>,
+}
+
+/// External datasets retain their own environments and verifier protocol.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub(crate) enum BenchmarkRunner {
+    #[default]
+    Native,
+    Harbor {
+        /// Registry dataset name, never a shell command or arbitrary local path.
+        dataset: String,
+        /// Fixed dataset release rather than a moving alias.
+        version: String,
+    },
+}
+
+/// Immutable experiment inputs, also embedded in the idempotent request snapshot.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct BenchmarkRunOptions {
+    /// Published zero-based case positions; null means the whole suite.
+    #[serde(default)]
+    pub(crate) case_positions: Option<Vec<usize>>,
+    /// Independent trials per case and profile, never automatic retries.
+    #[serde(default = "one_repetition")]
+    pub(crate) repetitions: u32,
+    /// Explicit configurations; empty preserves the legacy product selection.
+    #[serde(default)]
+    pub(crate) profiles: Vec<BenchmarkAgentProfile>,
+    /// Owns environment preparation and scoring for this experiment.
+    #[serde(default)]
+    pub(crate) runner: BenchmarkRunner,
+}
+
+fn one_repetition() -> u32 {
+    1
+}
+
+impl Default for BenchmarkRunOptions {
+    fn default() -> Self {
+        Self {
+            case_positions: None,
+            repetitions: 1,
+            profiles: Vec::new(),
+            runner: BenchmarkRunner::Native,
+        }
+    }
+}
+
+impl BenchmarkRunOptions {
+    /// Bounds the complete experiment before any rows or child processes are created.
+    pub(crate) fn validate(&self, case_count: usize) -> Result<(), crate::error::AppError> {
+        use crate::error::AppError;
+        let selected = self.case_positions.as_ref().map_or(case_count, Vec::len);
+        if !(1..=10).contains(&self.repetitions)
+            || self.profiles.len() > 8
+            || selected == 0
+            || selected > 100
+            || self.case_positions.as_ref().is_some_and(|positions| {
+                positions.iter().any(|position| *position >= case_count)
+                    || positions
+                        .iter()
+                        .collect::<std::collections::HashSet<_>>()
+                        .len()
+                        != positions.len()
+            })
+            || selected * self.profiles.len().max(4) * self.repetitions as usize > 4000
+        {
+            return Err(AppError::InvalidBenchmark);
+        }
+        for profile in &self.profiles {
+            if AgentKind::parse(&profile.agent_kind).is_none()
+                || profile.label.len() > 120
+                || [&profile.model, &profile.mode, &profile.version]
+                    .into_iter()
+                    .flatten()
+                    .any(|value| {
+                        value.trim().is_empty()
+                            || value.len() > 200
+                            || value.chars().any(char::is_control)
+                    })
+            {
+                return Err(AppError::InvalidBenchmark);
+            }
+        }
+        if let BenchmarkRunner::Harbor { dataset, version } = &self.runner {
+            if !matches!(
+                (dataset.as_str(), version.as_str()),
+                ("terminal-bench", "2.0") | ("swebench-verified", "1.0")
+            ) || self.profiles.is_empty()
+                || self
+                    .profiles
+                    .iter()
+                    .any(|p| p.model.is_none() || p.agent_kind == "workbuddy")
+            {
+                return Err(AppError::InvalidBenchmark);
+            }
+        }
+        Ok(())
+    }
+
+    /// Materializes legacy selections so execution and history use the same profile representation.
+    pub(crate) fn agent_profiles(&self, kinds: &[AgentKind]) -> Vec<BenchmarkAgentProfile> {
+        if self.profiles.is_empty() {
+            kinds
+                .iter()
+                .map(|kind| BenchmarkAgentProfile {
+                    agent_kind: kind.as_str().into(),
+                    ..Default::default()
+                })
+                .collect()
+        } else {
+            self.profiles.clone()
+        }
+    }
+}
+
 /// Complete owned invocation passed from the Benchmark orchestrator to the Agent runtime.
 #[derive(Debug, Clone)]
 pub(crate) struct BenchmarkAgentInvocation {
@@ -41,6 +176,8 @@ pub(crate) struct BenchmarkTaskConfiguration {
     pub(crate) mount_id: String,
     /// Version displayed when the user opened the configuration form.
     pub(crate) expected_version_id: String,
+    /// Frozen subset, profiles, repetitions, and runner protocol.
+    pub(crate) run_options: BenchmarkRunOptions,
     /// Unique local products in user-selected order.
     pub(crate) agent_kinds: Vec<AgentKind>,
     /// Explicit file and command choices, with no backend default substitution.
@@ -54,6 +191,8 @@ pub(crate) struct BenchmarkRerunConfiguration {
     pub(crate) source_task_id: String,
     /// Unique local products selected for the new Task.
     pub(crate) agent_kinds: Vec<AgentKind>,
+    /// New experiment choices; absent reuses the historical experiment.
+    pub(crate) run_options: Option<BenchmarkRunOptions>,
     /// Explicit permissions for the new Task.
     pub(crate) permissions: TaskPermissions,
     /// Whether a missing historical mount may be restored.
@@ -67,6 +206,8 @@ pub(crate) struct NewBenchmarkTaskPlan {
     pub(crate) task: Task,
     /// Immutable published version and Case content.
     pub(crate) benchmark: BenchmarkDetail,
+    /// Validated experiment inputs persisted with the request snapshot.
+    pub(crate) run_options: BenchmarkRunOptions,
     /// Ordered local products participating in every Case.
     pub(crate) agent_kinds: Vec<AgentKind>,
     /// Frozen file and command permissions.
@@ -122,6 +263,8 @@ pub(crate) struct BenchmarkTaskAgent {
     pub(crate) agent_kind: AgentKind,
     /// Stable matrix column order.
     pub(crate) position: usize,
+    /// Immutable requested model, mode, and CLI version.
+    pub(crate) profile: BenchmarkAgentProfile,
 }
 
 /// Immutable case snapshot kept beneath one benchmark task.
@@ -146,6 +289,8 @@ pub(crate) struct BenchmarkCaseExecution {
     pub(crate) task_case_id: String,
     /// Frozen Task Agent row used by this cell.
     pub(crate) task_agent_id: String,
+    /// One-based independent repetition.
+    pub(crate) attempt: u32,
     /// Lifecycle phase constrained by persistence to queued, preparing, running,
     /// waiting_permission, collecting, evaluating, stopping, or finished.
     pub(crate) phase: String,
@@ -238,6 +383,8 @@ pub(crate) struct BenchmarkTaskDetail {
     pub(crate) completion_reason: Option<String>,
     /// Whether the user requested cancellation.
     pub(crate) cancel_requested: bool,
+    /// Immutable experiment inputs, with defaults for pre-experiment history.
+    pub(crate) run_options: BenchmarkRunOptions,
     /// Frozen file and command permissions.
     pub(crate) permissions: TaskPermissions,
     /// Matrix columns in user-selected order.
