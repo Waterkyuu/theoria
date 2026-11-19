@@ -12,6 +12,7 @@ import { BenchmarkImportModal } from "./components/benchmark-import-modal";
 import { BenchmarkFeedback } from "./components/feedback";
 import { BenchmarkFiltersBar } from "./components/filters";
 import { BenchmarkMountModal } from "./components/mount-modal";
+import { PublicBenchmarkModal } from "./components/public-benchmark-modal";
 import { TagIcon } from "./components/tag-icon";
 
 const BenchmarkPage = () => {
@@ -25,6 +26,7 @@ const BenchmarkPage = () => {
 	});
 	const [mounting, setMounting] = useState<BenchmarkSummary | null>(null);
 	const [importing, setImporting] = useState(false);
+	const [addingPublic, setAddingPublic] = useState(false);
 	const query = useBenchmarks(filters);
 	const tags = useBenchmarkTags();
 	const cards = query.data?.pages.flat() ?? [];
@@ -50,10 +52,12 @@ const BenchmarkPage = () => {
 							items={[
 								{ id: "new", labelKey: "benchmark.newTitle" },
 								{ id: "import", labelKey: "benchmark.import.action" },
+								{ id: "public", labelKey: "benchmark.public.action" },
 								{ id: "drafts", labelKey: "benchmark.drafts" },
 							]}
 							onAction={(action) => {
-								if (action === "import") setImporting(true);
+								if (action === "public") setAddingPublic(true);
+								else if (action === "import") setImporting(true);
 								else navigate(`/benchmark/${action}`);
 							}}
 							trigger={
@@ -147,6 +151,12 @@ const BenchmarkPage = () => {
 					onClose={() => setMounting(null)}
 				/>
 			)}
+			{addingPublic ? (
+				<PublicBenchmarkModal
+					tags={tags.data ?? []}
+					onClose={() => setAddingPublic(false)}
+				/>
+			) : null}
 			<BenchmarkImportModal
 				isOpen={importing}
 				onClose={() => setImporting(false)}

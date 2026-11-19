@@ -158,3 +158,22 @@ it("renders the empty catalog message without a border and centered", async () =
 	expect(emptyState).not.toHaveClass("border-dashed");
 	expect(emptyState).not.toHaveClass("border-hairline");
 });
+
+it("opens public benchmarks with a fixed release and explicit task references", async () => {
+	const user = userEvent.setup();
+	render(
+		<QueryClientProvider client={new QueryClient()}>
+			<MemoryRouter>
+				<BenchmarkPage />
+			</MemoryRouter>
+		</QueryClientProvider>,
+	);
+	await user.click(await screen.findByRole("button", { name: "Add new" }));
+	await user.click(
+		await screen.findByRole("menuitem", { name: "Add public benchmark" }),
+	);
+	expect(
+		await screen.findByRole("textbox", { name: "Upstream task names" }),
+	).toBeInTheDocument();
+	expect(screen.getByText(/Harbor 0.26.0/)).toBeInTheDocument();
+});
