@@ -4,6 +4,7 @@ mod adapters {
     pub(crate) mod benchmark_verifier;
     pub(crate) mod claude;
     pub(crate) mod codex;
+    pub(crate) mod harbor;
     pub(crate) mod opencode;
     pub(crate) mod process;
     pub(crate) mod workbuddy;

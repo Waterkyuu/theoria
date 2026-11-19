@@ -243,6 +243,8 @@ pub(crate) enum BenchmarkPreflightIssueKind {
     AgentCheckFailed,
     AssetUnavailable,
     VerifierUnavailable,
+    RunnerUnavailable,
+    EnvironmentUnavailable,
 }
 
 /// Identifies which product or case needs attention before execution.

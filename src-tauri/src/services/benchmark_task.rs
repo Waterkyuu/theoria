@@ -11,8 +11,8 @@ use crate::domain::benchmark_task::{
     BenchmarkToolCall, NewBenchmarkTaskPlan,
 };
 use crate::domain::benchmark_task::{
-    BenchmarkPreflightIssue, BenchmarkPreflightIssueKind, BenchmarkTaskConfiguration,
-    BenchmarkTaskPreview,
+    BenchmarkPreflightIssue, BenchmarkPreflightIssueKind, BenchmarkRunner,
+    BenchmarkTaskConfiguration, BenchmarkTaskPreview,
 };
 use crate::domain::task::{Task, TaskKind, TaskPermissions, TaskStatus};
 use crate::error::AppError;
@@ -43,6 +43,8 @@ struct BenchmarkCellWork {
     execution: BenchmarkCaseExecution,
     /// Frozen permissions shared across the Task.
     permissions: TaskPermissions,
+    /// Pinned environment and scoring protocol for this cell.
+    runner: BenchmarkRunner,
     /// Case baseline failure to persist without starting an Agent.
     baseline_error: Option<AppError>,
 }
@@ -178,6 +180,9 @@ impl BenchmarkTaskService {
         configuration
             .run_options
             .validate(benchmark.document.cases.len())?;
+        if configuration.run_options.runner != benchmark.document.runner {
+            return Err(AppError::InvalidBenchmark);
+        }
         let now = now_ms()?;
         let task = Task {
             id: next_id("benchmark-task")?,
@@ -336,6 +341,22 @@ impl BenchmarkTaskService {
                 .iter()
                 .any(|kind| kind.as_str() == profile.agent_kind)
         });
+        if !run_options.profiles.is_empty() {
+            for kind in &configuration.agent_kinds {
+                if !run_options
+                    .profiles
+                    .iter()
+                    .any(|profile| profile.agent_kind == kind.as_str())
+                {
+                    run_options.profiles.push(
+                        crate::domain::benchmark_task::BenchmarkAgentProfile {
+                            agent_kind: kind.as_str().into(),
+                            ..Default::default()
+                        },
+                    );
+                }
+            }
+        }
         run_options.validate(benchmark.document.cases.len())?;
         let mut snapshot: serde_json::Value =
             serde_json::from_str(&request_json).map_err(|_| AppError::InvalidBenchmark)?;
@@ -541,6 +562,7 @@ impl BenchmarkTaskService {
                         agent: agent.clone(),
                         execution: execution.clone(),
                         permissions: detail.permissions.clone(),
+                        runner: detail.run_options.runner.clone(),
                         baseline_error: baseline.as_ref().err().cloned(),
                     };
                     let cancellation = cancellation.clone();
@@ -586,6 +608,7 @@ impl BenchmarkTaskService {
             agent,
             execution,
             permissions,
+            runner: benchmark_runner,
             baseline_error,
         } = cell;
         let _slot = self
@@ -631,6 +654,42 @@ impl BenchmarkTaskService {
         }
         if cancellation.load(Ordering::Acquire) {
             self.finish_cancelled(&execution.id).await?;
+            return self
+                .task_repository
+                .refresh_status(&task_id, now_ms()?)
+                .await
+                .map_err(|_| AppError::BenchmarkDatabaseFailed);
+        }
+        if matches!(benchmark_runner, BenchmarkRunner::Harbor { .. }) {
+            let external_profile = agent.profile.clone();
+            let external_task = case.content.name.clone();
+            let external_workspace = workspace.clone();
+            let external_cancellation = cancellation.clone();
+            let timeout =
+                std::time::Duration::from_secs(u64::from(case.content.timeout_minutes) * 60);
+            let result = tokio::task::spawn_blocking(move || {
+                crate::adapters::harbor::run_trial(
+                    &benchmark_runner,
+                    &external_task,
+                    &external_profile,
+                    &external_workspace,
+                    timeout,
+                    &external_cancellation,
+                )
+            })
+            .await
+            .map_err(|_| AppError::WorkerFailed)?;
+            match result {
+                Ok(result) => self
+                    .task_repository
+                    .finish_execution(&execution.id, result)
+                    .await
+                    .map_err(|_| AppError::BenchmarkDatabaseFailed)?,
+                Err(_) if cancellation.load(Ordering::Acquire) => {
+                    self.finish_cancelled(&execution.id).await?
+                }
+                Err(error) => self.finish_error(&execution.id, &error).await?,
+            }
             return self
                 .task_repository
                 .refresh_status(&task_id, now_ms()?)
@@ -751,6 +810,9 @@ impl BenchmarkTaskService {
             | AppError::CodexTaskFailed
             | AppError::OpenCodeTaskFailed
             | AppError::WorkBuddyTaskFailed => "agent_error",
+            AppError::BenchmarkVerifierUnavailable | AppError::TaskPreparationFailed => {
+                "environment_error"
+            }
             _ => "evaluation_error",
         };
         let ipc = crate::error::IpcError::from(error.clone());
@@ -878,6 +940,9 @@ impl BenchmarkTaskService {
         configuration
             .run_options
             .validate(benchmark.document.cases.len())?;
+        if configuration.run_options.runner != benchmark.document.runner {
+            return Err(AppError::InvalidBenchmark);
+        }
         let uses_python = benchmark.document.cases.iter().any(|case| {
             case.checks
                 .iter()
@@ -942,6 +1007,28 @@ impl BenchmarkTaskService {
                 });
             }
         }
+        if matches!(
+            configuration.run_options.runner,
+            BenchmarkRunner::Harbor { .. }
+        ) {
+            if let Err(kind) = tokio::task::spawn_blocking(|| {
+                crate::adapters::harbor::preflight(&AtomicBool::new(false))
+            })
+            .await
+            .map_err(|_| AppError::WorkerFailed)?
+            {
+                issues.push(BenchmarkPreflightIssue {
+                    kind,
+                    agent_kind: None,
+                    case_position: None,
+                });
+            }
+            return Ok(BenchmarkTaskPreview {
+                configuration,
+                benchmark,
+                issues,
+            });
+        }
         let agent_kinds = configuration.agent_kinds.clone();
         let agent_issues = tokio::task::spawn_blocking(move || {
             agent_kinds
@@ -977,7 +1064,6 @@ impl BenchmarkTaskService {
 }
 
 fn validate_configuration(configuration: &BenchmarkTaskConfiguration) -> Result<(), AppError> {
-    configuration.run_options.validate(100)?;
     if configuration.run_options.profiles.iter().any(|profile| {
         !configuration
             .agent_kinds

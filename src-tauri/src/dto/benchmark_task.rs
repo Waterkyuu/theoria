@@ -267,6 +267,10 @@ impl From<BenchmarkTaskPreview> for BenchmarkTaskPreviewResponse {
                         BenchmarkPreflightIssueKind::AgentCheckFailed => "agent_check_failed",
                         BenchmarkPreflightIssueKind::AssetUnavailable => "asset_unavailable",
                         BenchmarkPreflightIssueKind::VerifierUnavailable => "verifier_unavailable",
+                        BenchmarkPreflightIssueKind::RunnerUnavailable => "runner_unavailable",
+                        BenchmarkPreflightIssueKind::EnvironmentUnavailable => {
+                            "environment_unavailable"
+                        }
                     },
                     agent_kind: issue.agent_kind.map(AgentKind::as_str),
                     case_position: issue.case_position,
