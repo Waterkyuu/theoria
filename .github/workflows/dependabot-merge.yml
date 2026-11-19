@@ -1,0 +1,54 @@
+name: Merge Dependabot updates
+
+on:
+  workflow_run:
+    workflows: [CI, UI Check, Benchmark]
+    types: [completed]
+
+jobs:
+  merge:
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.actor.login == 'dependabot[bot]' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.pull_requests[0].base.ref == 'main'
+    runs-on: ubuntu-latest
+    concurrency: dependabot-merge-${{ github.event.workflow_run.pull_requests[0].number }}
+    permissions:
+      actions: read
+      pull-requests: read
+      contents: write
+    steps:
+      - name: Merge when all PR workflows pass on the current commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          repo="repos/$GITHUB_REPOSITORY"
+          pr=$(gh api "$repo/pulls/$PR_NUMBER")
+          if ! jq -e '
+            .user.login == "dependabot[bot]" and .state == "open" and (.draft | not) and
+            .base.ref == "main" and .head.repo.full_name == env.GITHUB_REPOSITORY and
+            .head.ref == env.HEAD_BRANCH and .head.sha == env.HEAD_SHA
+          ' <<< "$pr" > /dev/null; then
+            exit 0
+          fi
+
+          for workflow in ci.yml ui.yml benchmark.yml; do
+            runs=$(gh api -X GET "$repo/actions/workflows/$workflow/runs" \
+              -f event=pull_request -f branch="$HEAD_BRANCH" -f head_sha="$HEAD_SHA")
+            if ! jq -e '
+              [.workflow_runs[] | select(any(.pull_requests[]; .number == (env.PR_NUMBER | tonumber)))]
+              | max_by(.id).conclusion == "success"
+            ' <<< "$runs" > /dev/null; then
+              echo "Waiting for $workflow to pass on $HEAD_SHA"
+              exit 0
+            fi
+          done
+
+          gh api -X PUT "$repo/pulls/$PR_NUMBER/merge" \
+            -f sha="$HEAD_SHA" -f merge_method=merge \
+            -f commit_title="Merge main from $HEAD_BRANCH"
