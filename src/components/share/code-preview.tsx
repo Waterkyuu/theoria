@@ -9,14 +9,21 @@ import { matchEditorLanguage } from "@/utils/editor-language";
 import { handleError } from "@/utils/error";
 
 type CodePreviewProps = {
-	/** File path used to load the same language as the Skill editor. */
+	/**
+	 * File path used to load the same language as the Skill editor.
+	 */
 	path: string;
-	/** Bounded text returned by the file preview API. */
+	/**
+	 * Bounded text returned by the file preview API.
+	 */
 	value: string;
 };
 
-/** Draws only visible lines without loading editing commands into file previews.
- * @example <CodePreview path="index.js" value="const count = 1;" />
+/**
+ * Draws only visible lines without loading editing commands into file previews.
+ *
+ * @example
+ * <CodePreview path="index.js" value="const count = 1;" />
  */
 const CodePreview = ({ path, value }: CodePreviewProps) => {
 	const host = useRef<HTMLDivElement>(null);

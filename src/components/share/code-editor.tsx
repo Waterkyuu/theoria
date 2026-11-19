@@ -6,13 +6,21 @@ import { handleError } from "@/utils/error";
 import "@/styles/code-editor.css";
 
 type CodeEditorProps = {
-	/** File path used for language selection and the accessible editor name. */
+	/**
+	 * File path used for language selection and the accessible editor name.
+	 */
 	path: string;
-	/** Current file contents; switching files preserves the parent's draft. */
+	/**
+	 * Current file contents; switching files preserves the parent's draft.
+	 */
 	value: string;
-	/** Receives edits so the owner can save the entire directory. */
+	/**
+	 * Receives edits so the owner can save the entire directory.
+	 */
 	onChange: (value: string) => void;
-	/** Prevent edits while a snapshot is being saved. */
+	/**
+	 * Prevent edits while a snapshot is being saved.
+	 */
 	isReadOnly?: boolean;
 };
 

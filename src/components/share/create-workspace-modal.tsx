@@ -9,11 +9,17 @@ import { useCreateWorkspace } from "@/queries/workspace";
 import type { Workspace } from "@/types/workspace";
 
 type NewWorkspaceModalProps = {
-	/** Controls whether the new workspace modal is visible. */
+	/**
+	 * Controls whether the new workspace modal is visible.
+	 */
 	isOpen: boolean;
-	/** Updates the controlled modal state. */
+	/**
+	 * Updates the controlled modal state.
+	 */
 	onOpenChange: (isOpen: boolean) => void;
-	/** Opens the persisted Workspace after native creation succeeds. */
+	/**
+	 * Opens the persisted Workspace after native creation succeeds.
+	 */
 	onCreated: (workspace: Workspace) => void;
 };
 
@@ -45,7 +51,9 @@ const NewWorkspaceModal = ({
 			? Boolean(trimmedWorkspaceName)
 			: Boolean(trimmedSourcePath && resolvedWorkspaceName);
 
-	/** Opens the native directory picker and retains an absolute external source path. */
+	/**
+	 * Opens the native directory picker and retains an absolute external source path.
+	 */
 	const selectSourceDirectory = async () => {
 		try {
 			const selectedPath = await open({

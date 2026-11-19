@@ -6,24 +6,40 @@ import type { Skill } from "@/types/skill";
 import type { CreateTaskRequest } from "@/types/task";
 
 type ComposerSkillDropdownProps = {
-	/** Skills available in the library or mounted in the Workspace. */
+	/**
+	 * Skills available in the library or mounted in the Workspace.
+	 */
 	availableSkills: Skill[];
-	/** Library skill IDs selected for the next Task. */
+	/**
+	 * Library skill IDs selected for the next Task.
+	 */
 	selectedSkillIds: string[];
-	/** Updates the Task selection while leaving the menu open for more choices. */
+	/**
+	 * Updates the Task selection while leaving the menu open for more choices.
+	 */
 	onSelectionChange: (skillIds: string[]) => void;
-	/** Mounted Workspace skills are visible but cannot be changed here. */
+	/**
+	 * Mounted Workspace skills are visible but cannot be changed here.
+	 */
 	workspaceSkillsLocked: boolean;
 };
 
 type ComposerPermissionDropdownProps = {
-	/** Current file mutation policy for the next Task. */
+	/**
+	 * Current file mutation policy for the next Task.
+	 */
 	fileAccess: CreateTaskRequest["fileAccess"];
-	/** Current command execution policy for the next Task. */
+	/**
+	 * Current command execution policy for the next Task.
+	 */
 	commandExecution: CreateTaskRequest["commandExecution"];
-	/** Updates file access independently of command execution. */
+	/**
+	 * Updates file access independently of command execution.
+	 */
 	onFileAccessChange: (access: CreateTaskRequest["fileAccess"]) => void;
-	/** Updates command execution independently of file access. */
+	/**
+	 * Updates command execution independently of file access.
+	 */
 	onCommandExecutionChange: (
 		permission: CreateTaskRequest["commandExecution"],
 	) => void;
@@ -31,6 +47,7 @@ type ComposerPermissionDropdownProps = {
 
 /**
  * Preserves the compact Skill picker while delegating focus and dismissal to Dropdown.
+ *
  * @example
  * <ComposerSkillDropdown availableSkills={skills} selectedSkillIds={ids} onSelectionChange={setIds} workspaceSkillsLocked={false} />
  */
@@ -126,6 +143,7 @@ const ComposerSkillDropdown = ({
 
 /**
  * Keeps both permission groups in one anchored menu so users can configure a Task together.
+ *
  * @example
  * <ComposerPermissionDropdown fileAccess={access} commandExecution={execution} onFileAccessChange={setAccess} onCommandExecutionChange={setExecution} />
  */

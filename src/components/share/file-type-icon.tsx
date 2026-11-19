@@ -2,7 +2,9 @@ import { getFileIcon } from "@/utils/file-icon";
 import "@/styles/file-type-icon.css";
 
 type FileTypeIconProps = {
-	/** Relative file path used to resolve language and framework-specific icons. */
+	/**
+	 * Relative file path used to resolve language and framework-specific icons.
+	 */
 	path: string;
 };
 

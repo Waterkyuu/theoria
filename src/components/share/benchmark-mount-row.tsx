@@ -15,20 +15,32 @@ import {
 import type { BenchmarkMount } from "@/types/benchmark";
 
 type BenchmarkMountRowProps = {
-	/** Active browser path used to highlight and safely leave a removed mount. */
+	/**
+	 * Active browser path used to highlight and safely leave a removed mount.
+	 */
 	currentPath: string;
-	/** Persisted relationship with a pinned version. */
+	/**
+	 * Persisted relationship with a pinned version.
+	 */
 	mount: BenchmarkMount;
-	/** Preserves the desktop navigation shell. */
+	/**
+	 * Preserves the desktop navigation shell.
+	 */
 	onNavigate: (path: string) => void;
 };
 
 type BenchmarkMountActionsProps = {
-	/** Persisted relationship changed by the available actions. */
+	/**
+	 * Persisted relationship changed by the available actions.
+	 */
 	mount: BenchmarkMount;
-	/** Current Benchmark name included in labels and feedback. */
+	/**
+	 * Current Benchmark name included in labels and feedback.
+	 */
 	name: string;
-	/** Leaves an active relationship route after it is removed. */
+	/**
+	 * Leaves an active relationship route after it is removed.
+	 */
 	onUnmounted: () => void;
 };
 
@@ -52,7 +64,9 @@ const BenchmarkMountActions = ({
 	const unmountMutation = useUnmountBenchmark();
 	const isPinned = mount.pinnedAtMs !== null;
 
-	/** Persists the next pin state while keeping the mounted version unchanged. */
+	/**
+	 * Persists the next pin state while keeping the mounted version unchanged.
+	 */
 	const setPinState = async () => {
 		if (pinMutation.isPending) return;
 		try {
@@ -79,7 +93,9 @@ const BenchmarkMountActions = ({
 		}
 	};
 
-	/** Removes only the Workspace relationship after the user confirms. */
+	/**
+	 * Removes only the Workspace relationship after the user confirms.
+	 */
 	const confirmUnmount = async () => {
 		if (unmountMutation.isPending) return;
 		try {
