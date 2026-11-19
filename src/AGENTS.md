@@ -278,7 +278,7 @@ const [dialogVisible, setDialogVisible] = useState(false);
 3. Drawer: `src/components/drawer.tsx`
 4. Dropdown menu: `src/components/dropdown-menu.tsx`
 5. Empty state: `src/components/empty-state.tsx`
-6. Loading state: `src/components/loading.tsx`
+6. Loading placeholder: use a skeleton for a fixed-size card or container. Otherwise, use a spinner (`src/components/ui/loading.tsx` for pages and sections).
 7. Modal: `src/components/modal-provider.tsx`
 8. Popover: `src/components/popover.tsx`
 9. Search box: `src/components/search-box.tsx`

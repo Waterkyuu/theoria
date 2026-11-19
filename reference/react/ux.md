@@ -36,7 +36,8 @@ leaving users guessing whether an action worked.
 19. Long text must use `truncate`, `line-clamp`, `break-words`, or `max-w` so it
     cannot break layouts.
 20. Empty data must render an Empty state.
-21. Loading states must render Loading or Skeleton UI.
+21. Use a skeleton for a fixed-size card or container and a spinner for other
+    loading placeholders.
 22. API errors must show an error message and a retry entry.
 23. Toast success, failure, warning, and info messages must use consistent
     style, placement, and wording.
@@ -156,13 +157,15 @@ Examples:
 </div>
 ```
 
-## Skeletons
+## Loading Placeholders
 
-Skeleton styles must be consistent across the app.
+For a fixed-size card or container, use a skeleton that occupies the same space
+as the loaded content. For other loading placeholders, use a spinner. The shared
+`Loading` component provides page and section spinners.
 
-Rules:
+Skeleton rules:
 
-1. Prefer shared loading components or copy the closest existing Skeleton
+1. Reuse the closest existing skeleton
    pattern in the same UI surface.
 2. Match the loaded content's layout, row height, spacing, width, and radius so
    loading does not shift the page.
@@ -189,7 +192,7 @@ Pages and components must cover the states a user can actually encounter.
 Rules:
 
 1. Empty data must use a clear Empty state instead of an empty panel.
-2. Loading data must use Loading or Skeleton UI that matches the final layout.
+2. For pending data, follow the [loading placeholder rules](#loading-placeholders).
 3. API errors must show an error message and a visible retry action when retry
    is possible.
 4. Long text must be constrained with `truncate`, `line-clamp`, `break-words`,
