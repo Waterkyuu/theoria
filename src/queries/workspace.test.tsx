@@ -15,7 +15,9 @@ const workspaceApiMocks = vi.hoisted(() => ({
 vi.mock("@/api/workspace", () => workspaceApiMocks);
 
 type QueryWrapperProps = {
-	/** Test content connected to the isolated query cache. */
+	/**
+	 * Test content connected to the isolated query cache.
+	 */
 	children: ReactNode;
 };
 
@@ -38,7 +40,9 @@ describe("Workspace queries", () => {
 		};
 		queryClient.setQueryData(workspaceKeys.list(), [workspace]);
 
-		/** Connects the hook to a fresh cache so removal assertions cannot leak. */
+		/**
+		 * Connects the hook to a fresh cache so removal assertions cannot leak.
+		 */
 		const QueryWrapper = ({ children }: QueryWrapperProps) => (
 			<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
 		);

@@ -30,21 +30,30 @@ import type {
 } from "@/types/benchmark";
 
 type BenchmarkMountMutationInput = {
-	/** Stable relationship changed by a Workspace sidebar action. */
+	/**
+	 * Stable relationship changed by a Workspace sidebar action.
+	 */
 	mountId: string;
-	/** Workspace that owns the relationship. */
+	/**
+	 * Workspace that owns the relationship.
+	 */
 	workspaceId: string;
 };
 
 type SetBenchmarkMountPinInput = BenchmarkMountMutationInput & {
-	/** Whether the mount should appear in the pinned group. */
+	/**
+	 * Whether the mount should appear in the pinned group.
+	 */
 	isPinned: boolean;
 };
 
 const BENCHMARK_TASK_POLL_INTERVAL_MS = 750;
 
-/** Keeps an absent selection in a stable disabled-query cache bucket.
- * @example benchmarkTaskKey("task-1")
+/**
+ * Keeps an absent selection in a stable disabled-query cache bucket.
+ *
+ * @example
+ * benchmarkTaskKey("task-1")
  */
 const benchmarkTaskKey = (taskId: string | null) => [
 	"benchmark-tasks",
@@ -66,7 +75,9 @@ const useBenchmarks = (filters: BenchmarkFilters) =>
 			last.length === 30 ? pages.length : undefined,
 	});
 
-/** Shares the tag picker cache with cards and editors. */
+/**
+ * Shares the tag picker cache with cards and editors.
+ */
 const useBenchmarkTags = () =>
 	useQuery({ queryKey: ["benchmarks", "tags"], queryFn: listBenchmarkTags });
 
@@ -83,7 +94,9 @@ const useBenchmark = (id: string, versionId: string | null = null) =>
 		enabled: Boolean(id),
 	});
 
-/** Archives a personal definition and removes it from cached catalog pages. */
+/**
+ * Archives a personal definition and removes it from cached catalog pages.
+ */
 const useArchiveBenchmark = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
@@ -111,7 +124,9 @@ const useBenchmarkDraft = (id: string) =>
 		enabled: Boolean(id),
 	});
 
-/** Pages saved drafts independently of the public catalog. */
+/**
+ * Pages saved drafts independently of the public catalog.
+ */
 const useBenchmarkDrafts = () =>
 	useInfiniteQuery({
 		queryKey: ["benchmarks", "drafts"],
@@ -137,7 +152,9 @@ const useWorkspaceBenchmarks = (workspaceId: string) =>
 			last.length === 30 ? pages.length : undefined,
 	});
 
-/** Applies an explicit version update to one mounted relationship. */
+/**
+ * Applies an explicit version update to one mounted relationship.
+ */
 const useUpdateBenchmarkMount = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
@@ -158,7 +175,9 @@ const useUpdateBenchmarkMount = () => {
 	});
 };
 
-/** Persists pin state and refreshes the owning Workspace mount list. */
+/**
+ * Persists pin state and refreshes the owning Workspace mount list.
+ */
 const useSetBenchmarkMountPin = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
@@ -176,7 +195,9 @@ const useSetBenchmarkMountPin = () => {
 	});
 };
 
-/** Removes one relationship and refreshes its Workspace mount list. */
+/**
+ * Removes one relationship and refreshes its Workspace mount list.
+ */
 const useUnmountBenchmark = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
@@ -193,8 +214,11 @@ const useUnmountBenchmark = () => {
 	});
 };
 
-/** Polls only while the persisted Benchmark matrix can still change.
- * @example useBenchmarkTask("task-1")
+/**
+ * Polls only while the persisted Benchmark matrix can still change.
+ *
+ * @example
+ * useBenchmarkTask("task-1")
  */
 const useBenchmarkTask = (taskId: string | null) =>
 	useQuery({
@@ -212,8 +236,11 @@ const useBenchmarkTask = (taskId: string | null) =>
 		},
 	});
 
-/** Loads the final file index only after the user selects one execution.
- * @example useBenchmarkExecutionArtifacts("task-1", "execution-1")
+/**
+ * Loads the final file index only after the user selects one execution.
+ *
+ * @example
+ * useBenchmarkExecutionArtifacts("task-1", "execution-1")
  */
 const useBenchmarkExecutionArtifacts = (
 	taskId: string,
@@ -228,8 +255,11 @@ const useBenchmarkExecutionArtifacts = (
 		enabled: executionId !== null,
 	});
 
-/** Loads one bounded artifact body independently from the file index.
- * @example useBenchmarkExecutionArtifactPreview("task-1", "execution-1", "result.txt")
+/**
+ * Loads one bounded artifact body independently from the file index.
+ *
+ * @example
+ * useBenchmarkExecutionArtifactPreview("task-1", "execution-1", "result.txt")
  */
 const useBenchmarkExecutionArtifactPreview = (
 	taskId: string,
@@ -246,7 +276,9 @@ const useBenchmarkExecutionArtifactPreview = (
 		enabled: executionId !== null && path !== null,
 	});
 
-/** Starts a Benchmark Task and seeds its polling cache immediately. */
+/**
+ * Starts a Benchmark Task and seeds its polling cache immediately.
+ */
 const useStartBenchmarkTask = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
@@ -259,7 +291,9 @@ const useStartBenchmarkTask = () => {
 	});
 };
 
-/** Requests cancellation and lets the persisted task poll reveal the terminal state. */
+/**
+ * Requests cancellation and lets the persisted task poll reveal the terminal state.
+ */
 const useCancelBenchmarkTask = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
@@ -271,7 +305,9 @@ const useCancelBenchmarkTask = () => {
 	});
 };
 
-/** Creates a new historical-version run and seeds its independent polling cache. */
+/**
+ * Creates a new historical-version run and seeds its independent polling cache.
+ */
 const useRerunBenchmarkTask = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
@@ -287,7 +323,9 @@ const useRerunBenchmarkTask = () => {
 	});
 };
 
-/** Restarts polling on the same task and clears previews of interrupted trial artifacts. */
+/**
+ * Restarts polling on the same task and clears previews of interrupted trial artifacts.
+ */
 const useResumeBenchmarkTask = () => {
 	const queryClient = useQueryClient();
 	return useMutation({

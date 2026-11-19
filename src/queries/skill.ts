@@ -24,7 +24,9 @@ const skillKeys = {
 		[...skillKeys.all, "workspace", workspaceId] as const,
 };
 
-/** Loads the number of Workspace mount relationships for every managed Skill. */
+/**
+ * Loads the number of Workspace mount relationships for every managed Skill.
+ */
 const loadSkillMountCounts = async () => {
 	const workspaces = await listWorkspaces();
 	const mountedLibraries = await Promise.all(
@@ -39,11 +41,15 @@ const loadSkillMountCounts = async () => {
 	return counts;
 };
 
-/** Loads the complete managed Skill Library. */
+/**
+ * Loads the complete managed Skill Library.
+ */
 const useSkills = () =>
 	useQuery({ queryKey: skillKeys.library(), queryFn: listSkills });
 
-/** Loads future-Task Skill mounts for one Workspace. */
+/**
+ * Loads future-Task Skill mounts for one Workspace.
+ */
 const useWorkspaceSkills = (workspaceId: string | null) =>
 	useQuery({
 		queryKey: skillKeys.workspace(workspaceId ?? "draft"),
@@ -54,14 +60,18 @@ const useWorkspaceSkills = (workspaceId: string | null) =>
 		enabled: workspaceId !== null,
 	});
 
-/** Supplies mount counts to the existing Skill Library table and filter. */
+/**
+ * Supplies mount counts to the existing Skill Library table and filter.
+ */
 const useSkillMountCounts = () =>
 	useQuery({
 		queryKey: skillKeys.mountCounts(),
 		queryFn: loadSkillMountCounts,
 	});
 
-/** Imports a validated local Skill folder and refreshes every library consumer. */
+/**
+ * Imports a validated local Skill folder and refreshes every library consumer.
+ */
 const useImportSkill = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
@@ -72,7 +82,9 @@ const useImportSkill = () => {
 	});
 };
 
-/** Creates a platform-authored Skill and refreshes every library consumer. */
+/**
+ * Creates a platform-authored Skill and refreshes every library consumer.
+ */
 const useCreatePlatformSkill = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
@@ -83,8 +95,11 @@ const useCreatePlatformSkill = () => {
 	});
 };
 
-/** Skips directory reads for creation and loads a fresh snapshot for an existing skill.
- * @example useSkillFiles("skill-1")
+/**
+ * Skips directory reads for creation and loads a fresh snapshot for an existing skill.
+ *
+ * @example
+ * useSkillFiles("skill-1")
  */
 const useSkillFiles = (skillId?: string) =>
 	useQuery({
@@ -100,8 +115,11 @@ const useSkillFiles = (skillId?: string) =>
 		refetchOnReconnect: false,
 	});
 
-/** Shares saving feedback while choosing create or replace from the editor's stable identity.
- * @example useSaveSkill("skill-1")
+/**
+ * Shares saving feedback while choosing create or replace from the editor's stable identity.
+ *
+ * @example
+ * useSaveSkill("skill-1")
  */
 const useSaveSkill = (skillId?: string) => {
 	const queryClient = useQueryClient();
@@ -123,7 +141,9 @@ const useSaveSkill = (skillId?: string) => {
 	});
 };
 
-/** Imports a Git-backed Skill and refreshes every library consumer. */
+/**
+ * Imports a Git-backed Skill and refreshes every library consumer.
+ */
 const useImportGitSkill = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
@@ -134,7 +154,9 @@ const useImportGitSkill = () => {
 	});
 };
 
-/** Pulls the latest remote content for one Git-backed Skill. */
+/**
+ * Pulls the latest remote content for one Git-backed Skill.
+ */
 const useUpdateGitSkill = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
@@ -145,7 +167,9 @@ const useUpdateGitSkill = () => {
 	});
 };
 
-/** Removes selected Skills one by one and refreshes library state even after a partial failure. */
+/**
+ * Removes selected Skills one by one and refreshes library state even after a partial failure.
+ */
 const useRemoveSkills = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
@@ -159,13 +183,19 @@ const useRemoveSkills = () => {
 };
 
 type WorkspaceSkillMutationInput = {
-	/** Managed Skill whose future-Task mount relationship changes. */
+	/**
+	 * Managed Skill whose future-Task mount relationship changes.
+	 */
 	skillId: string;
-	/** Workspace receiving or losing the managed Skill. */
+	/**
+	 * Workspace receiving or losing the managed Skill.
+	 */
 	workspaceId: string;
 };
 
-/** Mounts one Skill and refreshes every Workspace and library mount view. */
+/**
+ * Mounts one Skill and refreshes every Workspace and library mount view.
+ */
 const useMountWorkspaceSkill = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
@@ -177,7 +207,9 @@ const useMountWorkspaceSkill = () => {
 	});
 };
 
-/** Unmounts one Skill and refreshes every Workspace and library mount view. */
+/**
+ * Unmounts one Skill and refreshes every Workspace and library mount view.
+ */
 const useUnmountWorkspaceSkill = () => {
 	const queryClient = useQueryClient();
 	return useMutation({

@@ -18,16 +18,24 @@ import type {
 } from "@/types/task";
 
 type RenameTaskInput = {
-	/** Stable Task identifier whose title changes. */
+	/**
+	 * Stable Task identifier whose title changes.
+	 */
 	taskId: string;
-	/** Trimmed user-visible title persisted by the backend. */
+	/**
+	 * Trimmed user-visible title persisted by the backend.
+	 */
 	title: string;
 };
 
 type SetTaskPinInput = {
-	/** Whether the Task should be pinned within its sidebar scope. */
+	/**
+	 * Whether the Task should be pinned within its sidebar scope.
+	 */
 	isPinned: boolean;
-	/** Stable Task identifier. */
+	/**
+	 * Stable Task identifier.
+	 */
 	taskId: string;
 };
 
@@ -41,14 +49,18 @@ const taskKeys = {
 		[...taskKeys.all, "detail", taskId ?? "draft"] as const,
 };
 
-/** Loads global Recent or one Workspace's Task list. */
+/**
+ * Loads global Recent or one Workspace's Task list.
+ */
 const useTasks = (workspaceId: string | null) =>
 	useQuery({
 		queryKey: taskKeys.list(workspaceId),
 		queryFn: () => listTasks(workspaceId),
 	});
 
-/** Restores one locked Task and polls only while an Execution can still change. */
+/**
+ * Restores one locked Task and polls only while an Execution can still change.
+ */
 const useTask = (taskId: string | null) =>
 	useQuery({
 		queryKey: taskKeys.detail(taskId),
@@ -65,7 +77,9 @@ const useTask = (taskId: string | null) =>
 		},
 	});
 
-/** Loads the shared Task header before any type-specific detail query runs. */
+/**
+ * Loads the shared Task header before any type-specific detail query runs.
+ */
 const useTaskHeader = (taskId: string | null) =>
 	useQuery({
 		queryKey: [...taskKeys.detail(taskId), "header"],
@@ -76,7 +90,9 @@ const useTaskHeader = (taskId: string | null) =>
 		enabled: taskId !== null,
 	});
 
-/** Creates a locked Task and seeds both detail and Task-list caches. */
+/**
+ * Creates a locked Task and seeds both detail and Task-list caches.
+ */
 const useCreateTask = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
@@ -90,7 +106,9 @@ const useCreateTask = () => {
 	});
 };
 
-/** Runs every prepared Agent and replaces the cached Task with its terminal snapshot. */
+/**
+ * Runs every prepared Agent and replaces the cached Task with its terminal snapshot.
+ */
 const useRunTask = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
@@ -104,7 +122,9 @@ const useRunTask = () => {
 	});
 };
 
-/** Continues persisted sessions and replaces the cached Task transcript. */
+/**
+ * Continues persisted sessions and replaces the cached Task transcript.
+ */
 const useContinueTask = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
@@ -143,7 +163,9 @@ const useContinueTask = () => {
 	});
 };
 
-/** Stops one Agent and updates the shared Task snapshot immediately. */
+/**
+ * Stops one Agent and updates the shared Task snapshot immediately.
+ */
 const useStopTaskAgent = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
@@ -154,7 +176,9 @@ const useStopTaskAgent = () => {
 	});
 };
 
-/** Deletes Task-owned files and removes matching detail and Task-list cache entries. */
+/**
+ * Deletes Task-owned files and removes matching detail and Task-list cache entries.
+ */
 const useDeleteTask = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
@@ -166,7 +190,9 @@ const useDeleteTask = () => {
 	});
 };
 
-/** Renames a Task and refreshes its detail and owning list caches. */
+/**
+ * Renames a Task and refreshes its detail and owning list caches.
+ */
 const useRenameTask = () => {
 	const queryClient = useQueryClient();
 	return useMutation({
@@ -181,7 +207,9 @@ const useRenameTask = () => {
 	});
 };
 
-/** Persists pin state and refreshes the Task's owning sidebar list. */
+/**
+ * Persists pin state and refreshes the Task's owning sidebar list.
+ */
 const useSetTaskPin = () => {
 	const queryClient = useQueryClient();
 	return useMutation({

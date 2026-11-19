@@ -12,7 +12,9 @@ const taskApiMocks = vi.hoisted(() => ({
 vi.mock("@/api/task", () => taskApiMocks);
 
 type QueryWrapperProps = {
-	/** Test content connected to the isolated query cache. */
+	/**
+	 * Test content connected to the isolated query cache.
+	 */
 	children: ReactNode;
 };
 
@@ -36,7 +38,9 @@ describe("Task queries", () => {
 		queryClient.setQueryData(taskKeys.list(task.workspaceId), [task]);
 		queryClient.setQueryData(taskKeys.list(null), []);
 
-		/** Connects the hook to a fresh cache so scope assertions cannot leak. */
+		/**
+		 * Connects the hook to a fresh cache so scope assertions cannot leak.
+		 */
 		const QueryWrapper = ({ children }: QueryWrapperProps) => (
 			<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
 		);
