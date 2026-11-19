@@ -20,7 +20,39 @@ impl MigratorTrait for Migrator {
             Box::new(RemoveBenchmarkFallbackTag),
             Box::new(AddBenchmarkMountPin),
             Box::new(CascadeBenchmarkTaskDeletion),
+            Box::new(AddBenchmarkTrials),
         ]
+    }
+}
+
+/// Preserves historical results while allowing independent configurations and repeated trials.
+struct AddBenchmarkTrials;
+
+impl MigrationName for AddBenchmarkTrials {
+    fn name(&self) -> &str {
+        "m012_benchmark_trials"
+    }
+}
+
+#[sea_orm_migration::async_trait::async_trait]
+impl MigrationTrait for AddBenchmarkTrials {
+    fn use_transaction(&self) -> Option<bool> {
+        Some(false)
+    }
+
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!("sql/m012_benchmark_trials/up.sql"))
+            .await?;
+        Ok(())
+    }
+
+    async fn down(&self, _manager: &SchemaManager) -> Result<(), DbErr> {
+        // Older schemas cannot represent repeated trials; never discard evaluation history.
+        Err(DbErr::Custom(
+            "Benchmark trials require a forward migration".into(),
+        ))
     }
 }
 
@@ -433,6 +465,54 @@ mod tests {
         ));
         let url = format!("sqlite://{}?mode=rwc", path.display());
         (path, url)
+    }
+
+    #[test]
+    fn upgrades_existing_results_to_independent_trials_and_agent_profiles() {
+        tauri::async_runtime::block_on(async {
+            let database = connect_sqlite("sqlite::memory:").await.expect("database");
+            Migrator::up(&database, Some(11))
+                .await
+                .expect("legacy schema");
+            database.execute_unprepared(r#"
+                INSERT INTO workspaces (id,name,source_kind,source_path,created_at_ms,updated_at_ms) VALUES ('w','Workspace','external','/tmp/project',1,1);
+                INSERT INTO benchmark_tags VALUES ('tag','Coding','Code');
+                INSERT INTO benchmarks (id,name,description,tag_id,author,created_at_ms,updated_at_ms) VALUES ('b','Suite','Suite','tag','myself',1,1);
+                INSERT INTO benchmark_versions VALUES ('v','b',1,'{}',1);
+                INSERT INTO benchmark_cases VALUES ('c','v',0,'Case','{}');
+                INSERT INTO tasks (id,kind,workspace_id,title,status,created_at_ms,updated_at_ms) VALUES ('t','benchmark','w','Run','completed',1,1);
+                INSERT INTO benchmark_tasks (task_id,version_id,idempotency_key,request_json) VALUES ('t','v','key','{}');
+                INSERT INTO benchmark_task_agents VALUES ('a','t','codex',0);
+                INSERT INTO benchmark_task_cases VALUES ('tc','t','c','v',0);
+                INSERT INTO benchmark_case_executions (id,task_id,task_case_id,task_agent_id,phase) VALUES ('e','t','tc','a','finished');
+                INSERT INTO benchmark_evaluations VALUES ('e','passed',1,'{"passed":true,"checks":[]}',1);
+            "#).await.expect("historical result");
+            Migrator::up(&database, None).await.expect("upgrade");
+            let repeated = database.execute_unprepared(r#"
+                INSERT INTO benchmark_task_agents VALUES ('a2','t','codex',1);
+                INSERT INTO benchmark_case_executions (id,task_id,task_case_id,task_agent_id,attempt) VALUES ('e2','t','tc','a',2);
+            "#).await;
+            assert!(
+                repeated.is_ok(),
+                "profiles and trials must be independent: {repeated:?}"
+            );
+            assert!(database.execute_unprepared("INSERT INTO benchmark_case_executions (id,task_id,task_case_id,task_agent_id,attempt) VALUES ('duplicate','t','tc','a',2)").await.is_err());
+            let row = database.query_one_raw(Statement::from_string(DatabaseBackend::Sqlite, "SELECT attempt, verdict FROM benchmark_case_executions JOIN benchmark_evaluations ON execution_id = id WHERE id = 'e'".to_string())).await.expect("history").expect("preserved result");
+            assert_eq!(row.try_get::<i64>("", "attempt").expect("attempt"), 1);
+            assert_eq!(
+                row.try_get::<String>("", "verdict").expect("verdict"),
+                "passed"
+            );
+            let violations = database
+                .query_all_raw(Statement::from_string(
+                    DatabaseBackend::Sqlite,
+                    "PRAGMA foreign_key_check".to_string(),
+                ))
+                .await
+                .expect("foreign keys");
+            assert!(violations.is_empty());
+            database.close().await.expect("close");
+        });
     }
 
     #[test]
