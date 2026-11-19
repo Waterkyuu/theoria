@@ -5,14 +5,22 @@ import type { BenchmarkTaskDetail } from "@/types/benchmark";
 
 type BenchmarkResultMatrixProps = {
 	detail: BenchmarkTaskDetail;
-	/** Changes the visible result page after pagination actions. */
+	/**
+	 * Changes the visible result page after pagination actions.
+	 */
 	onPageChange: (page: number) => void;
 	onSelect: (caseId: string) => void;
-	/** Zero-based page selected by the parent view. */
+	/**
+	 * Zero-based page selected by the parent view.
+	 */
 	page: number;
-	/** Execution result selected by the page-level filter. */
+	/**
+	 * Execution result selected by the page-level filter.
+	 */
 	result: string;
-	/** Case-name query entered through the page Header. */
+	/**
+	 * Case-name query entered through the page Header.
+	 */
 	search: string;
 	selectedCaseId: string | null;
 };

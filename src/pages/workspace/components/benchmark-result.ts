@@ -1,5 +1,8 @@
-/** Maps persisted matrix results to the shared terminal-state palette.
- * @example benchmarkResultClass("passed")
+/**
+ * Maps persisted matrix results to the shared terminal-state palette.
+ *
+ * @example
+ * benchmarkResultClass("passed")
  */
 const benchmarkResultClass = (result: string) => {
 	if (result === "passed") return "bg-terminal-green/10 text-terminal-green";

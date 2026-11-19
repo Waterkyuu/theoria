@@ -14,7 +14,9 @@ import { BenchmarkTaskActions } from "./benchmark-task-actions";
 import { TaskSplitLayout } from "./task-split-layout";
 
 type BenchmarkTaskViewProps = {
-	/** Persisted Benchmark Task identifier read from the route. */
+	/**
+	 * Persisted Benchmark Task identifier read from the route.
+	 */
 	taskId: string;
 };
 
@@ -50,8 +52,11 @@ const BenchmarkTaskView = ({ taskId }: BenchmarkTaskViewProps) => {
 		"all",
 	);
 
-	/** Preserves native button keyboard behavior when the icon itself is the trigger.
-	 * @example handleSearchIconKeyDown(event)
+	/**
+	 * Preserves native button keyboard behavior when the icon itself is the trigger.
+	 *
+	 * @example
+	 * handleSearchIconKeyDown(event)
 	 */
 	const handleSearchIconKeyDown = (event: KeyboardEvent<SVGSVGElement>) => {
 		if (event.key !== "Enter" && event.key !== " ") return;

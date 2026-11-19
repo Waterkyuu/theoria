@@ -17,22 +17,30 @@ import {
 import type { BenchmarkTaskDetail } from "@/types/benchmark";
 
 type BenchmarkTaskActionsProps = {
-	/** Persisted Task state that controls available lifecycle actions. */
+	/**
+	 * Persisted Task state that controls available lifecycle actions.
+	 */
 	detail: BenchmarkTaskDetail;
 };
 
 const TERMINAL_TASK_STATUSES = new Set(["completed", "failed", "stopped"]);
 
-/** Reads the stable IPC code without introducing a broad response type guard.
- * @example benchmarkErrorCode(error)
+/**
+ * Reads the stable IPC code without introducing a broad response type guard.
+ *
+ * @example
+ * benchmarkErrorCode(error)
  */
 const benchmarkErrorCode = (error: unknown) =>
 	typeof error === "object" && error !== null && "code" in error
 		? String(error.code)
 		: null;
 
-/** Keeps cancellation and exact-version Rerun state outside the result presentation.
- * @example <BenchmarkTaskActions detail={detail} />
+/**
+ * Keeps cancellation and exact-version Rerun state outside the result presentation.
+ *
+ * @example
+ * <BenchmarkTaskActions detail={detail} />
  */
 const BenchmarkTaskActions = ({ detail }: BenchmarkTaskActionsProps) => {
 	const { t } = useTranslation();
@@ -52,7 +60,9 @@ const BenchmarkTaskActions = ({ detail }: BenchmarkTaskActionsProps) => {
 		detail.task.status === "preparing" || detail.task.status === "running";
 	const terminal = TERMINAL_TASK_STATUSES.has(detail.task.status);
 
-	/** Resumes the original plan; completed trials retain their evaluation and artifacts. */
+	/**
+	 * Resumes the original plan; completed trials retain their evaluation and artifacts.
+	 */
 	const resume = () => {
 		resumeMutation.mutate(detail.task.id, {
 			onSuccess: () => Toast.toast.success(t("benchmark.resumed")),
@@ -60,7 +70,9 @@ const BenchmarkTaskActions = ({ detail }: BenchmarkTaskActionsProps) => {
 		});
 	};
 
-	/** Requests cooperative cancellation only while this Task is still active. */
+	/**
+	 * Requests cooperative cancellation only while this Task is still active.
+	 */
 	const cancel = () => {
 		if (cancelMutation.isPending || detail.cancelRequested) return;
 		cancelMutation.mutate(detail.task.id, {
@@ -70,8 +82,11 @@ const BenchmarkTaskActions = ({ detail }: BenchmarkTaskActionsProps) => {
 		});
 	};
 
-	/** Reuses the historical version and requires explicit mount restoration consent.
-	 * @example rerun(false)
+	/**
+	 * Reuses the historical version and requires explicit mount restoration consent.
+	 *
+	 * @example
+	 * rerun(false)
 	 */
 	const rerun = async (restoreMount: boolean) => {
 		if (rerunMutation.isPending || !agents.length) return;

@@ -16,7 +16,9 @@ const SKILLS = ["Review", "Testing"].map((name) => ({
 
 /**
  * Keeps the real Composer controls available without native environment queries.
- * @example renderComposer(true, SKILLS);
+ *
+ * @example
+ * renderComposer(true, SKILLS);
  */
 const renderComposer = (
 	workspaceSkillsLocked = false,

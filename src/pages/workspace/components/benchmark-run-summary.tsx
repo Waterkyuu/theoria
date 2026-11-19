@@ -3,12 +3,17 @@ import { formatDuration } from "@/utils/common";
 import type { BenchmarkTaskDetail } from "@/types/benchmark";
 
 type BenchmarkRunSummaryProps = {
-	/** Full experiment, unaffected by the case list's search or status filter. */
+	/**
+	 * Full experiment, unaffected by the case list's search or status filter.
+	 */
 	detail: BenchmarkTaskDetail;
 };
 
-/** Keeps coverage visible so missing provider measurements cannot appear as free or zero-token runs.
- * @example <BenchmarkRunSummary detail={detail} />
+/**
+ * Keeps coverage visible so missing provider measurements cannot appear as free or zero-token runs.
+ *
+ * @example
+ * <BenchmarkRunSummary detail={detail} />
  */
 const BenchmarkRunSummary = ({ detail }: BenchmarkRunSummaryProps) => {
 	const { t, i18n } = useTranslation();
