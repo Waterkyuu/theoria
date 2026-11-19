@@ -56,7 +56,7 @@ const BenchmarkRunSummary = ({ detail }: BenchmarkRunSummaryProps) => {
 							{agent.profile?.label || t(`agentNames.${agent.agentKind}`)} ·{" "}
 							{agent.profile?.model ?? t("benchmark.results.unknownModel")}
 						</p>
-						<div className="flex flex-wrap gap-x-md gap-y-xs tabular-nums">
+						<div className="flex flex-wrap gap-x-4 gap-y-1 tabular-nums">
 							<span>
 								{t("benchmark.results.passRateSummary", {
 									value:
