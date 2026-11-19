@@ -4,7 +4,9 @@ import { useBenchmarkDraft } from "@/queries/benchmark";
 import { BenchmarkFeedback } from "../../components/feedback";
 
 type DraftRowProps = {
-	/** Lazily loaded draft ID. */
+	/**
+	 * Lazily loaded draft ID.
+	 */
 	id: string;
 };
 

@@ -23,7 +23,9 @@ const FIELD =
 	"w-full rounded-md border border-hairline bg-canvas px-md py-sm text-body-sm outline-none focus-visible:ring-2 focus-visible:ring-focus-ring";
 
 type EditorProps = {
-	/** Latest saved document, absent for a blank draft. */
+	/**
+	 * Latest saved document, absent for a blank draft.
+	 */
 	initial?: BenchmarkDraft;
 };
 

@@ -71,7 +71,9 @@ const BENCHMARK_ICONS: Record<
 };
 
 type TagIconProps = {
-	/** Persisted Gravity export name. */
+	/**
+	 * Persisted Gravity export name.
+	 */
 	name?: string;
 };
 

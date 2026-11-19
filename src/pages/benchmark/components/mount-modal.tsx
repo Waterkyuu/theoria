@@ -12,9 +12,13 @@ import type { BenchmarkSummary } from "@/types/benchmark";
 import { BenchmarkFeedback } from "./feedback";
 
 type MountProps = {
-	/** Card whose displayed version is being mounted. */
+	/**
+	 * Card whose displayed version is being mounted.
+	 */
 	benchmark: BenchmarkSummary;
-	/** Closes the externally selected card modal. */
+	/**
+	 * Closes the externally selected card modal.
+	 */
 	onClose: () => void;
 };
 
@@ -32,7 +36,9 @@ const BenchmarkMountModal = ({ benchmark, onClose }: MountProps) => {
 	const [workspaceId, setWorkspaceId] = useState<string | null>(null);
 	const [pending, setPending] = useState(false);
 
-	/** Uses the returned relationship so repeated Mount cannot silently change versions. */
+	/**
+	 * Uses the returned relationship so repeated Mount cannot silently change versions.
+	 */
 	const mount = async () => {
 		if (!workspaceId || pending) return;
 		setPending(true);

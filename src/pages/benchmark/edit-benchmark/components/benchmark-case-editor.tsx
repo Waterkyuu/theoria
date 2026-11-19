@@ -19,18 +19,29 @@ const FIELD =
 type BenchmarkCase = BenchmarkDocument["cases"][number];
 type CheckKind = BenchmarkCheck["kind"];
 type BenchmarkCaseEditorProps = {
-	/** Case value rendered by the parent document editor. */
+	/**
+	 * Case value rendered by the parent document editor.
+	 */
 	item: BenchmarkCase;
-	/** One-based display position and zero-based field path source. */
+	/**
+	 * One-based display position and zero-based field path source.
+	 */
 	index: number;
-	/** Replaces this Case inside the parent document. */
+	/**
+	 * Replaces this Case inside the parent document.
+	 */
 	onChange: (item: BenchmarkCase) => void;
-	/** Removes this Case after confirmation. */
+	/**
+	 * Removes this Case after confirmation.
+	 */
 	onRemove: () => void;
 };
 
-/** Produces the smallest valid editor shape for one selected check kind.
- * @example newCheck("file_exists")
+/**
+ * Produces the smallest valid editor shape for one selected check kind.
+ *
+ * @example
+ * newCheck("file_exists")
  */
 const newCheck = (kind: CheckKind): BenchmarkCheck => {
 	switch (kind) {
@@ -46,8 +57,11 @@ const newCheck = (kind: CheckKind): BenchmarkCheck => {
 	}
 };
 
-/** Edits one Case, including public files and every supported V1 check kind.
- * @example <BenchmarkCaseEditor item={item} index={0} onChange={setItem} onRemove={remove} />
+/**
+ * Edits one Case, including public files and every supported V1 check kind.
+ *
+ * @example
+ * <BenchmarkCaseEditor item={item} index={0} onChange={setItem} onRemove={remove} />
  */
 const BenchmarkCaseEditor = ({
 	item,
@@ -58,8 +72,11 @@ const BenchmarkCaseEditor = ({
 	const { t } = useTranslation();
 	const [checkKind, setCheckKind] = useState<CheckKind | null>(null);
 	const [uploading, setUploading] = useState(false);
-	/** Replaces one check without changing the surrounding Case order.
-	 * @example updateCheck(0, check)
+	/**
+	 * Replaces one check without changing the surrounding Case order.
+	 *
+	 * @example
+	 * updateCheck(0, check)
 	 */
 	const updateCheck = (position: number, check: BenchmarkCheck) =>
 		onChange({
@@ -69,8 +86,11 @@ const BenchmarkCaseEditor = ({
 			),
 		});
 
-	/** Copies one explicit picker selection into managed storage.
-	 * @example selectFile("input.txt")
+	/**
+	 * Copies one explicit picker selection into managed storage.
+	 *
+	 * @example
+	 * selectFile("input.txt")
 	 */
 	const selectFile = async (path?: string): Promise<BenchmarkFile | null> => {
 		if (uploading) return null;
@@ -93,7 +113,9 @@ const BenchmarkCaseEditor = ({
 		}
 	};
 
-	/** Adds or replaces a public Case input by its portable path. */
+	/**
+	 * Adds or replaces a public Case input by its portable path.
+	 */
 	const addInputFile = async () => {
 		const file = await selectFile();
 		if (!file) return;

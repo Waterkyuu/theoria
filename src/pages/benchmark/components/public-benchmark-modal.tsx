@@ -10,14 +10,21 @@ import { saveBenchmarkDraft, publishBenchmark } from "@/api/benchmark";
 import type { BenchmarkDraft, BenchmarkTag } from "@/types/benchmark";
 
 type PublicBenchmarkModalProps = {
-	/** Existing personal classifications; adding a public source does not create tags. */
+	/**
+	 * Existing personal classifications; adding a public source does not create tags.
+	 */
 	tags: BenchmarkTag[] | undefined;
-	/** Closes the catalog-controlled setup flow. */
+	/**
+	 * Closes the catalog-controlled setup flow.
+	 */
 	onClose: () => void;
 };
 
-/** Stores task references and a fixed upstream release without rewriting upstream instructions or tests.
- * @example <PublicBenchmarkModal tags={tags} onClose={close} />
+/**
+ * Stores task references and a fixed upstream release without rewriting upstream instructions or tests.
+ *
+ * @example
+ * <PublicBenchmarkModal tags={tags} onClose={close} />
  */
 const PublicBenchmarkModal = ({ tags, onClose }: PublicBenchmarkModalProps) => {
 	const { t } = useTranslation();
@@ -43,7 +50,9 @@ const PublicBenchmarkModal = ({ tags, onClose }: PublicBenchmarkModalProps) => {
 		new Set(names).size === names.length &&
 		names.every((name) => /^[a-zA-Z0-9_.-]{1,120}$/.test(name));
 
-	/** Retains a saved draft after publication failure so retry updates the same definition. */
+	/**
+	 * Retains a saved draft after publication failure so retry updates the same definition.
+	 */
 	const add = async () => {
 		if (!valid || pending) return;
 		setPending(true);
