@@ -13,22 +13,34 @@ import type { Skill } from "@/types/skill";
 import type { Workspace } from "@/types/workspace";
 
 type WorkspaceMountModalProps = {
-	/** Whether the mount manager is visible. */
+	/**
+	 * Whether the mount manager is visible.
+	 */
 	isOpen: boolean;
-	/** Controls the parent-owned modal state. */
+	/**
+	 * Controls the parent-owned modal state.
+	 */
 	onOpenChange: (isOpen: boolean) => void;
-	/** Managed Skill whose future Workspace mounts are edited. */
+	/**
+	 * Managed Skill whose future Workspace mounts are edited.
+	 */
 	skill: Skill;
 };
 
 type WorkspaceMountRowProps = {
-	/** Managed Skill whose relationship is edited. */
+	/**
+	 * Managed Skill whose relationship is edited.
+	 */
 	skill: Skill;
-	/** Persisted Workspace rendered as one mount option. */
+	/**
+	 * Persisted Workspace rendered as one mount option.
+	 */
 	workspace: Workspace;
 };
 
-/** Renders one independently loaded Workspace mount relationship. */
+/**
+ * Renders one independently loaded Workspace mount relationship.
+ */
 const WorkspaceMountRow = ({ skill, workspace }: WorkspaceMountRowProps) => {
 	const { t } = useTranslation();
 	const workspaceSkillsQuery = useWorkspaceSkills(workspace.id);
@@ -38,7 +50,9 @@ const WorkspaceMountRow = ({ skill, workspace }: WorkspaceMountRowProps) => {
 		workspaceSkillsQuery.data?.some((item) => item.id === skill.id) ?? false;
 	const isPending = mountMutation.isPending || unmountMutation.isPending;
 
-	/** Persists the selected relationship without changing existing Task snapshots. */
+	/**
+	 * Persists the selected relationship without changing existing Task snapshots.
+	 */
 	const updateMount = async (shouldMount: boolean) => {
 		if (isPending) return;
 		try {
@@ -107,7 +121,9 @@ const WorkspaceMountRow = ({ skill, workspace }: WorkspaceMountRowProps) => {
 	);
 };
 
-/** Manages the selected Skill across persisted Workspaces in a small modal. */
+/**
+ * Manages the selected Skill across persisted Workspaces in a small modal.
+ */
 const WorkspaceMountModal = ({
 	isOpen,
 	onOpenChange,

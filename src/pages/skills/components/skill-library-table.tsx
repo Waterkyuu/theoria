@@ -12,32 +12,54 @@ import { AlertDialog } from "@/components/ui/alert-dialog";
 import type { Skill } from "@/types/skill";
 
 type SkillLibraryItem = Skill & {
-	/** Number of persisted Workspace mount relationships. */
+	/**
+	 * Number of persisted Workspace mount relationships.
+	 */
 	mountedCount: number;
-	/** Folder-backed name used as the primary row label. */
+	/**
+	 * Folder-backed name used as the primary row label.
+	 */
 	name: string;
-	/** Localized source type shown in the source column. */
+	/**
+	 * Localized source type shown in the source column.
+	 */
 	sourceLabel: string;
 };
 
 type SkillLibraryStatus = "importFailed" | "loadFailed" | "loading" | null;
 
 type SkillLibraryTableProps = {
-	/** Opens the managed directory for viewing and editing. */
+	/**
+	 * Opens the managed directory for viewing and editing.
+	 */
 	onEditSkill?: (skillId: string) => void;
-	/** Whether a Git-backed Skill update is currently pending. */
+	/**
+	 * Whether a Git-backed Skill update is currently pending.
+	 */
 	isUpdatePending: boolean;
-	/** Whether selected Skills are currently being removed. */
+	/**
+	 * Whether selected Skills are currently being removed.
+	 */
 	isRemovePending: boolean;
-	/** Opens Workspace mount management for the selected Skill. */
+	/**
+	 * Opens Workspace mount management for the selected Skill.
+	 */
 	onManageSkill: (skill: Skill) => void;
-	/** Removes the selected managed Skills after confirmation. */
+	/**
+	 * Removes the selected managed Skills after confirmation.
+	 */
 	onRemoveSkills: (skillIds: string[]) => void;
-	/** Refreshes the selected Git-backed Skill from its saved remote. */
+	/**
+	 * Refreshes the selected Git-backed Skill from its saved remote.
+	 */
 	onUpdateSkill: (skillId: string) => void;
-	/** Localized and filtered records rendered in the table. */
+	/**
+	 * Localized and filtered records rendered in the table.
+	 */
 	skills: SkillLibraryItem[];
-	/** Current table-level loading or failure state. */
+	/**
+	 * Current table-level loading or failure state.
+	 */
 	status: SkillLibraryStatus;
 };
 
@@ -46,7 +68,9 @@ const STATUS_TRANSLATION_KEYS = {
 	loadFailed: "skills.loadFailed",
 } as const;
 
-/** Keeps the table scan-friendly and its page height predictable across the library. */
+/**
+ * Keeps the table scan-friendly and its page height predictable across the library.
+ */
 const ROWS_PER_PAGE = 8;
 
 /**
@@ -85,10 +109,14 @@ const SkillLibraryTable = ({
 	const rangeStart = startIndex + 1;
 	const rangeEnd = Math.min(currentPage * ROWS_PER_PAGE, skills.length);
 
-	/** Opens the required destructive-action confirmation without starting the request. */
+	/**
+	 * Opens the required destructive-action confirmation without starting the request.
+	 */
 	const requestSelectedSkillRemoval = () => setIsRemoveOpen(true);
 
-	/** Starts removal only from the AlertDialog confirmation action. */
+	/**
+	 * Starts removal only from the AlertDialog confirmation action.
+	 */
 	const confirmSelectedSkillRemoval = () => {
 		if (isRemovePending) return;
 		onRemoveSkills(selectedSkillIds);

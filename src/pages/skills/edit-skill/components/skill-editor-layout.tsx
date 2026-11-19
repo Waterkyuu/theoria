@@ -3,11 +3,17 @@ import { useTranslation } from "react-i18next";
 import { Group, Panel, Separator } from "react-resizable-panels";
 
 type SkillEditorLayoutProps = {
-	/** Document editor or preview that occupies the remaining width. */
+	/**
+	 * Document editor or preview that occupies the remaining width.
+	 */
 	children: ReactNode;
-	/** File explorer whose width is controlled by the divider. */
+	/**
+	 * File explorer whose width is controlled by the divider.
+	 */
 	directory: ReactNode;
-	/** Preferred explorer side, shared with the editor toolbar. */
+	/**
+	 * Preferred explorer side, shared with the editor toolbar.
+	 */
 	side: "left" | "right";
 };
 

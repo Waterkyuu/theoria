@@ -21,30 +21,52 @@ import type {
 } from "@/types/agent";
 
 type StatusPresentation = {
-	/** Tailwind color class for the status marker. */
+	/**
+	 * Tailwind color class for the status marker.
+	 */
 	markerClassName: string;
-	/** Status-specific border and background treatment for the task badge. */
+	/**
+	 * Status-specific border and background treatment for the task badge.
+	 */
 	chipClassName: string;
 };
 
 type ActivePanelDrag = {
-	/** Panel moved under the pointer. */
+	/**
+	 * Panel moved under the pointer.
+	 */
 	element: HTMLElement;
-	/** Pointer identity used to ignore unrelated mouse events. */
+	/**
+	 * Pointer identity used to ignore unrelated mouse events.
+	 */
 	pointerId: number;
-	/** Panels in their original layout order for this gesture. */
+	/**
+	 * Panels in their original layout order for this gesture.
+	 */
 	panels: HTMLElement[];
-	/** Original panel positions used as stable drop slots. */
+	/**
+	 * Original panel positions used as stable drop slots.
+	 */
 	slots: DOMRect[];
-	/** Original index of the dragged panel. */
+	/**
+	 * Original index of the dragged panel.
+	 */
 	sourceIndex: number;
-	/** Visual order shown while the pointer is held down. */
+	/**
+	 * Visual order shown while the pointer is held down.
+	 */
 	previewOrder: number[];
-	/** Pointer coordinates at the start of the drag. */
+	/**
+	 * Pointer coordinates at the start of the drag.
+	 */
 	startX: number;
-	/** Pointer coordinates at the start of the drag. */
+	/**
+	 * Pointer coordinates at the start of the drag.
+	 */
 	startY: number;
-	/** Whether movement crossed the click tolerance. */
+	/**
+	 * Whether movement crossed the click tolerance.
+	 */
 	moved: boolean;
 };
 
@@ -104,8 +126,11 @@ const RunBoardPage = () => {
 			item.agent.includes(searchTerm),
 	);
 
-	/** Keeps the selected task visible after the modal closes and restores focus to its card.
-	 * @example selectSearchResult("codex-running");
+	/**
+	 * Keeps the selected task visible after the modal closes and restores focus to its card.
+	 *
+	 * @example
+	 * selectSearchResult("codex-running");
 	 */
 	const selectSearchResult = (id: string) => {
 		setSearchOpen(false);
@@ -121,8 +146,11 @@ const RunBoardPage = () => {
 		localStorage.setItem(BOARD_LAYOUT_STORAGE_KEY, JSON.stringify(layout));
 	}, [layout]);
 
-	/** Captures the original panel slots once so hover checks stay stable as panels move.
-	 * @example startPanelDrag(event);
+	/**
+	 * Captures the original panel slots once so hover checks stay stable as panels move.
+	 *
+	 * @example
+	 * startPanelDrag(event);
 	 */
 	const startPanelDrag = (event: ReactPointerEvent<HTMLElement>) => {
 		if (event.pointerType !== "mouse" || event.button !== 0) return;
@@ -146,8 +174,11 @@ const RunBoardPage = () => {
 		event.currentTarget.setPointerCapture?.(event.pointerId);
 	};
 
-	/** Uses the slots captured at drag start so moving neighbors cannot change the hover target.
-	 * @example movePanelDrag(event);
+	/**
+	 * Uses the slots captured at drag start so moving neighbors cannot change the hover target.
+	 *
+	 * @example
+	 * movePanelDrag(event);
 	 */
 	const movePanelDrag = (event: ReactPointerEvent<HTMLElement>) => {
 		const drag = activeDrag.current;
@@ -183,8 +214,11 @@ const RunBoardPage = () => {
 		}
 	};
 
-	/** Commits the visible order on drop or restores the original order on cancellation.
-	 * @example finishPanelDrag(event, false);
+	/**
+	 * Commits the visible order on drop or restores the original order on cancellation.
+	 *
+	 * @example
+	 * finishPanelDrag(event, false);
 	 */
 	const finishPanelDrag = (
 		event: ReactPointerEvent<HTMLElement>,

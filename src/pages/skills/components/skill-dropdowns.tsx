@@ -35,16 +35,24 @@ type SkillSourceFilter = (typeof SKILL_SOURCE_FILTERS)[number];
 type SkillFilter = (typeof SKILL_FILTERS)[number];
 
 type SkillAddDropdownProps = {
-	/** Whether imports are pending and the add menu trigger must be disabled. */
+	/**
+	 * Whether imports are pending and the add menu trigger must be disabled.
+	 */
 	isDisabled: boolean;
-	/** Receives the selected creation method for centralized page-level dispatch. */
+	/**
+	 * Receives the selected creation method for centralized page-level dispatch.
+	 */
 	onAction: (action: SkillAddAction) => void;
 };
 
 type SkillFilterDropdownProps = {
-	/** Currently active library filter, used to mark the selected source. */
+	/**
+	 * Currently active library filter, used to mark the selected source.
+	 */
 	activeFilter: SkillFilter;
-	/** Applies the selected source filter to the library. */
+	/**
+	 * Applies the selected source filter to the library.
+	 */
 	onAction: (filter: SkillSourceFilter) => void;
 };
 

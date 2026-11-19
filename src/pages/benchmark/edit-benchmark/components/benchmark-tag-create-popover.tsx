@@ -13,7 +13,9 @@ const TAG_NAME_FIELD =
 	"w-full rounded-md border border-hairline bg-canvas px-md py-sm text-body-sm outline-none focus-visible:ring-2 focus-visible:ring-focus-ring";
 
 type BenchmarkTagCreatePopoverProps = {
-	/** Selects the freshly created tag in the surrounding editor. */
+	/**
+	 * Selects the freshly created tag in the surrounding editor.
+	 */
 	onCreated: (tag: BenchmarkTag) => void;
 };
 
@@ -31,8 +33,11 @@ const BenchmarkTagCreatePopover = ({
 	const [pending, setPending] = useState(false);
 	const [icon, setIcon] = useState("Code");
 
-	/** Persists one allowlisted icon and returns the created Tag to its parent editor.
-	 * @example submit(event)
+	/**
+	 * Persists one allowlisted icon and returns the created Tag to its parent editor.
+	 *
+	 * @example
+	 * submit(event)
 	 */
 	const submit = async (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
