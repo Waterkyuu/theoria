@@ -44,7 +44,7 @@ const NAVIGATION_ITEMS = [
 const NewWorkspaceModal = lazy(() => import("./create-workspace-modal"));
 
 /**
- * Reproduces the Figma sidebar alignment and keeps animated visibility and tree state local.
+ * Keeps scrolling on the sidebar's outer edge while visibility and tree state stay local.
  *
  * @example
  * <AppSidebar currentPath="/task" onNavigate={navigateTo}><main /></AppSidebar>
@@ -64,7 +64,7 @@ const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 				aria-hidden={!isSidebarVisible}
 				aria-label={t("workspaceSidebar.label")}
 				className={cn(
-					"sticky top-0 z-50 flex h-[100dvh] w-[287px] min-w-[287px] flex-col gap-[9px] overflow-hidden border-r border-hairline bg-surface-soft px-[14px] py-[7px] opacity-100 transition-[width,min-width,padding,opacity,transform,border-color] duration-200 ease-out motion-reduce:transition-none max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:h-16 max-md:w-full max-md:min-w-0 max-md:gap-0 max-md:border-r-0 max-md:border-t max-md:px-0 max-md:py-0",
+					"sticky top-0 z-50 flex h-[100dvh] w-[287px] min-w-[287px] flex-col gap-[9px] overflow-x-hidden overflow-y-auto border-r border-hairline bg-surface-soft px-[14px] py-[7px] opacity-100 transition-[width,min-width,padding,opacity,transform,border-color] duration-200 ease-out motion-reduce:transition-none max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:h-16 max-md:w-full max-md:min-w-0 max-md:gap-0 max-md:overflow-hidden max-md:border-r-0 max-md:border-t max-md:px-0 max-md:py-0",
 					!isSidebarVisible &&
 						"pointer-events-none w-0 min-w-0 -translate-x-full border-r-transparent px-0 opacity-0",
 				)}
@@ -125,7 +125,7 @@ const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 					})}
 				</nav>
 
-				<div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-10 pt-[7px] max-md:hidden">
+				<div className="flex shrink-0 flex-col pb-2 pt-[7px] max-md:hidden">
 					<div className="flex shrink-0 items-center justify-between py-[7px]">
 						<button
 							aria-expanded={isWorkspaceListExpanded}
@@ -303,7 +303,7 @@ const AppSidebar = ({ currentPath, children, onNavigate }: AppSidebarProps) => {
 
 				<nav
 					aria-label={t("workspaceSidebar.appSettings")}
-					className="absolute inset-x-[14px] bottom-0 z-10 bg-surface-soft p-[4px] text-body-sm max-md:hidden"
+					className="sticky bottom-0 z-10 mt-auto shrink-0 bg-surface-soft p-[4px] text-body-sm max-md:hidden"
 				>
 					<button
 						aria-current={
