@@ -27,6 +27,7 @@ import type {
 	RerunBenchmarkTaskInput,
 	StartBenchmarkTaskInput,
 } from "@/types/benchmark";
+import { isActiveTaskStatus } from "@/types/task";
 
 type BenchmarkMountMutationInput = {
 	/** Stable relationship changed by a Workspace sidebar action. */
@@ -205,7 +206,7 @@ const useBenchmarkTask = (taskId: string | null) =>
 		enabled: taskId !== null,
 		refetchInterval: (query) => {
 			const status = query.state.data?.task.status;
-			return status === "preparing" || status === "running"
+			return isActiveTaskStatus(status)
 				? BENCHMARK_TASK_POLL_INTERVAL_MS
 				: false;
 		},

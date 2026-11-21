@@ -14,6 +14,7 @@ import {
 	useRerunBenchmarkTask,
 } from "@/queries/benchmark";
 import type { BenchmarkTaskDetail } from "@/types/benchmark";
+import { isActiveTaskStatus } from "@/types/task";
 
 type BenchmarkTaskActionsProps = {
 	/** Persisted Task state that controls available lifecycle actions. */
@@ -46,8 +47,7 @@ const BenchmarkTaskActions = ({ detail }: BenchmarkTaskActionsProps) => {
 	const [commands, setCommands] = useState(detail.commandExecution);
 	const [rerunOpen, setRerunOpen] = useState(false);
 	const [restoreConfirmation, setRestoreConfirmation] = useState(false);
-	const active =
-		detail.task.status === "preparing" || detail.task.status === "running";
+	const active = isActiveTaskStatus(detail.task.status);
 	const terminal = TERMINAL_TASK_STATUSES.has(detail.task.status);
 
 	/** Requests cooperative cancellation only while this Task is still active. */
