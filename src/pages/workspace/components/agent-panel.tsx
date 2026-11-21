@@ -1,3 +1,5 @@
+import { StopFill } from "@gravity-ui/icons";
+import { Button, Tooltip } from "@heroui/react";
 import { useTranslation } from "react-i18next";
 import { AgentIcon } from "@/components/share/agent-icon";
 import { MarkdownContent } from "@/components/share/markdown-content";
@@ -276,17 +278,25 @@ const AgentPanel = ({
 					{formatTokens(totalTokens)} {t("taskPanel.run.tokens")}
 				</p>
 				{canStop ? (
-					<button
-						aria-label={t("taskPanel.stopAgent", {
-							agent: t(`agentNames.${agent.agentKind}`),
-						})}
-						className="shrink-0 font-medium text-ink outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:text-mute"
-						disabled={stopPending}
-						onClick={() => onStop(agent.id)}
-						type="button"
-					>
-						{t("taskPanel.run.action.stop")}
-					</button>
+					<Tooltip delay={0}>
+						<Button
+							aria-label={t("taskPanel.stopAgent", {
+								agent: t(`agentNames.${agent.agentKind}`),
+							})}
+							className="shrink-0"
+							isDisabled={stopPending}
+							isIconOnly
+							onPress={() => onStop(agent.id)}
+							size="sm"
+							type="button"
+							variant="ghost"
+						>
+							<StopFill aria-hidden="true" className="size-4 text-ink" />
+						</Button>
+						<Tooltip.Content placement="top">
+							{t("taskPanel.run.action.stop")}
+						</Tooltip.Content>
+					</Tooltip>
 				) : null}
 			</footer>
 		</section>
