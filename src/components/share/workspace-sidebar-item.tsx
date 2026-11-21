@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
 	Folder,
+	FolderOpen,
 	LayoutColumns3,
 	Plus,
 	Puzzle,
@@ -86,6 +87,7 @@ const WorkspaceSidebarItem = ({
 	const mountedSkillCount = skillsQuery.data?.length ?? 0;
 	const workspacePath = `/workspaces/${encodeURIComponent(workspace.id)}`;
 	const isWorkspaceSelected = currentPath.startsWith(workspacePath);
+	const FolderIcon = isWorkspaceExpanded ? FolderOpen : Folder;
 
 	return (
 		<div
@@ -121,7 +123,7 @@ const WorkspaceSidebarItem = ({
 					}}
 					type="button"
 				>
-					<Folder aria-hidden="true" className="size-4 shrink-0" />
+					<FolderIcon aria-hidden="true" className="size-4 shrink-0" />
 					<span className="min-w-0 flex-1 truncate">{workspace.name}</span>
 				</button>
 				<div className="flex shrink-0 items-center gap-sm pr-sm text-mute opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:transition-none">
