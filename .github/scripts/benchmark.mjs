@@ -91,6 +91,7 @@ const measure = (kind, root) => {
 	const target = mkdtempSync(join(tmpdir(), "theoria-benchmark-"));
 	const env = { HUSKY: "0", CARGO_TARGET_DIR: target };
 	try {
+		let binaryName;
 		if (kind === "frontend") {
 			run("pnpm", ["install", "--frozen-lockfile"], root, env);
 		} else {
@@ -100,6 +101,21 @@ const measure = (kind, root) => {
 				root,
 				env,
 			);
+			const metadata = execFileSync(
+				"cargo",
+				[
+					"metadata",
+					"--no-deps",
+					"--format-version",
+					"1",
+					"--manifest-path",
+					"src-tauri/Cargo.toml",
+				],
+				{ cwd: root, encoding: "utf8" },
+			);
+			binaryName = JSON.parse(metadata).packages[0].targets.find((target) =>
+				target.kind.includes("bin"),
+			).name;
 		}
 		const durations = [];
 		const repetitions = kind === "frontend" ? 3 : 1;
@@ -125,7 +141,7 @@ const measure = (kind, root) => {
 						"--release",
 						"--all-features",
 						"--bin",
-						"agent-gauge",
+						binaryName,
 					],
 					root,
 					env,
@@ -146,7 +162,7 @@ const measure = (kind, root) => {
 				throw new Error("Frontend build produced no assets");
 		} else {
 			metrics["Executable (bytes)"] = statSync(
-				`${target}/release/agent-gauge`,
+				`${target}/release/${binaryName}`,
 			).size;
 		}
 		return metrics;
