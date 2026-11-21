@@ -375,6 +375,14 @@ impl CodexRuntimeDefaultsCache {
 struct AppServerTurn {
     /// Current turn lifecycle status reported by App Server.
     status: String,
+    /// Structured turn failure; its raw message is never exposed outside this adapter.
+    error: Option<AppServerTurnError>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AppServerTurnError {
+    /// Provider response encoded by Codex, used only to identify a safe error category.
+    message: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -756,12 +764,22 @@ fn collect_run_events_cancellable(
                 }
             }
             Some("turn/completed") => {
-                let completed = message
+                let turn = message
                     .params
                     .and_then(|params| params.turn)
-                    .is_some_and(|turn| turn.status == "completed");
-                if !completed {
-                    return Err(AppError::CodexTaskFailed);
+                    .ok_or(AppError::CodexTaskFailed)?;
+                if turn.status != "completed" {
+                    let model_unavailable = turn
+                        .error
+                        .and_then(|error| {
+                            serde_json::from_str::<serde_json::Value>(&error.message).ok()
+                        })
+                        .is_some_and(|error| error["error"]["code"] == "model_not_found");
+                    return Err(if model_unavailable {
+                        AppError::CodexModelUnavailable
+                    } else {
+                        AppError::CodexTaskFailed
+                    });
                 }
 
                 return Ok((
@@ -1136,6 +1154,54 @@ cat <&0 >/dev/null
         let result = collect_run_events_cancellable(&receiver, Instant::now(), &cancelled);
 
         assert_eq!(result, Err(AppError::CodexTaskFailed));
+    }
+
+    #[test]
+    fn identifies_a_model_rejected_by_the_logged_in_account() {
+        let (sender, receiver) = mpsc::sync_channel(1);
+        let provider_error = serde_json::json!({
+            "error": {
+                "code": "model_not_found",
+                "message": "The selected model is not supported with this ChatGPT account."
+            }
+        });
+        sender
+            .send(Ok(serde_json::json!({
+                "method": "turn/completed",
+                "params": {
+                    "turn": {
+                        "status": "failed",
+                        "error": {"message": provider_error.to_string()}
+                    }
+                }
+            })
+            .to_string()))
+            .expect("failed turn fixture");
+        let error = collect_run_events(&receiver, Instant::now()).expect_err("model rejection");
+        let ipc_error = crate::error::IpcError::from(error);
+        assert_eq!(ipc_error.code, "CODEX_MODEL_UNAVAILABLE");
+    }
+
+    #[test]
+    fn keeps_unrecognized_codex_failures_redacted() {
+        for message in [
+            "Request failed with private-request-details",
+            r#"{"error":{"code":"server_error","message":"private-request-details"}}"#,
+        ] {
+            let (sender, receiver) = mpsc::sync_channel(1);
+            sender
+                .send(Ok(serde_json::json!({
+                    "method": "turn/completed",
+                    "params": {"turn": {"status": "failed", "error": {"message": message}}}
+                })
+                .to_string()))
+                .expect("unknown error fixture");
+            let error = collect_run_events(&receiver, Instant::now()).expect_err("failed turn");
+            assert_eq!(error, AppError::CodexTaskFailed);
+            assert!(!crate::error::IpcError::from(error)
+                .message
+                .contains("private-request-details"));
+        }
     }
 
     #[test]

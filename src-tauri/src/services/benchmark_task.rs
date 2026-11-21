@@ -844,6 +844,7 @@ impl BenchmarkTaskService {
             | AppError::WorkBuddyTimedOut => "timed_out",
             AppError::ClaudeTaskFailed
             | AppError::CodexTaskFailed
+            | AppError::CodexModelUnavailable
             | AppError::OpenCodeTaskFailed
             | AppError::WorkBuddyTaskFailed => "agent_error",
             AppError::BenchmarkVerifierUnavailable | AppError::TaskPreparationFailed => {

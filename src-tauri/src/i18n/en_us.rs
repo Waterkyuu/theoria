@@ -16,6 +16,9 @@ pub(super) fn message(key: ErrorMessageKey) -> &'static str {
         ErrorMessageKey::CodexProtocolFailed => "The local Codex event stream could not be read",
         ErrorMessageKey::CodexNeedsInput => "Codex is waiting for user input",
         ErrorMessageKey::CodexTaskFailed => "Codex could not complete the task",
+        ErrorMessageKey::CodexModelUnavailable => {
+            "This model is unavailable for the current Codex account. Switch accounts or select a supported model."
+        }
         ErrorMessageKey::CodexTimedOut => "Timed out while waiting for Codex",
         ErrorMessageKey::OpenCodeNotInstalled => "OpenCode was not found on this device",
         ErrorMessageKey::OpenCodeProbeFailed => {

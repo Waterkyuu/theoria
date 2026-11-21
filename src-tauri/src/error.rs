@@ -16,6 +16,7 @@ pub(crate) enum AppError {
     CodexProtocolFailed,
     CodexNeedsInput,
     CodexTaskFailed,
+    CodexModelUnavailable,
     CodexTimedOut,
     OpenCodeNotInstalled,
     OpenCodeProbeFailed,
@@ -147,6 +148,11 @@ impl IpcError {
             AppError::CodexTaskFailed => {
                 ("CODEX_TASK_FAILED", ErrorMessageKey::CodexTaskFailed, None)
             }
+            AppError::CodexModelUnavailable => (
+                "CODEX_MODEL_UNAVAILABLE",
+                ErrorMessageKey::CodexModelUnavailable,
+                None,
+            ),
             AppError::CodexTimedOut => ("CODEX_TIMED_OUT", ErrorMessageKey::CodexTimedOut, None),
             AppError::OpenCodeNotInstalled => (
                 "OPENCODE_NOT_INSTALLED",

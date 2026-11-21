@@ -12,6 +12,9 @@ pub(super) fn message(key: ErrorMessageKey) -> &'static str {
         ErrorMessageKey::CodexProtocolFailed => "无法读取本地 Codex 事件流",
         ErrorMessageKey::CodexNeedsInput => "Codex 正在等待用户回答",
         ErrorMessageKey::CodexTaskFailed => "Codex 未能完成任务",
+        ErrorMessageKey::CodexModelUnavailable => {
+            "当前 Codex 账号无法使用此模型，请切换账号或选择账号支持的模型"
+        }
         ErrorMessageKey::CodexTimedOut => "等待 Codex 完成任务超时",
         ErrorMessageKey::OpenCodeNotInstalled => "未找到本地 OpenCode",
         ErrorMessageKey::OpenCodeProbeFailed => "无法检查本地 OpenCode 登录状态",

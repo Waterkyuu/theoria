@@ -19,6 +19,7 @@ pub(crate) enum ErrorMessageKey {
     CodexProtocolFailed,
     CodexNeedsInput,
     CodexTaskFailed,
+    CodexModelUnavailable,
     CodexTimedOut,
     OpenCodeNotInstalled,
     OpenCodeProbeFailed,
